@@ -45,6 +45,11 @@ inkl. Marketplace.
 **Bevor ein Task an ein Umsetzungs-Modell geht:** [tasks/README.md](tasks/README.md) lesen –
 dort stehen das Prompt-Template, verbindliche Regeln und die Abnahme-Checkliste.
 
+**Umsetzung komplett starten:** [tasks/KICKOFF-PROMPT.md](tasks/KICKOFF-PROMPT.md) –
+ein Copy-Paste-Master-Prompt für einen Orchestrator-Agenten, inkl. verbindlicher
+Modell-Zuordnung pro Task (haiku/sonnet/opus) und Abnahmetest-Anleitung für den
+Menschen nach Abschluss.
+
 ---
 
 ## Kurzüberblick Technologie-Stack (Details in `docs/01-architecture.md`)
