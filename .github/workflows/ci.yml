@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test --run
+
+      - name: Build
+        run: pnpm build
+
+  docker:
+    name: Docker Build & Health Check
+    runs-on: ubuntu-latest
+    needs: quality
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -f apps/core/Dockerfile -t yapaja-core:ci .
+
+      - name: Start container
+        run: docker run -d --name core -p 8080:8080 yapaja-core:ci
+
+      - name: Wait for container health
+        run: |
+          timeout 60 bash -c '
+            until [ "$(docker inspect --format="{{.State.Health.Status}}" core)" = "healthy" ]; do
+              sleep 1
+            done
+          '
+
+      - name: Check health endpoint
+        run: curl -f http://localhost:8080/api/v1/health
+
+      - name: Check home page
+        run: curl -fs http://localhost:8080/ | grep -q "Yapaja Go"
+
+      - name: Verify non-root user
+        run: '[ "$(docker exec core whoami)" != "root" ]'
+
+      - name: Check image size
+        run: |
+          SIZE_BYTES=$(docker image inspect --format='{{.Size}}' yapaja-core:ci)
+          SIZE_MB=$((SIZE_BYTES / 1000000))
+          echo "Image size: ${SIZE_MB} MB"
+          [ "$SIZE_MB" -lt 350 ]
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker logs core
