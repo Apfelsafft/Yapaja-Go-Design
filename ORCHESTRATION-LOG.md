@@ -4,7 +4,7 @@ Persistenter Zustand der Orchestrierung (Master-Prompt: tasks/KICKOFF-PROMPT.md)
 Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 
 **Umgebung:** Node v22.22.2, pnpm 10.33.0, Docker 29.3.1 — alles verfügbar.
-**Basis-Branch:** main · **Aktuelle Welle:** 1a
+**Basis-Branch:** main · **Aktuelle Welle:** 1a→1b (E06-T1, E02-T1, E01-T1 fertig; weiter mit E01-T2)
 
 > ℹ️ GitHub-Token-Ausfall (2026-07-09) inzwischen behoben (Connector reconnected von selbst).
 
@@ -16,7 +16,8 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 | E00-T4 | haiku | 1 (+5 CI-Iterationen durch Orchestrator) | ✅ MERGED | #15 | CI-Lauf #6 grün inkl. Docker-Health-Nachweis. Härtungs-Fixes: Lockfile committet, tsconfig.base ins Image, CI=true, node_modules-Wipe vor gefiltertem Prod-Install |
 | E06-T1 | haiku | 1 (+Orchestrator-Infra-Fixes) | ✅ MERGED | #16 | 137 Tests, single-active-Invariante transaktional. CI deckte 4 Schichten auf: better-sqlite3 als core-dep, pnpm-Build-Freigabe (natives Modul), tsup-Bundling (paths→shared-Quelle), rekursive eslint-ignores. Bundled-Output lokal E2E verifiziert (health db:ok + Camper-Profil) |
 | E02-T1 | sonnet | 1 | ✅ MERGED | #17 | 171 Tests, CI grün, Bundle E2E ok. Event-Bus (ADR-010) + PositionService + WS |
-| E01-T1 | sonnet | 1 | ⏳ PR #18 offen (CI läuft) | #18 | 178 Tests; auf main rebased (Union-Merge mit E02-T1 in index.ts/package.json), Gesamtsuite 212 grün, Path-Traversal live geprüft. Merge nach CI-Grün |
+| E01-T1 | sonnet | 1 | ✅ MERGED | #18 | 178 Tests, CI grün, auf main rebased (Union mit E02-T1), Gesamtsuite 212 grün, Path-Traversal live geprüft |
+| E01-T2 | sonnet | 0 | IN_PROGRESS | – | Frontend MapLibre-Grundkarte (erster Web-Task) |
 
 ## Gate-Status
 
