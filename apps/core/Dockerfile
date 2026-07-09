@@ -20,8 +20,9 @@ RUN pnpm install --frozen-lockfile
 # Build core and web
 RUN pnpm build
 
-# Prepare production-only node_modules
-RUN pnpm install --prod --frozen-lockfile
+# Prepare production-only node_modules (core + its workspace deps only —
+# web runtime deps like react would bloat the image past the 350 MB budget)
+RUN pnpm install --prod --frozen-lockfile --filter @yapaja/core...
 
 # Runtime stage
 FROM node:22-slim
