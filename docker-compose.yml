@@ -1,0 +1,39 @@
+services:
+  core:
+    build:
+      context: .
+      dockerfile: apps/core/Dockerfile
+    container_name: yapaja-core
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data/db:/app/data/db
+      - ./data/tiles:/app/data/tiles
+      - ./data/addons:/app/data/addons
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PORT=8080
+
+  valhalla:
+    image: ghcr.io/valhalla/valhalla:latest
+    container_name: yapaja-valhalla
+    volumes:
+      - ./data/valhalla:/custom_files
+    ports:
+      - "8002:8002"
+    restart: unless-stopped
+    profiles:
+      - routing
+
+  photon:
+    image: rtuszik/photon-docker:latest
+    container_name: yapaja-photon
+    volumes:
+      - ./data/photon:/photon/photon_data
+    ports:
+      - "2322:2322"
+    restart: unless-stopped
+    profiles:
+      - search
