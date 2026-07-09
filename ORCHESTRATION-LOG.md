@@ -17,7 +17,13 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 | E06-T1 | haiku | 1 (+Orchestrator-Infra-Fixes) | ✅ MERGED | #16 | 137 Tests, single-active-Invariante transaktional. CI deckte 4 Schichten auf: better-sqlite3 als core-dep, pnpm-Build-Freigabe (natives Modul), tsup-Bundling (paths→shared-Quelle), rekursive eslint-ignores. Bundled-Output lokal E2E verifiziert (health db:ok + Camper-Profil) |
 | E02-T1 | sonnet | 1 | ✅ MERGED | #17 | 171 Tests, CI grün, Bundle E2E ok. Event-Bus (ADR-010) + PositionService + WS |
 | E01-T1 | sonnet | 1 | ✅ MERGED | #18 | 178 Tests, CI grün, auf main rebased (Union mit E02-T1), Gesamtsuite 212 grün, Path-Traversal live geprüft |
-| E01-T2 | sonnet | 0 | IN_PROGRESS | – | Frontend MapLibre-Grundkarte (erster Web-Task) |
+| E01-T2 | sonnet | 1 | ⏳ PR #19 (CI läuft) | #19 | 223 Unit + 9 Playwright-E2E (vom Orchestrator selbst gefahren, 9/9 grün). Playwright-Harness bootstrapped. Orchestrator ergänzte CI-e2e-Job (playwright install auf GH-Runner). Merge nach CI-grün |
+
+**Harness-Notiz:** Playwright-E2E-Suite existiert ab jetzt (`apps/web/e2e/`, `pnpm e2e`).
+Nutzt vorinstallierten Chromium lokal (`PLAYWRIGHT_BROWSERS_PATH`), auf CI via
+`playwright install`. globalSetup baut web+core, generiert PMTiles-Fixture, startet
+Core-Prozesse. Folge-Web-Tasks (E01-T3/T4/T5/T6, E06-T2, E03-T3, E05-T2, E07-*)
+bauen darauf auf.
 
 ## Gate-Status
 
