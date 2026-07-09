@@ -10,8 +10,8 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 |---|---|---|---|---|---|
 | E00-T1 | haiku | 1 | ✅ MERGED | #12 | Verifiziert: 5/5 Tests, health ok, relative Pfade, SIGTERM 20 ms |
 | E00-T2 | haiku | 1 | ✅ MERGED | #13 | Verifiziert: 82/82 Tests, Schema-Bereiche zeichengenau, speed_limit-0-Regel korrekt |
-| E00-T3 | haiku | 0 | IN_PROGRESS | – | – |
-| E00-T4 | haiku | 0 | PENDING | – | – |
+| E00-T3 | haiku | 2 | ✅ MERGED | #14 | Retry: fehlender Pflicht-Test ergänzt (86/86). Static-Serving manuell verifiziert. OFFEN: docker build nur via CI verifizierbar (Sandbox-Netzpolicy blockiert Registry-CDNs) → E00-T4-CI muss Nachweis liefern, sonst kein G0 |
+| E00-T4 | haiku | 0 | IN_PROGRESS | – | – |
 
 ## Gate-Status
 
