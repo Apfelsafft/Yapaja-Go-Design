@@ -19,7 +19,8 @@
     "better-sqlite3": "^12.11.1",
     "fastify": "^4.26.1",
     "fastify-plugin": "^4.5.1",
-    "pino": "^8.17.2"
+    "pino": "^8.17.2",
+    "pmtiles": "^4.4.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

@@ -10,6 +10,7 @@ import { EventBus } from './bus/index.js';
 import { busWebsocketPlugin } from './bus/ws.js';
 import { PositionService } from './position/service.js';
 import { positionPlugin } from './position/routes.js';
+import { mapPlugin } from './map/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -56,6 +57,9 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
 
   await fastify.register(busWebsocketPlugin, { bus: eventBus });
   await fastify.register(positionPlugin, { prefix: '/api/v1', service: positionService });
+
+  // Register map/tiles plugin (E01-T1): additive, does not touch other plugins.
+  await fastify.register(mapPlugin);
 
   fastify.get<{ Reply: HealthResponse }>('/api/v1/health', async (_request, _reply) => {
     const dbHealth = await profileService.checkHealth();
