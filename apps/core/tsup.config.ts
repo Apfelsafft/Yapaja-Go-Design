@@ -14,5 +14,5 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   noExternal: ['@yapaja/shared'],
-  external: ['better-sqlite3', 'fastify', '@fastify/static', 'pino'],
+  external: ['better-sqlite3', 'fastify', '@fastify/static', '@fastify/websocket', 'ws', 'pino'],
 });

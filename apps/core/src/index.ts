@@ -6,6 +6,10 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { profilesPlugin } from './profiles/routes.js';
 import { ProfileService } from './profiles/service.js';
+import { EventBus } from './bus/index.js';
+import { busWebsocketPlugin } from './bus/ws.js';
+import { PositionService } from './position/service.js';
+import { positionPlugin } from './position/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -42,6 +46,16 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
 
   // Register profiles plugin
   await fastify.register(profilesPlugin, { prefix: '/api/v1' });
+
+  // Internal event bus (ADR-010) + position service (ADR-007)
+  const eventBus = new EventBus();
+  const positionService = new PositionService({ bus: eventBus });
+  fastify.addHook('onClose', async () => {
+    positionService.dispose();
+  });
+
+  await fastify.register(busWebsocketPlugin, { bus: eventBus });
+  await fastify.register(positionPlugin, { prefix: '/api/v1', service: positionService });
 
   fastify.get<{ Reply: HealthResponse }>('/api/v1/health', async (_request, _reply) => {
     const dbHealth = await profileService.checkHealth();
