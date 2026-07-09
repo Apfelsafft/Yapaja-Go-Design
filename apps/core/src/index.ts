@@ -1,6 +1,7 @@
-import Fastify from 'fastify';
+import Fastify, { FastifyInstance } from 'fastify';
+import fastifyStatic from '@fastify/static';
 import pino from 'pino';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -10,6 +11,10 @@ interface HealthResponse {
   status: string;
   version: string;
   services: Record<string, unknown>;
+}
+
+export interface BuildServerOptions {
+  publicDir?: string;
 }
 
 async function readPackageVersion(): Promise<string> {
@@ -22,15 +27,7 @@ async function readPackageVersion(): Promise<string> {
   }
 }
 
-async function main(): Promise<void> {
-  const port = parseInt(process.env.PORT || '8080', 10);
-  const host = process.env.HOST || '0.0.0.0';
-
-  // Create structured logger using pino
-  const logger = pino({
-    level: process.env.LOG_LEVEL || 'info',
-  });
-
+export async function buildServer(opts: BuildServerOptions = {}): Promise<FastifyInstance> {
   const fastify = Fastify({
     logger: true,
   });
@@ -44,6 +41,38 @@ async function main(): Promise<void> {
       services: {},
     };
   });
+
+  // Register static file serving for the web application.
+  // The server must still start when the public/ directory does not exist (local dev).
+  const publicDir = opts.publicDir ?? join(__dirname, '../public');
+  if (existsSync(publicDir)) {
+    await fastify.register(fastifyStatic, {
+      root: publicDir,
+      prefix: '/',
+    });
+
+    // Add a catch-all route for SPA fallback to index.html for non-API routes
+    fastify.setNotFoundHandler(async (_request, reply) => {
+      if (!_request.url.startsWith('/api')) {
+        return reply.sendFile('index.html');
+      }
+      reply.code(404).send({ error: 'Not Found' });
+    });
+  }
+
+  return fastify;
+}
+
+async function main(): Promise<void> {
+  const port = parseInt(process.env.PORT || '8080', 10);
+  const host = process.env.HOST || '0.0.0.0';
+
+  // Create structured logger using pino
+  const logger = pino({
+    level: process.env.LOG_LEVEL || 'info',
+  });
+
+  const fastify = await buildServer();
 
   const gracefulShutdown = async (): Promise<void> => {
     logger.info('Received SIGTERM, shutting down gracefully...');
@@ -63,7 +92,13 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error('Fatal error:', err);
-  process.exit(1);
-});
+// Only start the server when this module is executed directly (not when imported, e.g. in tests)
+const isDirectExecution =
+  process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
+
+if (isDirectExecution) {
+  main().catch((err) => {
+    console.error('Fatal error:', err);
+    process.exit(1);
+  });
+}
