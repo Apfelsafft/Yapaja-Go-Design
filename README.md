@@ -1,5 +1,7 @@
 # Yapaja Go – Planungs- und Design-Repository
 
+![CI](https://github.com/Apfelsafft/Yapaja-Go-Design/actions/workflows/ci.yml/badge.svg)
+
 **Yapaja Go** ist eine browserbasierte Navigations-App im Stil von Google Maps / Sygic Truck,
 optimiert für **Wohnmobile und Camper**, lauffähig **offline** auf einem Low-/Mid-End-Mini-PC
 (parallel zu einer Home-Assistant-Instanz unter Proxmox), mit tiefer

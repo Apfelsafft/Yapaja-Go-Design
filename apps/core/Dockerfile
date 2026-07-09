@@ -6,8 +6,11 @@ RUN corepack enable
 
 WORKDIR /app
 
+# pnpm needs this to run non-interactively (e.g. purging dev deps for --prod install)
+ENV CI=true
+
 # Copy workspace files
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages/ ./packages/
 COPY apps/ ./apps/
 
@@ -17,8 +20,12 @@ RUN pnpm install --frozen-lockfile
 # Build core and web
 RUN pnpm build
 
-# Prepare production-only node_modules
-RUN pnpm install --prod --frozen-lockfile
+# Prepare production-only node_modules (core + its workspace deps only —
+# web runtime deps like react would bloat the image past the 350 MB budget).
+# Wipe first: a filtered install does not prune the previously populated
+# .pnpm store from the full dev install above.
+RUN rm -rf node_modules apps/core/node_modules apps/web/node_modules packages/shared/node_modules \
+  && pnpm install --prod --frozen-lockfile --filter @yapaja/core...
 
 # Runtime stage
 FROM node:22-slim
