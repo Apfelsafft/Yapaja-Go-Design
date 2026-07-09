@@ -6,6 +6,11 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 **Umgebung:** Node v22.22.2, pnpm 10.33.0, Docker 29.3.1 — alles verfügbar.
 **Basis-Branch:** main · **Aktuelle Welle:** 1a
 
+> ⚠️ **BLOCKIERT (2026-07-09):** GitHub-MCP-Token abgelaufen. Merge-Queue: PR #17
+> (E02-T1) + E01-T1 (branch gepusht, PR noch anzulegen) — beide lokal verifiziert
+> und CI-getriggert. Sobald Connector re-autorisiert: CI beider prüfen → E02-T1
+> mergen → E01-T1 PR anlegen+mergen → Issues #3/#2 abhaken → nächste Welle.
+
 | Task | Modell | Versuche | Status | PR | Anmerkungen |
 |---|---|---|---|---|---|
 | E00-T1 | haiku | 1 | ✅ MERGED | #12 | Verifiziert: 5/5 Tests, health ok, relative Pfade, SIGTERM 20 ms |
@@ -13,8 +18,8 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 | E00-T3 | haiku | 2 | ✅ MERGED | #14 | Retry: fehlender Pflicht-Test ergänzt (86/86). Static-Serving manuell verifiziert. OFFEN: docker build nur via CI verifizierbar (Sandbox-Netzpolicy blockiert Registry-CDNs) → E00-T4-CI muss Nachweis liefern, sonst kein G0 |
 | E00-T4 | haiku | 1 (+5 CI-Iterationen durch Orchestrator) | ✅ MERGED | #15 | CI-Lauf #6 grün inkl. Docker-Health-Nachweis. Härtungs-Fixes: Lockfile committet, tsconfig.base ins Image, CI=true, node_modules-Wipe vor gefiltertem Prod-Install |
 | E06-T1 | haiku | 1 (+Orchestrator-Infra-Fixes) | ✅ MERGED | #16 | 137 Tests, single-active-Invariante transaktional. CI deckte 4 Schichten auf: better-sqlite3 als core-dep, pnpm-Build-Freigabe (natives Modul), tsup-Bundling (paths→shared-Quelle), rekursive eslint-ignores. Bundled-Output lokal E2E verifiziert (health db:ok + Camper-Profil) |
-| E02-T1 | sonnet | 0 | IN_PROGRESS | – | Welle 1a |
-| E01-T1 | sonnet | 0 | PENDING | – | Welle 1a (nach E02-T1, gemeinsamer Worktree) |
+| E02-T1 | sonnet | 1 | ⏳ VERIFIED, PR #17, MERGE-PENDING (GitHub-Token) | #17 | 171 Tests, Bundle E2E ok (health/position/sources). Wartet auf CI-Check+Merge → GitHub-Connector re-auth nötig |
+| E01-T1 | sonnet | 1 | ⏳ VERIFIED, gepusht, PR/MERGE-PENDING (GitHub-Token) | – | 178 Tests, Bundle E2E ok, Path-Traversal live geprüft (400/400/404). Branch task/E01-T1-tiles gepusht (CI läuft). PR-Erstellung+Merge → GitHub-Connector re-auth nötig |
 
 ## Gate-Status
 
