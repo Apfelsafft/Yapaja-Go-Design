@@ -48,5 +48,17 @@ export default [
       '@typescript-eslint/no-explicit-any': 'error',
       'no-console': ['warn', { allow: ['warn', 'error'] }]
     }
+  },
+  {
+    // apps/web only: TypeScript (with the DOM lib) already flags genuinely
+    // undefined identifiers at compile time; base `no-undef` only knows the
+    // small manual `globals` list above and false-positives on standard
+    // browser/DOM globals (fetch, HTMLDivElement, ResizeObserver, …) that
+    // frontend code legitimately uses. Scoped to apps/web so it doesn't
+    // affect apps/core's existing, separately-justified no-undef handling.
+    files: ['apps/web/**/*.ts', 'apps/web/**/*.tsx'],
+    rules: {
+      'no-undef': 'off'
+    }
   }
 ];

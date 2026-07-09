@@ -32,6 +32,18 @@ pnpm-debug.log*
 # Coverage
 coverage/
 
+# Playwright (apps/web/e2e)
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/e2e/.tmp/
+# Staged by the e2e global setup, mirrors apps/core/Dockerfile's
+# `COPY apps/web/dist apps/core/public` build step.
+apps/core/public/
+# apps/core's default SQLite path (data/db/yapaja.db) is CWD-relative; the
+# e2e-spawned core processes (and any local `pnpm --filter @yapaja/core start`)
+# create this next to the source tree.
+apps/core/data/
+
 # Misc
 .cache/
 temp/
