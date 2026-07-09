@@ -6,6 +6,9 @@ RUN corepack enable
 
 WORKDIR /app
 
+# pnpm needs this to run non-interactively (e.g. purging dev deps for --prod install)
+ENV CI=true
+
 # Copy workspace files
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages/ ./packages/
