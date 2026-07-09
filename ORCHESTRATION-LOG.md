@@ -9,8 +9,8 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 | Task | Modell | Versuche | Status | PR | Anmerkungen |
 |---|---|---|---|---|---|
 | E00-T1 | haiku | 1 | ✅ MERGED | #12 | Verifiziert: 5/5 Tests, health ok, relative Pfade, SIGTERM 20 ms |
-| E00-T2 | haiku | 0 | IN_PROGRESS | – | – |
-| E00-T3 | haiku | 0 | PENDING | – | – |
+| E00-T2 | haiku | 1 | ✅ MERGED | #13 | Verifiziert: 82/82 Tests, Schema-Bereiche zeichengenau, speed_limit-0-Regel korrekt |
+| E00-T3 | haiku | 0 | IN_PROGRESS | – | – |
 | E00-T4 | haiku | 0 | PENDING | – | – |
 
 ## Gate-Status
