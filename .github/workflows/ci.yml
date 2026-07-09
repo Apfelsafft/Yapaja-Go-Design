@@ -45,6 +45,48 @@ jobs:
       - name: Build
         run: pnpm build
 
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: quality
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # GitHub runners do not have the sandbox's pre-installed Chromium at
+      # PLAYWRIGHT_BROWSERS_PATH; the playwright config falls back to Playwright's
+      # own browser resolution when that env var is unset, so install it here.
+      - name: Install Playwright Chromium
+        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+
+      # globalSetup builds web+core and starts the core; run the suite.
+      - name: Run E2E tests
+        run: pnpm e2e
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: apps/web/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
   docker:
     name: Docker Build & Health Check
     runs-on: ubuntu-latest
