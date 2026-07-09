@@ -26,6 +26,11 @@
     "vitest": "^1.6.0"
   },
   "pnpm": {
-    "overrides": {}
-  }
+    "overrides": {},
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  },
+  "dependencies": {}
 }

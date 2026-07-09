@@ -3,9 +3,8 @@
   "compilerOptions": {
     "module": "ES2020",
     "moduleResolution": "node",
-    "outDir": "./dist",
-    "rootDir": "./src"
+    "outDir": "./dist"
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "exclude": ["node_modules", "dist"]
 }

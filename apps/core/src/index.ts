@@ -4,13 +4,15 @@ import pino from 'pino';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { profilesPlugin } from './profiles/routes.js';
+import { ProfileService } from './profiles/service.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 interface HealthResponse {
   status: string;
   version: string;
-  services: Record<string, unknown>;
+  services: Record<string, string>;
 }
 
 export interface BuildServerOptions {
@@ -33,12 +35,22 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   });
 
   const version = await readPackageVersion();
+  const profileService = new ProfileService();
+
+  // Initialize profile service
+  await profileService.init();
+
+  // Register profiles plugin
+  await fastify.register(profilesPlugin, { prefix: '/api/v1' });
 
   fastify.get<{ Reply: HealthResponse }>('/api/v1/health', async (_request, _reply) => {
+    const dbHealth = await profileService.checkHealth();
     return {
       status: 'ok',
       version,
-      services: {},
+      services: {
+        db: dbHealth ? 'ok' : 'down',
+      },
     };
   });
 
