@@ -15,6 +15,7 @@ import CompassButton from './CompassButton';
 import ViewModeButton from './ViewModeButton';
 import ReCenterButton from './ReCenterButton';
 import StylePanel from './StylePanel';
+import RegionsPanel from '../settings/regions/RegionsPanel';
 
 /** Identifies which (styleId, options) combination is currently applied to
  *  the live map, so the live-switch effect can tell "this is the style we
@@ -248,7 +249,7 @@ export default function MapView(): React.ReactElement {
   if (status === 'no-region') {
     return (
       <div
-        className="w-full h-full flex items-center justify-center bg-slate-100 dark:bg-slate-900"
+        className="w-full h-full relative flex items-center justify-center bg-slate-100 dark:bg-slate-900"
         data-testid="map-no-region"
       >
         <div className="text-center p-6 max-w-sm">
@@ -260,6 +261,9 @@ export default function MapView(): React.ReactElement {
             herunter, um die Karte anzuzeigen.
           </p>
         </div>
+        {/* E01-T5: reachable even with no map installed yet -- this is
+            exactly the state where downloading a first region matters most. */}
+        <RegionsPanel />
       </div>
     );
   }
@@ -273,6 +277,7 @@ export default function MapView(): React.ReactElement {
           <ViewModeButton />
           <ReCenterButton />
           <StylePanel />
+          <RegionsPanel />
         </>
       )}
     </div>

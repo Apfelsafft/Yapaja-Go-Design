@@ -9,6 +9,13 @@
  *                                    the active region's real tile URL;
  *                                    ?lang=/?labelScale=/?poi= transform it)
  *
+ * Region manager (E01-T5, see ./regions/routes.ts, registered below):
+ * - GET    /api/v1/map/regions/catalog   downloadable regions + installed flag
+ * - POST   /api/v1/map/regions           starts a resumable download job
+ * - DELETE /api/v1/map/regions/:id       removes an installed region
+ * - GET    /api/v1/jobs/:id              job status
+ * - DELETE /api/v1/jobs/:id              cancels a job
+ *
  * Note: the tiles route intentionally lives outside the /api/v1 prefix,
  * per docs/03-api-spec.md §2 ("Karten & Tiles").
  */
@@ -20,6 +27,7 @@ import type { ApiError } from '@yapaja/shared';
 import { parseRegionParam, resolveRegionFilePath, resolveTilesDir } from './paths.js';
 import { parseRange } from './range.js';
 import { listRegions, type MapRegionInfo } from './regions.js';
+import { regionsPlugin } from './regions/routes.js';
 import {
   applyStyleOptions,
   getStyleDocument,
@@ -83,6 +91,11 @@ function firstHeaderValue(value: string | string[] | undefined): string | undefi
 
 export const mapPlugin: FastifyPluginAsync = async (fastify) => {
   const tilesDir = resolveTilesDir();
+
+  // Region manager (E01-T5): catalog listing, resumable download jobs,
+  // delete, and the generic job-status endpoint. Fully additive -- see
+  // ./regions/routes.ts. GET /api/v1/map/regions (below) predates it (E01-T1).
+  await fastify.register(regionsPlugin);
 
   // GET /tiles/:region.pmtiles -- HTTP range-request tile archive delivery.
   // The route param captures the full "<region>.pmtiles" segment; we parse
