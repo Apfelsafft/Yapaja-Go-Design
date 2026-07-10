@@ -23,7 +23,8 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 | E01-T4 | sonnet | 1 | ✅ MERGED | #22 | 318 Unit + 31 E2E, CI grün. Core-Styles Light/Dark/Contrast + Live-Switch (setStyle/transformStyle), Optionen lang/labelScale/poi. Agent fand+behob echten Regressionsbug selbst |
 | Hygiene | orchestrator | 1 | ✅ MERGED | #23 | data/db untracked + /data/ gitignored |
 | E02-T4 | sonnet | 1 | ✅ MERGED | #24 | 397 Unit (79 neu), CI grün. GPS-Simulator: GPX/polyline-Replay, 4 Mutationen, speed_factor, Prod-Schutz. Zentrales Testwerkzeug für spätere Nav-E2E + Golden-Routes |
-| E02-T3 | sonnet | 1 | ⏳ PR #25 (CI läuft) | #25 | 453 Unit (56 neu, 2 Läufe grün). gpsd-TCP-Client (Reconnect/Backoff, Zeilen-Buffer, TPV/SKY-Mapping) + PlausibilityGuard (Sprung/3-in-Folge W-02, accuracy-Mark). Merge nach CI-grün |
+| E02-T3 | sonnet | 1 | ✅ MERGED | #25 | 453 Unit, CI grün. gpsd-TCP-Client + PlausibilityGuard. Alle 3 Positionsquellen fertig |
+| E01-T5 | sonnet | 0 | IN_PROGRESS | – | Region-Manager: Download mit Resume + Speicherprüfung (W-17/W-18) |
 <!-- offen für G1: E01-T5 Region-Manager, E01-T6 Perf-Wächter, E02-T5 GPS-Verlust-UX -->
 <!-- TODO nachziehen: system/plausibility Bus-Topic (guard reasons → bus/UI), wenn ein Task bus/ berührt -->
 <!-- TODO nachziehen: satellites in GET /position/sources exponieren (E02-T3 hält sie intern) -->
