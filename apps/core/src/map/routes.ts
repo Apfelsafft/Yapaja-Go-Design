@@ -1,8 +1,13 @@
 /**
- * Fastify routes for PMTiles delivery and map region metadata.
+ * Fastify routes for PMTiles delivery, map region metadata, and the
+ * core-served style system (E01-T4).
  *
  * - GET /tiles/:region.pmtiles       range-request tile archive delivery
  * - GET /api/v1/map/regions          installed region metadata
+ * - GET /api/v1/map/styles           available styles (id, name, preview?)
+ * - GET /api/v1/map/styles/:id       style JSON (source URL(s) rewritten to
+ *                                    the active region's real tile URL;
+ *                                    ?lang=/?labelScale=/?poi= transform it)
  *
  * Note: the tiles route intentionally lives outside the /api/v1 prefix,
  * per docs/03-api-spec.md §2 ("Karten & Tiles").
@@ -15,6 +20,16 @@ import type { ApiError } from '@yapaja/shared';
 import { parseRegionParam, resolveRegionFilePath, resolveTilesDir } from './paths.js';
 import { parseRange } from './range.js';
 import { listRegions, type MapRegionInfo } from './regions.js';
+import {
+  applyStyleOptions,
+  getStyleDocument,
+  listStyleSummaries,
+  parseStyleOptions,
+  rewriteSourceUrls,
+  type MapStyleDocument,
+  type RawStyleQuery,
+  type StyleSummary,
+} from './styles/index.js';
 
 interface TileRouteParams {
   regionParam: string;
@@ -22,6 +37,19 @@ interface TileRouteParams {
 
 interface RegionsReply {
   data: MapRegionInfo[];
+}
+
+interface StylesListReply {
+  data: StyleSummary[];
+}
+
+interface StyleDetailParams {
+  id: string;
+}
+
+interface StyleDetailQuery extends RawStyleQuery {
+  /** Explicit region override; defaults to the first installed region. */
+  region?: string;
 }
 
 function createErrorResponse(
@@ -148,4 +176,34 @@ export const mapPlugin: FastifyPluginAsync = async (fastify) => {
     const regions = await listRegions(tilesDir, fastify.log);
     return reply.code(200).send({ data: regions });
   });
+
+  // GET /api/v1/map/styles -- available styles (id, name, preview?).
+  fastify.get<{ Reply: StylesListReply }>('/api/v1/map/styles', async (_request, reply) => {
+    return reply.code(200).send({ data: listStyleSummaries() });
+  });
+
+  // GET /api/v1/map/styles/:id -- MapLibre style JSON. Source URL(s) are
+  // rewritten to the active region's real (relative) tile URL, and
+  // ?lang=/?labelScale=/?poi= (if present) transform the served JSON.
+  fastify.get<{ Params: StyleDetailParams; Querystring: StyleDetailQuery; Reply: MapStyleDocument | ApiError }>(
+    '/api/v1/map/styles/:id',
+    async (request, reply) => {
+      const { id } = request.params;
+      const baseStyle = getStyleDocument(id);
+      if (!baseStyle) {
+        return reply.code(404).send(createErrorResponse('NOT_FOUND', `Style '${id}' not found`));
+      }
+
+      const regions = await listRegions(tilesDir, fastify.log);
+      const requestedRegion = request.query.region;
+      const activeRegion =
+        requestedRegion && regions.some((r) => r.region === requestedRegion)
+          ? requestedRegion
+          : regions[0]?.region;
+
+      const style = activeRegion ? rewriteSourceUrls(baseStyle, activeRegion) : baseStyle;
+      const options = parseStyleOptions(request.query);
+      return reply.code(200).send(applyStyleOptions(style, options));
+    },
+  );
 };

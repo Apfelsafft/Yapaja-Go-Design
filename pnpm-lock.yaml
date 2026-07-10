@@ -66,6 +66,9 @@ importers:
         specifier: ^4.4.1
         version: 4.4.1
     devDependencies:
+      '@maplibre/maplibre-gl-style-spec':
+        specifier: ^24.8.1
+        version: 24.10.0
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13

@@ -4,6 +4,12 @@
  * Uses a path relative to `import.meta.env.BASE_URL` rather than a hardcoded
  * `/api/...` path, so this keeps working when the app is served under an
  * ingress sub-path (W-15) — see docs/01-architecture.md ADR-008.
+ *
+ * Note: this module only reports which regions are installed (for the
+ * empty-state check and the initial viewport `bounds`). Since E01-T4, the
+ * region's vector tile URL is no longer built here — the core embeds the
+ * correct (relative) tile URL directly into the style JSON it serves (`GET
+ * /api/v1/map/styles/:id`, see `apps/core/src/map/styles/rewrite.ts`).
  */
 
 export interface MapRegionSummary {
@@ -35,9 +41,4 @@ export async function fetchRegions(): Promise<MapRegionSummary[]> {
   } catch {
     return [];
   }
-}
-
-/** Builds the relative pmtiles:// source URL for a given region name. */
-export function pmtilesUrlForRegion(region: string): string {
-  return `pmtiles://${import.meta.env.BASE_URL}tiles/${region}.pmtiles`;
 }
