@@ -4,7 +4,7 @@ Persistenter Zustand der Orchestrierung (Master-Prompt: tasks/KICKOFF-PROMPT.md)
 Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 
 **Umgebung:** Node v22.22.2, pnpm 10.33.0, Docker 29.3.1 — alles verfügbar.
-**Basis-Branch:** main · **Aktuelle Welle:** 1b (Gate G1: nur noch E01-T6 + E02-T5 offen)
+**Basis-Branch:** main · **Aktuelle Welle:** 1b (Gate G1: nur noch E02-T5 offen)
 
 > ℹ️ GitHub-Token-Ausfall (2026-07-09) inzwischen behoben (Connector reconnected von selbst).
 
@@ -25,8 +25,9 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 | E02-T4 | sonnet | 1 | ✅ MERGED | #24 | 397 Unit (79 neu), CI grün. GPS-Simulator: GPX/polyline-Replay, 4 Mutationen, speed_factor, Prod-Schutz. Zentrales Testwerkzeug für spätere Nav-E2E + Golden-Routes |
 | E02-T3 | sonnet | 1 | ✅ MERGED | #25 | 453 Unit, CI grün. gpsd-TCP-Client + PlausibilityGuard. Alle 3 Positionsquellen fertig |
 | E01-T5 | sonnet | 1 | ✅ MERGED | #26 | 505 Unit + 33 E2E (Orchestrator-verifiziert). Region-Manager: Job-System, Resume via Range (W-17), Disk-Check 409 (W-18), Regionen-UI. CI grün |
-| E01-T6 | haiku | 1 | ⏳ PR #27 (CI läuft) | #27 | 533 Unit + 42 E2E (Orchestrator-verifiziert). fps-Wächter + Auto-Degradation (Stufen 3D→POI→2D), Hysterese, Override. map-ready-reaktiv (E01-T3-Falle vermieden). Merge nach CI-grün |
-<!-- offen für G1: E01-T5 Region-Manager, E01-T6 Perf-Wächter, E02-T5 GPS-Verlust-UX -->
+| E01-T6 | haiku | 1 | ✅ MERGED | #27 | 533 Unit + 42 E2E (Orchestrator-verifiziert). CI-Lauf #54 grün, Squash 68c772b. fps-Wächter + Auto-Degradation (Stufen 3D→POI→2D), Hysterese, Override. map-ready-reaktiv (E01-T3-Falle vermieden). **Epic E01 (Karten) komplett** (alle 6 Tasks) |
+| E02-T5 | sonnet | 1 | ⏳ dispatched | — | GPS-Verlust-UX / Dead-Reckoning-Anzeige (W-01). Letzter Task vor Gate G1 |
+<!-- offen für G1: E02-T5 GPS-Verlust-UX (letzter) -->
 <!-- TODO nachziehen: system/plausibility Bus-Topic (guard reasons → bus/UI), wenn ein Task bus/ berührt -->
 <!-- TODO nachziehen: satellites in GET /position/sources exponieren (E02-T3 hält sie intern) -->
 <!-- TODO nachziehen: extrapolated-Filter im MQTT-Mapping (E02-T5/E08) -->
@@ -40,7 +41,7 @@ CI-Last. Bei mir 3× grün. Falls es in CI zuschlägt: Schwelle/Toleranz härten
 Hygiene-Fix, nicht E02-T4).
 
 **Gate G1 offen** — braucht noch NUR:
-E01-T6 (Perf-Wächter W-04) + E02-T5 (GPS-Verlust-UX W-01). Dann G1-Prüfung.
+E02-T5 (GPS-Verlust-UX W-01). Dann G1-Prüfung.
 
 **Harness-Notiz:** Playwright-E2E-Suite existiert ab jetzt (`apps/web/e2e/`, `pnpm e2e`).
 Nutzt vorinstallierten Chromium lokal (`PLAYWRIGHT_BROWSERS_PATH`), auf CI via
