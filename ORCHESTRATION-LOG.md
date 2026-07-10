@@ -4,7 +4,7 @@ Persistenter Zustand der Orchestrierung (Master-Prompt: tasks/KICKOFF-PROMPT.md)
 Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 
 **Umgebung:** Node v22.22.2, pnpm 10.33.0, Docker 29.3.1 — alles verfügbar.
-**Basis-Branch:** main · **Aktuelle Welle:** 1a→1b (E06-T1, E02-T1, E01-T1 fertig; weiter mit E01-T2)
+**Basis-Branch:** main · **Aktuelle Welle:** 1b (Gate G1: nur noch E01-T6 + E02-T5 offen)
 
 > ℹ️ GitHub-Token-Ausfall (2026-07-09) inzwischen behoben (Connector reconnected von selbst).
 
@@ -38,8 +38,8 @@ schwellenwertbasiert (≤50 FDs bei 50 parallelen Requests) und potenziell flaky
 CI-Last. Bei mir 3× grün. Falls es in CI zuschlägt: Schwelle/Toleranz härten (separater
 Hygiene-Fix, nicht E02-T4).
 
-**Gate G1 offen** — braucht noch: E01-T4, E02-T3 (gpsd), E02-T4 (Simulator),
-E01-T5, E01-T6, E02-T5. Erst dann G1-Prüfung.
+**Gate G1 offen** — braucht noch NUR:
+E01-T6 (Perf-Wächter W-04) + E02-T5 (GPS-Verlust-UX W-01). Dann G1-Prüfung.
 
 **Harness-Notiz:** Playwright-E2E-Suite existiert ab jetzt (`apps/web/e2e/`, `pnpm e2e`).
 Nutzt vorinstallierten Chromium lokal (`PLAYWRIGHT_BROWSERS_PATH`), auf CI via
