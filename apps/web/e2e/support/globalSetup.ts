@@ -95,6 +95,12 @@ function startCore(port: number, tilesDir: string): ChildProcess {
       PORT: String(port),
       HOST: '127.0.0.1',
       TILES_DIR: tilesDir,
+      // Each e2e core gets its own in-memory DB. The two cores (fixture-region
+      // and empty-tiles) would otherwise share the default on-disk SQLite file
+      // and race on it (SQLITE_BUSY: "database is locked") — flaky, and it hit
+      // the slower CI runner. :memory: is per-process, so no file, no lock, and
+      // no leftover state between runs.
+      DB_PATH: ':memory:',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
