@@ -22,7 +22,8 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 | E01-T3 | haiku | 2 (+Orchestrator-Harness-Fix) | ✅ MERGED | #21 | RETRY: Erstabgabe 5/21 E2E rot als „Timing" abgetan → zurückgewiesen, echte Bugs (map-ready-Subscriptions). Retry grün. CI deckte zusätzlich Harness-Flake auf (2 E2E-Cores teilten DB → SQLITE_BUSY) → Fix DB_PATH=:memory: pro Core |
 | E01-T4 | sonnet | 1 | ✅ MERGED | #22 | 318 Unit + 31 E2E, CI grün. Core-Styles Light/Dark/Contrast + Live-Switch (setStyle/transformStyle), Optionen lang/labelScale/poi. Agent fand+behob echten Regressionsbug selbst |
 | Hygiene | orchestrator | 1 | ✅ MERGED | #23 | data/db untracked + /data/ gitignored |
-| E02-T4 | sonnet | 1 | ⏳ PR #24 (CI läuft) | #24 | 397 Unit (79 neu, 3 Läufe grün), Prod-Build-E2E. GPS-Simulator: GPX/polyline-Replay, 4 Mutationen (noise/outage/jump/detour), speed_factor, Prod-Schutz. Agent fand+behob Fixture-Bundling (tsup onSuccess). Merge nach CI-grün |
+| E02-T4 | sonnet | 1 | ✅ MERGED | #24 | 397 Unit (79 neu), CI grün. GPS-Simulator: GPX/polyline-Replay, 4 Mutationen, speed_factor, Prod-Schutz. Zentrales Testwerkzeug für spätere Nav-E2E + Golden-Routes |
+| E02-T3 | sonnet | 0 | IN_PROGRESS | – | gpsd-Quelle + PlausibilityGuard (W-01/W-02) |
 
 **Bekanntes Risiko:** `apps/core/src/map/routes.test.ts` FD-Leak-Test (E01-T1) ist
 schwellenwertbasiert (≤50 FDs bei 50 parallelen Requests) und potenziell flaky unter
