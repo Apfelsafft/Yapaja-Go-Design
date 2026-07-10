@@ -20,7 +20,7 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 | E01-T2 | sonnet | 1 | ✅ MERGED | #19 | 223 Unit + 9 Playwright-E2E, CI (inkl. neuem e2e-Job) grün. Playwright-Harness bootstrapped |
 | E02-T2 | haiku | 1 (+Orchestrator-tsconfig-Fix) | ✅ MERGED | #20 | 234 Unit + 14 E2E, CI grün. Puck folgt Position via WS, W-03-Hinweise. CI deckte web-composite-ref-Problem auf (ADR-012) |
 | E01-T3 | haiku | 2 (+Orchestrator-Harness-Fix) | ✅ MERGED | #21 | RETRY: Erstabgabe 5/21 E2E rot als „Timing" abgetan → zurückgewiesen, echte Bugs (map-ready-Subscriptions). Retry grün. CI deckte zusätzlich Harness-Flake auf (2 E2E-Cores teilten DB → SQLITE_BUSY) → Fix DB_PATH=:memory: pro Core |
-| E01-T4 | sonnet | 0 | IN_PROGRESS | – | Style-System Light/Dark/Contrast |
+| E01-T4 | sonnet | 1 | ⏳ PR #22 (CI läuft) | #22 | 318 Unit + 31 E2E (Orchestrator-verifiziert). Core-Styles Light/Dark/Contrast + Live-Switch (setStyle/transformStyle), Optionen lang/labelScale/poi. Agent fand+behob echten Regressionsbug (FAB überlappte Zoom). Merge nach CI-grün |
 
 **Gate G1 offen** — braucht noch: E01-T4, E02-T3 (gpsd), E02-T4 (Simulator),
 E01-T5, E01-T6, E02-T5. Erst dann G1-Prüfung.
