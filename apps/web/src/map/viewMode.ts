@@ -141,9 +141,14 @@ export function syncHeadingToBearing(): void {
     return;
   }
 
-  // For course modes: update bearing from position heading
+  // For course modes: update bearing from position heading. Guard with an
+  // epsilon so a programmatic setCamera doesn't re-trigger itself via the
+  // rotate/moveend listener (no feedback loop).
   const position = usePositionStore.getState().position;
   if (position?.heading !== null && position?.heading !== undefined) {
-    mapController.setCamera({ bearing: position.heading });
+    const currentBearing = map.getBearing();
+    if (Math.abs(currentBearing - position.heading) > 0.1) {
+      mapController.setCamera({ bearing: position.heading });
+    }
   }
 }

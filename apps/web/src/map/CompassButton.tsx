@@ -7,18 +7,22 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { mapController } from '../state/mapStore';
+import { mapController, useMapStore } from '../state/mapStore';
 import { useSetViewMode } from './viewMode';
 
 export default function CompassButton(): React.ReactElement | null {
   const [bearing, setBearing] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const setViewMode = useSetViewMode();
+  // Reactively track the live Map instance so the rotate/moveend listeners
+  // attach as soon as the map becomes available — not only if it happens to
+  // already exist on mount. Depending on `[map]` re-runs the effect when the
+  // map is registered/torn down.
+  const map = useMapStore((state) => state.map);
 
-  // Update bearing from map
   useEffect(() => {
-    const map = mapController.getMap();
     if (!map) {
+      setIsVisible(false);
       return;
     }
 
@@ -33,14 +37,14 @@ export default function CompassButton(): React.ReactElement | null {
     updateBearing();
 
     // Listen to rotate events
-    mapController.on('rotate', updateBearing);
-    mapController.on('moveend', updateBearing);
+    map.on('rotate', updateBearing);
+    map.on('moveend', updateBearing);
 
     return () => {
-      mapController.off('rotate', updateBearing);
-      mapController.off('moveend', updateBearing);
+      map.off('rotate', updateBearing);
+      map.off('moveend', updateBearing);
     };
-  }, []);
+  }, [map]);
 
   const handleClick = useCallback(() => {
     // Return to north and switch to 2d-north mode
