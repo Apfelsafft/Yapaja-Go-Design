@@ -1,4 +1,9 @@
 import { defineConfig } from 'tsup';
+import { cpSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // The core is shipped as a self-contained Node service. We bundle the internal
 // workspace package @yapaja/shared (and its pure-JS deps like ajv) directly into
@@ -15,4 +20,19 @@ export default defineConfig({
   sourcemap: true,
   noExternal: ['@yapaja/shared'],
   external: ['better-sqlite3', 'fastify', '@fastify/static', '@fastify/websocket', 'ws', 'pino'],
+  onSuccess: async () => {
+    // The whole build is a single bundled dist/index.js (esbuild inlines
+    // every source module), so every module's `import.meta.url`-derived
+    // __dirname resolves to dist/ at runtime -- including the GPS
+    // simulator's fixture loader (apps/core/src/position/simulator/index.ts,
+    // `join(__dirname, '__fixtures__')`). Copy the fixtures alongside the
+    // bundle so `gpxId`-based simulator playback also works in a built
+    // (production/ENABLE_SIMULATOR=1) image, not just under tsx/vitest
+    // where each source file keeps its own real directory.
+    cpSync(
+      join(__dirname, 'src/position/simulator/__fixtures__'),
+      join(__dirname, 'dist/__fixtures__'),
+      { recursive: true },
+    );
+  },
 });

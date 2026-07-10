@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Deterministic GPS-simulator fixture (E02-T4): country-road route, one long
+  straight (~2 km @ 25 m/s / 90 km/h) followed by a curve (~1.5 km @ 18 m/s)
+  and another straight (~1.8 km @ 27 m/s). Coordinates are synthetic, built
+  from bearing+distance legs from a fixed origin, inside the PMTiles fixture
+  bounds (see city.gpx header for rationale). Do not hand-edit coordinates.
+-->
+<gpx version="1.1" creator="yapaja-go-simulator-fixture" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>country</name>
+    <trkseg>
+      <trkpt lat="49.300000" lon="10.900000">
+        <ele>380.0</ele>
+        <time>2026-01-01T09:00:00.000Z</time>
+      </trkpt>
+      <trkpt lat="49.317713" lon="10.904791">
+        <ele>378.5</ele>
+        <time>2026-01-01T09:01:20.000Z</time>
+      </trkpt>
+      <trkpt lat="49.325449" lon="10.921746">
+        <ele>377.0</ele>
+        <time>2026-01-01T09:02:43.333Z</time>
+      </trkpt>
+      <trkpt lat="49.328258" lon="10.946207">
+        <ele>375.5</ele>
+        <time>2026-01-01T09:03:50.000Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>

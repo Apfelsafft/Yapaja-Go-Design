@@ -10,6 +10,8 @@ import { EventBus } from './bus/index.js';
 import { busWebsocketPlugin } from './bus/ws.js';
 import { PositionService } from './position/service.js';
 import { positionPlugin } from './position/routes.js';
+import { SimulatorSource } from './position/simulator/index.js';
+import { simulatorPlugin } from './position/simulator/routes.js';
 import { mapPlugin } from './map/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -51,12 +53,22 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // Internal event bus (ADR-010) + position service (ADR-007)
   const eventBus = new EventBus();
   const positionService = new PositionService({ bus: eventBus });
+  // GPS simulator position source (E02-T4): registers as 'simulator' with
+  // the same PositionService registry the real gpsd/browser sources use.
+  const simulatorSource = new SimulatorSource(positionService);
+  positionService.registerSource(simulatorSource);
   fastify.addHook('onClose', async () => {
+    simulatorSource.dispose();
     positionService.dispose();
   });
 
   await fastify.register(busWebsocketPlugin, { bus: eventBus });
   await fastify.register(positionPlugin, { prefix: '/api/v1', service: positionService });
+  await fastify.register(simulatorPlugin, {
+    prefix: '/api/v1',
+    simulator: simulatorSource,
+    service: positionService,
+  });
 
   // Register map/tiles plugin (E01-T1): additive, does not touch other plugins.
   await fastify.register(mapPlugin);

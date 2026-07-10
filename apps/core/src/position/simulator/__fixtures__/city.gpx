@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Deterministic GPS-simulator fixture (E02-T4): short urban route with
+  several 90-degree turns, ~590 m total, near-constant slow-down at each
+  corner (plausible city driving: 4-8 m/s / 14-29 km/h). Coordinates are a
+  synthetic (non-real-street) path generated from bearing+distance legs from
+  a fixed origin, chosen inside the PMTiles fixture bounds used by
+  apps/core/src/map/__fixtures__/pmtiles-fixture.ts (lon 5.8..15.1,
+  lat 47.2..55.1) so later map/E2E fixtures can reference the same region.
+  Regenerate via the (uncommitted) scratch script if legs ever change; do
+  not hand-edit coordinates.
+-->
+<gpx version="1.1" creator="yapaja-go-simulator-fixture" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>city</name>
+    <trkseg>
+      <trkpt lat="49.450000" lon="11.080000">
+        <ele>310.0</ele>
+        <time>2026-01-01T08:00:00.000Z</time>
+      </trkpt>
+      <trkpt lat="49.450000" lon="11.082075">
+        <ele>310.2</ele>
+        <time>2026-01-01T08:00:18.750Z</time>
+      </trkpt>
+      <trkpt lat="49.451079" lon="11.082075">
+        <ele>310.4</ele>
+        <time>2026-01-01T08:00:42.750Z</time>
+      </trkpt>
+      <trkpt lat="49.451079" lon="11.083458">
+        <ele>310.6</ele>
+        <time>2026-01-01T08:00:55.250Z</time>
+      </trkpt>
+      <trkpt lat="49.449910" lon="11.083458">
+        <ele>310.8</ele>
+        <time>2026-01-01T08:01:27.750Z</time>
+      </trkpt>
+      <trkpt lat="49.449910" lon="11.082213">
+        <ele>311.0</ele>
+        <time>2026-01-01T08:01:40.607Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>

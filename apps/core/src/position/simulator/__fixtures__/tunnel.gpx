@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Deterministic GPS-simulator fixture (E02-T4): straight route with a
+  tunnel passage in the middle, for later outage / dead-reckoning tests.
+
+  TUNNEL SECTION: trkpt indices 1..3 (0-based) -- i.e. the points at
+  10:00:15.000Z .. 10:00:44.545Z (cumulative track time ~15s..~35s from
+  track start). A simulator "outage" mutation with at_s/duration_s covering
+  that window models the GPS signal loss while inside the tunnel; indices 0
+  and 4 are the approach/exit in daylight, always GPS-visible.
+
+  Coordinates are synthetic, built from constant-bearing legs from a fixed
+  origin, inside the PMTiles fixture bounds (see city.gpx header). Do not
+  hand-edit coordinates.
+-->
+<gpx version="1.1" creator="yapaja-go-simulator-fixture" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <name>tunnel</name>
+    <trkseg>
+      <trkpt lat="49.600000" lon="11.300000">
+        <ele>320.0</ele>
+        <time>2026-01-01T10:00:00.000Z</time>
+      </trkpt>
+      <trkpt lat="49.601908" lon="11.302944">
+        <ele>325.0</ele>
+        <time>2026-01-01T10:00:15.000Z</time>
+      </trkpt>
+      <trkpt lat="49.603180" lon="11.304906">
+        <ele>330.0</ele>
+        <time>2026-01-01T10:00:24.090Z</time>
+      </trkpt>
+      <trkpt lat="49.604769" lon="11.307359">
+        <ele>335.0</ele>
+        <time>2026-01-01T10:00:35.454Z</time>
+      </trkpt>
+      <trkpt lat="49.606041" lon="11.309322">
+        <ele>340.0</ele>
+        <time>2026-01-01T10:00:44.545Z</time>
+      </trkpt>
+      <trkpt lat="49.607949" lon="11.312266">
+        <ele>345.0</ele>
+        <time>2026-01-01T10:00:59.545Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
