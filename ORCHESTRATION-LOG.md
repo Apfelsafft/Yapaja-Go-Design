@@ -21,7 +21,13 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 | E02-T2 | haiku | 1 (+Orchestrator-tsconfig-Fix) | ✅ MERGED | #20 | 234 Unit + 14 E2E, CI grün. Puck folgt Position via WS, W-03-Hinweise. CI deckte web-composite-ref-Problem auf (ADR-012) |
 | E01-T3 | haiku | 2 (+Orchestrator-Harness-Fix) | ✅ MERGED | #21 | RETRY: Erstabgabe 5/21 E2E rot als „Timing" abgetan → zurückgewiesen, echte Bugs (map-ready-Subscriptions). Retry grün. CI deckte zusätzlich Harness-Flake auf (2 E2E-Cores teilten DB → SQLITE_BUSY) → Fix DB_PATH=:memory: pro Core |
 | E01-T4 | sonnet | 1 | ✅ MERGED | #22 | 318 Unit + 31 E2E, CI grün. Core-Styles Light/Dark/Contrast + Live-Switch (setStyle/transformStyle), Optionen lang/labelScale/poi. Agent fand+behob echten Regressionsbug selbst |
-| Hygiene | orchestrator | 0 | IN_PROGRESS | – | data/db untracken + /data/ gitignoren (Task #12) |
+| Hygiene | orchestrator | 1 | ✅ MERGED | #23 | data/db untracked + /data/ gitignored |
+| E02-T4 | sonnet | 1 | ⏳ PR #24 (CI läuft) | #24 | 397 Unit (79 neu, 3 Läufe grün), Prod-Build-E2E. GPS-Simulator: GPX/polyline-Replay, 4 Mutationen (noise/outage/jump/detour), speed_factor, Prod-Schutz. Agent fand+behob Fixture-Bundling (tsup onSuccess). Merge nach CI-grün |
+
+**Bekanntes Risiko:** `apps/core/src/map/routes.test.ts` FD-Leak-Test (E01-T1) ist
+schwellenwertbasiert (≤50 FDs bei 50 parallelen Requests) und potenziell flaky unter
+CI-Last. Bei mir 3× grün. Falls es in CI zuschlägt: Schwelle/Toleranz härten (separater
+Hygiene-Fix, nicht E02-T4).
 
 **Gate G1 offen** — braucht noch: E01-T4, E02-T3 (gpsd), E02-T4 (Simulator),
 E01-T5, E01-T6, E02-T5. Erst dann G1-Prüfung.
