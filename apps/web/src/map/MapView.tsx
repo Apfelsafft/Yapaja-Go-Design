@@ -5,6 +5,12 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { mapController, useMapStore } from '../state/mapStore';
 import { fetchRegions, pmtilesUrlForRegion, type MapRegionSummary } from './regions';
 import { buildMinimalStyle } from './style';
+import { useViewModeStore, syncHeadingToBearing } from './viewMode';
+import { initializeFollowMe, updateFollowMePosition } from './followMe';
+import { usePosition } from '../position/positionStore';
+import CompassButton from './CompassButton';
+import ViewModeButton from './ViewModeButton';
+import ReCenterButton from './ReCenterButton';
 
 // Register the `pmtiles://` protocol once per page load. MapLibre's protocol
 // registry (`maplibregl.addProtocol`) is a process-global map keyed by
@@ -45,6 +51,13 @@ export default function MapView(): React.ReactElement {
   const setMap = useMapStore((state) => state.setMap);
   const [status, setStatus] = useState<MapViewStatus>('loading');
   const [region, setRegion] = useState<MapRegionSummary | null>(null);
+  const restoreViewMode = useViewModeStore((state) => state.restoreMode);
+  const position = usePosition();
+  // Reactively track the live Map instance from the store. All map-dependent
+  // effects (view-mode restore, follow-me, bearing sync) depend on `[map]` so
+  // they (re)attach their listeners as soon as the map is registered — never
+  // silently aborting because the map wasn't ready at first mount.
+  const map = useMapStore((state) => state.map);
 
   // Step 1: discover installed regions. No region installed -> friendly
   // empty state instead of initializing a map with a broken/missing source.
@@ -76,7 +89,7 @@ export default function MapView(): React.ReactElement {
       return;
     }
 
-    const map = new maplibregl.Map({
+    const newMap = new maplibregl.Map({
       container: containerRef.current,
       style: buildMinimalStyle(pmtilesUrlForRegion(region.region)),
       // Fits the initial viewport to the installed region's bounds so the
@@ -85,26 +98,78 @@ export default function MapView(): React.ReactElement {
       attributionControl: { customAttribution: '© OpenStreetMap contributors' },
     });
 
-    map.addControl(new maplibregl.NavigationControl());
+    newMap.addControl(new maplibregl.NavigationControl());
 
     // Missing/dummy vector tiles (e.g. an empty fixture archive) must never
     // crash the app: log and keep the map interactive.
-    map.on('error', (event) => {
+    newMap.on('error', (event) => {
       console.warn('[MapView] MapLibre error event', event.error);
     });
 
-    mapRef.current = map;
-    setMap(map);
+    mapRef.current = newMap;
+    setMap(newMap);
 
     return () => {
       setMap(null);
       mapRef.current = null;
-      map.remove();
+      newMap.remove();
     };
     // `setMap` is a stable zustand action reference and intentionally
     // omitted from the dependency array (no react-hooks/exhaustive-deps
     // lint rule is configured in this repo).
   }, [status, region]);
+
+  // Restore persisted view mode once the map is registered. Depends on `[map]`
+  // so the persisted mode is applied to the camera as soon as the map exists —
+  // critical for reload-persistence.
+  useEffect(() => {
+    if (!map) {
+      return;
+    }
+    restoreViewMode();
+  }, [map, restoreViewMode]);
+
+  // Initialize Follow-Me tracking once the map is registered. Self-cleaning:
+  // the listeners are removed when the map is torn down or the component
+  // unmounts (no double-listener leak).
+  useEffect(() => {
+    if (!map) {
+      return;
+    }
+    const cleanup = initializeFollowMe();
+    return cleanup;
+  }, [map]);
+
+  // Update Follow-Me position when position changes.
+  useEffect(() => {
+    if (!map || !position) {
+      return;
+    }
+    updateFollowMePosition();
+  }, [map, position]);
+
+  // Sync heading to bearing for course modes + lock 2d-north bearing. Attaches
+  // rotate/moveend listeners as soon as the map is registered so both the
+  // heading-follow (course modes) and the bearing=0 lock (2d-north) react to
+  // any rotation — including programmatic `setBearing`.
+  useEffect(() => {
+    if (!map) {
+      return;
+    }
+
+    // Initial sync
+    syncHeadingToBearing();
+
+    // Listen to rotate and moveend events to re-sync
+    const handleRotation = () => syncHeadingToBearing();
+    map.on('rotate', handleRotation);
+    map.on('moveend', handleRotation);
+
+    return () => {
+      map.off('rotate', handleRotation);
+      map.off('moveend', handleRotation);
+    };
+  }, [map]);
 
   if (status === 'loading') {
     return <div className="w-full h-full" data-testid="map-loading" />;
@@ -129,5 +194,16 @@ export default function MapView(): React.ReactElement {
     );
   }
 
-  return <div ref={containerRef} className="w-full h-full" data-testid="map-container" />;
+  return (
+    <div className="w-full h-full relative">
+      <div ref={containerRef} className="w-full h-full" data-testid="map-container" />
+      {status === 'ready' && (
+        <>
+          <CompassButton />
+          <ViewModeButton />
+          <ReCenterButton />
+        </>
+      )}
+    </div>
+  );
 }
