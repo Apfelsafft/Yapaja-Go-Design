@@ -12,6 +12,7 @@ import { PositionService } from './position/service.js';
 import { positionPlugin } from './position/routes.js';
 import { SimulatorSource } from './position/simulator/index.js';
 import { simulatorPlugin } from './position/simulator/routes.js';
+import { GpsdSource } from './position/gpsd/index.js';
 import { mapPlugin } from './map/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -24,6 +25,23 @@ interface HealthResponse {
 
 export interface BuildServerOptions {
   publicDir?: string;
+}
+
+/**
+ * `GPSD_ENABLED` gates whether the core actively tries to connect to gpsd
+ * at startup. Explicit `'true'`/`'1'`/`'false'`/`'0'` always win; with the
+ * var unset, default to enabled only when `NODE_ENV=production` (Compose/
+ * HA-add-on) -- mirrors the inverse-polarity pattern already used for
+ * `ENABLE_SIMULATOR` in position/simulator/routes.ts (env override + a
+ * NODE_ENV-based default), just flipped: gpsd should be on by default in
+ * production and off by default elsewhere, simulator is the other way
+ * round.
+ */
+function isGpsdEnabled(): boolean {
+  const raw = process.env.GPSD_ENABLED;
+  if (raw === 'true' || raw === '1') return true;
+  if (raw === 'false' || raw === '0') return false;
+  return process.env.NODE_ENV === 'production';
 }
 
 async function readPackageVersion(): Promise<string> {
@@ -57,8 +75,28 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // the same PositionService registry the real gpsd/browser sources use.
   const simulatorSource = new SimulatorSource(positionService);
   positionService.registerSource(simulatorSource);
+
+  // gpsd position source (E02-T3, ADR-007): registers exactly like the
+  // simulator source above. Connecting is gated by GPSD_ENABLED so that
+  // dev/test runs of buildServer() don't spam background reconnect
+  // attempts against a gpsd daemon that (usually) isn't running locally;
+  // production/HA-add-on deployments (which always ship a gpsd service,
+  // docs/01 ADR-008) default to enabled. Either way, an unreachable gpsd
+  // never crashes the core -- the source just stays inactive and
+  // PositionService falls back to the next-priority source (ADR-007).
+  const gpsdSource = new GpsdSource({
+    positionService,
+    host: process.env.GPSD_HOST,
+    port: process.env.GPSD_PORT ? parseInt(process.env.GPSD_PORT, 10) : undefined,
+  });
+  positionService.registerSource(gpsdSource);
+  if (isGpsdEnabled()) {
+    gpsdSource.start();
+  }
+
   fastify.addHook('onClose', async () => {
     simulatorSource.dispose();
+    gpsdSource.dispose();
     positionService.dispose();
   });
 
