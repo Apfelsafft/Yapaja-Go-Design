@@ -18,7 +18,8 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 | E02-T1 | sonnet | 1 | ✅ MERGED | #17 | 171 Tests, CI grün, Bundle E2E ok. Event-Bus (ADR-010) + PositionService + WS |
 | E01-T1 | sonnet | 1 | ✅ MERGED | #18 | 178 Tests, CI grün, auf main rebased (Union mit E02-T1), Gesamtsuite 212 grün, Path-Traversal live geprüft |
 | E01-T2 | sonnet | 1 | ✅ MERGED | #19 | 223 Unit + 9 Playwright-E2E, CI (inkl. neuem e2e-Job) grün. Playwright-Harness bootstrapped |
-| E02-T2 | haiku | 1 | ⏳ PR #20 (CI läuft) | #20 | 234 Unit + 14 E2E (Orchestrator-Lauf grün), Puck folgt Position via WS, W-03-Hinweise. Merge nach CI-grün |
+| E02-T2 | haiku | 1 (+Orchestrator-tsconfig-Fix) | ✅ MERGED | #20 | 234 Unit + 14 E2E, CI grün. Puck folgt Position via WS, W-03-Hinweise. CI deckte web-composite-ref-Problem auf (ADR-012) |
+| E01-T3 | haiku | 0 | IN_PROGRESS | – | Ansichtsmodi 2D/3D & Nord/Kurs, Kompass-FAB, Follow-Me → letztes Puzzlestück für Gate G1 |
 
 **Harness-Notiz:** Playwright-E2E-Suite existiert ab jetzt (`apps/web/e2e/`, `pnpm e2e`).
 Nutzt vorinstallierten Chromium lokal (`PLAYWRIGHT_BROWSERS_PATH`), auf CI via
@@ -41,6 +42,13 @@ bauen darauf auf.
   `dist/index.js` (shared+ajv inline; better-sqlite3/fastify/pino extern).
   **Regel für Folge-Tasks:** Jede weitere App (E01/E02/…-Frontend baut via vite, ok),
   jeder weitere Node-Service, der shared importiert, nutzt denselben Bundling-Ansatz.
+- **ADR-012 (bei #20): Apps lösen `@yapaja/shared` via base-`paths` (Quelle) auf,
+  NICHT via composite-Projekt-Referenz.** `apps/web` hatte `references:[packages/shared]`
+  + `composite:true` → verlangte vorgebautes `packages/shared/dist`, das im frischen
+  CI-Checkout fehlt (TS6305/TS6059). Erster Web-Code, der shared importiert (E02-T2),
+  legte es offen. Fix: reference entfernt, web-`tsc` läuft `--noEmit` (vite baut), shared
+  via paths→Quelle wie apps/core. **Regel:** jede App, die shared importiert, so
+  konfigurieren — kein composite/dist. Gilt für alle Folge-Web-Tasks.
 - **Native Module** (better-sqlite3, künftige Add-on-Deps, evtl. Bilderkennung): müssen
   in `package.json` → `pnpm.onlyBuiltDependencies` eingetragen werden, sonst wird ihr
   Build-Skript in pnpm 10 blockiert und das Modul lädt im frischen CI/Container nicht.
