@@ -34,5 +34,16 @@ export default defineConfig({
       join(__dirname, 'dist/__fixtures__'),
       { recursive: true },
     );
+    // Same reasoning, for the region manager's downloadable-regions catalog
+    // (E01-T5, apps/core/src/map/regions/catalog.ts): it's read from disk at
+    // runtime -- rather than bundled as a JS object -- specifically so
+    // MAP_REGIONS_CATALOG_FILE can override it in tests/ops. Its default
+    // path is `join(__dirname, 'regions-catalog.json')`, which (like the
+    // fixtures above) resolves to dist/ once bundled, regardless of the
+    // source file's original src/map/regions/ nesting.
+    cpSync(
+      join(__dirname, 'src/map/regions/regions-catalog.json'),
+      join(__dirname, 'dist/regions-catalog.json'),
+    );
   },
 });
