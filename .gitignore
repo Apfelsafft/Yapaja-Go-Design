@@ -47,3 +47,6 @@ apps/core/data/
 # Misc
 .cache/
 temp/
+
+# Runtime data (SQLite DB, tiles, valhalla/photon graphs) — never commit
+/data/
