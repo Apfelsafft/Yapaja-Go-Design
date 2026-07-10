@@ -133,7 +133,7 @@ test('browser geolocation: no sending if gpsd source is forced', async ({ page }
     expect(forceGpsdResponse).toBeLessThan(500); // Should not error (might be 404 if not implemented yet)
   } catch (err) {
     // If the endpoint doesn't exist, that's okay for now
-    console.log('Note: /position/source endpoint may not be implemented yet');
+    console.warn('Note: /position/source endpoint may not be implemented yet');
   }
 
   // Wait a bit
