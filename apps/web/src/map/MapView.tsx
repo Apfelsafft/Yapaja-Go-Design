@@ -1,16 +1,27 @@
 import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
+import type { StyleSpecification } from 'maplibre-gl';
 import { Protocol } from 'pmtiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { mapController, useMapStore } from '../state/mapStore';
-import { fetchRegions, pmtilesUrlForRegion, type MapRegionSummary } from './regions';
-import { buildMinimalStyle } from './style';
+import { fetchRegions, type MapRegionSummary } from './regions';
+import { fetchStyle, buildFallbackStyle, type StyleOptions } from './styleClient';
+import { applyStyle, trackCoreStyle } from './styleSwitch';
+import { useStyleStore } from '../state/styleStore';
 import { useViewModeStore, syncHeadingToBearing } from './viewMode';
 import { initializeFollowMe, updateFollowMePosition } from './followMe';
 import { usePosition } from '../position/positionStore';
 import CompassButton from './CompassButton';
 import ViewModeButton from './ViewModeButton';
 import ReCenterButton from './ReCenterButton';
+import StylePanel from './StylePanel';
+
+/** Identifies which (styleId, options) combination is currently applied to
+ *  the live map, so the live-switch effect can tell "this is the style we
+ *  just initialized with" apart from "the user picked something new". */
+function styleKey(styleId: string, options: StyleOptions): string {
+  return `${styleId}|${options.lang}|${options.labelScale}|${options.poi}`;
+}
 
 // Register the `pmtiles://` protocol once per page load. MapLibre's protocol
 // registry (`maplibregl.addProtocol`) is a process-global map keyed by
@@ -37,13 +48,18 @@ if (typeof window !== 'undefined') {
 
 type MapViewStatus = 'loading' | 'no-region' | 'ready';
 
+interface InitialStyle {
+  style: StyleSpecification;
+  key: string;
+}
+
 /**
- * Renders the MapLibre base map (ADR-002) against a PMTiles region (ADR-003).
- *
- * This is a *minimal* style — a background layer plus the region's vector
- * source registered — replaced by the real core-served style system in
- * E01-T4. All source/tile URLs are relative (`import.meta.env.BASE_URL`),
- * so the app keeps working when served under an ingress sub-path (W-15).
+ * Renders the MapLibre base map (ADR-002) against a PMTiles region (ADR-003),
+ * styled by the core-served style system (E01-T4: `GET
+ * /api/v1/map/styles/:id`, light/dark/contrast + lang/labelScale/poi
+ * options). All source/tile/style URLs are relative
+ * (`import.meta.env.BASE_URL`), so the app keeps working when served under
+ * an ingress sub-path (W-15).
  */
 export default function MapView(): React.ReactElement {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -51,19 +67,29 @@ export default function MapView(): React.ReactElement {
   const setMap = useMapStore((state) => state.setMap);
   const [status, setStatus] = useState<MapViewStatus>('loading');
   const [region, setRegion] = useState<MapRegionSummary | null>(null);
+  const [initialStyle, setInitialStyle] = useState<InitialStyle | null>(null);
   const restoreViewMode = useViewModeStore((state) => state.restoreMode);
   const position = usePosition();
+  const styleId = useStyleStore((state) => state.styleId);
+  const styleOptions = useStyleStore((state) => state.options);
+  // Tracks the (styleId, options) combination already applied to the live
+  // map, so the live-switch effect below can skip the redundant re-fetch
+  // right after mount (the map was just initialized with exactly this style).
+  const appliedStyleKeyRef = useRef<string | null>(null);
   // Reactively track the live Map instance from the store. All map-dependent
   // effects (view-mode restore, follow-me, bearing sync) depend on `[map]` so
   // they (re)attach their listeners as soon as the map is registered — never
   // silently aborting because the map wasn't ready at first mount.
   const map = useMapStore((state) => state.map);
 
-  // Step 1: discover installed regions. No region installed -> friendly
-  // empty state instead of initializing a map with a broken/missing source.
+  // Step 1: discover installed regions, then fetch the initial style JSON
+  // (the persisted/default styleId+options at the time of this mount). No
+  // region installed -> friendly empty state instead of initializing a map
+  // with a broken/missing source; the style fetch never blocks that check.
   useEffect(() => {
     let cancelled = false;
-    void fetchRegions().then((regions) => {
+    void (async () => {
+      const regions = await fetchRegions();
       if (cancelled) {
         return;
       }
@@ -72,30 +98,45 @@ export default function MapView(): React.ReactElement {
         return;
       }
       setRegion(regions[0]);
+
+      const { styleId: initialStyleId, options: initialOptions } = useStyleStore.getState();
+      const fetched = await fetchStyle(initialStyleId, initialOptions);
+      if (cancelled) {
+        return;
+      }
+      setInitialStyle({
+        style: fetched ?? buildFallbackStyle(),
+        key: styleKey(initialStyleId, initialOptions),
+      });
       setStatus('ready');
-    });
+    })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // Step 2: initialize the map once a region is known and the container is
-  // mounted. `mapRef` guards against ever having two live Map instances at
-  // once: the map is created here and torn down in the cleanup below, so
-  // React 18 dev StrictMode's mount -> cleanup -> mount cycle still only
-  // ever has at most one live instance.
+  // Step 2: initialize the map once a region + initial style are known and
+  // the container is mounted. `mapRef` guards against ever having two live
+  // Map instances at once: the map is created here and torn down in the
+  // cleanup below, so React 18 dev StrictMode's mount -> cleanup -> mount
+  // cycle still only ever has at most one live instance.
   useEffect(() => {
-    if (status !== 'ready' || !region || !containerRef.current) {
+    if (status !== 'ready' || !region || !initialStyle || !containerRef.current) {
       return;
     }
 
     const newMap = new maplibregl.Map({
       container: containerRef.current,
-      style: buildMinimalStyle(pmtilesUrlForRegion(region.region)),
+      style: initialStyle.style,
       // Fits the initial viewport to the installed region's bounds so the
       // start viewport is plausible (never [0, 0]).
       bounds: region.bounds,
       attributionControl: { customAttribution: '© OpenStreetMap contributors' },
+      // Enables reading back rendered pixels (gl.readPixels) after a frame
+      // for pixel-sample assertions (E01-T4 e2e: dark vs light background).
+      // Negligible cost for a background-canvas map; standard practice for
+      // WebGL content that needs to be inspected/tested from outside.
+      canvasContextAttributes: { preserveDrawingBuffer: true },
     });
 
     newMap.addControl(new maplibregl.NavigationControl());
@@ -106,18 +147,47 @@ export default function MapView(): React.ReactElement {
       console.warn('[MapView] MapLibre error event', event.error);
     });
 
+    trackCoreStyle(initialStyle.style);
+    appliedStyleKeyRef.current = initialStyle.key;
+
     mapRef.current = newMap;
     setMap(newMap);
 
     return () => {
       setMap(null);
       mapRef.current = null;
+      appliedStyleKeyRef.current = null;
       newMap.remove();
     };
     // `setMap` is a stable zustand action reference and intentionally
     // omitted from the dependency array (no react-hooks/exhaustive-deps
     // lint rule is configured in this repo).
-  }, [status, region]);
+  }, [status, region, initialStyle]);
+
+  // Step 3: live style switching. Whenever the persisted styleId/options
+  // change to something other than what's currently applied, fetch the new
+  // style and swap it in place (camera + custom layers preserved — see
+  // styleSwitch.ts) instead of recreating the Map.
+  useEffect(() => {
+    if (!map) {
+      return;
+    }
+    const key = styleKey(styleId, styleOptions);
+    if (appliedStyleKeyRef.current === key) {
+      return;
+    }
+    let cancelled = false;
+    void fetchStyle(styleId, styleOptions).then((style) => {
+      if (cancelled) {
+        return;
+      }
+      applyStyle(map, style ?? buildFallbackStyle());
+      appliedStyleKeyRef.current = key;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [map, styleId, styleOptions]);
 
   // Restore persisted view mode once the map is registered. Depends on `[map]`
   // so the persisted mode is applied to the camera as soon as the map exists —
@@ -202,6 +272,7 @@ export default function MapView(): React.ReactElement {
           <CompassButton />
           <ViewModeButton />
           <ReCenterButton />
+          <StylePanel />
         </>
       )}
     </div>
