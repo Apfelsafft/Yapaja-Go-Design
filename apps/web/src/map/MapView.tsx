@@ -16,6 +16,8 @@ import ViewModeButton from './ViewModeButton';
 import ReCenterButton from './ReCenterButton';
 import StylePanel from './StylePanel';
 import RegionsPanel from '../settings/regions/RegionsPanel';
+import PerfOverlay from '../perf/PerfOverlay';
+import { startPerfWatchdog } from '../perf/perfWatchdog';
 
 /** Identifies which (styleId, options) combination is currently applied to
  *  the live map, so the live-switch effect can tell "this is the style we
@@ -242,6 +244,17 @@ export default function MapView(): React.ReactElement {
     };
   }, [map]);
 
+  // Start performance watchdog (FPS meter + auto-degradation) once the map
+  // is registered. Depends on `[map]` so it (re)attaches as soon as the map
+  // is available — critical for proper FPS tracking.
+  useEffect(() => {
+    if (!map) {
+      return;
+    }
+    const cleanup = startPerfWatchdog(map);
+    return cleanup;
+  }, [map]);
+
   if (status === 'loading') {
     return <div className="w-full h-full" data-testid="map-loading" />;
   }
@@ -278,6 +291,7 @@ export default function MapView(): React.ReactElement {
           <ReCenterButton />
           <StylePanel />
           <RegionsPanel />
+          <PerfOverlay />
         </>
       )}
     </div>
