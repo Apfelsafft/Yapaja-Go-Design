@@ -26,7 +26,7 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 | E02-T3 | sonnet | 1 | ✅ MERGED | #25 | 453 Unit, CI grün. gpsd-TCP-Client + PlausibilityGuard. Alle 3 Positionsquellen fertig |
 | E01-T5 | sonnet | 1 | ✅ MERGED | #26 | 505 Unit + 33 E2E (Orchestrator-verifiziert). Region-Manager: Job-System, Resume via Range (W-17), Disk-Check 409 (W-18), Regionen-UI. CI grün |
 | E01-T6 | haiku | 1 | ✅ MERGED | #27 | 533 Unit + 42 E2E (Orchestrator-verifiziert). CI-Lauf #54 grün, Squash 68c772b. fps-Wächter + Auto-Degradation (Stufen 3D→POI→2D), Hysterese, Override. map-ready-reaktiv (E01-T3-Falle vermieden). **Epic E01 (Karten) komplett** (alle 6 Tasks) |
-| E02-T5 | sonnet | 1 | ⏳ dispatched | — | GPS-Verlust-UX / Dead-Reckoning-Anzeige (W-01). Letzter Task vor Gate G1 |
+| E02-T5 | sonnet | 1 (Subagent starb am Session-Limit nach Impl, Orchestrator verifizierte + fixte) | ⏳ PR #28 (CI läuft) | #28 | 550 Unit + 1 todo + 44 E2E (Orchestrator-verifiziert). DeadReckoningController → `pos/extrapolated` (Flag `extrapolated:true`), no-op-Provider bis E04-T6; `acquiring`-Zustand; Banner nach 3s. **Orchestrator-Fixes bei Verifikation:** (1) Blank-Page-Crash — Puck addSource/addLayer vor Style-Load (ADR-013); (2) Genauigkeitsring rendert nie (beforeId-Altlast seit E02-T2); (3) E2E serial (geteilter Simulator-Core). Subagent-Abgabe war UNVERIFIZIERT (Session-Limit vor Selbsttest) — hätte als Blank-Page live gecrasht |
 <!-- offen für G1: E02-T5 GPS-Verlust-UX (letzter) -->
 <!-- TODO nachziehen: system/plausibility Bus-Topic (guard reasons → bus/UI), wenn ein Task bus/ berührt -->
 <!-- TODO nachziehen: satellites in GET /position/sources exponieren (E02-T3 hält sie intern) -->
@@ -74,6 +74,21 @@ bauen darauf auf.
 - **Native Module** (better-sqlite3, künftige Add-on-Deps, evtl. Bilderkennung): müssen
   in `package.json` → `pnpm.onlyBuiltDependencies` eingetragen werden, sonst wird ihr
   Build-Skript in pnpm 10 blockiert und das Modul lädt im frischen CI/Container nicht.
+- **ADR-013 (bei #28): Karten-Layer/Sources erst nach Style-Load hinzufügen.**
+  `MapView` registriert die Map-Instanz im Store SOFORT nach `new maplibregl.Map()`
+  — also VOR `style.load`. Ein reaktiver `[map]`-Effekt (E01-T3-Muster, korrekt),
+  der dann `addSource`/`addLayer` aufruft, wirft „Style is not done loading"; in
+  Render-Effekt-Scope ungefangen crasht das den ganzen React-Baum → weiße Seite.
+  **Regel für alle Karten-Consumer (Puck, künftige Route-/POI-Overlays):** Setup in
+  `if (map.isStyleLoaded()) setup(); else map.once('load', setup)` kapseln. Ergänzt
+  E01-T3: reaktiv auf `map` ist notwendig, aber NICHT hinreichend — zusätzlich auf
+  Style-Reife prüfen. (Zweite Falle desselben Musters: `addLayer(x, beforeId)` mit
+  noch-nicht-existierendem `beforeId` schlägt still fehl → Layer fehlt.)
+- **Verifikation ist nicht optional, auch bei „fertigen" Subagent-Abgaben:** E02-T5
+  kam vom Subagenten mit vollständigem Code, aber UNVERIFIZIERT (Session-Limit vor
+  Selbsttest). Lokal grün getestet → 3 echte Bugs (Blank-Page-Crash, toter Ring,
+  E2E-Race). Regel: JEDE Abgabe selbst bauen + Unit + E2E fahren, nie „Code sieht
+  vollständig aus" = fertig.
 - **CI ist Pflicht-Gate vor jedem Merge** (nicht nur bei nativen Modulen) — lokale
   Grün-Läufe verdecken gitignore-, Build-Kontext- und Resolution-Fehler. Ablauf:
   Branch pushen → CI abwarten → erst bei grün mergen.
