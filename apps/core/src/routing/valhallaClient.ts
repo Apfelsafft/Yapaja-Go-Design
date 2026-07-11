@@ -76,6 +76,9 @@ export interface ValhallaClientLike {
  *  - 170/171/172 no/too-far/unreachable edges near a location -> POINT_UNREACHABLE (400)
  * Any other 4xx is treated as "no usable route" (fail towards NO_ROUTE, never
  * towards silently returning something).
+ *
+ * E03-T6: NO_ROUTE error gets an honest message about vehicle restrictions
+ * (e.g. height/weight making the road impassable).
  */
 function mapValhallaError(body: ValhallaErrorBody): RoutingError {
   const code = body.error_code;
@@ -88,7 +91,12 @@ function mapValhallaError(body: ValhallaErrorBody): RoutingError {
   if (lower.includes('unreachable') || lower.includes('no suitable edges')) {
     return new RoutingError(400, 'POINT_UNREACHABLE', message);
   }
-  return new RoutingError(400, 'NO_ROUTE', message);
+  // E03-T6: Honest message for NO_ROUTE (vehicle profile restrictions)
+  return new RoutingError(
+    400,
+    'NO_ROUTE',
+    'Keine für dein Fahrzeug befahrbare Route gefunden. Überprüfe Fahrzeugabmessungen (Höhe, Breite) und Vermeidungseinstellungen.',
+  );
 }
 
 export class ValhallaClient implements ValhallaClientLike {

@@ -11,6 +11,7 @@
 import type { LatLng, Position, Route, RouteRequest, VehicleProfile } from '@yapaja/shared';
 import { checkRoute } from '@yapaja/shared';
 import { RouteCache, type RouteCacheOptions } from './cache.js';
+import { checkCoverage, type InstalledRegionsProvider } from './coverageCheck.js';
 import { RoutingError } from './errors.js';
 import { mapValhallaResponse } from './mapResponse.js';
 import { buildValhallaRouteBody } from './profileMapping.js';
@@ -30,6 +31,7 @@ export interface RoutingServiceOptions {
   client: ValhallaClientLike;
   profileService: ProfileLookup;
   positionService: PositionLookup;
+  regionsProvider: InstalledRegionsProvider;
   logger?: RoutingLogger;
   cache?: RouteCacheOptions;
 }
@@ -59,6 +61,7 @@ export class RoutingService {
   private readonly client: ValhallaClientLike;
   private readonly profileService: ProfileLookup;
   private readonly positionService: PositionLookup;
+  private readonly regionsProvider: InstalledRegionsProvider;
   private readonly logger: RoutingLogger;
   private readonly cache: RouteCache;
 
@@ -66,6 +69,7 @@ export class RoutingService {
     this.client = opts.client;
     this.profileService = opts.profileService;
     this.positionService = opts.positionService;
+    this.regionsProvider = opts.regionsProvider;
     this.logger = opts.logger ?? noopLogger;
     this.cache = new RouteCache(opts.cache);
   }
@@ -77,6 +81,9 @@ export class RoutingService {
   /**
    * Compute route alternatives for a validated `RouteRequest`.
    * Throws {@link RoutingError} on every failure path.
+   *
+   * Coverage check (E03-T6) runs BEFORE Valhalla to avoid unnecessary roundtrips
+   * when the destination is outside all installed regions.
    */
   async createRoutes(request: RouteRequest): Promise<Route[]> {
     const profile = this.profileService.getById(request.profile_id);
@@ -87,6 +94,9 @@ export class RoutingService {
     const originLatLng = this.resolveOrigin(request.origin);
     const { destination, waypoints, alternatives, exclude_locations, exclude_polygons, avoid_overrides } =
       request;
+
+    // E03-T6: Coverage check before Valhalla call
+    await checkCoverage(originLatLng, destination, waypoints, this.regionsProvider);
 
     const body = buildValhallaRouteBody(originLatLng, destination, waypoints, profile, alternatives, {
       excludeLocations: exclude_locations,

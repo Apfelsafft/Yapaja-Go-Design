@@ -17,6 +17,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useUiStore } from '../../ui/store.js';
 import {
   deleteRegion,
   fetchCatalog,
@@ -80,6 +81,14 @@ export default function RegionsPanel(): React.ReactElement {
   const [loaded, setLoaded] = useState(false);
   const [downloads, setDownloads] = useState<Record<string, DownloadState>>({});
   const [errorByRegion, setErrorByRegion] = useState<Record<string, string>>({});
+
+  // E03-T6: Listen to UI store to open the panel from RoutingPanel
+  const regionsPanelOpen = useUiStore((state) => state.regionsPanel.isOpen);
+  useEffect(() => {
+    if (regionsPanelOpen) {
+      setIsOpen(true);
+    }
+  }, [regionsPanelOpen]);
 
   // Read inside the polling interval via a ref so the interval effect
   // doesn't need to restart every time a job's progress updates.
