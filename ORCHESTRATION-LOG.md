@@ -70,6 +70,26 @@ Nutzt vorinstallierten Chromium lokal (`PLAYWRIGHT_BROWSERS_PATH`), auf CI via
 Core-Prozesse. Folge-Web-Tasks (E01-T3/T4/T5/T6, E06-T2, E03-T3, E05-T2, E07-*)
 bauen darauf auf.
 
+## Machbarkeits-Checks
+
+- **Routing (E03/Valhalla) — ✅ BESTÄTIGT in CI (2026-07-11).** Wegwerf-Spike
+  (`spike/valhalla-feasibility`, Workflow `valhalla-spike.yml`) bewies in GitHub
+  Actions: Image `ghcr.io/gis-ops/docker-valhalla/valhalla:latest` zieht +
+  auto-baut den Liechtenstein-Graph aus `tile_urls`
+  (download.geofabrik.de) und beantwortet `/route` (costing `truck`)
+  Vaduz→Schaan = **3,17 km / 4,2 min**, echte LI-Straßen (Adlerkreisel/Herrengasse/
+  Schaan), has_toll/ferry=false, PLAUSIBEL. Gesamter Job **~25 s** (LI ist winzig).
+  **Konsequenzen für E03-T1:** (a) lokal in dieser Sandbox NICHT verifizierbar
+  (Docker-Daemon aus + geofabrik `000` geblockt) → CI ist alleinige Prüfinstanz,
+  ABER der Build ist so schnell, dass ein `valhalla-li-build`-Gate per-PR (nicht nur
+  nightly) tragbar ist. (b) **Image-Empfehlung: gis-ops-Auto-Build** statt des
+  offiziellen `ghcr.io/valhalla/valhalla` (Compose entsprechend anpassen = ADR-014-
+  Kandidat) — spart die manuellen valhalla_build_config/_tiles-Schritte. (c) truck-
+  Costing funktioniert out-of-the-box; Profil-Mapping (Höhe/Gewicht/avoid) ist E03-T2.
+  <!-- Cleanup offen: Remote-Branch spike/valhalla-feasibility ließ sich per git push
+       --delete nicht entfernen (Proxy trennt send-pack); Workflow ist inert (feuert nur
+       auf push zu diesem Branch). Bei Gelegenheit via GitHub-UI/API löschen. -->
+
 ## Gate-Status
 
 | Gate | Status | Nachweis |
