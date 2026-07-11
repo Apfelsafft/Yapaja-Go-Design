@@ -4,7 +4,7 @@ Persistenter Zustand der Orchestrierung (Master-Prompt: tasks/KICKOFF-PROMPT.md)
 Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 
 **Umgebung:** Node v22.22.2, pnpm 10.33.0, Docker 29.3.1 — alles verfügbar.
-**Basis-Branch:** main · **Aktuelle Welle:** 1b (Gate G1: nur noch E02-T5 offen)
+**Basis-Branch:** main · **Aktuelle Welle:** Phase 2 (Routing/Nav) — **Gate G1 BESTANDEN**
 
 > ℹ️ GitHub-Token-Ausfall (2026-07-09) inzwischen behoben (Connector reconnected von selbst).
 
@@ -26,7 +26,7 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 | E02-T3 | sonnet | 1 | ✅ MERGED | #25 | 453 Unit, CI grün. gpsd-TCP-Client + PlausibilityGuard. Alle 3 Positionsquellen fertig |
 | E01-T5 | sonnet | 1 | ✅ MERGED | #26 | 505 Unit + 33 E2E (Orchestrator-verifiziert). Region-Manager: Job-System, Resume via Range (W-17), Disk-Check 409 (W-18), Regionen-UI. CI grün |
 | E01-T6 | haiku | 1 | ✅ MERGED | #27 | 533 Unit + 42 E2E (Orchestrator-verifiziert). CI-Lauf #54 grün, Squash 68c772b. fps-Wächter + Auto-Degradation (Stufen 3D→POI→2D), Hysterese, Override. map-ready-reaktiv (E01-T3-Falle vermieden). **Epic E01 (Karten) komplett** (alle 6 Tasks) |
-| E02-T5 | sonnet | 1 (Subagent starb am Session-Limit nach Impl, Orchestrator verifizierte + fixte) | ⏳ PR #28 (CI läuft) | #28 | 550 Unit + 1 todo + 44 E2E (Orchestrator-verifiziert). DeadReckoningController → `pos/extrapolated` (Flag `extrapolated:true`), no-op-Provider bis E04-T6; `acquiring`-Zustand; Banner nach 3s. **Orchestrator-Fixes bei Verifikation:** (1) Blank-Page-Crash — Puck addSource/addLayer vor Style-Load (ADR-013); (2) Genauigkeitsring rendert nie (beforeId-Altlast seit E02-T2); (3) E2E serial (geteilter Simulator-Core). Subagent-Abgabe war UNVERIFIZIERT (Session-Limit vor Selbsttest) — hätte als Blank-Page live gecrasht |
+| E02-T5 | sonnet | 1 (Subagent starb am Session-Limit nach Impl, Orchestrator verifizierte + fixte) | ✅ MERGED | #28 | 550 Unit + 1 todo + 44 E2E. CI-Lauf #58 grün (Quality+Docker+E2E), Squash 7bd63ce. DeadReckoningController → `pos/extrapolated` (Flag `extrapolated:true`), no-op-Provider bis E04-T6; `acquiring`-Zustand; Banner nach 3s. **Orchestrator-Fixes bei Verifikation:** (1) Blank-Page-Crash — Puck addSource/addLayer vor Style-Load (ADR-013); (2) Genauigkeitsring rendert nie (beforeId-Altlast seit E02-T2); (3) E2E serial (geteilter Simulator-Core). Subagent-Abgabe war UNVERIFIZIERT (Session-Limit vor Selbsttest) — hätte als Blank-Page live gecrasht |
 <!-- offen für G1: E02-T5 GPS-Verlust-UX (letzter) -->
 <!-- TODO nachziehen: system/plausibility Bus-Topic (guard reasons → bus/UI), wenn ein Task bus/ berührt -->
 <!-- TODO nachziehen: satellites in GET /position/sources exponieren (E02-T3 hält sie intern) -->
@@ -40,8 +40,28 @@ schwellenwertbasiert (≤50 FDs bei 50 parallelen Requests) und potenziell flaky
 CI-Last. Bei mir 3× grün. Falls es in CI zuschlägt: Schwelle/Toleranz härten (separater
 Hygiene-Fix, nicht E02-T4).
 
-**Gate G1 offen** — braucht noch NUR:
-E02-T5 (GPS-Verlust-UX W-01). Dann G1-Prüfung.
+**Gate G1 BESTANDEN (2026-07-11)** — alle Kriterien nachgewiesen:
+- *Karte rendert offline*: E01-T1 (PMTiles via Range, keine Fremd-Hosts) +
+  E2E `offline-network`/`map-render`/„fully offline, no foreign requests".
+- *≥30 fps auf Referenz-HW*: fps-Wächter + Auto-Degradation (E01-T6, 3D→POI→2D,
+  Hysterese) garantiert spielbare fps auf schwacher iGPU; Mechanik per
+  `perf.spec` getestet. ⚠️ OFFEN: quantitatives „≥30 fps auf N100"-Budget-Gate
+  braucht die QEMU-N100-Perf-Probe in CI (E10/W-04) — Mechanik steht, Messung
+  nachrüsten.
+- *Position simuliert + echt, live*: gpsd (E02-T3) + Browser (E02-T2) + Simulator
+  (E02-T4) über PositionService/WS; Puck folgt live (E2E `position`), GPS-Verlust-UX
+  (E02-T5). 
+- *2D/3D + Rotation + Follow-Me*: E01-T3 (E2E `viewmode`: Modus-Zyklus, Kompass-FAB,
+  Bearing-Lock, „follow-me: manual pan pauses, re-center resumes").
+Gesamt: 550 Unit + 1 todo, 44 E2E grün auf main (7bd63ce).
+
+**Nächste Welle — Phase 2 (Routing & Navigation) Richtung Gate G2:**
+- E06-T2/T3 (Fahrzeugprofil-UI/Validierung, parallel startbar) · E03 Routing
+  (Valhalla-Costing — E03-T2/T5 sicherheitskritisch → opus) · E05 Suche/Favoriten
+  · E04 Navigation (Turn-by-Turn/Rerouting — E04-T1/T4 sicherheitskritisch → opus,
+  E04-T6 löst DeadReckoningProvider-no-op aus E02-T5 ein).
+- G2 = Golden-Route-Suite (Höhen-/Gewichts-Testfälle), Camper-Profil meidet
+  3,2-m-Unterführung Hamburg→München.
 
 **Harness-Notiz:** Playwright-E2E-Suite existiert ab jetzt (`apps/web/e2e/`, `pnpm e2e`).
 Nutzt vorinstallierten Chromium lokal (`PLAYWRIGHT_BROWSERS_PATH`), auf CI via
@@ -54,6 +74,7 @@ bauen darauf auf.
 | Gate | Status | Nachweis |
 |---|---|---|
 | G0 | ✅ BESTANDEN (2026-07-09) | CI-Lauf 29032752463 (Quality 86/86 + Docker-Health-Job); Gate-Kommentar in Issue #1 |
+| G1 | ✅ BESTANDEN (2026-07-11) | Offline-Karte + Live-Position (sim+echt) + 2D/3D/Rotation + Follow-Me; 550 Unit + 44 E2E grün, CI-Lauf #58 (7bd63ce). Offen: quantitatives N100-fps-Budget-Gate (E10-Perf-Probe) — Degradations-Mechanik steht |
 
 ## Entscheidungen / Klärungen (ADR-Nachträge & wiederkehrende Regeln)
 
