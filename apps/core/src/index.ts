@@ -15,6 +15,7 @@ import { SimulatorSource } from './position/simulator/index.js';
 import { simulatorPlugin } from './position/simulator/routes.js';
 import { GpsdSource } from './position/gpsd/index.js';
 import { mapPlugin } from './map/routes.js';
+import { routingPlugin } from './routing/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -122,6 +123,16 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
 
   // Register map/tiles plugin (E01-T1): additive, does not touch other plugins.
   await fastify.register(mapPlugin);
+
+  // Routing plugin (E03-T2, 🔴 W-08): maps the active vehicle profile onto
+  // Valhalla truck costing. Additive; the Valhalla base URL comes from
+  // VALHALLA_URL (defaults to http://localhost:8002 inside the client).
+  await fastify.register(routingPlugin, {
+    prefix: '/api/v1',
+    positionService,
+    profileService,
+    valhallaUrl: process.env.VALHALLA_URL,
+  });
 
   fastify.get<{ Reply: HealthResponse }>('/api/v1/health', async (_request, _reply) => {
     const dbHealth = await profileService.checkHealth();
