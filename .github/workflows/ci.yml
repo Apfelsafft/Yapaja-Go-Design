@@ -159,8 +159,8 @@ jobs:
           test ! -d data/valhalla/tiles.old || { echo "::error::tiles.old haette nach dem Swap aufgeraeumt sein sollen"; exit 1; }
           echo "Atomarer Swap OK: tiles.new -> tiles, kein Leftover."
 
-      - name: Show applied service_limits overrides (informational)
-        run: jq '.service_limits' data/valhalla/tiles/valhalla.json || echo "::warning::service_limits nicht wie erwartet lesbar (Merge evtl. uebersprungen, siehe build-tiles.sh-Logs oben) -- blockiert diesen Job nicht."
+      - name: Show effective service_limits (image defaults, informational)
+        run: jq '.service_limits' data/valhalla/tiles/valhalla.json || echo "::warning::service_limits nicht lesbar -- blockiert diesen Job nicht (service_limits-Tuning ist vertagt, siehe services/valhalla/README.md)."
 
       # Startet Valhalla exakt wie docker-compose.yml es im Normalbetrieb tut
       # (serve-only, kein Rebuild) -- beweist, dass die Compose-Konfiguration

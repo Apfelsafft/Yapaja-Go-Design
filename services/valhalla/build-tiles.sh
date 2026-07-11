@@ -81,9 +81,7 @@ fi
 PBF_ARG="$1"
 
 command -v docker >/dev/null 2>&1 || { echo "FEHLER: docker nicht im PATH gefunden." >&2; exit 1; }
-command -v jq >/dev/null 2>&1 || { echo "FEHLER: jq nicht im PATH gefunden (wird fuer die service_limits-Overrides benoetigt)." >&2; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo "FEHLER: curl nicht im PATH gefunden." >&2; exit 1; }
-[ -f "$OVERRIDE_FILE" ] || { echo "FEHLER: Override-Template nicht gefunden: $OVERRIDE_FILE" >&2; exit 1; }
 
 TILE_URLS=""
 LOCAL_PBF=""
@@ -165,25 +163,24 @@ done
 # sofort wieder frei ist (der Exit-Handler raeumt ohnehin nochmal auf).
 docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
-# --- service_limits-Overrides einmischen (non-invasiv) ----------------------
-# Wird auf einer best-effort-Basis versucht: schlaegt der Merge fehl (z. B.
-# weil das Image seine generierte valhalla.json an einem anderen Pfad ablegt
-# als hier angenommen -- siehe KLAERUNGSBEDARF in services/valhalla/README.md),
-# bricht das NICHT den Build ab. Die Tiles selbst sind vom Config-Merge
-# vollstaendig unabhaengig.
+# --- service_limits-Tuning: BEWUSST VERTAGT ---------------------------------
+# Die vom gis-ops-Image generierte valhalla.json wird UNVERAENDERT uebernommen
+# (im Spike als korrekt routend bewiesen). Ein frueher Versuch, die Mini-PC-
+# service_limits aus services/valhalla/valhalla.json per jq einzumischen, brach
+# Valhalla beim Start reproduzierbar ab ("No such node
+# (service_limits.<...>)"): Valhalla validiert die service_limits-Struktur
+# versionsabhaengig sehr streng (jede Costing-Mode braucht ihren vollstaendigen
+# Key-Satz, Skalare duerfen nicht als Objekte erscheinen), und ein
+# handgeschriebenes Partial-Override laesst sich hier nicht lokal gegen die
+# echte Ziel-Config verifizieren. services/valhalla/valhalla.json bleibt daher
+# als dokumentierte REFERENZ fuer eine spaetere Haertung liegen (dann gegen
+# einen echten Config-Dump der eingesetzten Valhalla-Version abgeglichen),
+# wird aber NICHT zur Laufzeit gemischt. Details: services/valhalla/README.md.
 CONFIG_FILE="$NEW_DIR/valhalla.json"
-if [ -f "$CONFIG_FILE" ]; then
-  echo "Wende service_limits-Overrides an: $OVERRIDE_FILE -> $CONFIG_FILE"
-  MERGED="$(mktemp)"
-  if jq -s '.[0] * .[1]' "$CONFIG_FILE" "$OVERRIDE_FILE" >"$MERGED" 2>/dev/null && jq empty "$MERGED" 2>/dev/null; then
-    mv "$MERGED" "$CONFIG_FILE"
-    echo "service_limits-Overrides angewendet."
-  else
-    echo "WARNUNG: jq-Merge der service_limits-Overrides fehlgeschlagen -- fahre mit der vom Image generierten Standard-Config fort. Tiles sind davon unberuehrt." >&2
-    rm -f "$MERGED"
-  fi
+if [ ! -f "$CONFIG_FILE" ]; then
+  echo "WARNUNG: $CONFIG_FILE nicht gefunden -- das Image hat keine valhalla.json erzeugt (unerwartet)." >&2
 else
-  echo "WARNUNG: $CONFIG_FILE nicht gefunden -- service_limits-Overrides wurden NICHT angewendet (siehe KLAERUNGSBEDARF in services/valhalla/README.md). Der Tiles-Build selbst ist davon unberuehrt." >&2
+  echo "Nutze die vom Image generierte $CONFIG_FILE unveraendert (service_limits-Tuning vertagt, siehe README)."
 fi
 
 # Sanity-Check: das neue Verzeichnis darf nicht leer sein.

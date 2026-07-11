@@ -54,8 +54,8 @@ Ablauf (Details/Kommentare im Skript):
    (temporäres Verzeichnis, eigener Host-Port `8099`, damit ein parallel
    laufender Live-Service auf Port 8002 ungestört weiterserviert — **kein
    Downtime während des Builds**).
-2. Mischt die `service_limits`-Overrides aus `services/valhalla/valhalla.json`
-   in die vom Image generierte Config (jq-Merge, siehe unten).
+2. Übernimmt die vom Image generierte `valhalla.json` **unverändert**
+   (`service_limits`-Tuning ist bewusst vertagt — siehe unten).
 3. Erst nach vollständigem Erfolg: atomarer Swap `tiles.new` → `tiles` per
    `mv` (rename(2) auf demselben Dateisystem — kein Zwischenzustand für
    Leser). Der alte Stand wird vorher nach `tiles.old` weggesichert und nach
@@ -70,45 +70,33 @@ Danach den laufenden Service die neuen Tiles einlesen lassen:
 docker compose restart valhalla
 ```
 
-## `valhalla.json`-Overrides (`service_limits` für schwache Mini-PC-Hardware)
+## `service_limits`-Tuning für Mini-PC-Hardware — VERTAGT
 
-Das gis-ops-Image generiert seine eigene `valhalla.json` beim Build (inkl.
-`tile_dir`, `mjolnir`-Pfade etc. — die dürfen nicht überschrieben werden, sonst
-findet der Service seine eigenen Tiles nicht mehr). `services/valhalla/valhalla.json`
-in diesem Verzeichnis ist deshalb **kein vollständiges Config-File**, sondern
-ein reines **Override-Fragment** nur für den `service_limits`-Block. `build-tiles.sh`
-mischt es per `jq -s '.[0] * .[1]'` (rekursiver Objekt-Merge) in die generierte
-Config, NACHDEM der Build bereits erfolgreich war — der Merge kann den
-Graph-Build selbst also nicht brechen.
+`services/valhalla/valhalla.json` in diesem Verzeichnis ist ein **Referenz-
+Fragment** für das geplante `service_limits`-Tuning (Budget-Tabelle in
+`docs/01-architecture.md`: Valhalla ≤ 1,5 GB RAM, 1–2 Kerne beim Routing). Es
+wird zur Laufzeit **derzeit NICHT angewendet** — `build-tiles.sh` übernimmt die
+vom gis-ops-Image generierte `valhalla.json` unverändert.
 
-Tuning-Ziel: Budget-Tabelle in `docs/01-architecture.md` (Valhalla ≤ 1,5 GB RAM,
-1–2 Kerne beim Routing). Deshalb in den Overrides:
+**Warum vertagt:** Ein erster Versuch, dieses Fragment per `jq`-Merge in die
+generierte Config einzumischen, brach Valhalla beim Start reproduzierbar ab
+(`terminate ... No such node (service_limits.<...>)`). Valhalla validiert die
+`service_limits`-Struktur **versionsabhängig sehr streng**: jede Costing-Mode
+braucht ihren vollständigen Key-Satz (u. a. `max_matrix_distance`,
+`max_matrix_locations`), und Skalar-Limits (`max_exclude_polygons`,
+`max_reachability`, …) dürfen nicht wie Costing-Objekte aussehen. Ein
+handgeschriebenes Partial-Override lässt sich in dieser Sandbox **nicht lokal**
+gegen die echte Ziel-Config verifizieren (Docker-Daemon aus, geofabrik
+blockiert), und jeder Rateversuch kostet eine volle CI-Runde. Die vom Image
+generierte Config ist dagegen nachweislich korrekt (Spike + CI: LKW-Route
+Vaduz→Schaan routet sauber).
 
-- **Matrix (`sources_to_targets`)**: `max_locations: 3` — faktisch auf ein
-  Minimum reduziert (kein Vollformat-"aus"-Schalter in Valhalla; Add-ons, die
-  großflächige Matrizen brauchen, sind damit bewusst ausgeschlossen).
-- **`isochrone`**: `max_contours: 2`, `max_locations: 1`, `max_distance: 25000` —
-  klein gehalten, nur für einzelne Reichweitenabfragen (z. B. Add-ons).
-- **`route` (`auto`/`truck`)**: `max_distance: 500000` m / `max_locations: 20` —
-  reicht für eine landesweite Wohnmobil-Tour mit mehreren Wegpunkten, begrenzt
-  aber Missbrauch/Ressourcenlast.
-
-### KLÄRUNGSBEDARF (dokumentiert statt riskant erraten)
-
-Der exakte Ablagepfad der vom gis-ops-Image generierten `valhalla.json`
-innerhalb von `/custom_files` ist **nicht lokal verifizierbar** (Docker-Daemon
-in dieser Sandbox aus, geofabrik netzseitig blockiert) — `build-tiles.sh` nimmt
-`$NEW_DIR/valhalla.json` an (Top-Level von `/custom_files`), basierend auf dem
-im Spike beobachteten Verhalten des Images. Trifft das nicht exakt zu, meldet
-das Skript **nur eine Warnung** und fährt mit der vom Image generierten
-Standard-Config fort (Tiles-Build ist davon komplett unabhängig — siehe
-Kommentare in `build-tiles.sh`, Abschnitt "service_limits-Overrides
-einmischen"). Der CI-Job `valhalla-li-build` zeigt den tatsächlich
-angewendeten `service_limits`-Block informativ an (nicht build-brechend), damit
-das beim ersten echten CI-Lauf sofort sichtbar ist. Sollte der Merge dort
-tatsächlich fehlschlagen: Pfad in `build-tiles.sh` (`CONFIG_FILE=...`) anhand
-der dann sichtbaren Container-Logs/Verzeichnisstruktur korrigieren — reiner
-Ein-Zeilen-Fix, kein Architekturproblem.
+**Nachzuholen (eigener Härtungs-Task):** Das Tuning gegen einen **echten
+Config-Dump** der eingesetzten Valhalla-Version abgleichen (im laufenden
+Container `cat /custom_files/valhalla.json`), nur die tatsächlich vorhandenen
+Leaf-Werte reduzieren und die vollständige Struktur je Costing-Mode erhalten.
+Bis dahin läuft Valhalla mit den (großzügigeren) Image-Defaults — funktional
+korrekt, nur nicht ressourcenoptimiert.
 
 ## Betrieb über docker-compose
 
