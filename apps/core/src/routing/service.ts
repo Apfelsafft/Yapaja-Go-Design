@@ -85,15 +85,14 @@ export class RoutingService {
     }
 
     const originLatLng = this.resolveOrigin(request.origin);
-    const { destination, waypoints, alternatives } = request;
+    const { destination, waypoints, alternatives, exclude_locations, exclude_polygons, avoid_overrides } =
+      request;
 
-    const body = buildValhallaRouteBody(
-      originLatLng,
-      destination,
-      waypoints,
-      profile,
-      alternatives,
-    );
+    const body = buildValhallaRouteBody(originLatLng, destination, waypoints, profile, alternatives, {
+      excludeLocations: exclude_locations,
+      excludePolygons: exclude_polygons,
+      avoidOverrides: avoid_overrides,
+    });
 
     const response = await this.client.route(body);
     const routes = mapValhallaResponse(response, originLatLng, destination);

@@ -52,6 +52,24 @@ export interface ValhallaTruckCostingOptions {
   use_tracks?: number;
 }
 
+/**
+ * A single point exclusion, Valhalla's `exclude_locations` entry (E03-T4).
+ * Same `{lat,lon}` order as `ValhallaLocation` -- NOT swapped, unlike
+ * `exclude_polygons` below.
+ */
+export interface ValhallaExcludeLocation {
+  lat: number;
+  lon: number;
+}
+
+/**
+ * A single exclude polygon ring: an array of `[lon, lat]` PAIRS (⚠️ note the
+ * swapped order vs. every other coordinate in this file -- Valhalla's
+ * `exclude_polygons` is the one field that takes GeoJSON-style `[lon, lat]`
+ * tuples, not `{lat, lon}` objects). See `../routing/profileMapping.ts`.
+ */
+export type ValhallaExcludePolygonRing = [number, number][];
+
 export interface ValhallaRouteRequestBody {
   locations: ValhallaLocation[];
   costing: 'truck';
@@ -59,6 +77,14 @@ export interface ValhallaRouteRequestBody {
   directions_options: { units: 'kilometers' };
   /** number of alternative routes requested (Valhalla naming: "alternates"). */
   alternates: number;
+  /** present & non-empty only when the request carries `exclude_locations`. */
+  exclude_locations?: ValhallaExcludeLocation[];
+  /**
+   * present & non-empty only when the request carries `exclude_polygons`.
+   * ⚠️ Each ring is `[lon, lat]` pairs, NOT `{lat, lon}` -- see
+   * {@link ValhallaExcludePolygonRing}.
+   */
+  exclude_polygons?: ValhallaExcludePolygonRing[];
 }
 
 // --- Inbound (response) --------------------------------------------------

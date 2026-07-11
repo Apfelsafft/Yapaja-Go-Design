@@ -154,6 +154,69 @@ describe('RoutingService profile-mapping intercept', () => {
   });
 });
 
+describe('RoutingService E03-T4 temporary avoidances (exclude_locations/exclude_polygons/avoid_overrides)', () => {
+  it('forwards RouteRequest.exclude_locations to Valhalla unchanged, and omits the field when absent', async () => {
+    const captured: Captured = {};
+    const svc = serviceWith(recordingFetch(captured, jsonResponse(OK_RESPONSE)), camper());
+
+    await svc.createRoutes(request({ exclude_locations: [{ lat: 0.05, lon: 0.05 }] }));
+
+    expect((captured.body as { exclude_locations?: unknown[] }).exclude_locations).toEqual([
+      { lat: 0.05, lon: 0.05 },
+    ]);
+  });
+
+  it('forwards RouteRequest.exclude_polygons to Valhalla with rings converted to [lon, lat] tuples', async () => {
+    const captured: Captured = {};
+    const svc = serviceWith(recordingFetch(captured, jsonResponse(OK_RESPONSE)), camper());
+
+    await svc.createRoutes(
+      request({
+        exclude_polygons: [
+          [
+            { lat: 0.01, lon: 0.02 },
+            { lat: 0.02, lon: 0.02 },
+            { lat: 0.02, lon: 0.03 },
+          ],
+        ],
+      }),
+    );
+
+    expect((captured.body as { exclude_polygons?: unknown }).exclude_polygons).toEqual([
+      [
+        [0.02, 0.01],
+        [0.02, 0.02],
+        [0.03, 0.02],
+      ],
+    ]);
+  });
+
+  it('omits exclude_locations/exclude_polygons from the Valhalla body when the request has neither', async () => {
+    const captured: Captured = {};
+    const svc = serviceWith(recordingFetch(captured, jsonResponse(OK_RESPONSE)), camper());
+
+    await svc.createRoutes(request());
+
+    expect('exclude_locations' in (captured.body as object)).toBe(false);
+    expect('exclude_polygons' in (captured.body as object)).toBe(false);
+  });
+
+  it('avoid_overrides overrides the active profile avoid flags for this request only', async () => {
+    const captured: Captured = {};
+    const svc = serviceWith(
+      recordingFetch(captured, jsonResponse(OK_RESPONSE)),
+      camper({ avoid: { motorway: false, toll: false, ferry: false, unpaved: false } }),
+    );
+
+    await svc.createRoutes(request({ avoid_overrides: { toll: true } }));
+
+    const truck = (captured.body as { costing_options: { truck: Record<string, unknown> } }).costing_options
+      .truck;
+    expect(truck.use_tolls).toBe(0);
+    expect('use_highways' in truck).toBe(false);
+  });
+});
+
 describe('RoutingService origin resolution', () => {
   it('uses the current device position as the first Valhalla location', async () => {
     const captured: Captured = {};

@@ -1,15 +1,22 @@
 /**
  * Destination Selector (E03-T3): a headless component that wires up map
  * gestures for routing:
- *  - Click OR long-press (MapLibre reports a touch long-press as a
- *    `contextmenu` event, same as a desktop right-click) on the map drops a
- *    destination pin and opens the bottom sheet (`RoutingPanel`).
+ *  - Click on the map drops a destination pin and opens the bottom sheet
+ *    (`RoutingPanel`).
  *  - Tapping/clicking an already-displayed alternative route (the gray,
  *    tappable lines from `RouteLayer`) makes it the active route instead of
  *    picking a new destination -- handled here (not in `RouteLayer`, which
  *    only renders) so there is exactly one place deciding what a map click
  *    means, with no risk of two independent listeners both firing for the
  *    same click.
+ *  - E03-T4: contextmenu (desktop right-click, and how MapLibre reports a
+ *    touch long-press) on a RENDERED ROUTE (main or alternative) means
+ *    "Diesen Abschnitt meiden": builds a small `exclude_polygon` around the
+ *    clicked point and reroutes with it added to the session's temporary
+ *    avoidances. A contextmenu/long-press that does NOT land on a rendered
+ *    route falls back to the same behavior as a plain click (drop a new
+ *    destination pin), preserving long-press-to-pick-destination for
+ *    touch users away from any route.
  *
  * Follows the same map-ready reactive pattern as `PositionPuck`/`RouteLayer`
  * (`useMapStore((s) => s.map)`, `[map]` deps) -- attaching event listeners
@@ -20,8 +27,16 @@
 import { useEffect } from 'react';
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { useMapStore } from '../state/mapStore.js';
+import { useProfileStore } from '../profiles/store.js';
 import { useRoutingStore } from './store.js';
-import { ALT_ROUTE_LAYER_ID } from './layerIds.js';
+import { buildAvoidSquare } from './exclusionGeometry.js';
+import {
+  ALT_ROUTE_LAYER_ID,
+  MAIN_ROUTE_CASING_LAYER_ID,
+  MAIN_ROUTE_ACCENT_LAYER_ID,
+} from './layerIds.js';
+
+const ROUTE_LAYER_IDS = [ALT_ROUTE_LAYER_ID, MAIN_ROUTE_CASING_LAYER_ID, MAIN_ROUTE_ACCENT_LAYER_ID];
 
 function pickRouteIdAtPoint(map: MapLibreMap, e: MapMouseEvent): string | null {
   if (!map.getLayer(ALT_ROUTE_LAYER_ID)) {
@@ -32,10 +47,19 @@ function pickRouteIdAtPoint(map: MapLibreMap, e: MapMouseEvent): string | null {
   return typeof routeId === 'string' ? routeId : null;
 }
 
+/** Whether `e` landed on ANY currently-rendered route line (main or alternative). */
+function isOnRenderedRoute(map: MapLibreMap, e: MapMouseEvent): boolean {
+  const layers = ROUTE_LAYER_IDS.filter((id) => map.getLayer(id));
+  if (layers.length === 0) return false;
+  return map.queryRenderedFeatures(e.point, { layers }).length > 0;
+}
+
 export default function DestinationSelector(): null {
   const map = useMapStore((state) => state.map);
   const setDestination = useRoutingStore((state) => state.setDestination);
   const selectRoute = useRoutingStore((state) => state.selectRoute);
+  const addSectionAvoidance = useRoutingStore((state) => state.addSectionAvoidance);
+  const activeProfile = useProfileStore((state) => state.activeProfile);
 
   useEffect(() => {
     if (!map) return;
@@ -54,14 +78,29 @@ export default function DestinationSelector(): null {
       setDestination({ lat: e.lngLat.lat, lon: e.lngLat.lng });
     };
 
+    const handleContextMenu = (e: MapMouseEvent): void => {
+      e.originalEvent?.preventDefault?.();
+
+      if (isOnRenderedRoute(map, e)) {
+        const center = { lat: e.lngLat.lat, lon: e.lngLat.lng };
+        addSectionAvoidance(buildAvoidSquare(center), {
+          origin: 'current',
+          profileId: activeProfile?.id,
+        });
+        return;
+      }
+
+      handlePick(e);
+    };
+
     map.on('click', handlePick);
-    map.on('contextmenu', handlePick);
+    map.on('contextmenu', handleContextMenu);
 
     return () => {
       map.off('click', handlePick);
-      map.off('contextmenu', handlePick);
+      map.off('contextmenu', handleContextMenu);
     };
-  }, [map, setDestination, selectRoute]);
+  }, [map, setDestination, selectRoute, addSectionAvoidance, activeProfile]);
 
   return null;
 }
