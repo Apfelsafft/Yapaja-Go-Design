@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import type { LatLng, Position, RouteRequest, VehicleProfile } from '@yapaja/shared';
 import { RoutingService, type PositionLookup, type ProfileLookup } from './service.js';
 import { RoutingError } from './errors.js';
+import { type InstalledRegionsProvider } from './coverageCheck.js';
 import { ValhallaClient, type FetchLike, type FetchResponseLike } from './valhallaClient.js';
 import { encodePolyline6 } from './polyline.js';
 import type { ValhallaRouteResponse, ValhallaTrip } from './types.js';
@@ -39,6 +40,29 @@ function profileService(profile: VehicleProfile | null): ProfileLookup {
 
 function positionService(pos: Position | null): PositionLookup {
   return { getLast: () => pos };
+}
+
+/**
+ * Mock regions provider that accepts all points (fail-open for existing tests).
+ * E03-T6: Tests for coverage checking use a custom provider; these tests
+ * pre-date the coverage check and should not be affected by it.
+ */
+function allAcceptingRegionsProvider(): InstalledRegionsProvider {
+  return {
+    async getInstalledRegions() {
+      // Return a world-spanning region so all points are accepted
+      return [
+        {
+          id: 'world',
+          name: 'World',
+          bounds: [-180, -90, 180, 90],
+        },
+      ];
+    },
+    async getCatalogRegions() {
+      return [];
+    },
+  };
 }
 
 const ORIGIN: LatLng = { lat: 0, lon: 0 };
@@ -95,6 +119,7 @@ function serviceWith(
     client,
     profileService: profileService(profile),
     positionService: positionService(pos),
+    regionsProvider: allAcceptingRegionsProvider(),
   });
 }
 

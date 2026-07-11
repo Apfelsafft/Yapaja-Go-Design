@@ -296,3 +296,116 @@ test('destination pin appears even before the route is requested, and "Abbrechen
 
   expect(pageErrors).toEqual([]);
 });
+
+test('OUT_OF_COVERAGE error (E03-T6): shows coverage message + "Regionen verwalten" button', async ({ page }) => {
+  const pageErrors = collectPageErrors(page);
+  const consoleErrors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      // Ignore network error logs from mocked 422 responses (expected)
+      const text = msg.text();
+      if (!text.includes('Failed to load resource')) {
+        consoleErrors.push(text);
+      }
+    }
+  });
+
+  // Mock the routing endpoint to return 422 OUT_OF_COVERAGE
+  await page.route('**/api/v1/routes', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 422,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: {
+          code: 'OUT_OF_COVERAGE',
+          message: 'destination liegt außerhalb der installierten Kartenabdeckung.',
+          missing_region_hint: 'Österreich (at)',
+        },
+      }),
+    });
+  });
+
+  await createAndActivateProfile(page);
+  await page.goto(CORE_BASE_URL + '/');
+  await waitForMapReady(page);
+
+  // Click on the map to set a destination
+  await clickMapCenter(page);
+  await expect(page.getByTestId('destination-sheet')).toBeVisible();
+
+  // Request the route
+  await page.getByTestId('route-here-button').click();
+
+  // Expect the OUT_OF_COVERAGE error message
+  await expect(page.getByTestId('route-error')).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId('route-error')).toContainText('Ziel liegt außerhalb der installierten Kartenabdeckung');
+
+  // Expect the "Regionen verwalten" button (not "Erneut versuchen")
+  await expect(page.getByTestId('route-open-regions-button')).toBeVisible();
+  await expect(page.getByTestId('route-retry-button')).not.toBeVisible();
+
+  expect(pageErrors).toEqual([]);
+  expect(consoleErrors).toEqual([]);
+});
+
+test('NO_ROUTE error (E03-T6): shows different message than OUT_OF_COVERAGE', async ({ page }) => {
+  const pageErrors = collectPageErrors(page);
+  const consoleErrors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      // Ignore network error logs from mocked 400 responses (expected)
+      const text = msg.text();
+      if (!text.includes('Failed to load resource')) {
+        consoleErrors.push(text);
+      }
+    }
+  });
+
+  // Mock the routing endpoint to return 400 NO_ROUTE with honest vehicle message
+  await page.route('**/api/v1/routes', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 400,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: {
+          code: 'NO_ROUTE',
+          message: 'Keine für dein Fahrzeug befahrbare Route gefunden. Überprüfe Fahrzeugabmessungen (Höhe, Breite) und Vermeidungseinstellungen.',
+        },
+      }),
+    });
+  });
+
+  await createAndActivateProfile(page);
+  await page.goto(CORE_BASE_URL + '/');
+  await waitForMapReady(page);
+
+  // Click on the map to set a destination
+  await clickMapCenter(page);
+  await expect(page.getByTestId('destination-sheet')).toBeVisible();
+
+  // Request the route
+  await page.getByTestId('route-here-button').click();
+
+  // Expect the NO_ROUTE error message (DIFFERENT from OUT_OF_COVERAGE)
+  await expect(page.getByTestId('route-error')).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId('route-error')).toContainText('Keine für dein Fahrzeug befahrbare Route gefunden');
+
+  // Expect the "Erneut versuchen" button (not "Regionen verwalten")
+  await expect(page.getByTestId('route-retry-button')).toBeVisible();
+  await expect(page.getByTestId('route-open-regions-button')).not.toBeVisible();
+
+  // Error message must NOT contain "Kartenabdeckung" (that's OUT_OF_COVERAGE only)
+  const errorText = await page.getByTestId('route-error').textContent();
+  expect(errorText).not.toContain('Kartenabdeckung');
+
+  expect(pageErrors).toEqual([]);
+  expect(consoleErrors).toEqual([]);
+});

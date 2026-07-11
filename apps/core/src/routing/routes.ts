@@ -13,7 +13,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { ApiError, RouteRequest } from '@yapaja/shared';
 import { validateRouteRequest } from '@yapaja/shared';
-import { isRoutingError } from './errors.js';
+import { isRoutingError, type RoutingError } from './errors.js';
+import { type InstalledRegionsProvider } from './coverageCheck.js';
 import {
   RoutingService,
   type PositionLookup,
@@ -26,6 +27,9 @@ import {
   type RoutingLogger,
   type ValhallaClientLike,
 } from './valhallaClient.js';
+import { listRegions } from '../map/regions.js';
+import { loadCatalog } from '../map/regions/catalog.js';
+import { resolveTilesDir } from '../map/paths.js';
 
 export interface RoutingRoutesOptions {
   positionService: PositionLookup;
@@ -36,12 +40,25 @@ export interface RoutingRoutesOptions {
   client?: ValhallaClientLike;
   /** Test seam: injectable HTTP transport for the built-in ValhallaClient. */
   fetchImpl?: FetchLike;
+  /** Test seam: injectable regions provider (E03-T6). */
+  regionsProvider?: InstalledRegionsProvider;
   logger?: RoutingLogger;
   cache?: RouteCacheOptions;
 }
 
-function errorResponse(code: string, message: string): ApiError {
-  return { error: { code, message } };
+function errorResponse(
+  code: string,
+  message: string,
+  extras?: { missing_region_hint?: string; details?: Record<string, unknown> },
+): ApiError {
+  return {
+    error: {
+      code,
+      message,
+      ...(extras?.missing_region_hint ? { missing_region_hint: extras.missing_region_hint } : {}),
+      ...(extras?.details ? { details: extras.details } : {}),
+    },
+  };
 }
 
 export const routingPlugin: FastifyPluginAsync<RoutingRoutesOptions> = async (fastify, opts) => {
@@ -59,10 +76,33 @@ export const routingPlugin: FastifyPluginAsync<RoutingRoutesOptions> = async (fa
       logger,
     });
 
+  // E03-T6: Create regions provider (can be injected for tests)
+  const regionsProvider: InstalledRegionsProvider =
+    opts.regionsProvider ?? {
+      async getInstalledRegions() {
+        const tilesDir = resolveTilesDir();
+        const regions = await listRegions(tilesDir, fastify.log);
+        return regions.map((r) => ({
+          id: r.region,
+          name: r.region, // Use region id as name (no better name available here)
+          bounds: r.bounds,
+        }));
+      },
+      async getCatalogRegions() {
+        const catalog = await loadCatalog();
+        return catalog.map((c) => ({
+          id: c.id,
+          name: c.name,
+          bounds: c.bounds,
+        }));
+      },
+    };
+
   const service = new RoutingService({
     client,
     profileService: opts.profileService,
     positionService: opts.positionService,
+    regionsProvider,
     logger,
     cache: opts.cache,
   });
@@ -86,7 +126,16 @@ export const routingPlugin: FastifyPluginAsync<RoutingRoutesOptions> = async (fa
         return reply.code(200).send({ data: routes });
       } catch (err) {
         if (isRoutingError(err)) {
-          return reply.code(err.httpStatus).send(errorResponse(err.code, err.message));
+          const typedErr = err as RoutingError & {
+            missing_region_hint?: string;
+            details?: Record<string, unknown>;
+          };
+          return reply.code(err.httpStatus).send(
+            errorResponse(err.code, err.message, {
+              missing_region_hint: typedErr.missing_region_hint,
+              details: typedErr.details,
+            }),
+          );
         }
         logger.error('Unexpected error computing routes', {
           reason: err instanceof Error ? err.message : String(err),

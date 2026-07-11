@@ -17,6 +17,7 @@ import React, { useCallback } from 'react';
 import type { RouteAvoidOverrides } from '@yapaja/shared';
 import { useMapStore } from '../state/mapStore.js';
 import { useProfileStore } from '../profiles/store.js';
+import { useUiStore } from '../ui/store.js';
 import { useRoutingStore, selectActiveRoute, selectAlternativeRoutes } from './store.js';
 import { formatDistance, formatDuration, formatEta } from './format.js';
 import { friendlyRoutingErrorMessage } from './errors.js';
@@ -68,6 +69,11 @@ export default function RoutingPanel(): React.ReactElement | null {
     },
     [removeAvoidance, activeProfile],
   );
+
+  const openRegionsPanel = useUiStore((state) => state.openRegionsPanel);
+  const handleOpenRegions = useCallback(() => {
+    openRegionsPanel();
+  }, [openRegionsPanel]);
 
   if (!destination || !map) {
     return null;
@@ -181,7 +187,15 @@ export default function RoutingPanel(): React.ReactElement | null {
           >
             {friendlyRoutingErrorMessage(error.code, error.message)}
           </p>
-          {activeProfile && (
+          {error.code === 'OUT_OF_COVERAGE' ? (
+            <button
+              onClick={handleOpenRegions}
+              className="w-full px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium"
+              data-testid="route-open-regions-button"
+            >
+              Regionen verwalten
+            </button>
+          ) : activeProfile ? (
             <button
               onClick={handleRequestRoute}
               className="w-full px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium"
@@ -189,7 +203,7 @@ export default function RoutingPanel(): React.ReactElement | null {
             >
               Erneut versuchen
             </button>
-          )}
+          ) : null}
         </div>
       )}
 
