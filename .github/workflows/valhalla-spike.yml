@@ -1,0 +1,80 @@
+name: Valhalla Feasibility Spike
+
+# Disposable spike (routing feasibility check before committing E03-T1).
+# Proves the two hard external dependencies work in GitHub Actions' open
+# network + Docker: (1) pull a Valhalla image, (2) download the Liechtenstein
+# OSM extract, (3) build tiles and answer a truck route Vaduz -> Schaan.
+# Neither of those is reachable from the dev sandbox (docker daemon off,
+# geofabrik blocked), so CI is the only place this can be verified.
+
+on:
+  push:
+    branches: [spike/valhalla-feasibility]
+  workflow_dispatch:
+
+jobs:
+  li-build-route:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Prepare custom_files dir
+        run: mkdir -p "$PWD/custom_files"
+
+      # gis-ops docker-valhalla auto-downloads the PBF(s) in `tile_urls` and
+      # builds the routing tiles on first start, then serves on :8002. Far
+      # simpler than driving the raw official image's build binaries by hand
+      # -- ideal for a feasibility spike (E03-T1 can decide the final image).
+      - name: Start Valhalla (auto-build LI tiles)
+        run: |
+          docker run -d --name valhalla -p 8002:8002 \
+            -v "$PWD/custom_files:/custom_files" \
+            -e tile_urls=https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf \
+            -e serve_tiles=True \
+            -e build_elevation=False \
+            -e build_admins=True \
+            -e build_time_zones=False \
+            -e force_rebuild=True \
+            ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+
+      - name: Wait for build + /status (poll up to ~20 min)
+        run: |
+          for i in $(seq 1 120); do
+            if curl -sf http://localhost:8002/status >/dev/null 2>&1; then
+              echo "Valhalla answering /status after ~$((i*10))s"
+              break
+            fi
+            if [ "$i" -eq 120 ]; then
+              echo "::error::Valhalla did not come up in time"
+              docker logs valhalla | tail -80
+              exit 1
+            fi
+            sleep 10
+          done
+
+      - name: Smoke - /status and truck route Vaduz -> Schaan
+        run: |
+          echo "== /status =="
+          curl -sf http://localhost:8002/status | tee status.json
+          echo
+          echo "== /route (truck) =="
+          curl -sf http://localhost:8002/route \
+            -H 'Content-Type: application/json' \
+            -d '{"locations":[{"lat":47.1410,"lon":9.5209},{"lat":47.1665,"lon":9.5093}],"costing":"truck","directions_options":{"units":"kilometers"}}' \
+            | tee route.json
+          echo
+          python3 - <<'PY'
+          import json
+          d = json.load(open("route.json"))
+          s = d["trip"]["summary"]
+          km, minutes = s["length"], s["time"] / 60
+          print(f"Route: {km:.2f} km, {minutes:.1f} min")
+          # docs/03 plausibility for Vaduz->Schaan: ~3-6 km, ~5-12 min.
+          # Loosened slightly for the spike so a routing detour doesn't flake it.
+          assert 2.0 <= km <= 8.0, f"distance {km} km out of plausible range"
+          assert 3.0 <= minutes <= 20.0, f"duration {minutes} min out of plausible range"
+          print("PLAUSIBLE ✓")
+          PY
+
+      - name: Dump Valhalla logs on failure
+        if: failure()
+        run: docker logs valhalla | tail -120
