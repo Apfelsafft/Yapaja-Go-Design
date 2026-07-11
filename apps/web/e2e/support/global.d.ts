@@ -8,11 +8,13 @@
 
 import type { mapController } from '../../src/state/mapStore';
 import type { usePositionStore } from '../../src/position/positionStore';
+import type { useRoutingStore } from '../../src/routing/store';
 
 declare global {
   interface Window {
     __yapajaMapController?: typeof mapController;
     __yapajaPositionStore?: typeof usePositionStore;
+    __yapajaRoutingStore?: typeof useRoutingStore;
   }
 }
 
