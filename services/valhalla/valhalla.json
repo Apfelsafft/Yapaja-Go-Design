@@ -14,11 +14,15 @@
     },
     "bicycle": {
       "max_distance": 200000.0,
-      "max_locations": 10
+      "max_locations": 10,
+      "max_matrix_distance": 200000.0,
+      "max_matrix_locations": 3
     },
     "pedestrian": {
       "max_distance": 50000.0,
       "max_locations": 10,
+      "max_matrix_distance": 50000.0,
+      "max_matrix_locations": 3,
       "max_transit_walking_distance": 10000,
       "min_transit_walking_distance": 1
     },
@@ -31,7 +35,9 @@
     },
     "sources_to_targets": {
       "max_distance": 50000.0,
-      "max_locations": 3
+      "max_locations": 3,
+      "max_matrix_distance": 50000.0,
+      "max_matrix_location_pairs": 9
     },
     "max_alternates": 1,
     "max_exclude_locations": 10,
