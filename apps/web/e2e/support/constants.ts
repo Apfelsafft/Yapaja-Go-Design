@@ -28,7 +28,15 @@ export const CORE_PORT = 4310;
 export const EMPTY_CORE_PORT = 4311;
 export const SUBPATH_PORT = 4312;
 export const SUBPATH_PREFIX = '/rv-demo';
+// Dedicated core for gps-loss.spec.ts (E02-T5): the GPS-simulator control
+// plane (`POST /api/v1/simulator/play`) force-pins the active position
+// source for the whole core process it targets. Sharing CORE_PORT with the
+// other specs (which run in parallel, `fullyParallel: true`, and assert on
+// the browser/gpsd sources being active) would make those tests flaky, so
+// this gets its own core + port instead.
+export const SIMULATOR_CORE_PORT = 4313;
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
 export const SUBPATH_BASE_URL = `http://127.0.0.1:${SUBPATH_PORT}`;
+export const SIMULATOR_CORE_BASE_URL = `http://127.0.0.1:${SIMULATOR_CORE_PORT}`;

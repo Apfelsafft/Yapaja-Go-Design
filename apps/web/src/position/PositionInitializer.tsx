@@ -14,6 +14,7 @@ import { browserSource, type BrowserSourceState } from './browserSource';
 import { positionWSManager } from './positionStore';
 import PositionPuck from './PositionPuck';
 import GeolocationHints from './GeolocationHints';
+import GpsLossBanner from './GpsLossBanner';
 
 /**
  * PositionInitializer mounts at the app root and manages all position-related setup
@@ -48,6 +49,9 @@ export default function PositionInitializer(): React.ReactElement {
 
       {/* Show hints for errors */}
       <GeolocationHints sourceState={browserState} />
+
+      {/* GPS-loss banner (W-01): shown independently of browser-source errors */}
+      <GpsLossBanner />
     </>
   );
 }

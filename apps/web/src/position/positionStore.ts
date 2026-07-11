@@ -20,9 +20,17 @@ interface PositionStoreState {
   isConnected: boolean;
   lastUpdateTime: number | null;
   error: string | null;
+  /** True while `position` came from `pos/extrapolated` (dead-reckoning, W-01) rather than a real `pos/update` fix. */
+  extrapolated: boolean;
+  /** Timestamp of the last REAL fix (`pos/update`) only -- never touched by `pos/extrapolated`. Drives GPS-loss detection (see gpsSignal.ts). */
+  lastRealUpdateTime: number | null;
 
   // Internal
   setPosition: (pos: Position | null) => void;
+  /** `pos/update`: a real fix. Resets `extrapolated` and bumps `lastRealUpdateTime`. */
+  setRealPosition: (pos: Position) => void;
+  /** `pos/extrapolated`: a dead-reckoned guess (W-01). Leaves `lastRealUpdateTime` untouched. */
+  setExtrapolatedPosition: (pos: Position) => void;
   setConnected: (connected: boolean) => void;
   setError: (error: string | null) => void;
   setLastUpdateTime: (time: number | null) => void;
@@ -33,12 +41,35 @@ export const usePositionStore = create<PositionStoreState>((set) => ({
   isConnected: false,
   lastUpdateTime: null,
   error: null,
+  extrapolated: false,
+  lastRealUpdateTime: null,
 
   setPosition: (pos) => set({ position: pos, lastUpdateTime: pos ? Date.now() : null }),
+  setRealPosition: (pos) =>
+    set({ position: pos, lastUpdateTime: Date.now(), extrapolated: false, lastRealUpdateTime: Date.now() }),
+  setExtrapolatedPosition: (pos) =>
+    set({ position: pos, lastUpdateTime: Date.now(), extrapolated: true }),
   setConnected: (connected) => set({ isConnected: connected }),
   setError: (error) => set({ error }),
   setLastUpdateTime: (time) => set({ lastUpdateTime: time }),
 }));
+
+declare global {
+  interface Window {
+    /**
+     * Debug/E2E hook (E02-T5), mirrors `window.__yapajaMapController`
+     * (apps/web/src/map/MapView.tsx): exposes the position store so
+     * Playwright can assert on `extrapolated`/`lastRealUpdateTime` directly
+     * (`getState()`) instead of inferring them from the DOM. Read-only in
+     * intent -- production code must still go through `usePositionStore`.
+     */
+    __yapajaPositionStore?: typeof usePositionStore;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.__yapajaPositionStore = usePositionStore;
+}
 
 /**
  * Hook for components to access current position
@@ -52,6 +83,14 @@ export function usePosition(): Position | null {
  */
 export function usePositionConnected(): boolean {
   return usePositionStore((state) => state.isConnected);
+}
+
+/**
+ * Hook for components to check whether the current position is a
+ * dead-reckoned extrapolation (`pos/extrapolated`) rather than a real fix.
+ */
+export function usePositionExtrapolated(): boolean {
+  return usePositionStore((state) => state.extrapolated);
 }
 
 interface WSMessage {
@@ -112,9 +151,14 @@ class PositionWSManager {
       this.ws.addEventListener('message', (event) => {
         try {
           const msg = JSON.parse(event.data) as WSMessage;
-          if (msg.topic.startsWith('pos/')) {
-            const position = msg.payload as Position;
-            usePositionStore.getState().setPosition(position);
+          // Branch by exact topic (W-01): `pos/update` is a real fix and
+          // drives GPS-loss detection via `lastRealUpdateTime`;
+          // `pos/extrapolated` is a dead-reckoned guess and must never reset
+          // that timestamp (see gpsSignal.ts).
+          if (msg.topic === 'pos/update') {
+            usePositionStore.getState().setRealPosition(msg.payload as Position);
+          } else if (msg.topic === 'pos/extrapolated') {
+            usePositionStore.getState().setExtrapolatedPosition(msg.payload as Position);
           }
         } catch (err) {
           console.warn('[PositionWSManager] Failed to parse message:', err);

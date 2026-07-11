@@ -1,23 +1,49 @@
 /**
- * Position Puck Component (E02-T2)
+ * Position Puck Component (E02-T2, extended E02-T5 for W-01 GPS-loss UX)
  *
  * Displays the current position on the map as a GeoJSON layer with:
- * - Blue dot at the center (or gray if accuracy > 100m or stale)
- * - Accuracy ring (radius = accuracy in meters)
+ * - Blue dot at the center (or gray if accuracy > 100m, stale, extrapolated,
+ *   or the GPS signal is lost)
+ * - Accuracy ring (radius = accuracy in meters), which grows over time while
+ *   the signal is lost to visualize increasing positional uncertainty
  * - Heading wedge when heading is available
  *
  * Implements W-01 and W-02 requirements:
  * - Gray puck if accuracy > 100m with "inaccurate" hint
  * - Gray puck if last fix is older than 5 seconds
+ * - Gray puck + growing accuracy ring while the GPS signal is lost (W-01)
+ * - Smooth (not hard-snapping) color/ring transitions on recovery, via
+ *   MapLibre paint-property transitions -- never a "teleport flicker"
  */
 
-import { useEffect, useRef } from 'react';
-import type { Map as MapLibreMap } from 'maplibre-gl';
-import { usePosition, usePositionConnected } from './positionStore';
-import { mapController } from '../state/mapStore';
+import { useEffect, useState } from 'react';
+import { usePosition, usePositionConnected, usePositionExtrapolated, usePositionStore } from './positionStore';
+import { useGpsSignalState } from './gpsSignal';
+import { useMapStore } from '../state/mapStore';
 
 const STALE_POSITION_MS = 5000; // 5 seconds
 const INACCURACY_THRESHOLD_M = 100; // 100 meters
+
+const LIVE_COLOR = '#3B82F6'; // blue
+const LOST_COLOR = '#9CA3AF'; // gray
+
+// MapLibre paint-property transitions (`<property>-transition`): color/ring
+// changes (e.g. gray -> blue on GPS recovery) animate instead of snapping,
+// so returning fixes never read as a hard "teleport flicker" (W-01 AC2).
+const PAINT_TRANSITION = { duration: 600, delay: 0 };
+
+// While the signal is lost, the accuracy ring grows over (wall-clock) time
+// to visualize increasing positional uncertainty (W-01: "wachsender
+// Genauigkeitsring"). This is a purely visual growth, independent of
+// DeadReckoningController's provider -- with the noop provider (default
+// until E04-T6 ships route-based extrapolation) the puck's *position* stays
+// frozen; only the ring grows.
+const RING_GROWTH_M_PER_S = 5;
+const MAX_DISPLAY_ACCURACY_M = 500;
+
+// Re-render tick so time-based state (staleness, ring growth) updates even
+// without a new position arriving.
+const RERENDER_TICK_MS = 1000;
 
 interface PuckState {
   sourceId: 'position-puck-source';
@@ -32,24 +58,34 @@ const PUCK_STATE: PuckState = {
 export default function PositionPuck(): null {
   const position = usePosition();
   const isConnected = usePositionConnected();
-  const mapRef = useRef<MapLibreMap | null>(null);
-  const staleCheckRef = useRef<number | null>(null);
+  const extrapolated = usePositionExtrapolated();
+  const signalState = useGpsSignalState();
+  const lastRealUpdateTime = usePositionStore((state) => state.lastRealUpdateTime);
+  // Reactive to the live Map instance (not `mapController.getMap()` with `[]`
+  // deps) -- the map may not be registered yet at mount time, see the
+  // E01-T3 map-ready trap called out in E02-T5's task notes.
+  const map = useMapStore((state) => state.map);
+  const [tick, setTick] = useState(0);
 
-  // Initialize or update the map reference
   useEffect(() => {
-    mapRef.current = mapController.getMap();
-    return () => {
-      mapRef.current = null;
-    };
+    const interval = window.setInterval(() => setTick((t) => t + 1), RERENDER_TICK_MS);
+    return () => window.clearInterval(interval);
   }, []);
 
-  // Setup GeoJSON source and layers on mount
+  // Setup GeoJSON source and layers once the map is ready.
   useEffect(() => {
-    const map = mapController.getMap();
     if (!map) return;
 
-    // Check if source already exists (guard against multiple inits)
-    if (!map.getSource(PUCK_STATE.sourceId)) {
+    // `MapView` registers the Map in the store right after `new
+    // maplibregl.Map(...)` -- i.e. BEFORE the style has finished loading. So
+    // this reactive `[map]` effect can fire while the style is still loading,
+    // and calling `addSource`/`addLayer` then throws "Style is not done
+    // loading" (which, uncaught in render-effect scope, crashes the whole
+    // React tree -> blank page). Guard on style readiness and defer to the
+    // map's `load` event when it isn't ready yet.
+    const setup = (): void => {
+      if (map.getSource(PUCK_STATE.sourceId)) return;
+
       map.addSource(PUCK_STATE.sourceId, {
         type: 'geojson',
         data: {
@@ -58,27 +94,30 @@ export default function PositionPuck(): null {
         },
       });
 
-      // Accuracy ring layer (semi-transparent circle)
-      map.addLayer(
-        {
-          id: `${PUCK_STATE.layerId}-ring`,
-          type: 'circle',
-          source: PUCK_STATE.sourceId,
-          filter: ['==', ['geometry-type'], 'Point'],
-          paint: {
-            'circle-radius': ['get', 'accuracy-pixels'],
-            'circle-color': ['get', 'ring-color'],
-            'circle-opacity': 0.2,
-            'circle-stroke-width': 1,
-            'circle-stroke-color': ['get', 'ring-color'],
-            'circle-stroke-opacity': 0.4,
-          },
+      // Accuracy ring layer (semi-transparent circle). Added FIRST (no
+      // beforeId) so it sits *below* the puck dot added next -- appending it
+      // with `beforeId: 'position-puck-layer'` (as before) silently failed
+      // with "Cannot add layer ... before non-existing layer" because the dot
+      // layer doesn't exist yet at this point, so the ring never rendered.
+      map.addLayer({
+        id: `${PUCK_STATE.layerId}-ring`,
+        type: 'circle',
+        source: PUCK_STATE.sourceId,
+        filter: ['==', ['geometry-type'], 'Point'],
+        paint: {
+          'circle-radius': ['get', 'accuracy-pixels'],
+          'circle-color': ['get', 'ring-color'],
+          'circle-opacity': 0.2,
+          'circle-stroke-width': 1,
+          'circle-stroke-color': ['get', 'ring-color'],
+          'circle-stroke-opacity': 0.4,
+          'circle-radius-transition': PAINT_TRANSITION,
+          'circle-color-transition': PAINT_TRANSITION,
+          'circle-stroke-color-transition': PAINT_TRANSITION,
         },
-        // Insert before any overlays
-        'position-puck-layer',
-      );
+      });
 
-      // Main puck circle (dot)
+      // Main puck circle (dot), on top of the ring.
       map.addLayer({
         id: PUCK_STATE.layerId,
         type: 'circle',
@@ -90,6 +129,7 @@ export default function PositionPuck(): null {
           'circle-stroke-width': 2,
           'circle-stroke-color': '#fff',
           'circle-stroke-opacity': 1,
+          'circle-color-transition': PAINT_TRANSITION,
         },
       });
 
@@ -103,28 +143,47 @@ export default function PositionPuck(): null {
           'line-color': ['get', 'puck-color'],
           'line-width': 2,
           'line-opacity': 0.7,
+          'line-color-transition': PAINT_TRANSITION,
         },
       });
-    }
-  }, []);
+    };
 
-  // Update puck geometry and appearance when position changes
+    if (map.isStyleLoaded()) {
+      setup();
+      return;
+    }
+    map.once('load', setup);
+    return () => {
+      map.off('load', setup);
+    };
+  }, [map]);
+
+  // Update puck geometry and appearance when position or signal state changes.
   useEffect(() => {
-    const map = mapController.getMap();
     if (!map || !position) return;
+    // `tick` is intentionally unused in the body -- it's a dependency-only
+    // trigger so this effect recomputes staleness/ring-growth on the
+    // periodic tick above, not just when `position` changes.
+    void tick;
 
     const now = Date.now();
     const isStale = now - (position.ts ? new Date(position.ts).getTime() : 0) > STALE_POSITION_MS;
     const isInaccurate = position.accuracy !== null && position.accuracy > INACCURACY_THRESHOLD_M;
-    const shouldBeGray = isStale || isInaccurate || !isConnected;
+    const isLost = signalState === 'lost' || extrapolated;
+    const shouldBeGray = isLost || isStale || isInaccurate || !isConnected;
 
-    const puckColor = shouldBeGray ? '#9CA3AF' : '#3B82F6'; // gray or blue
-    const ringColor = shouldBeGray ? '#9CA3AF' : '#3B82F6';
+    const puckColor = shouldBeGray ? LOST_COLOR : LIVE_COLOR;
+    const ringColor = shouldBeGray ? LOST_COLOR : LIVE_COLOR;
+
+    const elapsedLostS =
+      isLost && lastRealUpdateTime !== null ? Math.max(0, now - lastRealUpdateTime) / 1000 : 0;
+    const ringGrowthM = Math.min(MAX_DISPLAY_ACCURACY_M, elapsedLostS * RING_GROWTH_M_PER_S);
+    const displayAccuracyM = (position.accuracy ?? 0) + (isLost ? ringGrowthM : 0);
 
     // Convert accuracy (meters) to pixels at current zoom level
     const zoom = map.getZoom();
     const metersPerPixel = 40075000 / (256 * Math.pow(2, zoom)); // Rough approximation
-    const accuracyPixels = (position.accuracy || 0) / metersPerPixel;
+    const accuracyPixels = displayAccuracyM / metersPerPixel;
 
     // Build heading line (from center, 20px in heading direction)
     const headingGeometry = position.heading !== null
@@ -176,30 +235,12 @@ export default function PositionPuck(): null {
       });
     }
 
-    const source = map.getSource(PUCK_STATE.sourceId) as unknown as { setData(data: unknown): void };
-    if (source) {
-      source.setData({
-        type: 'FeatureCollection',
-        features,
-      });
-    }
-
-    // Update stale check
-    if (staleCheckRef.current) {
-      window.clearInterval(staleCheckRef.current);
-    }
-    staleCheckRef.current = window.setInterval(() => {
-      // Trigger re-render to update stale state
-      mapController.getMap(); // Dummy call to ensure map ref is current
-    }, 1000) as unknown as number;
-
-    return () => {
-      if (staleCheckRef.current) {
-        window.clearInterval(staleCheckRef.current);
-        staleCheckRef.current = null;
-      }
-    };
-  }, [position, isConnected]);
+    const source = map.getSource(PUCK_STATE.sourceId) as unknown as { setData(data: unknown): void } | undefined;
+    source?.setData({
+      type: 'FeatureCollection',
+      features,
+    });
+  }, [map, position, isConnected, extrapolated, signalState, lastRealUpdateTime, tick]);
 
   return null;
 }
@@ -222,7 +263,7 @@ function getHeadingEndpoint(
 
   // Calculate new position
   const dLat = Math.cos(headingRad) * (distanceMeters / R);
-  const dLon = Math.sin(headingRad) * (distanceMeters / R) / Math.cos(latRad);
+  const dLon = (Math.sin(headingRad) * (distanceMeters / R)) / Math.cos(latRad);
 
   const newLat = lat + (dLat * 180) / Math.PI;
   const newLon = lon + (dLon * 180) / Math.PI;

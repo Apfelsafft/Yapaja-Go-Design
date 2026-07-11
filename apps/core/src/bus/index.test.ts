@@ -115,6 +115,49 @@ describe('EventBus', () => {
     expect(good2).toHaveBeenCalledTimes(1);
   });
 
+  it('delivers a valid pos/extrapolated payload (extrapolated:true, real Position shape)', () => {
+    const bus = new EventBus({ isProduction: false });
+    const handler = vi.fn();
+    bus.subscribe('pos/extrapolated', handler);
+
+    const payload = { ...makePosition(), extrapolated: true as const };
+    bus.publish('pos/extrapolated', payload);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith(payload, 'pos/extrapolated');
+  });
+
+  it('a pos/* wildcard subscriber also receives pos/extrapolated', () => {
+    const bus = new EventBus({ isProduction: false });
+    const handler = vi.fn();
+    bus.subscribe('pos/*', handler);
+
+    bus.publish('pos/update', makePosition());
+    bus.publish('pos/extrapolated', { ...makePosition(), extrapolated: true });
+
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects a pos/extrapolated payload missing extrapolated:true', () => {
+    const bus = new EventBus({ isProduction: false });
+    const handler = vi.fn();
+    bus.subscribe('pos/extrapolated', handler);
+
+    expect(() => bus.publish('pos/extrapolated', makePosition())).toThrow();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('rejects a pos/extrapolated payload with fix:"none"', () => {
+    const bus = new EventBus({ isProduction: false });
+    const handler = vi.fn();
+    bus.subscribe('pos/extrapolated', handler);
+
+    expect(() =>
+      bus.publish('pos/extrapolated', { ...makePosition({ fix: 'none' }), extrapolated: true }),
+    ).toThrow();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it('unsubscribe stops further delivery and drops subscriberCount to 0', () => {
     const bus = new EventBus({ isProduction: false });
     const handler = vi.fn();
