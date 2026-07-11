@@ -165,6 +165,108 @@ describe('Validators', () => {
         }),
       ).toBe(false);
     });
+
+    // E03-T4: exclude_locations / exclude_polygons / avoid_overrides are all
+    // OPTIONAL -- a request without any of them (the exact shape used before
+    // this schema version) must still validate, proving backward
+    // compatibility of the MINOR schema bump.
+    describe('E03-T4 temporary-avoidance fields (backward-compatible, optional)', () => {
+      it('accepts a RouteRequest with none of the new fields (pre-E03-T4 shape)', () => {
+        expect(validateRouteRequest(validRequest)).toBe(true);
+      });
+
+      it('accepts a RouteRequest with exclude_locations', () => {
+        expect(
+          validateRouteRequest({
+            ...validRequest,
+            exclude_locations: [{ lat: 49.5, lon: 10.5 }],
+          }),
+        ).toBe(true);
+      });
+
+      it('accepts a RouteRequest with an empty exclude_locations array', () => {
+        expect(validateRouteRequest({ ...validRequest, exclude_locations: [] })).toBe(true);
+      });
+
+      it('accepts a RouteRequest with exclude_polygons (closed ring of >= 3 LatLng)', () => {
+        expect(
+          validateRouteRequest({
+            ...validRequest,
+            exclude_polygons: [
+              [
+                { lat: 49.0, lon: 10.0 },
+                { lat: 49.001, lon: 10.0 },
+                { lat: 49.001, lon: 10.001 },
+                { lat: 49.0, lon: 10.001 },
+                { lat: 49.0, lon: 10.0 },
+              ],
+            ],
+          }),
+        ).toBe(true);
+      });
+
+      it('rejects an exclude_polygons ring with fewer than 3 points', () => {
+        expect(
+          validateRouteRequest({
+            ...validRequest,
+            exclude_polygons: [[{ lat: 49.0, lon: 10.0 }, { lat: 49.001, lon: 10.0 }]],
+          }),
+        ).toBe(false);
+      });
+
+      it('accepts a RouteRequest with a partial avoid_overrides object', () => {
+        expect(
+          validateRouteRequest({
+            ...validRequest,
+            avoid_overrides: { toll: true },
+          }),
+        ).toBe(true);
+      });
+
+      it('accepts a RouteRequest with all avoid_overrides flags set', () => {
+        expect(
+          validateRouteRequest({
+            ...validRequest,
+            avoid_overrides: { motorway: true, toll: false, ferry: true, unpaved: false },
+          }),
+        ).toBe(true);
+      });
+
+      it('rejects avoid_overrides with an unknown flag (additionalProperties: false)', () => {
+        expect(
+          validateRouteRequest({
+            ...validRequest,
+            avoid_overrides: { motorway: true, bogus: true },
+          }),
+        ).toBe(false);
+      });
+
+      it('accepts a RouteRequest with all three new fields combined', () => {
+        expect(
+          validateRouteRequest({
+            ...validRequest,
+            exclude_locations: [{ lat: 49.5, lon: 10.5 }],
+            exclude_polygons: [
+              [
+                { lat: 49.0, lon: 10.0 },
+                { lat: 49.001, lon: 10.0 },
+                { lat: 49.001, lon: 10.001 },
+              ],
+            ],
+            avoid_overrides: { unpaved: true },
+          }),
+        ).toBe(true);
+      });
+
+      it('rejects a still-unrelated additional property (additionalProperties stays false overall)', () => {
+        expect(
+          validateRouteRequest({
+            ...validRequest,
+            bogus_field: 'nope',
+          }),
+        ).toBe(false);
+      });
+    });
   });
 
   describe('Route', () => {

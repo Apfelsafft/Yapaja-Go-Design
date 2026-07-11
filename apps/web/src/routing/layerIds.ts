@@ -14,3 +14,8 @@ export const MAIN_ROUTE_ACCENT_LAYER_ID = 'route-main-accent';
 export const MARKERS_SOURCE_ID = 'route-markers-source';
 export const START_MARKER_LAYER_ID = 'route-start-marker';
 export const DEST_MARKER_LAYER_ID = 'route-dest-marker';
+
+// E03-T4: temporary-avoidance polygons ("Diesen Abschnitt meiden").
+export const AVOID_POLYGONS_SOURCE_ID = 'route-avoid-polygons-source';
+export const AVOID_POLYGONS_FILL_LAYER_ID = 'route-avoid-polygons-fill';
+export const AVOID_POLYGONS_OUTLINE_LAYER_ID = 'route-avoid-polygons-outline';

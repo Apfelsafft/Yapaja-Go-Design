@@ -19,10 +19,18 @@
  * plain custom additions on top of the core style, so `styleSwitch.ts`
  * (E01-T4) automatically preserves them across a style switch -- no special
  * handling needed here, same as the position puck.
+ *
+ * E03-T4: also renders the session's temporary "Diesen Abschnitt meiden"
+ * avoidance polygons (semi-transparent red fill + outline) so the user can
+ * see what's currently excluded. Added in the SAME `setup()` (same
+ * style-load guard) as the route/marker sources -- a second, independent
+ * `addSource`/`addLayer` call site would reintroduce exactly the "Style is
+ * not done loading" trap this file's pattern exists to avoid.
  */
 
 import { useEffect } from 'react';
 import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { LatLng } from '@yapaja/shared';
 import { useMapStore } from '../state/mapStore.js';
 import { useRoutingStore, selectActiveRoute, selectAlternativeRoutes } from './store.js';
 import { decodePolyline6 } from './polyline.js';
@@ -35,6 +43,9 @@ import {
   MARKERS_SOURCE_ID,
   START_MARKER_LAYER_ID,
   DEST_MARKER_LAYER_ID,
+  AVOID_POLYGONS_SOURCE_ID,
+  AVOID_POLYGONS_FILL_LAYER_ID,
+  AVOID_POLYGONS_OUTLINE_LAYER_ID,
 } from './layerIds.js';
 
 const CASING_COLOR = '#1E3A8A'; // dark blue
@@ -42,6 +53,12 @@ const ACCENT_COLOR = '#3B82F6'; // bright blue
 const ALT_COLOR = '#9CA3AF'; // gray
 const START_COLOR = '#16A34A'; // green
 const DEST_COLOR = '#DC2626'; // red
+const AVOID_COLOR = '#DC2626'; // red, matches the destination pin for "danger/excluded"
+
+/** App-internal `{lat, lon}` ring -> GeoJSON `[lon, lat]` ring, closed. */
+function ringToGeoJson(ring: readonly LatLng[]): [number, number][] {
+  return ring.map((p): [number, number] => [p.lon, p.lat]);
+}
 
 const EMPTY_FEATURE_COLLECTION = { type: 'FeatureCollection' as const, features: [] };
 
@@ -58,6 +75,7 @@ export default function RouteLayer(): null {
   const routes = useRoutingStore((state) => state.routes);
   const activeRouteId = useRoutingStore((state) => state.activeRouteId);
   const destination = useRoutingStore((state) => state.destination);
+  const tempAvoidances = useRoutingStore((state) => state.tempAvoidances);
 
   // Setup: sources + layers, once the map (and its style) is ready.
   useEffect(() => {
@@ -69,6 +87,23 @@ export default function RouteLayer(): null {
       map.addSource(ALT_ROUTE_SOURCE_ID, { type: 'geojson', data: EMPTY_FEATURE_COLLECTION });
       map.addSource(MAIN_ROUTE_SOURCE_ID, { type: 'geojson', data: EMPTY_FEATURE_COLLECTION });
       map.addSource(MARKERS_SOURCE_ID, { type: 'geojson', data: EMPTY_FEATURE_COLLECTION });
+      map.addSource(AVOID_POLYGONS_SOURCE_ID, { type: 'geojson', data: EMPTY_FEATURE_COLLECTION });
+
+      // Avoidance polygons at the very bottom, so routes/markers always
+      // render on top of them.
+      map.addLayer({
+        id: AVOID_POLYGONS_FILL_LAYER_ID,
+        type: 'fill',
+        source: AVOID_POLYGONS_SOURCE_ID,
+        paint: { 'fill-color': AVOID_COLOR, 'fill-opacity': 0.2 },
+      });
+      map.addLayer({
+        id: AVOID_POLYGONS_OUTLINE_LAYER_ID,
+        type: 'line',
+        source: AVOID_POLYGONS_SOURCE_ID,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': AVOID_COLOR, 'line-width': 2, 'line-dasharray': [2, 1] },
+      });
 
       // Alternatives first (bottom), so the active route + pins render on
       // top of them.
@@ -139,10 +174,20 @@ export default function RouteLayer(): null {
     const mainSource = getGeoJSONSource(map, MAIN_ROUTE_SOURCE_ID);
     const altSource = getGeoJSONSource(map, ALT_ROUTE_SOURCE_ID);
     const markersSource = getGeoJSONSource(map, MARKERS_SOURCE_ID);
+    const avoidSource = getGeoJSONSource(map, AVOID_POLYGONS_SOURCE_ID);
     // Sources not added yet (style still loading) -- the setup effect's
     // `load` handler will run this same data once it finishes; nothing to
     // do here yet.
-    if (!mainSource || !altSource || !markersSource) return;
+    if (!mainSource || !altSource || !markersSource || !avoidSource) return;
+
+    avoidSource.setData({
+      type: 'FeatureCollection',
+      features: tempAvoidances.map((avoidance) => ({
+        type: 'Feature',
+        properties: { avoidanceId: avoidance.id },
+        geometry: { type: 'Polygon', coordinates: [ringToGeoJson(avoidance.polygon)] },
+      })),
+    });
 
     const activeRoute = selectActiveRoute({ routes, activeRouteId });
     const alternativeRoutes = selectAlternativeRoutes({ routes, activeRouteId });
@@ -188,7 +233,7 @@ export default function RouteLayer(): null {
       });
     }
     markersSource.setData({ type: 'FeatureCollection', features: markerFeatures });
-  }, [map, routes, activeRouteId, destination]);
+  }, [map, routes, activeRouteId, destination, tempAvoidances]);
 
   // Auto-fit the camera to the union of all currently displayed routes
   // (active + alternatives) whenever the route set changes.

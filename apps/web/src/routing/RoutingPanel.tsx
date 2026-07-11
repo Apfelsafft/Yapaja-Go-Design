@@ -3,15 +3,32 @@
  * and -- once a route is computed -- the route summary (distance/duration/
  * ETA/profile), warnings banner (W-08), and the (E04-gated, disabled)
  * "Navigation starten" button.
+ *
+ * E03-T4: also hosts the 4 avoid-chip toggles (per-route profile overrides,
+ * never persisted to the profile) and the manageable list of temporary
+ * "Diesen Abschnitt meiden" avoidances (session-scoped, added via
+ * `DestinationSelector`'s contextmenu handler on a rendered route). Both are
+ * shown as soon as a destination is picked (not gated on `status ===
+ * 'success'`) so they stay usable/removable even while loading or after an
+ * error -- e.g. removing an avoidance that caused a `NO_ROUTES` error.
  */
 
 import React, { useCallback } from 'react';
+import type { RouteAvoidOverrides } from '@yapaja/shared';
 import { useMapStore } from '../state/mapStore.js';
 import { useProfileStore } from '../profiles/store.js';
 import { useRoutingStore, selectActiveRoute, selectAlternativeRoutes } from './store.js';
 import { formatDistance, formatDuration, formatEta } from './format.js';
 import { friendlyRoutingErrorMessage } from './errors.js';
 import { NAV_ENABLED } from './featureFlags.js';
+
+const AVOID_FLAGS = ['motorway', 'toll', 'ferry', 'unpaved'] as const;
+const AVOID_LABELS: Record<(typeof AVOID_FLAGS)[number], string> = {
+  motorway: 'Autobahn meiden',
+  toll: 'Maut meiden',
+  ferry: 'Fähre meiden',
+  unpaved: 'Unbefestigt meiden',
+};
 
 export default function RoutingPanel(): React.ReactElement | null {
   const destination = useRoutingStore((state) => state.destination);
@@ -21,6 +38,10 @@ export default function RoutingPanel(): React.ReactElement | null {
   const error = useRoutingStore((state) => state.error);
   const requestRoute = useRoutingStore((state) => state.requestRoute);
   const clear = useRoutingStore((state) => state.clear);
+  const avoidOverrides = useRoutingStore((state) => state.avoidOverrides);
+  const toggleAvoidOverride = useRoutingStore((state) => state.toggleAvoidOverride);
+  const tempAvoidances = useRoutingStore((state) => state.tempAvoidances);
+  const removeAvoidance = useRoutingStore((state) => state.removeAvoidance);
   const activeProfile = useProfileStore((state) => state.activeProfile);
   // Needed only to know whether the map is ready; the map instance itself
   // isn't touched here (RouteLayer/DestinationSelector own all map access).
@@ -29,6 +50,24 @@ export default function RoutingPanel(): React.ReactElement | null {
   const handleRequestRoute = useCallback(() => {
     void requestRoute({ origin: 'current', profileId: activeProfile?.id });
   }, [requestRoute, activeProfile]);
+
+  const handleToggleAvoid = useCallback(
+    (flag: keyof RouteAvoidOverrides) => {
+      if (!activeProfile) return;
+      toggleAvoidOverride(flag, activeProfile.avoid[flag], {
+        origin: 'current',
+        profileId: activeProfile.id,
+      });
+    },
+    [toggleAvoidOverride, activeProfile],
+  );
+
+  const handleRemoveAvoidance = useCallback(
+    (id: string) => {
+      removeAvoidance(id, { origin: 'current', profileId: activeProfile?.id });
+    },
+    [removeAvoidance, activeProfile],
+  );
 
   if (!destination || !map) {
     return null;
@@ -57,6 +96,57 @@ export default function RoutingPanel(): React.ReactElement | null {
           Abbrechen
         </button>
       </div>
+
+      {activeProfile && (
+        <div className="flex flex-wrap gap-2" data-testid="avoid-chip-group">
+          {AVOID_FLAGS.map((flag) => {
+            const effective = avoidOverrides[flag] ?? activeProfile.avoid[flag];
+            return (
+              <button
+                key={flag}
+                type="button"
+                onClick={() => handleToggleAvoid(flag)}
+                aria-pressed={effective}
+                data-testid={`avoid-chip-${flag}`}
+                className={
+                  effective
+                    ? 'px-3 py-1 rounded-full text-xs font-medium bg-blue-600 text-white border border-blue-600'
+                    : 'px-3 py-1 rounded-full text-xs font-medium bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600'
+                }
+              >
+                {AVOID_LABELS[flag]}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {tempAvoidances.length > 0 && (
+        <div className="space-y-1" data-testid="avoid-list">
+          <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            Temporäre Vermeidungen
+          </h3>
+          <ul className="space-y-1">
+            {tempAvoidances.map((avoidance, i) => (
+              <li
+                key={avoidance.id}
+                className="flex items-center justify-between text-xs bg-slate-100 dark:bg-slate-700 rounded-md px-2 py-1"
+                data-testid={`avoid-list-item-${avoidance.id}`}
+              >
+                <span>Abschnitt {i + 1} gemieden</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveAvoidance(avoidance.id)}
+                  className="text-red-600 dark:text-red-400 hover:underline"
+                  data-testid={`avoid-list-remove-${avoidance.id}`}
+                >
+                  Entfernen
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {status === 'idle' && (
         <>

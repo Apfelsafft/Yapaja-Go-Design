@@ -41,6 +41,17 @@ export interface VehicleProfile {
   is_active: boolean;
 }
 
+// Per-request override of a VehicleProfile's `avoid` flags. Every field is
+// optional: an absent field falls back to the active profile's own flag.
+// Applies to THIS request only -- the profile itself is never modified or
+// persisted (E03-T4).
+export interface RouteAvoidOverrides {
+  motorway?: boolean;
+  toll?: boolean;
+  ferry?: boolean;
+  unpaved?: boolean;
+}
+
 // Request to calculate route(s)
 export interface RouteRequest {
   origin: LatLng | 'current';
@@ -48,6 +59,14 @@ export interface RouteRequest {
   waypoints: LatLng[]; // max 25
   profile_id: string;
   alternatives: number; // 0–3
+  // E03-T4: optional temporary avoidances, independent of the vehicle
+  // profile and not persisted anywhere -- scoped to this single request.
+  /** Point locations to exclude from routing. */
+  exclude_locations?: LatLng[];
+  /** Polygons (closed rings of LatLng) to exclude from routing. */
+  exclude_polygons?: LatLng[][];
+  /** Per-request avoid-flag overrides, see {@link RouteAvoidOverrides}. */
+  avoid_overrides?: RouteAvoidOverrides;
 }
 
 // TODO(spec): minimal definition, refine when first consumed

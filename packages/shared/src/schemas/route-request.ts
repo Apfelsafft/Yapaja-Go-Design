@@ -35,6 +35,38 @@ export const routeRequestSchema = {
       maximum: 3,
       description: 'Number of alternative routes to return (0–3)',
     },
+    // E03-T4: optional, backward-compatible temporary-avoidance fields.
+    // Absent in a request => identical behavior to before this schema
+    // version (no exclusions, no avoid overrides).
+    exclude_locations: {
+      type: 'array',
+      items: latLngSchema,
+      description:
+        'Optional point locations to exclude from routing for this request only (temporary avoidance, not persisted)',
+    },
+    exclude_polygons: {
+      type: 'array',
+      items: {
+        type: 'array',
+        items: latLngSchema,
+        minItems: 3,
+        description: 'Closed ring of LatLng points forming a polygon to exclude',
+      },
+      description:
+        'Optional polygons to exclude from routing for this request only (temporary avoidance, not persisted)',
+    },
+    avoid_overrides: {
+      type: 'object',
+      properties: {
+        motorway: { type: 'boolean' },
+        toll: { type: 'boolean' },
+        ferry: { type: 'boolean' },
+        unpaved: { type: 'boolean' },
+      },
+      additionalProperties: false,
+      description:
+        'Optional per-request overrides of the active profile\'s avoid flags; the profile itself is not modified',
+    },
   },
   required: ['origin', 'destination', 'waypoints', 'profile_id', 'alternatives'],
   additionalProperties: false,

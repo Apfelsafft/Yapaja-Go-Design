@@ -4,6 +4,7 @@ export type {
   Position,
   VehicleProfile,
   RouteRequest,
+  RouteAvoidOverrides,
   RouteLeg,
   SpeedSegment,
   LaneInfo,

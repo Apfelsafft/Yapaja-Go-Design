@@ -28,17 +28,39 @@
  * is mapped deliberately, not guessed; if a stricter guarantee is required the
  * data pipeline must additionally tag unpaved edges. Flagged for the
  * orchestrator to confirm.
+ *
+ * E03-T4 additions (temporary avoidances, all optional/backward-compatible):
+ *  - `RouteRequest.exclude_locations` -> Valhalla `exclude_locations`, same
+ *    `{lat, lon}` order, set only when non-empty.
+ *  - `RouteRequest.exclude_polygons`  -> Valhalla `exclude_polygons`, rings
+ *    converted from `{lat, lon}` to `[lon, lat]` tuples (⚠️ swapped order --
+ *    see `toExcludePolygons` below), set only when non-empty.
+ *  - `RouteRequest.avoid_overrides`   -> overrides the profile's `avoid.*`
+ *    flags for THIS request only when building `costing_options.truck`; the
+ *    profile itself is never mutated.
  */
 
-import type { LatLng, RouteRequest, VehicleProfile } from '@yapaja/shared';
+import type { LatLng, RouteAvoidOverrides, RouteRequest, VehicleProfile } from '@yapaja/shared';
 import type {
+  ValhallaExcludeLocation,
+  ValhallaExcludePolygonRing,
   ValhallaLocation,
   ValhallaRouteRequestBody,
   ValhallaTruckCostingOptions,
 } from './types.js';
 
-/** Map a profile to `costing_options.truck`. Pure + exhaustively tested. */
-export function buildTruckCostingOptions(profile: VehicleProfile): ValhallaTruckCostingOptions {
+/**
+ * Map a profile to `costing_options.truck`. Pure + exhaustively tested.
+ *
+ * `avoidOverrides` (E03-T4) is the optional per-REQUEST override coming from
+ * `RouteRequest.avoid_overrides` (e.g. the web UI's avoid chips): when a flag
+ * is present it wins over the profile's own `avoid.*` flag for this call
+ * ONLY -- the `profile` object itself is never mutated or persisted.
+ */
+export function buildTruckCostingOptions(
+  profile: VehicleProfile,
+  avoidOverrides?: RouteAvoidOverrides,
+): ValhallaTruckCostingOptions {
   const truck: ValhallaTruckCostingOptions = {
     height: profile.height_m,
     width: profile.width_m,
@@ -48,14 +70,46 @@ export function buildTruckCostingOptions(profile: VehicleProfile): ValhallaTruck
     top_speed: profile.avg_speed_kmh,
   };
 
-  // Only lower a `use_*` flag when the profile explicitly avoids that class;
+  // Effective avoid = per-request override (if present) else the profile's
+  // own flag. Only lower a `use_*` flag when the EFFECTIVE flag is true;
   // otherwise leave the key absent so Valhalla keeps its default of 1.
-  if (profile.avoid.motorway) truck.use_highways = 0;
-  if (profile.avoid.toll) truck.use_tolls = 0;
-  if (profile.avoid.ferry) truck.use_ferry = 0;
-  if (profile.avoid.unpaved) truck.use_tracks = 0;
+  const effectiveMotorway = avoidOverrides?.motorway ?? profile.avoid.motorway;
+  const effectiveToll = avoidOverrides?.toll ?? profile.avoid.toll;
+  const effectiveFerry = avoidOverrides?.ferry ?? profile.avoid.ferry;
+  const effectiveUnpaved = avoidOverrides?.unpaved ?? profile.avoid.unpaved;
+
+  if (effectiveMotorway) truck.use_highways = 0;
+  if (effectiveToll) truck.use_tolls = 0;
+  if (effectiveFerry) truck.use_ferry = 0;
+  if (effectiveUnpaved) truck.use_tracks = 0;
 
   return truck;
+}
+
+/** E03-T4: maps `RouteRequest.exclude_locations` 1:1 -- Valhalla's
+ *  `exclude_locations` uses the SAME `{lat, lon}` order as everywhere else,
+ *  unlike `exclude_polygons` below. */
+function toExcludeLocations(points: readonly LatLng[]): ValhallaExcludeLocation[] {
+  return points.map((p) => ({ lat: p.lat, lon: p.lon }));
+}
+
+/**
+ * E03-T4: maps `RouteRequest.exclude_polygons` (rings of `{lat, lon}`,
+ * app-internal order) to Valhalla's `exclude_polygons` (rings of `[lon, lat]`
+ * TUPLES). ⚠️ This is the one field in the whole request body where Valhalla
+ * expects GeoJSON-style `[lon, lat]` instead of `{lat, lon}` -- getting this
+ * backwards silently excludes the wrong part of the planet, so the order is
+ * asserted explicitly by the profile-mapping intercept test.
+ */
+function toExcludePolygons(polygons: readonly LatLng[][]): ValhallaExcludePolygonRing[] {
+  return polygons.map((ring) => ring.map((p): [number, number] => [p.lon, p.lat]));
+}
+
+/** E03-T4: optional per-request temporary avoidances, see `RouteRequest`. */
+export interface RouteExcludeOptions {
+  excludeLocations?: readonly LatLng[];
+  excludePolygons?: readonly LatLng[][];
+  avoidOverrides?: RouteAvoidOverrides;
 }
 
 /**
@@ -63,6 +117,11 @@ export function buildTruckCostingOptions(profile: VehicleProfile): ValhallaTruck
  *
  * @param originLatLng resolved origin (caller has already turned `'current'`
  *   into a concrete LatLng, or rejected the request with NO_POSITION).
+ * @param excludeOptions E03-T4: optional temporary avoidances
+ *   (`exclude_locations`/`exclude_polygons`/`avoid_overrides`) from the
+ *   `RouteRequest`. Each Valhalla field is only SET when the corresponding
+ *   input array is non-empty; an absent/empty input leaves the key off the
+ *   body entirely (matches the `use_*` "omit when unused" convention above).
  */
 export function buildValhallaRouteBody(
   originLatLng: LatLng,
@@ -70,6 +129,7 @@ export function buildValhallaRouteBody(
   waypoints: readonly LatLng[],
   profile: VehicleProfile,
   alternatives: number,
+  excludeOptions?: RouteExcludeOptions,
 ): ValhallaRouteRequestBody {
   const toLocation = (p: LatLng): ValhallaLocation => ({
     lat: p.lat,
@@ -83,13 +143,25 @@ export function buildValhallaRouteBody(
     toLocation(destination),
   ];
 
-  return {
+  const body: ValhallaRouteRequestBody = {
     locations,
     costing: 'truck',
-    costing_options: { truck: buildTruckCostingOptions(profile) },
+    costing_options: { truck: buildTruckCostingOptions(profile, excludeOptions?.avoidOverrides) },
     directions_options: { units: 'kilometers' },
     alternates: alternatives,
   };
+
+  const excludeLocations = excludeOptions?.excludeLocations;
+  if (excludeLocations && excludeLocations.length > 0) {
+    body.exclude_locations = toExcludeLocations(excludeLocations);
+  }
+
+  const excludePolygons = excludeOptions?.excludePolygons;
+  if (excludePolygons && excludePolygons.length > 0) {
+    body.exclude_polygons = toExcludePolygons(excludePolygons);
+  }
+
+  return body;
 }
 
 /** Narrow structural view of a `RouteRequest` the builder needs. */
