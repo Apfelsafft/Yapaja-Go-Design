@@ -1,0 +1,54 @@
+{
+  "service_limits": {
+    "auto": {
+      "max_distance": 500000.0,
+      "max_locations": 20,
+      "max_matrix_distance": 400000.0,
+      "max_matrix_locations": 3
+    },
+    "truck": {
+      "max_distance": 500000.0,
+      "max_locations": 20,
+      "max_matrix_distance": 400000.0,
+      "max_matrix_locations": 3
+    },
+    "bicycle": {
+      "max_distance": 200000.0,
+      "max_locations": 10
+    },
+    "pedestrian": {
+      "max_distance": 50000.0,
+      "max_locations": 10,
+      "max_transit_walking_distance": 10000,
+      "min_transit_walking_distance": 1
+    },
+    "isochrone": {
+      "max_contours": 2,
+      "max_time_contour": 60,
+      "max_distance_contour": 50,
+      "max_distance": 25000.0,
+      "max_locations": 1
+    },
+    "sources_to_targets": {
+      "max_distance": 50000.0,
+      "max_locations": 3
+    },
+    "max_alternates": 1,
+    "max_exclude_locations": 10,
+    "max_exclude_polygons": 5,
+    "max_avoid_locations": 10,
+    "max_avoid_polygons": 5,
+    "max_reachability": 50,
+    "max_radius": 100,
+    "trace": {
+      "max_alternates": 1,
+      "max_distance": 50000.0,
+      "max_gps_accuracy": 100.0,
+      "max_search_radius": 100,
+      "max_shape": 4000
+    },
+    "status": {
+      "allow_verbose": false
+    }
+  }
+}
