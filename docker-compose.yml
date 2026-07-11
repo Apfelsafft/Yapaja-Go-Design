@@ -17,13 +17,39 @@ services:
       - PORT=8080
 
   valhalla:
-    image: ghcr.io/valhalla/valhalla:latest
+    # ADR-014: gis-ops Auto-Build-Image statt des offiziellen
+    # ghcr.io/valhalla/valhalla — baut/serviert den Graphen ueber simple
+    # env-Var-Flags statt manueller valhalla_build_config/_tiles-Schritte.
+    # Details + Begruendung: services/valhalla/README.md.
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
     container_name: yapaja-valhalla
     volumes:
-      - ./data/valhalla:/custom_files
+      # /custom_files zeigt direkt auf den LIVE-Tiles-Pfad, den
+      # services/valhalla/build-tiles.sh per atomischem Swap befuellt
+      # (W-17). NICHT auf ./data/valhalla mounten — tiles.new/tiles.old
+      # sind Build-Staging-Verzeichnisse, die der Container nie sehen soll.
+      - ./data/valhalla/tiles:/custom_files
     ports:
       - "8002:8002"
-    restart: unless-stopped
+    environment:
+      # Normalbetrieb: nur bereits gebaute Tiles servieren, KEIN
+      # automatischer Download/Rebuild beim Start. Der Graph-(Neu-)Bau
+      # laeuft separat und kontrolliert ueber build-tiles.sh (atomischer
+      # Swap, kein Downtime waehrend des Builds).
+      - tile_urls=
+      - serve_tiles=True
+      - force_rebuild=False
+      - build_elevation=False
+      - build_admins=True
+      - build_time_zones=False
+    # Solange noch keine Tiles gebaut wurden (./data/valhalla/tiles ist
+    # leer bzw. existiert noch nicht), kann der Container-Prozess ohne
+    # Graphen nicht sinnvoll hochkommen. `on-failure:3` begrenzt die
+    # Neustartversuche (kein endloses Crash-Loopen) statt `unless-stopped`,
+    # das den Container bei fehlenden Tiles unbegrenzt neu starten wuerde.
+    # Nach `services/valhalla/build-tiles.sh <pbf>` (siehe README) einfach
+    # `docker compose up -d valhalla` erneut ausfuehren.
+    restart: on-failure:3
     profiles:
       - routing
 
