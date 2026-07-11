@@ -7,10 +7,12 @@
  */
 
 import type { mapController } from '../../src/state/mapStore';
+import type { usePositionStore } from '../../src/position/positionStore';
 
 declare global {
   interface Window {
     __yapajaMapController?: typeof mapController;
+    __yapajaPositionStore?: typeof usePositionStore;
   }
 }
 

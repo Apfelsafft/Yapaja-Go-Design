@@ -16,6 +16,7 @@ import { validatePosition, type Position } from '@yapaja/shared';
  */
 export type KnownBusTopic =
   | 'pos/update'
+  | 'pos/extrapolated'
   | 'event/gps_lost'
   | 'event/gps_source_changed'
   | 'system/health';
@@ -35,9 +36,20 @@ export interface SystemHealthPayload {
   services: Record<string, string>;
 }
 
+/**
+ * Dead-reckoned position (E02-T5, W-01): same shape as `Position` plus a
+ * discriminating `extrapolated: true`. Kept structural (no import from
+ * `../position/`) to avoid a bus <-> position module cycle -- the position
+ * module imports `EventBus`/`BusPayloadMap` from here, not the other way
+ * round. `../position/deadReckoning.ts` re-exports the identical alias as
+ * `ExtrapolatedPosition`.
+ */
+export type ExtrapolatedPositionPayload = Position & { extrapolated: true };
+
 /** Maps each known topic to its payload type. */
 export interface BusPayloadMap {
   'pos/update': Position;
+  'pos/extrapolated': ExtrapolatedPositionPayload;
   'event/gps_lost': GpsLostPayload;
   'event/gps_source_changed': GpsSourceChangedPayload;
   'system/health': SystemHealthPayload;
@@ -73,6 +85,17 @@ type TopicValidator = (data: unknown) => boolean;
 const topicValidators: Partial<Record<KnownBusTopic, TopicValidator>> = {
   'pos/update': (data: unknown): boolean =>
     validatePosition(data) && (data as Position).fix !== 'none',
+  // `positionSchema` (packages/shared/src/schemas/position.ts) declares
+  // `additionalProperties: false`, so `validatePosition()` rejects any
+  // object carrying the extra `extrapolated` field outright. The
+  // `extrapolated` key is stripped before delegating to `validatePosition`
+  // so the rest of the Position shape is still checked; `packages/shared`
+  // itself is out of scope for this task and stays unchanged.
+  'pos/extrapolated': (data: unknown): boolean => {
+    if (!data || typeof data !== 'object') return false;
+    const { extrapolated, ...base } = data as Record<string, unknown>;
+    return extrapolated === true && validatePosition(base) && (base as Position).fix !== 'none';
+  },
 };
 
 interface Subscription {

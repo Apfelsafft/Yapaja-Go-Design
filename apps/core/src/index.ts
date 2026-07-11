@@ -10,6 +10,7 @@ import { EventBus } from './bus/index.js';
 import { busWebsocketPlugin } from './bus/ws.js';
 import { PositionService } from './position/service.js';
 import { positionPlugin } from './position/routes.js';
+import { DeadReckoningController, noopDeadReckoningProvider } from './position/deadReckoning.js';
 import { SimulatorSource } from './position/simulator/index.js';
 import { simulatorPlugin } from './position/simulator/routes.js';
 import { GpsdSource } from './position/gpsd/index.js';
@@ -94,7 +95,18 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     gpsdSource.start();
   }
 
+  // Dead-reckoning (E02-T5, W-01): extrapolates the puck for up to 30s after
+  // GPS is lost. `noopDeadReckoningProvider` is a placeholder until E04-T6
+  // ships the real route-based math -- until then this never actually
+  // publishes `pos/extrapolated`, so the puck just freezes.
+  const deadReckoningController = new DeadReckoningController({
+    bus: eventBus,
+    service: positionService,
+    provider: noopDeadReckoningProvider,
+  });
+
   fastify.addHook('onClose', async () => {
+    deadReckoningController.dispose();
     simulatorSource.dispose();
     gpsdSource.dispose();
     positionService.dispose();
