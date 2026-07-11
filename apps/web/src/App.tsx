@@ -2,6 +2,7 @@ import React from 'react';
 import MapView from './map/MapView';
 import PositionInitializer from './position/PositionInitializer';
 import ProfilesPanel from './profiles/ProfilesPanel.js';
+import RoutingInitializer from './routing/RoutingInitializer.js';
 
 export default function App(): React.ReactElement {
   return (
@@ -14,6 +15,7 @@ export default function App(): React.ReactElement {
         </h1>
       </header>
       <ProfilesPanel />
+      <RoutingInitializer />
     </div>
   );
 }
