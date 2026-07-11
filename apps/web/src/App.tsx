@@ -1,6 +1,7 @@
 import React from 'react';
 import MapView from './map/MapView';
 import PositionInitializer from './position/PositionInitializer';
+import ProfilesPanel from './profiles/ProfilesPanel.js';
 
 export default function App(): React.ReactElement {
   return (
@@ -12,6 +13,7 @@ export default function App(): React.ReactElement {
           Yapaja Go
         </h1>
       </header>
+      <ProfilesPanel />
     </div>
   );
 }
