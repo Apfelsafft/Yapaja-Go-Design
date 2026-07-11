@@ -4,7 +4,7 @@ Persistenter Zustand der Orchestrierung (Master-Prompt: tasks/KICKOFF-PROMPT.md)
 Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 
 **Umgebung:** Node v22.22.2, pnpm 10.33.0, Docker 29.3.1 — alles verfügbar.
-**Basis-Branch:** main · **Aktuelle Welle:** Phase 2 (Routing/Nav) — **Gate G1 BESTANDEN**
+**Basis-Branch:** main · **Aktuelle Welle:** Phase 2 (Routing/Nav) — G1 bestanden; E03 T1–T4+T6 gemergt. **Offen Richtung G2:** E03-T5 (Golden-Routes 🔴, Daten-Zuschnitt beim User erfragt), E05 (Suche/Favoriten), E04 (Navigation)
 
 > ℹ️ GitHub-Token-Ausfall (2026-07-09) inzwischen behoben (Connector reconnected von selbst).
 
@@ -26,7 +26,7 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 | E02-T3 | sonnet | 1 | ✅ MERGED | #25 | 453 Unit, CI grün. gpsd-TCP-Client + PlausibilityGuard. Alle 3 Positionsquellen fertig |
 | E01-T5 | sonnet | 1 | ✅ MERGED | #26 | 505 Unit + 33 E2E (Orchestrator-verifiziert). Region-Manager: Job-System, Resume via Range (W-17), Disk-Check 409 (W-18), Regionen-UI. CI grün |
 | E01-T6 | haiku | 1 | ✅ MERGED | #27 | 533 Unit + 42 E2E (Orchestrator-verifiziert). CI-Lauf #54 grün, Squash 68c772b. fps-Wächter + Auto-Degradation (Stufen 3D→POI→2D), Hysterese, Override. map-ready-reaktiv (E01-T3-Falle vermieden). **Epic E01 (Karten) komplett** (alle 6 Tasks) |
-| E03-T6 | haiku | 1 | ⏳ dispatched | — | Regions-Grenzen-Handling (W-09): Coverage-Check vor Routing gegen echte Region-Bounds (E01-T5), 422 OUT_OF_COVERAGE + Hint/Link; NO_ROUTE ehrlich unterscheiden. Core+Web |
+| E03-T6 | haiku | 1 | ✅ MERGED | #34 | Regions-Grenzen-Handling (W-09). CI-Lauf #86 grün, Squash 1678c7e. 717 Unit + 53 E2E (Orchestrator-verifiziert). Coverage-Check (echte Katalog-Bounds, Point-in-BBox) VOR Valhalla → 422 OUT_OF_COVERAGE + missing_region_hint + „Regionen verwalten"-Link (neuer ui/store); NO_ROUTE ehrlich unterschieden. Kleine Scope-Erweiterung (RegionsPanel Open-Signal) additiv+ok |
 | E03-T4 | sonnet | 1 | ✅ MERGED | #33 | Vermeidungen. CI-Lauf #83 grün, Squash ec1a733. 702 Unit + 51 E2E (Orchestrator-verifiziert). shared RouteRequest +exclude_locations/polygons/avoid_overrides (v0.1.0), Core-Valhalla-Mapping (lon/lat korrekt), Web avoid-Chips + „Abschnitt meiden"→Reroute + Vermeidungsliste (rote Polygone, Map-ADR befolgt) |
 | E03-T3 | sonnet | 1 | ✅ MERGED | #32 | Routen-Anzeige/Zielwahl Frontend. CI-Lauf #79 grün, Squash 8e2a816. 661 Unit + 49 E2E (Orchestrator-verifiziert, keine Blank-Page). Klick/Long-Press→Ziel, Haupt-/Alt-Routen (Casing, antippbar), Auto-Fit, Summary+W-08-Banner, polyline6-Decoder, Nav-Button hinter NAV_ENABLED. Map-ADRs (013/E01-T3) sauber befolgt; E2E mockt /routes. **Routing jetzt end-to-end nutzbar** |
 | E03-T2 | opus | 1 | ✅ MERGED | #31 | 🔴 RoutingService. CI-Lauf #75 grün, Squash 0510fa8. 71 Routing-Tests, Gesamt 639 + 1 skip (Live) + 1 todo. Profil→Truck-Costing 1:1 (Abfang-Test je Feld), Manöver-Tabelle gegen kanonisches Valhalla-Enum (U-Turns eigen), checkRoute-Riegel (unplausibel→500 fail-closed, „zu lang">4×Luftlinie→Warning). Opus-Abgabe korrigierte selbst falsche Enum-Zahlen aus meinem Spec. Orchestrator-verifiziert (Mapping + Manöver-Tabelle gelesen) |
