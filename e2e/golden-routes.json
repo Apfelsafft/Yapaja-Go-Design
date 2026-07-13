@@ -1,0 +1,389 @@
+{
+  "$schema_doc": "Golden-Route fixtures (E03-T5, docs/07-testing-qa.md §3b). Types: 'distance' (route length within ±tolerance), 'restriction' (🔴 safety: small profile MUST enter forbidden_bbox, large/heavy profile MUST NOT — both directions asserted; a maxweight case is a restriction with restriction.kind='maxweight'), 'monotonic' (route duration non-decreasing over an ascending profile list — catches swapped profile→costing mappings), 'no_route' (expects NO_ROUTE). Region selection: the runner (e2e/golden-routes/runner.test.ts) runs only cases whose 'region' equals GOLDEN_REGION (li|de, default li). LI cases run in the per-PR CI job 'golden-routes-li' (Merge-Blocker, retry:0, bail:1 — a failed safety/monotonic case HARD-ABORTS with no retry/tolerance). DE cases run only in the nightly 'golden-routes-de' job. 'unverified':true marks a case whose expected value or restriction has NOT been confirmed against a live Valhalla run in this sandbox (Overpass/geofabrik are egress-blocked here); the nightly DE job runs continue-on-error so unverified failures are logged, not blocking. Freeze the value / confirm the OSM way-id and flip unverified:false after the first green nightly run. SAFETY-DEMO (acceptance #3): LI has no map-restriction data, so the restriction assertion cannot be exercised on LI — see the note on the DE restriction cases for exactly how a swapped height/weight mapping makes them fail; on LI the monotonic case is the closest available guard (a swapped top_speed/avg_speed mapping that made a larger vehicle route faster would break its non-decreasing assertion).",
+  "cases": [
+    {
+      "id": "li-dist-vaduz-schaan",
+      "type": "distance",
+      "region": "li",
+      "provenance": "OBSERVED: the existing CI job 'valhalla-li-build' routes Vaduz->Schaan (truck) and measured 3.17 km / 4.2 min on the LI graph (see .github/workflows/ci.yml smoke step + spike result). expected=3170 m, ±10%.",
+      "origin": { "lat": 47.141, "lon": 9.5209 },
+      "destination": { "lat": 47.1665, "lon": 9.5093 },
+      "profile": {
+        "name": "Camper 3.0m",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.5,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "expected_distance_m": 3170,
+      "tolerance": 0.1
+    },
+    {
+      "id": "li-dist-schaan-nendeln",
+      "type": "distance",
+      "region": "li",
+      "provenance": "ESTIMATE: great-circle 3141 m x 1.12 (anchored to the observed Vaduz->Schaan road/straight ratio of 1.068 on the same direct Rhine-valley Landstrasse) = 3520 m, ±10% -> band [3168..3872] covers road ratios ~[1.01..1.23]. Direct valley segment (Schaan -> Nendeln), low detour expected. FREEZE from first green CI run.",
+      "origin": { "lat": 47.1665, "lon": 9.5093 },
+      "destination": { "lat": 47.1897, "lon": 9.533 },
+      "profile": {
+        "name": "Camper 3.0m",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.5,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "expected_distance_m": 3520,
+      "tolerance": 0.1
+    },
+    {
+      "id": "li-dist-vaduz-triesen",
+      "type": "distance",
+      "region": "li",
+      "provenance": "ESTIMATE: great-circle 3815 m x 1.12 (same anchoring as li-dist-schaan-nendeln) = 4270 m, ±10% -> band [3843..4697]. Direct valley segment (Vaduz -> Triesen) along the Landstrasse. FREEZE from first green CI run.",
+      "origin": { "lat": 47.141, "lon": 9.5209 },
+      "destination": { "lat": 47.1069, "lon": 9.5265 },
+      "profile": {
+        "name": "Camper 3.0m",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.5,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "expected_distance_m": 4270,
+      "tolerance": 0.1
+    },
+    {
+      "id": "li-monotonic-vaduz-schaan",
+      "type": "monotonic",
+      "region": "li",
+      "provenance": "OD pair proven routable by the existing CI smoke (Vaduz->Schaan). Profiles ascend in size/weight and DESCEND in avg_speed_kmh (Kastenwagen 110 -> Camper 95 -> Alkoven 7.5t 80), so route duration must be non-decreasing even on identical geometry (top_speed caps ETA). Guards against a swapped profile->costing mapping. Runs on LI in the per-PR gate.",
+      "origin": { "lat": 47.141, "lon": 9.5209 },
+      "destination": { "lat": 47.1665, "lon": 9.5093 },
+      "profiles": [
+        {
+          "name": "Kastenwagen 2.6m",
+          "height_m": 2.6,
+          "width_m": 2.0,
+          "length_m": 5.4,
+          "weight_t": 2.8,
+          "avg_speed_kmh": 110,
+          "hazmat": false,
+          "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+        },
+        {
+          "name": "Camper 3.0m",
+          "height_m": 3.0,
+          "width_m": 2.2,
+          "length_m": 6.5,
+          "weight_t": 3.5,
+          "avg_speed_kmh": 95,
+          "hazmat": false,
+          "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+        },
+        {
+          "name": "Alkoven 7.5t",
+          "height_m": 3.3,
+          "width_m": 2.35,
+          "length_m": 7.4,
+          "weight_t": 7.49,
+          "avg_speed_kmh": 80,
+          "hazmat": false,
+          "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+        }
+      ]
+    },
+
+    {
+      "id": "de-dist-berlin-potsdam",
+      "type": "distance",
+      "region": "de",
+      "unverified": true,
+      "todo": "Freeze expected_distance_m from the first green nightly DE Valhalla run.",
+      "provenance": "SEED ESTIMATE: ~35 km road distance Berlin-Mitte -> Potsdam center (public map estimate). Not yet routed against the DE graph.",
+      "origin": { "lat": 52.52, "lon": 13.405 },
+      "destination": { "lat": 52.3906, "lon": 13.0645 },
+      "profile": {
+        "name": "Camper 3.0m",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.5,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "expected_distance_m": 35000,
+      "tolerance": 0.1
+    },
+    {
+      "id": "de-dist-muenchen-augsburg",
+      "type": "distance",
+      "region": "de",
+      "unverified": true,
+      "todo": "Freeze expected_distance_m from the first green nightly DE Valhalla run.",
+      "provenance": "SEED ESTIMATE: ~68 km road distance Munich -> Augsburg (public map estimate). Not yet routed against the DE graph.",
+      "origin": { "lat": 48.1351, "lon": 11.582 },
+      "destination": { "lat": 48.3705, "lon": 10.8978 },
+      "profile": {
+        "name": "Camper 3.0m",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.5,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "expected_distance_m": 68000,
+      "tolerance": 0.1
+    },
+    {
+      "id": "de-dist-koeln-bonn",
+      "type": "distance",
+      "region": "de",
+      "unverified": true,
+      "todo": "Freeze expected_distance_m from the first green nightly DE Valhalla run.",
+      "provenance": "SEED ESTIMATE: ~30 km road distance Cologne -> Bonn (public map estimate). Not yet routed against the DE graph.",
+      "origin": { "lat": 50.9375, "lon": 6.9603 },
+      "destination": { "lat": 50.7374, "lon": 7.0982 },
+      "profile": {
+        "name": "Camper 3.0m",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.5,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "expected_distance_m": 30000,
+      "tolerance": 0.1
+    },
+    {
+      "id": "de-dist-hamburg-luebeck",
+      "type": "distance",
+      "region": "de",
+      "unverified": true,
+      "todo": "Freeze expected_distance_m from the first green nightly DE Valhalla run.",
+      "provenance": "SEED ESTIMATE: ~66 km road distance Hamburg -> Luebeck (public map estimate). Not yet routed against the DE graph.",
+      "origin": { "lat": 53.5511, "lon": 9.9937 },
+      "destination": { "lat": 53.8655, "lon": 10.6866 },
+      "profile": {
+        "name": "Camper 3.0m",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.5,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "expected_distance_m": 66000,
+      "tolerance": 0.1
+    },
+    {
+      "id": "de-dist-stuttgart-karlsruhe",
+      "type": "distance",
+      "region": "de",
+      "unverified": true,
+      "todo": "Freeze expected_distance_m from the first green nightly DE Valhalla run.",
+      "provenance": "SEED ESTIMATE: ~82 km road distance Stuttgart -> Karlsruhe (public map estimate). Not yet routed against the DE graph.",
+      "origin": { "lat": 48.7758, "lon": 9.1829 },
+      "destination": { "lat": 49.0069, "lon": 8.4037 },
+      "profile": {
+        "name": "Camper 3.0m",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.5,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "expected_distance_m": 82000,
+      "tolerance": 0.1
+    },
+
+    {
+      "id": "de-restrict-hamburg-sternbruecke-height",
+      "type": "restriction",
+      "region": "de",
+      "unverified": true,
+      "todo": "Confirm via Overpass (overpass-api.de is egress-blocked in the build sandbox): exact OSM way-id of the road under the Sternbruecke, its signed maxheight tag, and adjust origin/destination + forbidden_bbox so the low profile's natural path runs under the bridge. SAFETY-DEMO: with the correct data, swapping height<->weight in apps/core/src/routing/profileMapping.ts makes the tall profile's height be read as its (small) weight, so Valhalla stops avoiding the low bridge -> the large-profile route enters forbidden_bbox -> this case FAILS (hard). That is the concrete proof the safety gate catches a broken mapping.",
+      "provenance": "Hamburg Sternbruecke (Stresemannstr. / Max-Brauer-Allee), a notorious low railway bridge repeatedly struck by over-height vehicles. Coordinates approximate (~53.5588, 9.9503); signed clearance to be confirmed.",
+      "origin": { "lat": 53.5605, "lon": 9.9535 },
+      "destination": { "lat": 53.557, "lon": 9.9472 },
+      "small_profile": {
+        "name": "Low camper 2.2m",
+        "height_m": 2.2,
+        "width_m": 2.0,
+        "length_m": 5.4,
+        "weight_t": 2.8,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "large_profile": {
+        "name": "Tall motorhome 4.0m",
+        "height_m": 4.0,
+        "width_m": 2.4,
+        "length_m": 8.0,
+        "weight_t": 7.49,
+        "avg_speed_kmh": 80,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "forbidden_bbox": [9.9495, 53.5581, 9.9511, 53.5595],
+      "restriction": {
+        "kind": "maxheight",
+        "value": 3.8,
+        "unit": "m",
+        "osm_way_id": null,
+        "source": "TODO confirm via Overpass / OSM"
+      }
+    },
+    {
+      "id": "de-restrict-muenchen-tumblingerstr-height",
+      "type": "restriction",
+      "region": "de",
+      "unverified": true,
+      "todo": "Confirm via Overpass: OSM way-id + maxheight of the Tumblingerstrasse railway underpass and tune OD/forbidden_bbox. Same swapped-mapping safety-demo applies as for the Sternbruecke case.",
+      "provenance": "Munich, Tumblingerstrasse railway underpass (Ludwigsvorstadt/Schlachthofviertel), a known low underpass. Coordinates approximate (~48.1289, 11.5556); signed clearance to be confirmed.",
+      "origin": { "lat": 48.1301, "lon": 11.5548 },
+      "destination": { "lat": 48.1277, "lon": 11.5564 },
+      "small_profile": {
+        "name": "Low camper 2.2m",
+        "height_m": 2.2,
+        "width_m": 2.0,
+        "length_m": 5.4,
+        "weight_t": 2.8,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "large_profile": {
+        "name": "Tall motorhome 3.6m",
+        "height_m": 3.6,
+        "width_m": 2.35,
+        "length_m": 7.4,
+        "weight_t": 5.0,
+        "avg_speed_kmh": 80,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "forbidden_bbox": [11.5549, 48.1284, 11.5563, 48.1294],
+      "restriction": {
+        "kind": "maxheight",
+        "value": 3.1,
+        "unit": "m",
+        "osm_way_id": null,
+        "source": "TODO confirm via Overpass / OSM"
+      }
+    },
+    {
+      "id": "de-restrict-berlin-yorckbruecken-height",
+      "type": "restriction",
+      "region": "de",
+      "unverified": true,
+      "todo": "Confirm via Overpass: which of the Yorckbruecken spans carries the binding maxheight, its OSM way-id and value; tune OD/forbidden_bbox to the specific low span.",
+      "provenance": "Berlin, Yorckbruecken (Yorckstrasse, Schoeneberg/Kreuzberg) — a cluster of historic railway bridges with low signed clearances. Coordinates approximate (~52.4917, 13.3667).",
+      "origin": { "lat": 52.4917, "lon": 13.3648 },
+      "destination": { "lat": 52.4917, "lon": 13.369 },
+      "small_profile": {
+        "name": "Low camper 2.4m",
+        "height_m": 2.4,
+        "width_m": 2.0,
+        "length_m": 5.4,
+        "weight_t": 2.8,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "large_profile": {
+        "name": "Tall motorhome 3.9m",
+        "height_m": 3.9,
+        "width_m": 2.4,
+        "length_m": 8.0,
+        "weight_t": 7.0,
+        "avg_speed_kmh": 80,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "forbidden_bbox": [13.366, 52.4911, 13.3674, 52.4923],
+      "restriction": {
+        "kind": "maxheight",
+        "value": 3.5,
+        "unit": "m",
+        "osm_way_id": null,
+        "source": "TODO confirm via Overpass / OSM"
+      }
+    },
+    {
+      "id": "de-restrict-leverkusen-rheinbruecke-weight",
+      "type": "restriction",
+      "region": "de",
+      "unverified": true,
+      "todo": "Confirm CURRENT status + OSM maxweight: the A1 Rheinbruecke Leverkusen banned vehicles > 3.5 t for years due to structural damage; the replacement bridge has since opened and the ban may be lifted. Confirm whether a binding maxweight is still tagged in OSM, its way-id and value, then tune OD/forbidden_bbox. This is the Gewichtsfall (restriction.kind=maxweight). SAFETY-DEMO: swapping weight<->height in profileMapping.ts makes the heavy profile's weight be read as its (small) height, so Valhalla stops avoiding the weak bridge -> heavy route enters forbidden_bbox -> case FAILS.",
+      "provenance": "A1 Rheinbruecke Leverkusen — a nationally documented case of a truck weight ban (> 3.5 t) on a motorway bridge. Coordinates approximate (~51.033, 6.99).",
+      "origin": { "lat": 51.028, "lon": 6.982 },
+      "destination": { "lat": 51.04, "lon": 6.998 },
+      "small_profile": {
+        "name": "Light camper 3.0t",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.0,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "large_profile": {
+        "name": "Heavy motorhome 12t",
+        "height_m": 3.3,
+        "width_m": 2.4,
+        "length_m": 8.5,
+        "weight_t": 12.0,
+        "avg_speed_kmh": 80,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "forbidden_bbox": [6.986, 51.03, 7.0, 51.038],
+      "restriction": {
+        "kind": "maxweight",
+        "value": 3.5,
+        "unit": "t",
+        "osm_way_id": null,
+        "source": "TODO confirm current OSM maxweight / status"
+      }
+    },
+    {
+      "id": "de-no-route-langeoog",
+      "type": "no_route",
+      "region": "de",
+      "unverified": true,
+      "todo": "Confirm that a truck-costing route from the mainland to a car-free North Sea island (Langeoog) yields NO_ROUTE against the DE graph (default truck costing keeps use_ferry=1, so verify the ferry does not carry the vehicle onto reachable island roads). Adjust origin/destination if the DE graph resolves it differently.",
+      "provenance": "Langeoog is a car-free North Sea island with no road bridge from the mainland; a motorhome cannot drive there. Destination coordinates approximate (~53.746, 7.483).",
+      "origin": { "lat": 53.6929, "lon": 7.4842 },
+      "destination": { "lat": 53.746, "lon": 7.483 },
+      "profile": {
+        "name": "Camper 3.0m",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.5,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      }
+    }
+  ]
+}

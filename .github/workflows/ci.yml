@@ -226,3 +226,122 @@ jobs:
       - name: Dump Valhalla logs on failure
         if: failure()
         run: docker logs valhalla 2>&1 | tail -150 || true
+
+  golden-routes-li:
+    name: Golden-Routes LI (safety gate, Merge-Blocker)
+    runs-on: ubuntu-latest
+    # 🔴 Merge-Blocker ab Gate G2 (docs/07 §3b, E03-T5). Independent, self-
+    # contained gate: builds the LI Valhalla graph (gis-ops recipe, same as
+    # valhalla-li-build), starts the CORE against it, and runs the Golden-Route
+    # runner (GOLDEN_REGION=li). Talking to the Core -- not Valhalla directly --
+    # means the profile->truck-costing mapping (W-08) is under test too. This is
+    # also the "echte-LI-Integration" gate left open by E03-T2.
+    # NO retry (vitest.golden.config.ts: retry:0, bail:1) -- a failed safety/
+    # monotonic case HARD-ABORTS with no retry and no tolerance.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Type-safety for the runner itself: e2e/ is not a workspace package, so
+      # `pnpm typecheck` (which is `pnpm -r`) does not cover it. Check it here.
+      - name: Typecheck golden-routes runner
+        run: pnpm exec tsc --noEmit -p e2e/golden-routes/tsconfig.json
+
+      # Build the LI graph exactly like valhalla-li-build (gis-ops image,
+      # atomic swap, W-17), then serve it on :8002 the way docker-compose does.
+      - name: Build Liechtenstein tileset via build-tiles.sh
+        run: |
+          chmod +x services/valhalla/build-tiles.sh
+          services/valhalla/build-tiles.sh https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+
+      - name: Start Valhalla serving the swapped tiles
+        run: |
+          docker run -d --name valhalla \
+            -p 8002:8002 \
+            -v "$PWD/data/valhalla/tiles:/custom_files" \
+            -e tile_urls= \
+            -e serve_tiles=True \
+            -e force_rebuild=False \
+            -e build_elevation=False \
+            -e build_admins=True \
+            -e build_time_zones=False \
+            ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+
+      - name: Wait for Valhalla /status
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8002/status >/dev/null 2>&1; then
+              echo "Valhalla /status ready after ~$((i*2))s"
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "::error::Valhalla did not come up in time"
+              docker logs valhalla 2>&1 | tail -150
+              exit 1
+            fi
+            sleep 2
+          done
+
+      # Build the app so apps/core/dist exists (same `pnpm build` the docker
+      # job uses). The runner drives the built Core over HTTP.
+      - name: Build app
+        run: pnpm build
+
+      # Start the Core against the live LI Valhalla and run the LI golden set.
+      # DB_PATH=:memory: keeps the run stateless (the profiles the runner
+      # creates live in the same long-running process). TILES_DIR is left at
+      # its default (no PMTiles installed) so the coverage check is a no-op and
+      # routing is exercised end-to-end. Core lifecycle stays inside this step
+      # for reliability. GOLDEN_LIVE=1 switches on the route assertions.
+      - name: Run Golden-Routes runner (GOLDEN_REGION=li)
+        run: |
+          DB_PATH=:memory: VALHALLA_URL=http://localhost:8002 PORT=8080 \
+            node apps/core/dist/index.js > core.log 2>&1 &
+          CORE_PID=$!
+          echo "Core started (pid $CORE_PID); waiting for health..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/api/v1/health >/dev/null 2>&1; then
+              echo "Core healthy after ~${i}s"
+              break
+            fi
+            if ! kill -0 "$CORE_PID" 2>/dev/null; then
+              echo "::error::Core process exited before becoming healthy"
+              cat core.log
+              exit 1
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "::error::Core did not become healthy in time"
+              cat core.log
+              exit 1
+            fi
+            sleep 1
+          done
+          set +e
+          GOLDEN_LIVE=1 GOLDEN_REGION=li CORE_URL=http://localhost:8080 pnpm golden-routes
+          RC=$?
+          set -e
+          kill "$CORE_PID" 2>/dev/null || true
+          exit $RC
+
+      - name: Dump Core log on failure
+        if: failure()
+        run: tail -200 core.log || true
+
+      - name: Dump Valhalla logs on failure
+        if: failure()
+        run: docker logs valhalla 2>&1 | tail -150 || true
