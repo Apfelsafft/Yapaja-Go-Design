@@ -222,10 +222,23 @@ export function checkRoute(
     });
   }
 
-  // Check route duration makes sense given distance and typical speeds
-  // duration ∈ [distance/130 km/h, distance/15 km/h]
+  // Check route duration makes sense given distance and typical speeds.
+  // duration ∈ [distance/130 km/h, distance/5 km/h].
+  //
+  // The lower average-speed bound is deliberately generous (5 km/h, not 15):
+  // a large/heavy vehicle that Valhalla legitimately keeps off the fast main
+  // road onto slow side/village roads (e.g. a 3.5 t truck forced around a
+  // restriction in a small road network) can genuinely average well under
+  // 15 km/h over a short leg -- the E03-T5 golden-route suite surfaced exactly
+  // such a real Liechtenstein truck route (~3.4 km, ~7.7 km/h) that the old
+  // 15 km/h floor wrongly rejected. A *slow* route is not an *unsafe* route:
+  // the height/weight safety is enforced by Valhalla's costing (and proven by
+  // the golden restriction cases), NOT by this duration bound. The real
+  // guards against a broken/absurd route remain the distance checks
+  // (>= great-circle, <= 4x great-circle) and the upper speed bound; this
+  // floor only catches grossly inflated durations (data glitches).
   const minDurationS = (route.distance_m / 1000 / 130) * 3600; // max speed: 130 km/h
-  const maxDurationS = (route.distance_m / 1000 / 15) * 3600; // min speed: 15 km/h
+  const maxDurationS = (route.distance_m / 1000 / 5) * 3600; // min speed: 5 km/h
 
   if (route.duration_s < minDurationS) {
     violations.push({
@@ -237,7 +250,7 @@ export function checkRoute(
   if (route.duration_s > maxDurationS) {
     violations.push({
       rule: 'route_duration_too_long',
-      message: `Duration ${route.duration_s}s is more than maximum reasonable (${maxDurationS.toFixed(0)}s at 15 km/h)`,
+      message: `Duration ${route.duration_s}s is more than maximum reasonable (${maxDurationS.toFixed(0)}s at 5 km/h)`,
     });
   }
 

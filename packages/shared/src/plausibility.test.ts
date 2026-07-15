@@ -515,7 +515,7 @@ describe('Plausibility', () => {
       expect(result.violations.some((v) => v.rule === 'route_distance_too_long')).toBe(true);
     });
 
-    // Duration tests: ∈ [distance/130 km/h, distance/15 km/h]
+    // Duration tests: ∈ [distance/130 km/h, distance/5 km/h]
     it('should accept duration within range', () => {
       const result = checkRoute(validRoute, origin, destination);
       expect(result.ok).toBe(true);
@@ -537,18 +537,39 @@ describe('Plausibility', () => {
     });
 
     it('should reject duration too long', () => {
-      // 550 km at min speed (15 km/h) would be 132000 seconds (36.67 hours)
-      // 150000 seconds exceeds this
+      // 550 km at min speed (5 km/h) would be 396000 seconds (110 hours);
+      // 450000 seconds (~4.4 km/h avg) exceeds even that generous floor.
       const result = checkRoute(
         {
           ...validRoute,
-          duration_s: 150000,
+          duration_s: 450000,
         },
         origin,
         destination,
       );
       expect(result.ok).toBe(false);
       expect(result.violations.some((v) => v.rule === 'route_duration_too_long')).toBe(true);
+    });
+
+    it('accepts a slow but plausible constrained-truck route (~8 km/h, was rejected by the old 15 km/h floor)', () => {
+      // E03-T5 regression: a real Liechtenstein 3.5t truck leg kept off the
+      // fast road onto slow side roads (~3.4 km, ~1573 s ≈ 7.8 km/h) must NOT
+      // be flagged implausible. Origin/destination ~3.4 km apart.
+      const near = { lat: origin.lat + 0.03, lon: origin.lon };
+      const result = checkRoute(
+        {
+          ...validRoute,
+          distance_m: 3400,
+          duration_s: 1573,
+          legs: [{ index: 0, distance_m: 3400, duration_s: 1573 }],
+          maneuvers: [
+            { ...validRoute.maneuvers[0], distance_m: 3400 },
+          ],
+        },
+        origin,
+        near,
+      );
+      expect(result.ok).toBe(true);
     });
 
     // Speed limit validation

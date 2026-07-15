@@ -81,3 +81,120 @@ jobs:
 
       - name: Audit dependencies
         run: pnpm audit --audit-level high
+
+  golden-routes-de:
+    name: Golden-Routes DE (nightly, non-blocking while unverified)
+    runs-on: ubuntu-latest
+    # DE Golden-Route slot (docs/07 §3b + §6 Nightly, E03-T5). Runs the DE
+    # curated set against a full-Germany Valhalla graph. The DE PBF build is
+    # large/slow (and may need a bigger/self-hosted runner or a smaller extract
+    # than germany-latest on a standard GitHub runner) -- hence nightly, not
+    # per-PR.
+    #
+    # continue-on-error: the DE cases are still `unverified` in
+    # e2e/golden-routes.json (seeded distances not yet frozen; restriction
+    # OSM way-ids / forbidden_bbox not yet confirmed via Overpass, which is
+    # egress-blocked in the build sandbox). This job therefore runs but does
+    # NOT block: it exists to surface the observed distances/durations and the
+    # small-vs-large intersection results in the logs, so a human can freeze
+    # the values and flip `unverified:false`. Once verified, remove
+    # continue-on-error and the `--bail 0` override below so a failed
+    # safety/restriction case becomes a hard abort (like the LI gate).
+    continue-on-error: true
+    timeout-minutes: 330
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck golden-routes runner
+        run: pnpm exec tsc --noEmit -p e2e/golden-routes/tsconfig.json
+
+      # Full-Germany graph build via the same gis-ops recipe / build-tiles.sh
+      # (atomic swap, W-17). Generous timeout for the large PBF.
+      - name: Build Germany tileset via build-tiles.sh
+        env:
+          VALHALLA_BUILD_TIMEOUT_S: '7200'
+        run: |
+          chmod +x services/valhalla/build-tiles.sh
+          services/valhalla/build-tiles.sh https://download.geofabrik.de/europe/germany-latest.osm.pbf
+
+      - name: Start Valhalla serving the swapped tiles
+        run: |
+          docker run -d --name valhalla \
+            -p 8002:8002 \
+            -v "$PWD/data/valhalla/tiles:/custom_files" \
+            -e tile_urls= \
+            -e serve_tiles=True \
+            -e force_rebuild=False \
+            -e build_elevation=False \
+            -e build_admins=True \
+            -e build_time_zones=False \
+            ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+
+      - name: Wait for Valhalla /status
+        run: |
+          for i in $(seq 1 120); do
+            if curl -sf http://localhost:8002/status >/dev/null 2>&1; then
+              echo "Valhalla /status ready after ~$((i*2))s"
+              break
+            fi
+            if [ "$i" -eq 120 ]; then
+              echo "::error::Valhalla did not come up in time"
+              docker logs valhalla 2>&1 | tail -150
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Build app
+        run: pnpm build
+
+      - name: Run Golden-Routes runner (GOLDEN_REGION=de)
+        run: |
+          echo "NOTE: DE cases are curated but 'unverified' -- this job is non-blocking."
+          echo "It reports observed distances/durations/intersections for freezing."
+          DB_PATH=:memory: VALHALLA_URL=http://localhost:8002 PORT=8080 \
+            node apps/core/dist/index.js > core.log 2>&1 &
+          CORE_PID=$!
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/api/v1/health >/dev/null 2>&1; then
+              echo "Core healthy after ~${i}s"; break
+            fi
+            if ! kill -0 "$CORE_PID" 2>/dev/null; then
+              echo "::error::Core exited before healthy"; cat core.log; exit 1
+            fi
+            [ "$i" -eq 60 ] && { echo "::error::Core not healthy in time"; cat core.log; exit 1; }
+            sleep 1
+          done
+          set +e
+          # --bail 0 (override the config's bail:1) so ALL DE cases report their
+          # observations in one pass while still unverified. Restore the hard
+          # bail once the DE set is verified and this job becomes a gate.
+          GOLDEN_LIVE=1 GOLDEN_REGION=de CORE_URL=http://localhost:8080 \
+            pnpm exec vitest run --config vitest.golden.config.ts --bail 0
+          RC=$?
+          set -e
+          kill "$CORE_PID" 2>/dev/null || true
+          exit $RC
+
+      - name: Dump Core log on failure
+        if: failure()
+        run: tail -200 core.log || true
+
+      - name: Dump Valhalla logs on failure
+        if: failure()
+        run: docker logs valhalla 2>&1 | tail -150 || true

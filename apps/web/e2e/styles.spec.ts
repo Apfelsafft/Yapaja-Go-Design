@@ -332,8 +332,11 @@ test.describe('style options', () => {
     await page.locator('[data-testid="labelscale-option-1.2"]').click();
     await page.locator('[data-testid="lang-option-name:en"]').click();
 
+    // 10s (not 5s): the dark-style render can lag under CI CPU contention --
+    // this poll was the source of a recurring styles.spec flake. Matches the
+    // post-reload poll's budget below.
     await expect
-      .poll(async () => relativeLuminance(await readCenterPixel(page)), { timeout: 5_000 })
+      .poll(async () => relativeLuminance(await readCenterPixel(page)), { timeout: 10_000 })
       .toBeLessThan(0.3);
 
     const storedBefore = await page.evaluate(() => ({

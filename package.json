@@ -12,7 +12,8 @@
     "test:ui": "vitest --ui",
     "build": "pnpm -r --filter='./apps/**' build",
     "dev": "pnpm -r --parallel dev",
-    "e2e": "pnpm --filter @yapaja/web e2e"
+    "e2e": "pnpm --filter @yapaja/web e2e",
+    "golden-routes": "vitest run --config vitest.golden.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.6.0",
