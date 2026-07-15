@@ -37,9 +37,11 @@ import {
   CORE_PORT,
   EMPTY_CORE_PORT,
   SIMULATOR_CORE_PORT,
+  SEARCH_CORE_PORT,
   CORE_BASE_URL,
   EMPTY_CORE_BASE_URL,
   SIMULATOR_CORE_BASE_URL,
+  SEARCH_CORE_BASE_URL,
 } from './constants.js';
 // Reuse E01-T1's fixture generator directly (read-only import, apps/core is
 // not modified) instead of hand-rolling another PMTiles binary writer.
@@ -138,17 +140,22 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   // CORE_PORT with the other specs. Reuses the fixture tiles dir so the map
   // still has an installed region to render.
   const simulatorCore = startCore(SIMULATOR_CORE_PORT, FIXTURE_TILES_DIR);
+  // Dedicated core for search.spec.ts (E05-T2) -- see the SEARCH_CORE_PORT
+  // comment in constants.ts.
+  const searchCore = startCore(SEARCH_CORE_PORT, FIXTURE_TILES_DIR);
 
   try {
     await Promise.all([
       waitForHealth(CORE_BASE_URL, 20_000),
       waitForHealth(EMPTY_CORE_BASE_URL, 20_000),
       waitForHealth(SIMULATOR_CORE_BASE_URL, 20_000),
+      waitForHealth(SEARCH_CORE_BASE_URL, 20_000),
     ]);
   } catch (err) {
     fixtureCore.kill();
     emptyCore.kill();
     simulatorCore.kill();
+    searchCore.kill();
     throw err;
   }
 
@@ -156,5 +163,6 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     fixtureCore.kill();
     emptyCore.kill();
     simulatorCore.kill();
+    searchCore.kill();
   };
 }

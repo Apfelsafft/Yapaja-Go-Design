@@ -49,6 +49,16 @@ export interface TempAvoidance {
 
 export interface RoutingState {
   destination: LatLng | null;
+  /**
+   * E05-T2 addition: the human-readable name of the destination, when it was
+   * picked via search (`SearchResult.name`) rather than a raw map click/tap
+   * (`DestinationSelector`, which never has a name). `null` whenever
+   * `destination` is `null` OR was set without a name. Additive-only field:
+   * every existing caller of `setDestination` that only ever passed one
+   * argument keeps working unchanged and keeps getting `destinationName:
+   * null`, exactly as before this field existed.
+   */
+  destinationName: string | null;
   routes: Route[];
   activeRouteId: string | null;
   status: RoutingStatus;
@@ -58,8 +68,10 @@ export interface RoutingState {
   /** Session-scoped "meide diesen Abschnitt" polygons (E03-T4). */
   tempAvoidances: TempAvoidance[];
 
-  /** Sets (or clears, with `null`) the selected destination. Always resets any previous route result and the per-route avoid overrides. */
-  setDestination: (destination: LatLng | null) => void;
+  /** Sets (or clears, with `null`) the selected destination, optionally with
+   *  a display `name` (E05-T2, search result selection). Always resets any
+   *  previous route result and the per-route avoid overrides. */
+  setDestination: (destination: LatLng | null, name?: string | null) => void;
   /** Requests routes for the current `destination`, including any active `avoidOverrides`/`tempAvoidances`. No-ops (no request sent) if there is no destination or no `profileId`. */
   requestRoute: (params: RequestRouteParams) => Promise<void>;
   /** Makes `routeId` the active (highlighted) route; the previously-active one becomes a gray alternative. No-ops if `routeId` isn't among the current `routes`. */
@@ -84,6 +96,7 @@ function nextAvoidanceId(): string {
 
 export const useRoutingStore = create<RoutingState>((set, get) => ({
   destination: null,
+  destinationName: null,
   routes: [],
   activeRouteId: null,
   status: 'idle',
@@ -91,8 +104,16 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
   avoidOverrides: {},
   tempAvoidances: [],
 
-  setDestination: (destination) => {
-    set({ destination, routes: [], activeRouteId: null, status: 'idle', error: null, avoidOverrides: {} });
+  setDestination: (destination, name = null) => {
+    set({
+      destination,
+      destinationName: destination ? name : null,
+      routes: [],
+      activeRouteId: null,
+      status: 'idle',
+      error: null,
+      avoidOverrides: {},
+    });
   },
 
   requestRoute: async ({ origin, profileId }) => {
@@ -157,7 +178,15 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
   },
 
   clear: () => {
-    set({ destination: null, routes: [], activeRouteId: null, status: 'idle', error: null, avoidOverrides: {} });
+    set({
+      destination: null,
+      destinationName: null,
+      routes: [],
+      activeRouteId: null,
+      status: 'idle',
+      error: null,
+      avoidOverrides: {},
+    });
   },
 
   toggleAvoidOverride: (flag, profileDefault, params) => {

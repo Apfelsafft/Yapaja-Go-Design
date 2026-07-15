@@ -3,6 +3,7 @@ import MapView from './map/MapView';
 import PositionInitializer from './position/PositionInitializer';
 import ProfilesPanel from './profiles/ProfilesPanel.js';
 import RoutingInitializer from './routing/RoutingInitializer.js';
+import SearchBar from './search/SearchBar.js';
 
 export default function App(): React.ReactElement {
   return (
@@ -16,6 +17,7 @@ export default function App(): React.ReactElement {
       </header>
       <ProfilesPanel />
       <RoutingInitializer />
+      <SearchBar />
     </div>
   );
 }
