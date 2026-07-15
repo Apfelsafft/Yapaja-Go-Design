@@ -118,3 +118,20 @@ export const useProfileStore = create<ProfileState>((set) => ({
     set({ error });
   },
 }));
+
+declare global {
+  interface Window {
+    /**
+     * Debug/E2E hook (E05-T3), mirrors `window.__yapajaRoutingStore` /
+     * `window.__yapajaMapController`: exposes the profile store so
+     * Playwright can assert on/await `activeProfile` directly (e.g. proving
+     * the favorites active-profile invariant against a freshly-activated
+     * profile without waiting on an arbitrary UI poll interval).
+     */
+    __yapajaProfileStore?: typeof useProfileStore;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.__yapajaProfileStore = useProfileStore;
+}

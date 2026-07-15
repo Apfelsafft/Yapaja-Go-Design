@@ -15,6 +15,8 @@ export type {
   NavState,
   ApiError,
   SearchResult,
+  Favorite,
+  HistoryEntry,
 } from './types';
 
 // Schemas (as const for validation)
@@ -33,6 +35,8 @@ export {
 export { navStateSchema } from './schemas/nav-state';
 export { apiErrorSchema } from './schemas/api-error';
 export { searchResultSchema } from './schemas/search-result';
+export { favoriteSchema } from './schemas/favorite';
+export { historyEntrySchema } from './schemas/history-entry';
 
 // Validators (type guards)
 export {
@@ -45,6 +49,8 @@ export {
   validateNavState,
   validateApiError,
   validateSearchResult,
+  validateFavorite,
+  validateHistoryEntry,
   getValidationErrorsLatLng,
   getValidationErrorsPosition,
   getValidationErrorsVehicleProfile,
@@ -54,6 +60,8 @@ export {
   getValidationErrorsNavState,
   getValidationErrorsApiError,
   getValidationErrorsSearchResult,
+  getValidationErrorsFavorite,
+  getValidationErrorsHistoryEntry,
 } from './validators';
 
 // Plausibility checks

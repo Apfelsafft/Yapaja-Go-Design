@@ -38,10 +38,12 @@ import {
   EMPTY_CORE_PORT,
   SIMULATOR_CORE_PORT,
   SEARCH_CORE_PORT,
+  FAVORITES_CORE_PORT,
   CORE_BASE_URL,
   EMPTY_CORE_BASE_URL,
   SIMULATOR_CORE_BASE_URL,
   SEARCH_CORE_BASE_URL,
+  FAVORITES_CORE_BASE_URL,
 } from './constants.js';
 // Reuse E01-T1's fixture generator directly (read-only import, apps/core is
 // not modified) instead of hand-rolling another PMTiles binary writer.
@@ -143,6 +145,9 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   // Dedicated core for search.spec.ts (E05-T2) -- see the SEARCH_CORE_PORT
   // comment in constants.ts.
   const searchCore = startCore(SEARCH_CORE_PORT, FIXTURE_TILES_DIR);
+  // Dedicated core for favorites.spec.ts (E05-T3) -- see the
+  // FAVORITES_CORE_PORT comment in constants.ts.
+  const favoritesCore = startCore(FAVORITES_CORE_PORT, FIXTURE_TILES_DIR);
 
   try {
     await Promise.all([
@@ -150,12 +155,14 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       waitForHealth(EMPTY_CORE_BASE_URL, 20_000),
       waitForHealth(SIMULATOR_CORE_BASE_URL, 20_000),
       waitForHealth(SEARCH_CORE_BASE_URL, 20_000),
+      waitForHealth(FAVORITES_CORE_BASE_URL, 20_000),
     ]);
   } catch (err) {
     fixtureCore.kill();
     emptyCore.kill();
     simulatorCore.kill();
     searchCore.kill();
+    favoritesCore.kill();
     throw err;
   }
 
@@ -164,5 +171,6 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     emptyCore.kill();
     simulatorCore.kill();
     searchCore.kill();
+    favoritesCore.kill();
   };
 }

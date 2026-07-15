@@ -35,6 +35,7 @@ import { haversineMeters } from './distance.js';
 import { iconForSearchResultType } from './icons.js';
 import { friendlySearchErrorMessage } from './errors.js';
 import { isSearchSpeedLocked, SEARCH_SPEED_LOCK_KMH } from './speedLock.js';
+import { useFavoritesStore } from '../favorites/store.js';
 
 const SEARCH_FLY_TO_ZOOM = 14;
 const PANEL_ID = 'search-panel';
@@ -52,6 +53,10 @@ export default function SearchBar(): React.ReactElement {
   const position = usePositionStore((state) => state.position);
   const setDestination = useRoutingStore((state) => state.setDestination);
   const map = useMapStore((state) => state.map);
+  // E05-T3: every selected search result also becomes a Verlauf entry
+  // (docs/03 §2 "Verlauf zeichnet Suchen+Ziele auf"). Best-effort -- see
+  // `recordHistory`'s own doc comment, it never throws/blocks the selection.
+  const recordHistory = useFavoritesStore((state) => state.recordHistory);
 
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -71,6 +76,10 @@ export default function SearchBar(): React.ReactElement {
   const handleSelect = useCallback(
     (result: SearchResult) => {
       setDestination({ lat: result.latlng.lat, lon: result.latlng.lon }, result.name);
+      void recordHistory({
+        query: result.name,
+        destination: { latlng: result.latlng, name: result.name },
+      });
       if (map) {
         map.flyTo({
           center: [result.latlng.lon, result.latlng.lat],
@@ -82,7 +91,7 @@ export default function SearchBar(): React.ReactElement {
       setIsFocused(false);
       inputRef.current?.blur();
     },
-    [map, setDestination, resetSearch],
+    [map, setDestination, recordHistory, resetSearch],
   );
 
   const handleChange = useCallback(

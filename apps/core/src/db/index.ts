@@ -6,7 +6,7 @@
 import Database from 'better-sqlite3';
 import { mkdirSync, existsSync } from 'fs';
 import { dirname } from 'path';
-import type { VehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile, Favorite, HistoryEntry } from '@yapaja/shared';
 
 let dbInstance: Database.Database | null = null;
 
@@ -44,6 +44,37 @@ export function createDb(path: string): Database.Database {
       avoid_ferry INTEGER NOT NULL DEFAULT 0,
       avoid_unpaved INTEGER NOT NULL DEFAULT 0,
       is_active INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  // Favorites table (E05-T3, docs/03 §2): category 'home' is kept unique at
+  // the service layer (transactional replace-or-reject), not via a SQL
+  // constraint, so the service can return a friendly 409 instead of a raw
+  // SQLite constraint-violation error.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS favorites (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      lat REAL NOT NULL,
+      lon REAL NOT NULL,
+      icon TEXT NOT NULL,
+      category TEXT NOT NULL,
+      sort_order INTEGER NOT NULL
+    )
+  `);
+
+  // History table (E05-T3, docs/03 §2): records search queries and/or picked
+  // destinations. Capped at 100 rows, FIFO eviction (service layer). `query`/
+  // `dest_*` are all nullable -- exactly one "half" may be null, never both
+  // (enforced by the service, not this schema).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS history (
+      id TEXT PRIMARY KEY,
+      query TEXT,
+      dest_lat REAL,
+      dest_lon REAL,
+      dest_name TEXT,
+      ts TEXT NOT NULL
     )
   `);
 
@@ -118,6 +149,83 @@ export function profileToRow(profile: VehicleProfile): Record<string, number | s
     avoid_ferry: profile.avoid.ferry ? 1 : 0,
     avoid_unpaved: profile.avoid.unpaved ? 1 : 0,
     is_active: profile.is_active ? 1 : 0,
+  };
+}
+
+export interface FavoriteRow {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  icon: string;
+  category: string;
+  sort_order: number;
+}
+
+/**
+ * Converts a database row to a Favorite object
+ */
+export function rowToFavorite(row: FavoriteRow): Favorite {
+  return {
+    id: row.id,
+    name: row.name,
+    latlng: { lat: row.lat, lon: row.lon },
+    icon: row.icon,
+    category: row.category as Favorite['category'],
+    sort_order: row.sort_order,
+  };
+}
+
+/**
+ * Converts a Favorite to database values
+ */
+export function favoriteToRow(favorite: Favorite): Record<string, number | string> {
+  return {
+    id: favorite.id,
+    name: favorite.name,
+    lat: favorite.latlng.lat,
+    lon: favorite.latlng.lon,
+    icon: favorite.icon,
+    category: favorite.category,
+    sort_order: favorite.sort_order,
+  };
+}
+
+export interface HistoryRow {
+  id: string;
+  query: string | null;
+  dest_lat: number | null;
+  dest_lon: number | null;
+  dest_name: string | null;
+  ts: string;
+}
+
+/**
+ * Converts a database row to a HistoryEntry object
+ */
+export function rowToHistoryEntry(row: HistoryRow): HistoryEntry {
+  return {
+    id: row.id,
+    query: row.query,
+    destination:
+      row.dest_lat !== null && row.dest_lon !== null
+        ? { latlng: { lat: row.dest_lat, lon: row.dest_lon }, name: row.dest_name }
+        : null,
+    ts: row.ts,
+  };
+}
+
+/**
+ * Converts a HistoryEntry to database values
+ */
+export function historyEntryToRow(entry: HistoryEntry): Record<string, number | string | null> {
+  return {
+    id: entry.id,
+    query: entry.query,
+    dest_lat: entry.destination?.latlng.lat ?? null,
+    dest_lon: entry.destination?.latlng.lon ?? null,
+    dest_name: entry.destination?.name ?? null,
+    ts: entry.ts,
   };
 }
 

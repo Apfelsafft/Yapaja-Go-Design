@@ -157,6 +157,29 @@ export interface SearchResult {
   out_of_coverage?: boolean; // true if outside all installed map regions (Vorgriff W-09)
 }
 
+// Favorite destination (E05-T3, docs/03 §2 "Favoriten")
+export interface Favorite {
+  id: string; // uuid
+  name: string;
+  latlng: LatLng;
+  icon: string; // free-form icon key/emoji, e.g. "home", "campsite", "⛺"
+  category: 'home' | 'campsite' | 'poi' | 'custom';
+  sort_order: number; // drag-order position, ascending
+}
+
+// A search-history entry: either a raw search `query`, a picked `destination`,
+// or both -- at least one must be non-null (enforced by the Core, not this
+// structural schema). Max 100 entries, FIFO eviction (E05-T3).
+export interface HistoryEntry {
+  id: string; // uuid
+  query: string | null;
+  destination: {
+    latlng: LatLng;
+    name: string | null;
+  } | null;
+  ts: string; // ISO 8601 UTC
+}
+
 // Unified error format
 export interface ApiError {
   error: {
