@@ -147,6 +147,16 @@ export interface NavState {
   } | null;
 }
 
+// Geocoding search result (E05-T1)
+export interface SearchResult {
+  name: string; // short name, e.g. "Vaduz"
+  label: string; // full display label, e.g. "Vaduz, Liechtenstein"
+  latlng: LatLng;
+  type: string; // result category, e.g. "city", "street", "coordinates"
+  source: 'photon' | 'nominatim' | 'coords'; // backend that produced this result
+  out_of_coverage?: boolean; // true if outside all installed map regions (Vorgriff W-09)
+}
+
 // Unified error format
 export interface ApiError {
   error: {

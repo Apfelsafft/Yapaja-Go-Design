@@ -13,6 +13,7 @@ import { routeRequestSchema } from './schemas/route-request';
 import { routeSchema, maneuverSchema } from './schemas/route';
 import { navStateSchema } from './schemas/nav-state';
 import { apiErrorSchema } from './schemas/api-error';
+import { searchResultSchema } from './schemas/search-result';
 
 import type {
   LatLng,
@@ -23,6 +24,7 @@ import type {
   Maneuver,
   NavState,
   ApiError,
+  SearchResult,
 } from './types';
 
 // Initialize AJV with formats
@@ -38,6 +40,7 @@ const validateRouteImpl = ajv.compile(routeSchema);
 const validateManeuverImpl = ajv.compile(maneuverSchema);
 const validateNavStateImpl = ajv.compile(navStateSchema);
 const validateApiErrorImpl = ajv.compile(apiErrorSchema);
+const validateSearchResultImpl = ajv.compile(searchResultSchema);
 
 /**
  * Type guard for LatLng
@@ -93,6 +96,13 @@ export function validateNavState(data: unknown): data is NavState {
  */
 export function validateApiError(data: unknown): data is ApiError {
   return validateApiErrorImpl(data);
+}
+
+/**
+ * Type guard for SearchResult
+ */
+export function validateSearchResult(data: unknown): data is SearchResult {
+  return validateSearchResultImpl(data);
 }
 
 /**
@@ -175,4 +185,11 @@ export function getValidationErrorsNavState(data: unknown): string[] {
  */
 export function getValidationErrorsApiError(data: unknown): string[] {
   return getValidationErrorsForValidator('ApiError', data, validateApiErrorImpl);
+}
+
+/**
+ * Get validation errors for SearchResult
+ */
+export function getValidationErrorsSearchResult(data: unknown): string[] {
+  return getValidationErrorsForValidator('SearchResult', data, validateSearchResultImpl);
 }

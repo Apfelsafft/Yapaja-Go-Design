@@ -14,6 +14,7 @@ export type {
   Route,
   NavState,
   ApiError,
+  SearchResult,
 } from './types';
 
 // Schemas (as const for validation)
@@ -31,6 +32,7 @@ export {
 } from './schemas/route';
 export { navStateSchema } from './schemas/nav-state';
 export { apiErrorSchema } from './schemas/api-error';
+export { searchResultSchema } from './schemas/search-result';
 
 // Validators (type guards)
 export {
@@ -42,6 +44,7 @@ export {
   validateManeuver,
   validateNavState,
   validateApiError,
+  validateSearchResult,
   getValidationErrorsLatLng,
   getValidationErrorsPosition,
   getValidationErrorsVehicleProfile,
@@ -50,6 +53,7 @@ export {
   getValidationErrorsManeuver,
   getValidationErrorsNavState,
   getValidationErrorsApiError,
+  getValidationErrorsSearchResult,
 } from './validators';
 
 // Plausibility checks

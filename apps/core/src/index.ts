@@ -16,6 +16,7 @@ import { simulatorPlugin } from './position/simulator/routes.js';
 import { GpsdSource } from './position/gpsd/index.js';
 import { mapPlugin } from './map/routes.js';
 import { routingPlugin } from './routing/routes.js';
+import { searchPlugin } from './search/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -132,6 +133,16 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     positionService,
     profileService,
     valhallaUrl: process.env.VALHALLA_URL,
+  });
+
+  // Search plugin (E05-T1): Photon + Nominatim-Fallback geocoding, additive.
+  // `online_fallback` defaults to false (docs/03 §2, E05-T1) -- online
+  // Nominatim lookups only run when explicitly opted in via env.
+  await fastify.register(searchPlugin, {
+    prefix: '/api/v1',
+    photonUrl: process.env.PHOTON_URL,
+    onlineFallback: process.env.SEARCH_ONLINE_FALLBACK === 'true',
+    lang: process.env.SEARCH_LANG,
   });
 
   fastify.get<{ Reply: HealthResponse }>('/api/v1/health', async (_request, _reply) => {
