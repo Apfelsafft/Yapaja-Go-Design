@@ -196,6 +196,41 @@ test('backend error is shown cleanly, not as a crash', async ({ page }) => {
   expect(pageErrors).toEqual([]);
 });
 
+test('lite-source results show the "vereinfachte Suche aktiv" hint (E05-T5, W-12)', async ({ page }) => {
+  const pageErrors = collectPageErrors(page);
+  await page.route('**/api/v1/search*', async (route) => {
+    const url = new URL(route.request().url());
+    const q = (url.searchParams.get('q') ?? '').toLowerCase();
+    const data: SearchResult[] = q.includes('vad')
+      ? [{ ...VADUZ_RESULT, source: 'lite' }]
+      : [];
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data }) });
+  });
+
+  await page.goto(SEARCH_CORE_BASE_URL + '/');
+  await waitForMapReady(page);
+
+  await page.getByTestId('search-input').fill('Vad');
+
+  await expect(page.getByTestId('search-result-0')).toBeVisible({ timeout: 2_000 });
+  await expect(page.getByTestId('search-lite-hint')).toBeVisible();
+  await expect(page.getByTestId('search-lite-hint')).toContainText('Vereinfachte Suche aktiv');
+
+  expect(pageErrors).toEqual([]);
+});
+
+test('photon-source results do NOT show the lite hint', async ({ page }) => {
+  await mockSearchEndpoint(page);
+
+  await page.goto(SEARCH_CORE_BASE_URL + '/');
+  await waitForMapReady(page);
+
+  await page.getByTestId('search-input').fill('Vad');
+
+  await expect(page.getByTestId('search-result-0')).toBeVisible({ timeout: 2_000 });
+  await expect(page.getByTestId('search-lite-hint')).not.toBeVisible();
+});
+
 test('speed-lock: search field disables above 10 km/h and re-enables once slow again', async ({ page }) => {
   const pageErrors = collectPageErrors(page);
   await mockSearchEndpoint(page);

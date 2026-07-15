@@ -1,0 +1,210 @@
+/**
+ * PBF-extraction normalization layer (E05-T5, Wargame W-12).
+ *
+ * The actual OSM-PBF *parsing* happens OUTSIDE Node entirely, in
+ * `osmium-tool` (see `services/valhalla/build-lite-index.sh`): `osmium
+ * tags-filter` selects the relevant nodes/ways, `osmium export
+ * --geometry-types=point -f geojsonseq` turns them into one-GeoJSON-Feature-
+ * per-line NDJSON (ways/areas are represented by their centroid when
+ * `--geometry-types=point` is selected -- exactly the "Zentroid" the task
+ * spec asks for, for both places AND streets).
+ *
+ * Everything in THIS file is pure, dependency-free, and unit-testable
+ * without a real .osm.pbf (which this sandbox cannot obtain or parse, see
+ * the task's feasibility note): it takes one already-parsed GeoJSON Feature
+ * at a time and normalizes it into a `NormalizedRecord`, or returns `null`
+ * if the feature isn't a place/street this index cares about. This is the
+ * exact boundary the task asks for: "structure the extractor so the
+ * PBF-reading layer emits a normalized JS array... and unit-test the
+ * tag-filtering/normalization rules".
+ */
+
+export type LiteKind = 'city' | 'town' | 'village' | 'street';
+
+export interface NormalizedRecord {
+  kind: LiteKind;
+  name: string;
+  lat: number;
+  lon: number;
+  /** Raw rank input, best-effort (E05-T5: "raw rank inputs" in the
+   *  companion metadata table). OSM's `population` tag, when present, as an
+   *  integer. Currently NOT consulted by `ranking.ts` (kind alone decides
+   *  city/town/village ordering) -- captured for a future refinement
+   *  without needing another index rebuild/schema change. */
+  population?: number;
+}
+
+/** The subset of a `osmium export --geometry-types=point -f geojsonseq`
+ *  output line this module actually reads. Loosely typed on purpose --
+ *  real OSM tag sets are large and unpredictable; anything not listed here
+ *  is simply ignored. */
+export interface OsmFeature {
+  type?: string;
+  geometry?: {
+    type?: string;
+    coordinates?: unknown;
+  };
+  properties?: Record<string, unknown> | null;
+}
+
+const PLACE_KINDS: ReadonlySet<string> = new Set(['city', 'town', 'village']);
+
+/** `highway` values that are structural/non-navigable-by-name and get
+ *  dropped even when (unusually) tagged with a `name` -- keeps the street
+ *  half of the index limited to things a user would plausibly type. */
+const EXCLUDED_HIGHWAY_VALUES: ReadonlySet<string> = new Set([
+  'proposed',
+  'construction',
+  'platform',
+  'razed',
+  'rest_area', // has its own place-ish semantics; excluded to avoid dupes with POI search (out of E05-T5 scope)
+]);
+
+function validLatLon(lat: unknown, lon: unknown): { lat: number; lon: number } | null {
+  if (typeof lat !== 'number' || typeof lon !== 'number') return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return { lat, lon };
+}
+
+/** Averages a flat list of `[lon, lat]` pairs into a single centroid point.
+ *  Deliberately a plain arithmetic mean, not area/length-weighted -- good
+ *  enough for "roughly where this street/place is" (E05-T5's documented
+ *  "simple ranking, no house numbers" scope), not a geodesy exercise. */
+function centroidOfPositions(positions: unknown): { lat: number; lon: number } | null {
+  if (!Array.isArray(positions) || positions.length === 0) return null;
+  let sumLat = 0;
+  let sumLon = 0;
+  let n = 0;
+  for (const p of positions) {
+    if (!Array.isArray(p) || p.length < 2) continue;
+    const [lon, lat] = p;
+    const point = validLatLon(lat, lon);
+    if (!point) continue;
+    sumLat += point.lat;
+    sumLon += point.lon;
+    n += 1;
+  }
+  if (n === 0) return null;
+  return { lat: sumLat / n, lon: sumLon / n };
+}
+
+/**
+ * Extracts a single lat/lon centroid from a GeoJSON geometry, regardless of
+ * whether it's already a `Point` (the expected case when `osmium export
+ * --geometry-types=point` converts ways/areas to their centroid itself) or
+ * a `LineString`/`Polygon`/`MultiPolygon` (defensive fallback: this repo's
+ * sandbox has no PBF tooling/network to verify osmium's exact centroid
+ * behavior for every geometry shape, see the task's feasibility note, so
+ * this extractor computes its own centroid rather than assuming a specific
+ * upstream geometry type). A missing/malformed `geometry.type` is treated
+ * the same as `Point` (bare `[lon, lat]` coordinates), for tolerance
+ * against export-tool variations.
+ */
+function coordsFromGeometry(feature: OsmFeature): { lat: number; lon: number } | null {
+  const geometry = feature.geometry;
+  if (!geometry) return null;
+  const coords = geometry.coordinates;
+
+  switch (geometry.type) {
+    case 'LineString':
+      return centroidOfPositions(coords);
+    case 'Polygon':
+      // First ring (outer boundary) is coords[0]; holes are irrelevant for
+      // a rough centroid.
+      return centroidOfPositions(Array.isArray(coords) ? coords[0] : undefined);
+    case 'MultiPolygon':
+      return centroidOfPositions(
+        Array.isArray(coords) && Array.isArray(coords[0]) ? coords[0][0] : undefined,
+      );
+    case 'Point':
+    case undefined:
+    default: {
+      if (!Array.isArray(coords) || coords.length < 2) return null;
+      const [lon, lat] = coords;
+      return validLatLon(lat, lon);
+    }
+  }
+}
+
+function parsePopulation(raw: unknown): number | undefined {
+  if (typeof raw !== 'string' && typeof raw !== 'number') return undefined;
+  const n = typeof raw === 'number' ? raw : Number(raw.replace(/[^\d]/g, ''));
+  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : undefined;
+}
+
+/**
+ * Normalizes one `place=city|town|village` feature. Returns `null` if it's
+ * not a place feature this index indexes (wrong/missing `place` tag,
+ * missing/empty name, or unparsable geometry).
+ */
+export function normalizePlaceFeature(feature: OsmFeature): NormalizedRecord | null {
+  const props = feature.properties ?? {};
+  const place = props.place;
+  if (typeof place !== 'string' || !PLACE_KINDS.has(place)) return null;
+
+  const name = props.name;
+  if (typeof name !== 'string' || name.trim().length === 0) return null;
+
+  const point = coordsFromGeometry(feature);
+  if (!point) return null;
+
+  return {
+    kind: place as LiteKind,
+    name: name.trim(),
+    lat: point.lat,
+    lon: point.lon,
+    population: parsePopulation(props.population),
+  };
+}
+
+/**
+ * Normalizes one named-highway feature into a `kind: 'street'` record.
+ * Returns `null` for unnamed ways (a street a user can't type by name is
+ * useless in this index) or ways whose `highway` value is structural/
+ * non-navigable (see `EXCLUDED_HIGHWAY_VALUES`).
+ */
+export function normalizeStreetFeature(feature: OsmFeature): NormalizedRecord | null {
+  const props = feature.properties ?? {};
+  const highway = props.highway;
+  if (typeof highway !== 'string' || highway.length === 0) return null;
+  if (EXCLUDED_HIGHWAY_VALUES.has(highway)) return null;
+
+  const name = props.name;
+  if (typeof name !== 'string' || name.trim().length === 0) return null;
+
+  const point = coordsFromGeometry(feature);
+  if (!point) return null;
+
+  return { kind: 'street', name: name.trim(), lat: point.lat, lon: point.lon };
+}
+
+/**
+ * Normalizes one line of `osmium export -f geojsonseq` output (a single
+ * JSON object, NOT wrapped in a FeatureCollection -- geojsonseq is
+ * newline-delimited). `sourceKind` tells the parser which extraction rule
+ * applies (mirrors the two separate `osmium tags-filter` passes in
+ * `build-lite-index.sh`, one for places, one for streets). Malformed JSON
+ * or a feature the relevant normalizer rejects both simply yield `null` --
+ * the build script counts/logs skips but never aborts the whole build over
+ * one bad line.
+ */
+export function normalizeGeoJsonSeqLine(
+  line: string,
+  sourceKind: 'place' | 'street',
+): NormalizedRecord | null {
+  const trimmed = line.trim();
+  if (trimmed.length === 0) return null;
+
+  let feature: unknown;
+  try {
+    feature = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+
+  if (typeof feature !== 'object' || feature === null) return null;
+  const f = feature as OsmFeature;
+
+  return sourceKind === 'place' ? normalizePlaceFeature(f) : normalizeStreetFeature(f);
+}

@@ -44,4 +44,8 @@ export interface SearchLogger {
   error: (msg: string, meta?: Record<string, unknown>) => void;
 }
 
-export type BackendHealthStatus = 'ok' | 'degraded';
+/** 'disabled' (E05-T5, W-12): the backend was intentionally skipped by a
+ *  Setting (currently only Photon, via `photonEnabled:false`) -- distinct
+ *  from 'degraded' (backend was tried and failed) so the health snapshot
+ *  can tell "we chose not to call this" apart from "this is broken". */
+export type BackendHealthStatus = 'ok' | 'degraded' | 'disabled';

@@ -139,10 +139,15 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // Search plugin (E05-T1): Photon + Nominatim-Fallback geocoding, additive.
   // `online_fallback` defaults to false (docs/03 §2, E05-T1) -- online
   // Nominatim lookups only run when explicitly opted in via env.
+  // E05-T5/W-12: `photon_enabled` defaults to true (env `PHOTON_ENABLED=false`
+  // to turn Photon off, e.g. to save RAM) -- the offline `lite` fallback then
+  // takes over automatically (also used whenever Photon is merely down).
   await fastify.register(searchPlugin, {
     prefix: '/api/v1',
     photonUrl: process.env.PHOTON_URL,
     onlineFallback: process.env.SEARCH_ONLINE_FALLBACK === 'true',
+    photonEnabled: process.env.PHOTON_ENABLED !== 'false',
+    liteDbPath: process.env.LITE_SEARCH_DB_PATH,
     lang: process.env.SEARCH_LANG,
   });
 

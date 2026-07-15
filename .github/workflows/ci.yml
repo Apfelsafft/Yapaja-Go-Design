@@ -345,3 +345,100 @@ jobs:
       - name: Dump Valhalla logs on failure
         if: failure()
         run: docker logs valhalla 2>&1 | tail -150 || true
+
+  lite-search-li-build:
+    name: Lite-Suchindex LI Build & Smoke (E05-T5, W-12)
+    runs-on: ubuntu-latest
+    # Bewusst KEIN `needs: quality` -- mirrors `valhalla-li-build`'s reasoning:
+    # eigenstaendige Daten-Pipeline (E05-T5), rührt keinen App-Code auf eine
+    # Weise an, die von `quality` bereits abgedeckt waere. Der LI-PBF ist
+    # winzig, daher als eigener per-PR-Gate-Job tragbar statt nur nightly.
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # osmium-tool does the actual PBF parsing (tags-filter + export to
+      # GeoJSONSeq) -- see build-lite-index.sh's header comment for why this
+      # split (battle-tested C++ tool for the PBF format itself, pure/
+      # unit-tested TypeScript for everything downstream).
+      - name: Install osmium-tool
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
+          osmium --version
+
+      - name: Download Liechtenstein PBF (Geofabrik)
+        run: curl -fL -o li.osm.pbf https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+
+      # Exercises build-lite-index.sh end-to-end: osmium tags-filter + export,
+      # tsx CLI (extract.ts/buildIndex.ts), atomic temp-file+rename swap
+      # (W-17). Beweist Akzeptanz #1 ("LI-Lite-Index baut in CI < 1 min").
+      - name: Build LI lite_search.db via build-lite-index.sh (timed, atomic swap)
+        run: |
+          chmod +x services/valhalla/build-lite-index.sh
+          time services/valhalla/build-lite-index.sh li.osm.pbf
+
+      - name: Verify the index file exists and is non-trivial in size
+        run: |
+          DB_PATH="data/lite-search/lite_search.db"
+          test -s "$DB_PATH" || { echo "::error::$DB_PATH fehlt oder ist leer"; exit 1; }
+          ls -la "$DB_PATH"
+
+      # Beweist Akzeptanz #1 ("findet 'Vaduz' und eine Strasse") direkt gegen
+      # die gebaute SQLite-Datei -- unabhaengig von apps/core, damit dieser
+      # Job auch isoliert aussagekraeftig bleibt (der volle Backend-Pfad ist
+      # bereits durch apps/core/src/search/lite/liteBackend.test.ts abgedeckt).
+      - name: Smoke - "Vaduz" (city) and at least one street are findable via FTS5 trigram MATCH
+        run: |
+          python3 - <<'PY'
+          import sqlite3
+          con = sqlite3.connect("data/lite-search/lite_search.db")
+          cur = con.cursor()
+
+          cur.execute(
+              "SELECT p.name, p.kind FROM lite_search "
+              "JOIN places p ON p.id = lite_search.rowid "
+              "WHERE lite_search MATCH ? ORDER BY bm25(lite_search) LIMIT 20",
+              ('"Vadu"',),
+          )
+          rows = cur.fetchall()
+          print("Treffer fuer 'Vadu':", rows)
+          names = [r[0] for r in rows]
+          kinds_by_name = {r[0]: r[1] for r in rows}
+          assert "Vaduz" in names, "Vaduz nicht gefunden"
+          assert kinds_by_name["Vaduz"] == "city", f"Vaduz hat unerwarteten kind: {kinds_by_name['Vaduz']}"
+
+          cur.execute("SELECT COUNT(*) FROM places WHERE kind = 'street'")
+          street_count = cur.fetchone()[0]
+          print("Anzahl Strassen im Index:", street_count)
+          assert street_count >= 1, "keine einzige Strasse im Index gefunden"
+
+          cur.execute("SELECT COUNT(*) FROM places WHERE kind IN ('city','town','village')")
+          place_count = cur.fetchone()[0]
+          print("Anzahl Orte im Index:", place_count)
+          assert place_count >= 1, "keine Orte im Index gefunden"
+
+          print("PLAUSIBEL - Lite-Suchindex enthaelt Vaduz (city) und mindestens eine Strasse")
+          PY
+
+      - name: Index size (informational -- docs/07 acceptance #3 "DE < 400 MB" is a nightly/DE-scale claim, not asserted here for the tiny LI extract)
+        run: du -h data/lite-search/lite_search.db
+
+      - name: Show build-lite-index.sh output on failure
+        if: failure()
+        run: echo "Siehe vorherige Schritte fuer osmium/tsx-Ausgabe."

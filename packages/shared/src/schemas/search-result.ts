@@ -23,8 +23,9 @@ export const searchResultSchema = {
     },
     source: {
       type: 'string',
-      enum: ['photon', 'nominatim', 'coords'],
-      description: 'Backend that produced this result',
+      enum: ['photon', 'nominatim', 'coords', 'lite'],
+      description:
+        'Backend that produced this result; "lite" = offline SQLite/FTS5 fallback used when Photon is down/disabled (E05-T5, W-12)',
     },
     out_of_coverage: {
       type: 'boolean',
