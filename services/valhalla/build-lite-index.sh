@@ -104,9 +104,16 @@ osmium tags-filter --overwrite -o "$WORK_DIR/places.osm.pbf" "$PBF" n/place=city
 echo "== Filtere Strassen (highway=*) aus $PBF =="
 osmium tags-filter --overwrite -o "$WORK_DIR/streets.osm.pbf" "$PBF" w/highway
 
-echo "== Exportiere GeoJSONSeq (Zentroid fuer Ways/Areas) =="
+echo "== Exportiere GeoJSONSeq =="
+# Orte sind Nodes -> Points.
 osmium export --overwrite --geometry-types=point -f geojsonseq -o "$WORK_DIR/places.geojsonseq" "$WORK_DIR/places.osm.pbf"
-osmium export --overwrite --geometry-types=point -f geojsonseq -o "$WORK_DIR/streets.geojsonseq" "$WORK_DIR/streets.osm.pbf"
+# Strassen sind Ways -> LineStrings (geschlossene Flaechen -> Polygons).
+# WICHTIG: `osmium export` REDUZIERT Ways NICHT auf einen Punkt; mit
+# `--geometry-types=point` wuerden alle Ways WEGGEFILTERT (leere Ausgabe).
+# Wir exportieren die Ways daher als linestring/polygon und der Node-Extractor
+# (apps/core/src/search/lite/extract.ts, `coordsFromGeometry`) berechnet den
+# Zentroid selbst -- genau dafuer ist dessen LineString/Polygon-Zweig da.
+osmium export --overwrite --geometry-types=linestring,polygon -f geojsonseq -o "$WORK_DIR/streets.geojsonseq" "$WORK_DIR/streets.osm.pbf"
 
 echo "== Baue lite_search.db (tsx-CLI, atomarer Swap nach $OUT_DB) =="
 (

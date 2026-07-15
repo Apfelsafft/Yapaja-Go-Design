@@ -421,7 +421,15 @@ jobs:
           names = [r[0] for r in rows]
           kinds_by_name = {r[0]: r[1] for r in rows}
           assert "Vaduz" in names, "Vaduz nicht gefunden"
-          assert kinds_by_name["Vaduz"] == "city", f"Vaduz hat unerwarteten kind: {kinds_by_name['Vaduz']}"
+          # Akzeptanz #1 verlangt nur, dass Vaduz GEFUNDEN wird -- der genaue
+          # kind haengt an OSMs Tagging (Vaduz ist als kleine Hauptstadt real
+          # place=town oder place=city, je nach Datenstand); wir asserten daher
+          # nur, dass es als ORT (nicht als Strasse) im Index landet. Die
+          # kind-Rangfolge (city>town>village>street) ist separat in
+          # ranking.test.ts gegen synthetische Daten bewiesen.
+          assert kinds_by_name["Vaduz"] in ("city", "town", "village"), (
+              f"Vaduz hat unerwarteten kind: {kinds_by_name['Vaduz']}"
+          )
 
           cur.execute("SELECT COUNT(*) FROM places WHERE kind = 'street'")
           street_count = cur.fetchone()[0]

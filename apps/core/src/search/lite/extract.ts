@@ -3,11 +3,14 @@
  *
  * The actual OSM-PBF *parsing* happens OUTSIDE Node entirely, in
  * `osmium-tool` (see `services/valhalla/build-lite-index.sh`): `osmium
- * tags-filter` selects the relevant nodes/ways, `osmium export
- * --geometry-types=point -f geojsonseq` turns them into one-GeoJSON-Feature-
- * per-line NDJSON (ways/areas are represented by their centroid when
- * `--geometry-types=point` is selected -- exactly the "Zentroid" the task
- * spec asks for, for both places AND streets).
+ * tags-filter` selects the relevant nodes/ways, `osmium export -f geojsonseq`
+ * turns them into one-GeoJSON-Feature-per-line NDJSON. Places (nodes) arrive
+ * as `Point` geometries; streets (ways) arrive as `LineString`/`Polygon`
+ * geometries -- `coordsFromGeometry` below reduces those to their centroid
+ * (the "Zentroid" the task spec asks for). NOTE: `osmium export` does NOT
+ * itself collapse ways to a point; `--geometry-types=point` would drop ways
+ * entirely, so the build script exports ways as linestrings/polygons and the
+ * centroiding is done here.
  *
  * Everything in THIS file is pure, dependency-free, and unit-testable
  * without a real .osm.pbf (which this sandbox cannot obtain or parse, see
