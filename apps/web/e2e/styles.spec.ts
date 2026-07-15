@@ -363,13 +363,20 @@ test.describe('style options', () => {
 
     // The re-fetched/re-applied live style still carries the persisted
     // options (poi off, labelScale 1.2, lang name:en).
+    // 10s (not the default 5s): after a reload the style is re-fetched and
+    // re-applied asynchronously, so the poi-labels visibility can still read
+    // 'visible' for a moment under CI CPU contention before the persisted
+    // options land -- this poll failed both retry attempts on a contended run.
+    // Matches the 10s budget of the luminance polls above.
     await expect
-      .poll(() =>
-        page.evaluate(() => {
-          const layers = window.__yapajaMapController?.getMap()?.getStyle()?.layers ?? [];
-          const poi = layers.find((l) => l.id === 'poi-labels') as { layout?: { visibility?: string } } | undefined;
-          return poi?.layout?.visibility;
-        }),
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const layers = window.__yapajaMapController?.getMap()?.getStyle()?.layers ?? [];
+            const poi = layers.find((l) => l.id === 'poi-labels') as { layout?: { visibility?: string } } | undefined;
+            return poi?.layout?.visibility;
+          }),
+        { timeout: 10_000 },
       )
       .toBe('none');
 
