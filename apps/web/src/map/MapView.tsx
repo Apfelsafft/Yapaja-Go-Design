@@ -5,9 +5,15 @@ import { Protocol } from 'pmtiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { mapController, useMapStore } from '../state/mapStore';
 import { fetchRegions, type MapRegionSummary } from './regions';
-import { fetchStyle, buildFallbackStyle, type StyleOptions } from './styleClient';
+import {
+  fetchStyle,
+  buildFallbackStyle,
+  applyDegradationCaps,
+  type StyleOptions,
+} from './styleClient';
 import { applyStyle, trackCoreStyle } from './styleSwitch';
 import { useStyleStore } from '../state/styleStore';
+import { useDegradationStore } from '../perf/degrade';
 import { useViewModeStore, syncHeadingToBearing } from './viewMode';
 import { initializeFollowMe, updateFollowMePosition } from './followMe';
 import { usePosition } from '../position/positionStore';
@@ -74,7 +80,17 @@ export default function MapView(): React.ReactElement {
   const restoreViewMode = useViewModeStore((state) => state.restoreMode);
   const position = usePosition();
   const styleId = useStyleStore((state) => state.styleId);
-  const styleOptions = useStyleStore((state) => state.options);
+  const userStyleOptions = useStyleStore((state) => state.options);
+  // Transient performance-degradation caps (E01-T6). These clamp the effective
+  // render options DOWN from the user's persisted choice under low FPS; they
+  // are never persisted and never overwrite `userStyleOptions` (that would
+  // destroy the user's explicit style preference — the bug this replaced).
+  const poiCap = useDegradationStore((state) => state.poiCap);
+  const labelScaleCap = useDegradationStore((state) => state.labelScaleCap);
+  const styleOptions = applyDegradationCaps(userStyleOptions, {
+    poi: poiCap,
+    labelScale: labelScaleCap,
+  });
   // Tracks the (styleId, options) combination already applied to the live
   // map, so the live-switch effect below can skip the redundant re-fetch
   // right after mount (the map was just initialized with exactly this style).
@@ -102,7 +118,13 @@ export default function MapView(): React.ReactElement {
       }
       setRegion(regions[0]);
 
-      const { styleId: initialStyleId, options: initialOptions } = useStyleStore.getState();
+      const { styleId: initialStyleId, options: userOptions } = useStyleStore.getState();
+      const { poiCap: initialPoiCap, labelScaleCap: initialLabelScaleCap } =
+        useDegradationStore.getState();
+      const initialOptions = applyDegradationCaps(userOptions, {
+        poi: initialPoiCap,
+        labelScale: initialLabelScaleCap,
+      });
       const fetched = await fetchStyle(initialStyleId, initialOptions);
       if (cancelled) {
         return;
@@ -167,10 +189,15 @@ export default function MapView(): React.ReactElement {
     // lint rule is configured in this repo).
   }, [status, region, initialStyle]);
 
-  // Step 3: live style switching. Whenever the persisted styleId/options
+  // Step 3: live style switching. Whenever the effective styleId/options
   // change to something other than what's currently applied, fetch the new
   // style and swap it in place (camera + custom layers preserved — see
-  // styleSwitch.ts) instead of recreating the Map.
+  // styleSwitch.ts) instead of recreating the Map. "Effective" options fold in
+  // the user's choice AND any active performance-degradation cap, so recovering
+  // FPS (cap lifted) re-applies the user's full-quality style automatically.
+  // Deps are the primitive effective fields (not the `styleOptions` object,
+  // which `applyDegradationCaps` rebuilds every render) so this fires only on a
+  // real change.
   useEffect(() => {
     if (!map) {
       return;
@@ -190,7 +217,7 @@ export default function MapView(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [map, styleId, styleOptions]);
+  }, [map, styleId, styleOptions.poi, styleOptions.labelScale, styleOptions.lang]);
 
   // Restore persisted view mode once the map is registered. Depends on `[map]`
   // so the persisted mode is applied to the camera as soon as the map exists —

@@ -36,6 +36,9 @@ coverage/
 apps/web/playwright-report/
 apps/web/test-results/
 apps/web/e2e/.tmp/
+# Playwright/Vitest also drop a root-level test-results/ when run from the
+# monorepo root (e.g. `npx vitest run`); ignore it anywhere in the tree.
+test-results/
 # Staged by the e2e global setup, mirrors apps/core/Dockerfile's
 # `COPY apps/web/dist apps/core/public` build step.
 apps/core/public/

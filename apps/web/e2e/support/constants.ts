@@ -35,8 +35,19 @@ export const SUBPATH_PREFIX = '/rv-demo';
 // the browser/gpsd sources being active) would make those tests flaky, so
 // this gets its own core + port instead.
 export const SIMULATOR_CORE_PORT = 4313;
+// Dedicated core for search.spec.ts (E05-T2): its speed-lock test POSTs real
+// `Position` fixes (with an exact `speed`) to `/api/v1/position/browser` to
+// deterministically drive the search field's speed-lock threshold. Sharing
+// CORE_PORT with the other specs (which run in parallel, `fullyParallel:
+// true`, and some of which -- position.spec.ts -- also POST browser fixes
+// of their own to the same core) would let an unrelated test's fix land in
+// between this test's `speed: 5` and `speed: 0` pushes and flip the
+// lock/unlock assertion flaky, same class of problem `SIMULATOR_CORE_PORT`
+// exists to avoid for gps-loss.spec.ts.
+export const SEARCH_CORE_PORT = 4314;
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
 export const SUBPATH_BASE_URL = `http://127.0.0.1:${SUBPATH_PORT}`;
 export const SIMULATOR_CORE_BASE_URL = `http://127.0.0.1:${SIMULATOR_CORE_PORT}`;
+export const SEARCH_CORE_BASE_URL = `http://127.0.0.1:${SEARCH_CORE_PORT}`;

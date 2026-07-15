@@ -3,7 +3,15 @@
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { fetchStyle, fetchStyleSummaries, buildFallbackStyle, DEFAULT_STYLE_ID } from './styleClient';
+import {
+  fetchStyle,
+  fetchStyleSummaries,
+  buildFallbackStyle,
+  applyDegradationCaps,
+  NO_STYLE_QUALITY_CAPS,
+  DEFAULT_STYLE_ID,
+  type StyleOptions,
+} from './styleClient';
 
 function jsonResponse(body: unknown, ok = true): Response {
   return {
@@ -106,5 +114,33 @@ describe('buildFallbackStyle', () => {
     expect(style.layers).toHaveLength(1);
     expect(style.layers[0].type).toBe('background');
     expect(Object.keys(style.sources ?? {})).toHaveLength(0);
+  });
+});
+
+describe('applyDegradationCaps', () => {
+  const user: StyleOptions = { lang: 'name:en', labelScale: '1.2', poi: 'full' };
+
+  it('is a no-op when there are no caps (user choice passes through)', () => {
+    expect(applyDegradationCaps(user, NO_STYLE_QUALITY_CAPS)).toEqual(user);
+  });
+
+  it('clamps poi DOWN to the cap when the cap is stricter', () => {
+    expect(applyDegradationCaps(user, { poi: 'reduced', labelScale: null }).poi).toBe('reduced');
+    expect(applyDegradationCaps(user, { poi: 'off', labelScale: null }).poi).toBe('off');
+  });
+
+  it('never raises poi above the user choice (the core bug it replaced)', () => {
+    // A user who chose poi:'off' must never be forced back up to 'full'/'reduced'
+    // by a degradation cap.
+    const offUser: StyleOptions = { ...user, poi: 'off' };
+    expect(applyDegradationCaps(offUser, { poi: 'full', labelScale: null }).poi).toBe('off');
+    expect(applyDegradationCaps(offUser, { poi: 'reduced', labelScale: null }).poi).toBe('off');
+  });
+
+  it('clamps labelScale down but never up, and always preserves lang', () => {
+    expect(applyDegradationCaps(user, { poi: null, labelScale: '1.0' }).labelScale).toBe('1.0');
+    const smallUser: StyleOptions = { ...user, labelScale: '1.0' };
+    expect(applyDegradationCaps(smallUser, { poi: null, labelScale: '1.0' }).labelScale).toBe('1.0');
+    expect(applyDegradationCaps(user, { poi: 'off', labelScale: '1.0' }).lang).toBe('name:en');
   });
 });

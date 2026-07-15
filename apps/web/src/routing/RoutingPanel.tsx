@@ -33,6 +33,7 @@ const AVOID_LABELS: Record<(typeof AVOID_FLAGS)[number], string> = {
 
 export default function RoutingPanel(): React.ReactElement | null {
   const destination = useRoutingStore((state) => state.destination);
+  const destinationName = useRoutingStore((state) => state.destinationName);
   const routes = useRoutingStore((state) => state.routes);
   const activeRouteId = useRoutingStore((state) => state.activeRouteId);
   const status = useRoutingStore((state) => state.status);
@@ -89,7 +90,14 @@ export default function RoutingPanel(): React.ReactElement | null {
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="font-semibold">Ziel</h2>
+          {/* E05-T2: once a destination was picked via search, show its real
+              name here instead of the generic "Ziel" heading -- the
+              coordinates line below (`destination-coords`) is UNCHANGED in
+              both cases (existing E03-T3 e2e assertions rely on its exact
+              format), the name is purely additive. */}
+          <h2 className="font-semibold" data-testid="destination-title">
+            {destinationName ?? 'Ziel'}
+          </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400" data-testid="destination-coords">
             {destination.lat.toFixed(5)}, {destination.lon.toFixed(5)}
           </p>
