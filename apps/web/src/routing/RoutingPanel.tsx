@@ -11,10 +11,17 @@
  * shown as soon as a destination is picked (not gated on `status ===
  * 'success'`) so they stay usable/removable even while loading or after an
  * error -- e.g. removing an avoidance that caused a `NO_ROUTES` error.
+ *
+ * E05-T3: also hosts "Als Favorit speichern" -- a small inline form (name +
+ * category) that POSTs the current `destination` as a new favorite. Purely
+ * additive: no existing testid/behavior above changes. `category: 'home'`
+ * colliding with an already-existing home favorite surfaces the Core's 409
+ * `HOME_ALREADY_EXISTS` as an inline "ersetzen?" confirmation (docs/03 §2)
+ * rather than a raw error.
  */
 
-import React, { useCallback } from 'react';
-import type { RouteAvoidOverrides } from '@yapaja/shared';
+import React, { useCallback, useEffect, useState } from 'react';
+import type { Favorite, RouteAvoidOverrides } from '@yapaja/shared';
 import { useMapStore } from '../state/mapStore.js';
 import { useProfileStore } from '../profiles/store.js';
 import { useUiStore } from '../ui/store.js';
@@ -22,6 +29,9 @@ import { useRoutingStore, selectActiveRoute, selectAlternativeRoutes } from './s
 import { formatDistance, formatDuration, formatEta } from './format.js';
 import { friendlyRoutingErrorMessage } from './errors.js';
 import { NAV_ENABLED } from './featureFlags.js';
+import { useFavoritesStore } from '../favorites/store.js';
+import { FavoriteApiError } from '../favorites/client.js';
+import { iconForFavoriteCategory, FAVORITE_CATEGORIES, FAVORITE_CATEGORY_LABELS } from '../favorites/icons.js';
 
 const AVOID_FLAGS = ['motorway', 'toll', 'ferry', 'unpaved'] as const;
 const AVOID_LABELS: Record<(typeof AVOID_FLAGS)[number], string> = {
@@ -71,6 +81,64 @@ export default function RoutingPanel(): React.ReactElement | null {
     [removeAvoidance, activeProfile],
   );
 
+  // E05-T3: "Als Favorit speichern".
+  const createFavorite = useFavoritesStore((state) => state.createFavorite);
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [saveName, setSaveName] = useState('');
+  const [saveCategory, setSaveCategory] = useState<Favorite['category']>('custom');
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [homeConflict, setHomeConflict] = useState(false);
+
+  // A newly picked destination resets any leftover form/feedback state from
+  // a previous one -- the form is scoped to "this" destination.
+  useEffect(() => {
+    setShowSaveForm(false);
+    setSaveSuccess(false);
+    setSaveError(null);
+    setHomeConflict(false);
+  }, [destination]);
+
+  const handleOpenSaveForm = useCallback(() => {
+    setSaveName(destinationName ?? '');
+    setSaveCategory('custom');
+    setHomeConflict(false);
+    setSaveSuccess(false);
+    setSaveError(null);
+    setShowSaveForm(true);
+  }, [destinationName]);
+
+  const handleSaveFavorite = useCallback(
+    async (opts: { replace?: boolean } = {}) => {
+      if (!destination) return;
+      const name = saveName.trim() || 'Favorit';
+      try {
+        await createFavorite(
+          {
+            name,
+            latlng: destination,
+            icon: iconForFavoriteCategory(saveCategory),
+            category: saveCategory,
+          },
+          opts,
+        );
+        setShowSaveForm(false);
+        setHomeConflict(false);
+        setSaveSuccess(true);
+        setSaveError(null);
+      } catch (err) {
+        if (err instanceof FavoriteApiError && err.code === 'HOME_ALREADY_EXISTS') {
+          setHomeConflict(true);
+          return;
+        }
+        setSaveError(
+          err instanceof FavoriteApiError ? err.message : 'Favorit konnte nicht gespeichert werden.',
+        );
+      }
+    },
+    [destination, saveName, saveCategory, createFavorite],
+  );
+
   const openRegionsPanel = useUiStore((state) => state.openRegionsPanel);
   const handleOpenRegions = useCallback(() => {
     openRegionsPanel();
@@ -109,6 +177,107 @@ export default function RoutingPanel(): React.ReactElement | null {
         >
           Abbrechen
         </button>
+      </div>
+
+      <div data-testid="save-favorite-section">
+        {!showSaveForm && !saveSuccess && (
+          <button
+            type="button"
+            onClick={handleOpenSaveForm}
+            className="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-700"
+            data-testid="save-as-favorite-button"
+          >
+            ⭐ Als Favorit speichern
+          </button>
+        )}
+
+        {saveSuccess && (
+          <p className="text-xs text-green-700 dark:text-green-400" data-testid="save-favorite-success">
+            Favorit gespeichert.
+          </p>
+        )}
+
+        {showSaveForm && (
+          <div
+            className="rounded-md border border-slate-200 dark:border-slate-600 p-2 space-y-2"
+            data-testid="save-favorite-form"
+          >
+            <input
+              type="text"
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              placeholder="Name"
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-2 py-1 text-xs"
+              data-testid="save-favorite-name-input"
+            />
+            <select
+              value={saveCategory}
+              onChange={(e) => setSaveCategory(e.target.value as Favorite['category'])}
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-2 py-1 text-xs"
+              data-testid="save-favorite-category-select"
+            >
+              {FAVORITE_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {FAVORITE_CATEGORY_LABELS[cat]}
+                </option>
+              ))}
+            </select>
+
+            {saveError && (
+              <p className="text-xs text-red-700 dark:text-red-300" data-testid="save-favorite-error">
+                {saveError}
+              </p>
+            )}
+
+            {homeConflict && (
+              <div
+                className="rounded bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-2 space-y-1"
+                data-testid="save-favorite-home-conflict"
+              >
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  Es existiert bereits ein „Zuhause“-Favorit. Ersetzen?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveFavorite({ replace: true })}
+                    className="px-2 py-1 rounded bg-amber-600 text-white text-xs"
+                    data-testid="save-favorite-home-replace-button"
+                  >
+                    Ersetzen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHomeConflict(false)}
+                    className="px-2 py-1 rounded border border-slate-300 dark:border-slate-600 text-xs"
+                    data-testid="save-favorite-home-cancel-button"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => void handleSaveFavorite()}
+                className="flex-1 px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-medium"
+                data-testid="save-favorite-confirm-button"
+              >
+                Speichern
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSaveForm(false)}
+                className="px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-600 text-xs"
+                data-testid="save-favorite-cancel-button"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {activeProfile && (

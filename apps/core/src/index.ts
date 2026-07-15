@@ -17,6 +17,7 @@ import { GpsdSource } from './position/gpsd/index.js';
 import { mapPlugin } from './map/routes.js';
 import { routingPlugin } from './routing/routes.js';
 import { searchPlugin } from './search/routes.js';
+import { favoritesPlugin } from './favorites/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -144,6 +145,10 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     onlineFallback: process.env.SEARCH_ONLINE_FALLBACK === 'true',
     lang: process.env.SEARCH_LANG,
   });
+
+  // Favorites & history plugin (E05-T3, docs/03 §2): additive, does not
+  // touch other plugins.
+  await fastify.register(favoritesPlugin, { prefix: '/api/v1' });
 
   fastify.get<{ Reply: HealthResponse }>('/api/v1/health', async (_request, _reply) => {
     const dbHealth = await profileService.checkHealth();

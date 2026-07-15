@@ -45,9 +45,17 @@ export const SIMULATOR_CORE_PORT = 4313;
 // lock/unlock assertion flaky, same class of problem `SIMULATOR_CORE_PORT`
 // exists to avoid for gps-loss.spec.ts.
 export const SEARCH_CORE_PORT = 4314;
+// Dedicated core for favorites.spec.ts (E05-T3, Flow 6): the test creates a
+// favorite, then RELOADS THE PAGE to prove persistence -- a fresh navigation
+// against a core shared with other parallel specs would risk picking up
+// favorites/history left behind by an unrelated test (or vice versa),
+// exactly the class of cross-test contention `SEARCH_CORE_PORT` /
+// `SIMULATOR_CORE_PORT` already exist to avoid.
+export const FAVORITES_CORE_PORT = 4315;
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
 export const SUBPATH_BASE_URL = `http://127.0.0.1:${SUBPATH_PORT}`;
 export const SIMULATOR_CORE_BASE_URL = `http://127.0.0.1:${SIMULATOR_CORE_PORT}`;
 export const SEARCH_CORE_BASE_URL = `http://127.0.0.1:${SEARCH_CORE_PORT}`;
+export const FAVORITES_CORE_BASE_URL = `http://127.0.0.1:${FAVORITES_CORE_PORT}`;

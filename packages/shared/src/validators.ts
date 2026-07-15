@@ -14,6 +14,8 @@ import { routeSchema, maneuverSchema } from './schemas/route';
 import { navStateSchema } from './schemas/nav-state';
 import { apiErrorSchema } from './schemas/api-error';
 import { searchResultSchema } from './schemas/search-result';
+import { favoriteSchema } from './schemas/favorite';
+import { historyEntrySchema } from './schemas/history-entry';
 
 import type {
   LatLng,
@@ -25,6 +27,8 @@ import type {
   NavState,
   ApiError,
   SearchResult,
+  Favorite,
+  HistoryEntry,
 } from './types';
 
 // Initialize AJV with formats
@@ -41,6 +45,8 @@ const validateManeuverImpl = ajv.compile(maneuverSchema);
 const validateNavStateImpl = ajv.compile(navStateSchema);
 const validateApiErrorImpl = ajv.compile(apiErrorSchema);
 const validateSearchResultImpl = ajv.compile(searchResultSchema);
+const validateFavoriteImpl = ajv.compile(favoriteSchema);
+const validateHistoryEntryImpl = ajv.compile(historyEntrySchema);
 
 /**
  * Type guard for LatLng
@@ -103,6 +109,20 @@ export function validateApiError(data: unknown): data is ApiError {
  */
 export function validateSearchResult(data: unknown): data is SearchResult {
   return validateSearchResultImpl(data);
+}
+
+/**
+ * Type guard for Favorite
+ */
+export function validateFavorite(data: unknown): data is Favorite {
+  return validateFavoriteImpl(data);
+}
+
+/**
+ * Type guard for HistoryEntry
+ */
+export function validateHistoryEntry(data: unknown): data is HistoryEntry {
+  return validateHistoryEntryImpl(data);
 }
 
 /**
@@ -192,4 +212,18 @@ export function getValidationErrorsApiError(data: unknown): string[] {
  */
 export function getValidationErrorsSearchResult(data: unknown): string[] {
   return getValidationErrorsForValidator('SearchResult', data, validateSearchResultImpl);
+}
+
+/**
+ * Get validation errors for Favorite
+ */
+export function getValidationErrorsFavorite(data: unknown): string[] {
+  return getValidationErrorsForValidator('Favorite', data, validateFavoriteImpl);
+}
+
+/**
+ * Get validation errors for HistoryEntry
+ */
+export function getValidationErrorsHistoryEntry(data: unknown): string[] {
+  return getValidationErrorsForValidator('HistoryEntry', data, validateHistoryEntryImpl);
 }
