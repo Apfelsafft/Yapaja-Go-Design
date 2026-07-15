@@ -248,6 +248,28 @@ describe('useDegradationStore', () => {
         store.applyLevel(3);
       }).not.toThrow();
     });
+
+    // Regression guard for the E01-T6 defect where degradation wrote POI/label
+    // settings straight into the *persisted* styleStore, destroying the user's
+    // explicit style choice. Degradation must only publish transient caps.
+    it('publishes transient poi/label caps per level (never full at 0/1)', () => {
+      const store = useDegradationStore.getState();
+
+      store.applyLevel(0);
+      expect(useDegradationStore.getState().poiCap).toBeNull();
+      expect(useDegradationStore.getState().labelScaleCap).toBeNull();
+
+      store.applyLevel(1);
+      expect(useDegradationStore.getState().poiCap).toBeNull();
+      expect(useDegradationStore.getState().labelScaleCap).toBeNull();
+
+      store.applyLevel(2);
+      expect(useDegradationStore.getState().poiCap).toBe('reduced');
+
+      store.applyLevel(3);
+      expect(useDegradationStore.getState().poiCap).toBe('off');
+      expect(useDegradationStore.getState().labelScaleCap).toBe('1.0');
+    });
   });
 
   describe('No degradation at rest', () => {

@@ -34,6 +34,44 @@ export const DEFAULT_STYLE_OPTIONS: StyleOptions = {
   poi: 'full',
 };
 
+/**
+ * Quality caps the performance watchdog (E01-T6) may impose transiently under
+ * low FPS. These are NEVER persisted and NEVER overwrite the user's chosen
+ * `StyleOptions` — the effective render options are the user's choice *clamped
+ * down* by any active cap (see `applyDegradationCaps`). `null` means "no cap".
+ */
+export interface StyleQualityCaps {
+  poi: StylePoiDensity | null;
+  labelScale: StyleLabelScale | null;
+}
+
+export const NO_STYLE_QUALITY_CAPS: StyleQualityCaps = { poi: null, labelScale: null };
+
+// Quality rank (higher = more detail / more expensive to render). A cap can
+// only pull the effective value DOWN to its own rank, never up — so a user who
+// chose `poi: 'off'` is never forced back to 'full' by a degradation cap.
+const POI_RANK: Record<StylePoiDensity, number> = { off: 0, reduced: 1, full: 2 };
+const LABEL_SCALE_RANK: Record<StyleLabelScale, number> = { '1.0': 0, '1.2': 1 };
+
+/**
+ * Combines the user's persisted `StyleOptions` with any active degradation
+ * caps, returning the *effective* options to actually fetch/render with. Each
+ * capped field is clamped to the lower of (user choice, cap); `lang` is never
+ * a performance concern and always passes through unchanged.
+ */
+export function applyDegradationCaps(
+  options: StyleOptions,
+  caps: StyleQualityCaps,
+): StyleOptions {
+  const poi =
+    caps.poi !== null && POI_RANK[caps.poi] < POI_RANK[options.poi] ? caps.poi : options.poi;
+  const labelScale =
+    caps.labelScale !== null && LABEL_SCALE_RANK[caps.labelScale] < LABEL_SCALE_RANK[options.labelScale]
+      ? caps.labelScale
+      : options.labelScale;
+  return { lang: options.lang, labelScale, poi };
+}
+
 interface StylesListApiResponse {
   data: StyleSummary[];
 }

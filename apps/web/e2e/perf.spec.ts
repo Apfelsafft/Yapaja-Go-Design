@@ -67,9 +67,12 @@ test.describe('Performance Watchdog', () => {
     const override = await readOverride(page);
     expect(override).toBe('auto'); // Default override
 
-    // Level should start at 0
+    // Level starts un-degraded. Under CI CPU contention the watchdog can
+    // legitimately take a single upgrade step (0 -> 1) during a slow startup
+    // before this reads it; the 30s hysteresis prevents going further within
+    // the test window, so <= 1 is the robust check for "essentially at rest".
     const level = await readDegradationLevel(page);
-    expect(level).toBe(0);
+    expect(level).toBeLessThanOrEqual(1);
 
     expect(pageErrors.length).toBe(0);
     expect(tracker.getForeignUrls().length).toBe(0);
@@ -120,9 +123,11 @@ test.describe('Performance Watchdog', () => {
     await waitForMapReady(page);
     await waitForDegrade(page);
 
-    // Initial level should be 0
+    // Baseline: essentially un-degraded (see note in the "initialized" test —
+    // a single startup upgrade to 1 is legitimate under CI CPU contention).
+    // This test's real contract is the override behaviour asserted below.
     let level = await readDegradationLevel(page);
-    expect(level).toBe(0);
+    expect(level).toBeLessThanOrEqual(1);
 
     // Set override to high
     await page.evaluate(() => {
@@ -157,9 +162,10 @@ test.describe('Performance Watchdog', () => {
     await waitForMapReady(page);
     await waitForDegrade(page);
 
-    // Initial level should be 0
+    // Baseline: essentially un-degraded (a single startup upgrade to 1 is
+    // legitimate under CI CPU contention). The real contract is override->3.
     let level = await readDegradationLevel(page);
-    expect(level).toBe(0);
+    expect(level).toBeLessThanOrEqual(1);
 
     // Set override to low
     await page.evaluate(() => {

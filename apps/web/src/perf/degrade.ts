@@ -15,8 +15,8 @@
  */
 
 import { create } from 'zustand';
-import { useStyleStore } from '../state/styleStore';
 import { useViewModeStore } from '../map/viewMode';
+import type { StyleLabelScale, StylePoiDensity } from '../map/styleClient';
 
 export type DegradationLevel = 0 | 1 | 2 | 3;
 export type QualityOverride = 'high' | 'auto' | 'low';
@@ -40,6 +40,16 @@ interface DegradationState {
   level: DegradationLevel;
   /** Override setting: 'high' (0), 'auto' (watchdog), 'low' (3) */
   override: QualityOverride;
+
+  /**
+   * Transient render-quality caps derived from the current level. These are
+   * NOT persisted and NEVER written back into the user's persisted style
+   * options — the map combines them with the user's choice via
+   * `applyDegradationCaps` (clamp-down only). `null` means "no cap for this
+   * field". Consumed reactively by MapView.
+   */
+  poiCap: StylePoiDensity | null;
+  labelScaleCap: StyleLabelScale | null;
 
   /** Internal: for hysteresis */
   _lastLevelChangeTime: number;
@@ -75,35 +85,53 @@ function readPersistedOverride(): QualityOverride {
 }
 
 /**
- * Apply a degradation level to the map: viewMode, style options, 3D flag.
- * Calls existing controllers (viewMode, styleStore) instead of reloading style.
+ * Derive the transient render-quality caps for a degradation level.
+ *
+ * IMPORTANT (fixes an E01-T6 defect): degradation must NEVER write POI/label
+ * settings back into the persisted `styleStore` — doing so overwrote and
+ * persisted the user's explicit style choice (e.g. a user who picked
+ * `poi: 'off'` was forcibly reset to `'full'` the moment the watchdog nudged
+ * the level, and even level 0 "full quality" clobbered it). Instead we return
+ * caps that the map clamps the user's choice *down* to (`applyDegradationCaps`),
+ * never up, and never persisted. `null` = no cap for that field.
+ *
+ * - Level 0 (full quality) and level 1 (3D buildings off) impose no POI/label
+ *   cap at all — 3D-buildings degradation is unrelated to POI/label density
+ *   (and isn't modelled yet; see TODO below).
+ * - Level 2 caps POI density to 'reduced'.
+ * - Level 3 caps POI to 'off' and label scale to '1.0' (and forces 2D-north).
  */
-function applyDegradationLevel(level: DegradationLevel): void {
-  const styleStore = useStyleStore.getState();
-  const viewModeStore = useViewModeStore.getState();
+function capsForLevel(level: DegradationLevel): {
+  poiCap: StylePoiDensity | null;
+  labelScaleCap: StyleLabelScale | null;
+} {
+  switch (level) {
+    case 2:
+      return { poiCap: 'reduced', labelScaleCap: null };
+    case 3:
+      return { poiCap: 'off', labelScaleCap: '1.0' };
+    case 0:
+    case 1:
+    default:
+      return { poiCap: null, labelScaleCap: null };
+  }
+}
 
-  if (level === 0) {
-    // Full quality: allow 3D, full POI, full labels
-    // (no explicit action — just ensure we're not degraded)
-    if (viewModeStore.mode === '2d-north') {
-      // User may prefer 2D-north; don't force 3D. Just allow it.
-    }
-    styleStore.setPoi('full');
-    styleStore.setLabelScale('1.0');
-  } else if (level === 1) {
-    // 3D buildings off: keep POI/labels full
-    // (user may still choose 3d-course view, we just don't render buildings)
-    styleStore.setPoi('full');
-    styleStore.setLabelScale('1.0');
-  } else if (level === 2) {
-    // Reduced POI/labels
-    styleStore.setPoi('reduced');
-    styleStore.setLabelScale('1.0');
-  } else if (level === 3) {
-    // Force 2D, minimal POI/labels
-    viewModeStore.setMode('2d-north');
-    styleStore.setPoi('off');
-    styleStore.setLabelScale('1.0');
+/**
+ * Apply a degradation level: publish the transient render-quality caps (read
+ * reactively by MapView) and, at the most degraded level, drop to 2D-north.
+ * Never mutates the persisted style options.
+ */
+function applyDegradationLevel(
+  level: DegradationLevel,
+  set: (partial: Partial<DegradationState>) => void,
+): void {
+  const { poiCap, labelScaleCap } = capsForLevel(level);
+  set({ poiCap, labelScaleCap });
+
+  if (level === 3) {
+    // Force 2D at the most degraded level (tilt/3D is the biggest GPU cost).
+    useViewModeStore.getState().setMode('2d-north');
   }
 
   // TODO (E02/later): Add a flag like _buildings3dEnabled to the store,
@@ -128,6 +156,8 @@ declare global {
 export const useDegradationStore = create<DegradationState>((set, get) => ({
   level: 0,
   override: 'auto',
+  poiCap: null,
+  labelScaleCap: null,
   _lastLevelChangeTime: 0,
   _fpsHistory: [],
 
@@ -218,7 +248,7 @@ export const useDegradationStore = create<DegradationState>((set, get) => ({
   },
 
   applyLevel: (level: DegradationLevel) => {
-    applyDegradationLevel(level);
+    applyDegradationLevel(level, set);
   },
 
   restoreSettings: () => {
@@ -226,10 +256,10 @@ export const useDegradationStore = create<DegradationState>((set, get) => ({
     set({ override });
     if (override === 'high') {
       set({ level: 0 });
-      applyDegradationLevel(0);
+      applyDegradationLevel(0, set);
     } else if (override === 'low') {
       set({ level: 3 });
-      applyDegradationLevel(3);
+      applyDegradationLevel(3, set);
     }
     // 'auto': keep current level (0 by default)
   },
