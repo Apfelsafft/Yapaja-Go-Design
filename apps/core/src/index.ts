@@ -10,13 +10,15 @@ import { EventBus } from './bus/index.js';
 import { busWebsocketPlugin, WsClientRegistry } from './bus/ws.js';
 import { PositionService } from './position/service.js';
 import { positionPlugin } from './position/routes.js';
-import { DeadReckoningController, noopDeadReckoningProvider } from './position/deadReckoning.js';
+import { DeadReckoningController } from './position/deadReckoning.js';
 import { SimulatorSource } from './position/simulator/index.js';
 import { simulatorPlugin } from './position/simulator/routes.js';
 import { GpsdSource } from './position/gpsd/index.js';
 import { mapPlugin } from './map/routes.js';
 import { routingPlugin, buildRoutingService } from './routing/routes.js';
 import { navigationPlugin } from './navigation/routes.js';
+import { NavigationService } from './navigation/service.js';
+import { RouteAwareDeadReckoningProvider, MAX_DEAD_RECKONING_WINDOW_MS } from './navigation/deadreckoning.js';
 import { FileNavRecoveryStore } from './navigation/recoveryStore.js';
 import { searchPlugin, buildSearchService } from './search/routes.js';
 import { favoritesPlugin } from './favorites/routes.js';
@@ -117,23 +119,6 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     gpsdSource.start();
   }
 
-  // Dead-reckoning (E02-T5, W-01): extrapolates the puck for up to 30s after
-  // GPS is lost. `noopDeadReckoningProvider` is a placeholder until E04-T6
-  // ships the real route-based math -- until then this never actually
-  // publishes `pos/extrapolated`, so the puck just freezes.
-  const deadReckoningController = new DeadReckoningController({
-    bus: eventBus,
-    service: positionService,
-    provider: noopDeadReckoningProvider,
-  });
-
-  fastify.addHook('onClose', async () => {
-    deadReckoningController.dispose();
-    simulatorSource.dispose();
-    gpsdSource.dispose();
-    positionService.dispose();
-  });
-
   await fastify.register(busWebsocketPlugin, { bus: eventBus, registry: wsClientRegistry });
   await fastify.register(positionPlugin, { prefix: '/api/v1', service: positionService });
   await fastify.register(simulatorPlugin, {
@@ -181,12 +166,23 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     lang: process.env.SEARCH_LANG,
   });
 
-  // Navigation plugin (E04-T1, 🔴 safety-critical): state machine +
+  // Navigation service (E04-T1, 🔴 safety-critical): state machine +
   // map-matching, driven off `pos/update`, publishing `nav/state` at ~1 Hz.
   // Restart recovery (W-19) persists only the last active route reference to
   // a small JSON file; navigation itself always boots `idle` (no ghost nav).
-  await fastify.register(navigationPlugin, {
-    prefix: '/api/v1',
+  //
+  // Constructed HERE (not inside `navigationPlugin`, which otherwise builds
+  // its own) so E04-T6's `DeadReckoningController` below can hold a direct
+  // reference to it: `NavigationService` implements `DeadReckoningRouteSource`
+  // (its `getActiveForDeadReckoning()` is the DR provider's live route/
+  // progress/next-maneuver/speed source) -- same "build outside, inject via
+  // `service:`" pattern already used for `routingService`/`searchService` above.
+  const navigationLogger = {
+    info: (msg: string, meta?: Record<string, unknown>) => fastify.log.info(meta ?? {}, msg),
+    warn: (msg: string, meta?: Record<string, unknown>) => fastify.log.warn(meta ?? {}, msg),
+    error: (msg: string, meta?: Record<string, unknown>) => fastify.log.error(meta ?? {}, msg),
+  };
+  const navigationService = new NavigationService({
     bus: eventBus,
     routeProvider: routingService,
     // E04-T4: automatic rerouting reuses the SAME shared RoutingService — its
@@ -198,9 +194,6 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     // ProfileService (same instance the routing plugin above uses). E04-T5's
     // destination endpoint also falls back to it when no `profile_id` is given.
     profileProvider: profileService,
-    // E04-T5: `POST /navigation/destination`'s `query` -> geocode path (the
-    // same shared SearchService instance registered below).
-    searchProvider: searchService,
     // E06-T3: "is a UI client connected?" -- decides confirmation-banner vs.
     // headless auto-reroute when the active profile changes mid-navigation.
     clientPresence: wsClientRegistry,
@@ -212,6 +205,48 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
         logger: { warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg) },
       },
     ),
+    logger: navigationLogger,
+  });
+
+  // Dead-reckoning (E02-T5 scaffold, E04-T6 real math, Wargame W-01):
+  // extrapolates the puck ALONG THE ACTIVE ROUTE for up to 30s after GPS is
+  // lost, using `navigationService` as the live route/progress/speed source
+  // -- `RouteAwareDeadReckoningProvider` replaces the E02-T5 placeholder
+  // (`noopDeadReckoningProvider`, which always declined and left the puck
+  // frozen). `navigationService` itself also subscribes to the resulting
+  // `pos/extrapolated` fixes (its own `pos/extrapolated` bus subscription,
+  // see `navigation/service.ts`) to keep announcements/`nav/state` running
+  // through the outage and to pause navigation after the 30s cap.
+  const deadReckoningController = new DeadReckoningController({
+    bus: eventBus,
+    service: positionService,
+    provider: new RouteAwareDeadReckoningProvider(navigationService),
+    maxWindowMs: MAX_DEAD_RECKONING_WINDOW_MS,
+  });
+
+  fastify.addHook('onClose', async () => {
+    deadReckoningController.dispose();
+    navigationService.dispose();
+    simulatorSource.dispose();
+    gpsdSource.dispose();
+    positionService.dispose();
+  });
+
+  // Navigation plugin: REST routes only (`POST /navigation/*`, `GET
+  // /navigation/state`) -- `service: navigationService` makes it reuse the
+  // SAME instance constructed above rather than building a second one.
+  await fastify.register(navigationPlugin, {
+    prefix: '/api/v1',
+    bus: eventBus,
+    service: navigationService,
+    routeProvider: routingService,
+    rerouteProvider: routingService,
+    profileProvider: profileService,
+    // E04-T5: `POST /navigation/destination`'s `query` -> geocode path (the
+    // same shared SearchService instance registered below) -- used directly
+    // by the route handler even when `service` is injected.
+    searchProvider: searchService,
+    clientPresence: wsClientRegistry,
   });
 
   // Search plugin (E05-T1): Photon + Nominatim-Fallback geocoding, additive.

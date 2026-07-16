@@ -36,7 +36,12 @@ import type {
   VehicleProfile,
 } from '@yapaja/shared';
 import { checkNavState } from '@yapaja/shared';
-import type { EventBus, ProfileChangedPayload, ProfileChangePendingPayload } from '../bus/index.js';
+import type {
+  EventBus,
+  ExtrapolatedPositionPayload,
+  ProfileChangedPayload,
+  ProfileChangePendingPayload,
+} from '../bus/index.js';
 import {
   DeviationDetector,
   RerouteGuard,
@@ -79,6 +84,14 @@ import {
   type AnnouncementState,
   type SpeedSegmentAnchor,
 } from './instructions.js';
+import {
+  initialStableSpeedState,
+  updateStableSpeed,
+  MAX_DEAD_RECKONING_WINDOW_MS,
+  type DeadReckoningContext,
+  type DeadReckoningRouteSource,
+  type StableSpeedState,
+} from './deadreckoning.js';
 
 /** Distance-to-destination threshold for arrival (metres). */
 export const ARRIVAL_DISTANCE_M = 40;
@@ -224,7 +237,16 @@ const DEVIATION_REROUTE_CTX: RerouteCtx = { reason: 'reroute', oldProfile: null,
 /** docs/03 §2 / E06-T3 spec: reroute onto a route with >15% more duration warrants an advisory banner. */
 const DURATION_WARNING_THRESHOLD = 1.15;
 
-export class NavigationService {
+/**
+ * E04-T6 / W-01: the search-window half-width used for exactly ONE re-match
+ * right after GPS returns from a loss that paused navigation -- the vehicle
+ * may have travelled well beyond the normal ±`SEARCH_WINDOW_M` (500 m) window
+ * during up to `MAX_DEAD_RECKONING_WINDOW_MS` (30 s) of silence (e.g. ~1080 m
+ * at 130 km/h). Reverts to the normal window immediately after that one match.
+ */
+const GPS_REACQUIRE_SEARCH_WINDOW_M = 1500;
+
+export class NavigationService implements DeadReckoningRouteSource {
   private readonly bus: EventBus;
   private readonly routeProvider: RouteProvider;
   private readonly recoveryStore: NavRecoveryStore;
@@ -253,6 +275,29 @@ export class NavigationService {
   /** Per-maneuver "which thresholds already fired" tracker (Wargame W-23), reset per navigation. */
   private announcementState: AnnouncementState = initialAnnouncementState();
 
+  // --- E04-T6 dead-reckoning state (W-01) --------------------------------------
+  /** EWMA of ground speed from REAL fixes only -- the DR provider's extrapolation rate. */
+  private stableSpeed: StableSpeedState = initialStableSpeedState();
+  /** Pending "GPS lost for MAX_DEAD_RECKONING_WINDOW_MS" -> paused timer, or null. */
+  private gpsLossTimer: ReturnType<typeof setTimeout> | null = null;
+  /** True while `paused` was entered via the GPS-loss timeout (not a user PAUSE) --
+   *  gates auto-resume-on-GPS-return, which a manual pause must never trigger. */
+  private pausedForGpsLoss = false;
+  /** Consumed by the very next map-match after an auto-resume: widens the
+   *  search window ONCE (see {@link GPS_REACQUIRE_SEARCH_WINDOW_M}), then reverts. */
+  private oneTimeWidenedSearch = false;
+  /**
+   * The extrapolation anchor, captured ONCE at the moment GPS was lost (see
+   * `onGpsLost`) and held FROZEN for the whole outage. `DeadReckoningController`
+   * passes `RouteAwareDeadReckoningProvider` the CUMULATIVE elapsed time since
+   * loss on every tick (see `position/deadReckoning.ts`'s `tick()`), so the
+   * anchor this walks forward from must stay fixed -- `this.lastProgressM`
+   * itself keeps advancing tick-by-tick (via `onExtrapolatedPosition`, purely
+   * for `nav/state`'s live display), and reading THAT as the anchor instead
+   * would double-count elapsed time on every subsequent tick.
+   */
+  private gpsLossAnchor: { progressM: number; nextManeuverProgressM: number | null } | null = null;
+
   // --- E04-T4 rerouting state -------------------------------------------------
   /** Confirms a deviation over 5 s / 5 fixes before a reroute is launched. */
   private readonly detector = new DeviationDetector();
@@ -279,6 +324,8 @@ export class NavigationService {
 
   private readonly unsubscribe: () => void;
   private readonly unsubscribeProfile: () => void;
+  private readonly unsubscribeExtrapolated: () => void;
+  private readonly unsubscribeGpsLost: () => void;
 
   constructor(opts: NavigationServiceOptions) {
     this.bus = opts.bus;
@@ -294,6 +341,14 @@ export class NavigationService {
     this.unsubscribeProfile = this.bus.subscribe('event/profile_changed', (payload) =>
       this.onProfileChanged(payload),
     );
+    // E04-T6 (W-01): dead-reckoned fixes from `DeadReckoningController` keep
+    // the announcement engine / nav/state running during a GPS outage (see
+    // `onExtrapolatedPosition`); `event/gps_lost` starts the independent 30s
+    // "still no real fix -> pause" timeout (see `onGpsLost`).
+    this.unsubscribeExtrapolated = this.bus.subscribe('pos/extrapolated', (pos) =>
+      this.onExtrapolatedPosition(pos),
+    );
+    this.unsubscribeGpsLost = this.bus.subscribe('event/gps_lost', () => this.onGpsLost());
 
     this.recoverOnStartup();
   }
@@ -326,6 +381,7 @@ export class NavigationService {
     this.lastDurationRemainingS = null;
     this.announcementState = initialAnnouncementState();
     this.resetRerouteState();
+    this.resetDeadReckoningState();
     this.rerouteContext = input.reroute ?? null;
     // E06-T3: the profile this (freshly started) route was computed with --
     // same resolution order `buildRerouteRequest` uses, so a later profile
@@ -342,11 +398,17 @@ export class NavigationService {
 
   pause(): NavState {
     this.requireTransition('PAUSE');
+    // A user-initiated pause is NOT a GPS-loss pause -- clear any pending
+    // gps-loss timeout/auto-resume flag so a later real fix does NOT
+    // surprise the user by silently resuming navigation they paused on purpose.
+    this.clearGpsLossTimer();
+    this.pausedForGpsLoss = false;
     return this.publishState();
   }
 
   resume(): NavState {
     this.requireTransition('RESUME');
+    this.pausedForGpsLoss = false;
     return this.publishState();
   }
 
@@ -361,6 +423,7 @@ export class NavigationService {
     this.lastDurationRemainingS = null;
     this.announcementState = initialAnnouncementState();
     this.resetRerouteState();
+    this.resetDeadReckoningState();
     this.rerouteContext = null;
     this.activeRouteProfileId = null;
     this.pendingProfileChange = null;
@@ -442,20 +505,46 @@ export class NavigationService {
   /** Unsubscribe from the bus. Call on shutdown/test teardown. */
   dispose(): void {
     this.clearRetryTimer();
+    this.clearGpsLossTimer();
     this.unsubscribe();
     this.unsubscribeProfile();
+    this.unsubscribeExtrapolated();
+    this.unsubscribeGpsLost();
   }
 
   // --- Position handling ---------------------------------------------------
 
   private onPosition(pos: Position): void {
+    // Any REAL fix means GPS is present again -- cancel the "still lost after
+    // 30s -> pause" countdown regardless of current status (defensive: it
+    // should only ever be pending while navigating/off_route, but a stray fix
+    // arriving in some other status must never leave a stale timer running).
+    this.clearGpsLossTimer();
+
+    // E04-T6 (W-01): GPS returned while navigation was paused BY THE LOSS
+    // (not by the user, see `pause()`) -- auto-resume seamlessly and widen
+    // the search window for exactly this one re-match, since the vehicle may
+    // have travelled well beyond the normal window during the outage.
+    if (this.pausedForGpsLoss && this.status === 'paused') {
+      this.pausedForGpsLoss = false;
+      if (this.applyInternal('RESUME')) {
+        this.oneTimeWidenedSearch = true;
+        this.logger.info('GPS reacquired — auto-resuming navigation', {
+          route_id: this.active?.route.id ?? null,
+        });
+      }
+    }
+
     if (this.status !== 'navigating' && this.status !== 'off_route') return;
     if (!this.active) return;
+
+    const searchWindow = this.oneTimeWidenedSearch ? GPS_REACQUIRE_SEARCH_WINDOW_M : this.searchWindowM;
+    this.oneTimeWidenedSearch = false;
 
     const point = { lat: pos.lat, lon: pos.lon };
     let match;
     try {
-      match = matchPosition(this.active.geom, point, this.lastProgressM, this.searchWindowM);
+      match = matchPosition(this.active.geom, point, this.lastProgressM, searchWindow);
     } catch (err) {
       // A geometry that can't be matched is a programming bug upstream; never
       // silently drop — log and skip this fix (state stays as last published).
@@ -474,6 +563,10 @@ export class NavigationService {
     this.lastPosition = pos;
 
     this.tickCalibration(prevProgressM, accepted, pos);
+    // E04-T6: feed the "last stable speed" EWMA from this REAL fix only --
+    // this is the rate the dead-reckoning provider extrapolates at if GPS is
+    // lost from here (see `getActiveForDeadReckoning`).
+    this.stableSpeed = updateStableSpeed(this.stableSpeed, pos.speed, Date.now());
 
     const onRoute = evaluateOnRoute({
       crossTrackM: match.crossTrackM,
@@ -496,6 +589,123 @@ export class NavigationService {
     if (this.checkArrival(pos, accepted)) return; // publishes its own state
 
     this.publishState();
+  }
+
+  // --- E04-T6 dead reckoning (W-01) -----------------------------------------
+
+  /**
+   * Handle one `pos/extrapolated` fix from `DeadReckoningController` during a
+   * GPS outage: map-match it (it is already ON the route polyline by
+   * construction, see `deadreckoning.ts#pointAtProgress`, so this mainly
+   * re-derives `progressM`/`next_maneuver` through the exact same code path
+   * `nav/state` normally uses) and re-run the announcement engine, so
+   * `nav/instruction` keeps firing at the right (extrapolated) distance
+   * through a tunnel/underpass (W-01 acceptance scenario 1).
+   *
+   * Deliberately DOES NOT: feed the ETA calibration EWMA (an extrapolated fix
+   * isn't a real observation of actual-vs-planned pace), evaluate off_route/
+   * trigger a reroute (a fix that is on-route by construction has nothing
+   * genuine to evaluate), or check arrival (a destination-reached claim
+   * should only ever come from a confirmed real fix).
+   */
+  private onExtrapolatedPosition(pos: ExtrapolatedPositionPayload): void {
+    if (this.status !== 'navigating' && this.status !== 'off_route') return;
+    if (!this.active) return;
+
+    const point = { lat: pos.lat, lon: pos.lon };
+    let match;
+    try {
+      match = matchPosition(this.active.geom, point, this.lastProgressM, this.searchWindowM);
+    } catch (err) {
+      this.logger.error('Map-matching failed for extrapolated fix', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
+
+    const prevProgressM = this.lastProgressM;
+    const accepted =
+      prevProgressM === null ? match.progressM : Math.max(match.progressM, prevProgressM);
+    this.lastProgressM = accepted;
+    this.lastPosition = pos;
+
+    this.tickAnnouncements(accepted, pos);
+    this.publishState();
+  }
+
+  /**
+   * `event/gps_lost` handler: starts the 30s "still no real fix -> pause"
+   * countdown (W-01 acceptance scenario 2) while navigating/off_route. A
+   * no-op otherwise (nothing to pause if there's no active navigation to lose
+   * GPS from in the first place). `onPosition` cancels this timer the moment
+   * any real fix arrives.
+   */
+  private onGpsLost(): void {
+    if (this.status !== 'navigating' && this.status !== 'off_route') return;
+    if (this.active && this.lastProgressM !== null) {
+      const upcoming = findUpcomingManeuver(this.active.maneuvers, this.lastProgressM);
+      this.gpsLossAnchor = {
+        progressM: this.lastProgressM,
+        nextManeuverProgressM: upcoming ? upcoming.progressM : null,
+      };
+    }
+    this.clearGpsLossTimer();
+    this.gpsLossTimer = setTimeout(() => {
+      this.gpsLossTimer = null;
+      this.handleGpsLossTimeout();
+    }, MAX_DEAD_RECKONING_WINDOW_MS);
+  }
+
+  /** The 30s countdown elapsed with no real fix: pause navigation + publish `event/gps_lost_paused`. */
+  private handleGpsLossTimeout(): void {
+    if (this.status !== 'navigating' && this.status !== 'off_route') return;
+    if (!this.applyInternal('PAUSE')) return; // defensive; PAUSE is valid from both states
+
+    this.pausedForGpsLoss = true;
+    const routeId = this.active?.route.id ?? null;
+    this.logger.warn('GPS lost for 30s during navigation — pausing (Wargame W-01)', {
+      route_id: routeId,
+    });
+    this.bus.publish('event/gps_lost_paused', { route_id: routeId, ts: new Date().toISOString() });
+    this.publishState();
+  }
+
+  private clearGpsLossTimer(): void {
+    if (this.gpsLossTimer !== null) {
+      clearTimeout(this.gpsLossTimer);
+      this.gpsLossTimer = null;
+    }
+  }
+
+  /** Reset all E04-T6 dead-reckoning state (per start/stop). */
+  private resetDeadReckoningState(): void {
+    this.stableSpeed = initialStableSpeedState();
+    this.clearGpsLossTimer();
+    this.pausedForGpsLoss = false;
+    this.oneTimeWidenedSearch = false;
+    this.gpsLossAnchor = null;
+  }
+
+  /**
+   * {@link DeadReckoningRouteSource} implementation: the live route/progress/
+   * next-maneuver/speed snapshot `RouteAwareDeadReckoningProvider` extrapolates
+   * from -- `progressM`/`nextManeuverProgressM` come from the FROZEN
+   * {@link gpsLossAnchor} (see its doc comment for why), not the continuously
+   * advancing `lastProgressM`. `null` whenever there is no active route to
+   * extrapolate along (idle/paused/arrived) or GPS hasn't actually been lost
+   * yet (no anchor captured) -- W-01's "ohne aktive Route" branch, so the
+   * puck freezes instead of guessing.
+   */
+  getActiveForDeadReckoning(): DeadReckoningContext | null {
+    if (this.status !== 'navigating' && this.status !== 'off_route') return null;
+    if (!this.active || !this.gpsLossAnchor) return null;
+
+    return {
+      geom: this.active.geom,
+      progressM: this.gpsLossAnchor.progressM,
+      nextManeuverProgressM: this.gpsLossAnchor.nextManeuverProgressM,
+      lastStableSpeedMs: this.stableSpeed.emaMs,
+    };
   }
 
   /**
