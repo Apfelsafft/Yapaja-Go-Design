@@ -84,6 +84,19 @@ export class ProfileService {
   }
 
   /**
+   * Get the currently active profile (single-active invariant, see
+   * `activate()`), or null if none is active yet (e.g. before `init()`).
+   * Used by NavigationService (E04-T2) for the ETA `avg_speed_kmh` floor.
+   */
+  getActive(): VehicleProfile | null {
+    const db = getDb();
+    const row = db.prepare('SELECT * FROM profiles WHERE is_active = 1').get() as
+      | DatabaseRow
+      | undefined;
+    return row ? rowToProfile(row) : null;
+  }
+
+  /**
    * Create a new profile (internally generated UUID, inert is_active=false)
    */
   create(input: Omit<VehicleProfile, 'id' | 'is_active'>): VehicleProfile {

@@ -77,7 +77,16 @@ describe('NavigationService + GPS simulator integration', () => {
 
   it('drives the route: progress monotonic, on_route stable, arrives (noise_m: 10)', () => {
     const states: NavState[] = [];
-    bus.subscribe('nav/state', (s) => states.push(s));
+    // E04-T2: `eta` is now a real (non-null) UTC timestamp, and checkNavState's
+    // "eta never in the past" rule is time-sensitive -- record each state
+    // alongside the (fake-clock) wall time it was published at, so replaying
+    // the check below compares each `eta` against the clock AS IT STOOD at
+    // that publish, not the much-later time this loop runs at.
+    const publishedAtMs: number[] = [];
+    bus.subscribe('nav/state', (s) => {
+      states.push(s);
+      publishedAtMs.push(Date.now());
+    });
 
     navigation.start({ route_id: route.id });
 
@@ -91,7 +100,7 @@ describe('NavigationService + GPS simulator integration', () => {
 
     // Monotonic distance_remaining within the checkNavState invariant.
     for (let i = 1; i < states.length; i++) {
-      const result = checkNavState(states[i], states[i - 1]);
+      const result = checkNavState(states[i], states[i - 1], new Date(publishedAtMs[i]));
       expect(result.ok, JSON.stringify(result.violations)).toBe(true);
     }
 

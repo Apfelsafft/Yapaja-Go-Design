@@ -40,7 +40,11 @@ export const navStateSchema = {
     eta: {
       type: ['string', 'null'],
       format: 'date-time',
-      description: 'Estimated time of arrival (ISO 8601 local TZ) or null',
+      // E04-T2 / Wargame W-22: Core is UTC-only (ISO 8601 WITH offset, e.g.
+      // trailing "Z") -- local-zone display is a CLIENT-side concern, see
+      // `formatEta` in this package. docs/03 §1's inline comment predates
+      // W-22's resolution; this description is the up-to-date one.
+      description: 'Estimated time of arrival, UTC ISO 8601 with offset (client formats locally, W-22), or null',
     },
     speed_kmh: {
       type: ['number', 'null'],

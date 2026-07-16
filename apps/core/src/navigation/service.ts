@@ -21,7 +21,7 @@
  * E04-T4 and intentionally NOT implemented here.
  */
 
-import type { LatLng, Maneuver, NavState, Position, Route } from '@yapaja/shared';
+import type { LatLng, Maneuver, NavState, Position, Route, VehicleProfile } from '@yapaja/shared';
 import { checkNavState } from '@yapaja/shared';
 import type { EventBus } from '../bus/index.js';
 import {
@@ -35,6 +35,18 @@ import { haversineM } from './geo.js';
 import { NavigationError } from './errors.js';
 import { canTransition, nextState, type NavAction, type NavStatus } from './stateMachine.js';
 import { InMemoryNavRecoveryStore, type NavRecoveryStore } from './recoveryStore.js';
+import {
+  buildManeuverAnchors,
+  buildTimeSegments,
+  computeEtaDuration,
+  etaTimestamp,
+  initialCalibrationState,
+  plannedDurationBetweenM,
+  updateCalibration,
+  type CalibrationState,
+  type ManeuverAnchor,
+  type TimeSegment,
+} from './eta.js';
 
 /** Distance-to-destination threshold for arrival (metres). */
 export const ARRIVAL_DISTANCE_M = 40;
@@ -49,6 +61,15 @@ export interface NavDestination {
 /** Just the route lookup the service needs (RoutingService satisfies it). */
 export interface RouteProvider {
   getCachedRoute(id: string): Route | null;
+}
+
+/**
+ * Just the profile lookup the ETA avg-speed floor needs (E04-T2;
+ * ProfileService satisfies it). Optional: when omitted, no floor is applied
+ * (matches pre-E04-T2 behaviour exactly for callers/tests that don't pass one).
+ */
+export interface ActiveProfileLookup {
+  getActive(): VehicleProfile | null;
 }
 
 export interface NavigationServiceLogger {
@@ -70,6 +91,8 @@ export interface NavigationServiceOptions {
   logger?: NavigationServiceLogger;
   /** Override the ±window (metres) for tests; defaults to SEARCH_WINDOW_M. */
   searchWindowM?: number;
+  /** ETA avg-speed floor input (E04-T2). Omit for "no floor" (e.g. most unit tests). */
+  profileProvider?: ActiveProfileLookup;
 }
 
 export interface StartInput {
@@ -81,15 +104,12 @@ export interface StartInput {
   destination?: NavDestination | null;
 }
 
-interface ManeuverAnchor {
-  maneuver: Maneuver;
-  progressM: number;
-}
-
 interface ActiveNavigation {
   route: Route;
   geom: RouteGeometry;
   maneuvers: ManeuverAnchor[];
+  /** Progress-ordered planned-time segments, ETA's base input (E04-T2). */
+  timeSegments: TimeSegment[];
   destination: NavDestination;
 }
 
@@ -99,6 +119,7 @@ export class NavigationService {
   private readonly recoveryStore: NavRecoveryStore;
   private readonly logger: NavigationServiceLogger;
   private readonly searchWindowM: number;
+  private readonly profileProvider: ActiveProfileLookup | null;
 
   private status: NavStatus = 'idle';
   private active: ActiveNavigation | null = null;
@@ -106,6 +127,14 @@ export class NavigationService {
   private lastPosition: Position | null = null;
   private arrivedFired = false;
   private prevState: NavState | null = null;
+
+  // --- E04-T2 ETA state ------------------------------------------------------
+  /** Running calibration factor (EWMA of actual/planned pace), reset per navigation. */
+  private calibration: CalibrationState = initialCalibrationState();
+  /** Wall-clock ms of the last calibration-eligible tick; null before the first one. */
+  private lastEtaTickMs: number | null = null;
+  /** Last PUBLISHED duration_remaining_s; the non-increasing publish clamp's basis. */
+  private lastDurationRemainingS: number | null = null;
 
   private readonly unsubscribe: () => void;
 
@@ -115,6 +144,7 @@ export class NavigationService {
     this.recoveryStore = opts.recoveryStore ?? new InMemoryNavRecoveryStore();
     this.logger = opts.logger ?? noopLogger;
     this.searchWindowM = opts.searchWindowM ?? SEARCH_WINDOW_M;
+    this.profileProvider = opts.profileProvider ?? null;
 
     this.unsubscribe = this.bus.subscribe('pos/update', (pos) => this.onPosition(pos));
 
@@ -144,6 +174,9 @@ export class NavigationService {
     this.lastProgressM = null;
     this.lastPosition = null;
     this.arrivedFired = false;
+    this.calibration = initialCalibrationState();
+    this.lastEtaTickMs = null;
+    this.lastDurationRemainingS = null;
 
     this.recoveryStore.save({ route_id: route.id, destination: active.destination });
     this.logger.info('Navigation started', { route_id: route.id });
@@ -167,6 +200,9 @@ export class NavigationService {
     this.lastProgressM = null;
     this.lastPosition = null;
     this.arrivedFired = false;
+    this.calibration = initialCalibrationState();
+    this.lastEtaTickMs = null;
+    this.lastDurationRemainingS = null;
     this.recoveryStore.clear();
     this.logger.info('Navigation stopped');
     return this.publishState();
@@ -179,6 +215,16 @@ export class NavigationService {
 
   getStatus(): NavStatus {
     return this.status;
+  }
+
+  /**
+   * Current ETA calibration factor (E04-T2). Not part of `NavState`/the REST
+   * contract -- a debug/test introspection seam only (e.g. asserting the
+   * factor stays frozen across a standstill), matching this class's other
+   * `get*()` accessors.
+   */
+  getCalibrationFactor(): number {
+    return this.calibration.factor;
   }
 
   /** Unsubscribe from the bus. Call on shutdown/test teardown. */
@@ -207,10 +253,13 @@ export class NavigationService {
 
     // Monotonic clamp: progress may never go backwards (distance_remaining can
     // therefore only fall). GPS noise that projects "behind" is absorbed here.
+    const prevProgressM = this.lastProgressM;
     const accepted =
-      this.lastProgressM === null ? match.progressM : Math.max(match.progressM, this.lastProgressM);
+      prevProgressM === null ? match.progressM : Math.max(match.progressM, prevProgressM);
     this.lastProgressM = accepted;
     this.lastPosition = pos;
+
+    this.tickCalibration(prevProgressM, accepted, pos);
 
     const onRoute = evaluateOnRoute({
       crossTrackM: match.crossTrackM,
@@ -227,6 +276,23 @@ export class NavigationService {
     if (this.checkArrival(pos, accepted)) return; // publishes its own state
 
     this.publishState();
+  }
+
+  /**
+   * Feed one map-matched tick into the calibration EWMA (E04-T2). A no-op on
+   * the first fix of a navigation (no previous tick to diff against) and
+   * whenever `eta.ts#updateCalibration` itself decides to freeze (standstill,
+   * unreliable speed, degenerate dt) — see that function's doc comment.
+   */
+  private tickCalibration(prevProgressM: number | null, newProgressM: number, pos: Position): void {
+    const nowMs = Date.now();
+    if (prevProgressM !== null && this.lastEtaTickMs !== null && this.active) {
+      const actualDtS = (nowMs - this.lastEtaTickMs) / 1000;
+      const plannedDtS = plannedDurationBetweenM(this.active.timeSegments, prevProgressM, newProgressM);
+      const speedKmh = pos.speed != null ? pos.speed * 3.6 : null;
+      this.calibration = updateCalibration(this.calibration, { actualDtS, plannedDtS, speedKmh });
+    }
+    this.lastEtaTickMs = nowMs;
   }
 
   /** Returns true (and fully handles publishing) when this fix triggers arrival. */
@@ -306,19 +372,15 @@ export class NavigationService {
       );
     }
 
-    const maneuvers: ManeuverAnchor[] = [];
-    for (const m of route.maneuvers) {
-      const idx = m.begin_shape_index;
-      if (idx >= 0 && idx < geom.cumulative.length) {
-        maneuvers.push({ maneuver: m, progressM: geom.cumulative[idx] });
-      }
-    }
-    maneuvers.sort((a, b) => a.progressM - b.progressM);
+    const maneuvers = buildManeuverAnchors(route, geom);
+    // E04-T2: precompute the planned-time segments once per navigation (not
+    // per tick) -- they only depend on the route, not on progress.
+    const timeSegments = buildTimeSegments(maneuvers, geom.totalLengthM, route.duration_s);
 
     const resolvedDest: NavDestination =
       destination ?? { latlng: { ...geom.points[geom.points.length - 1] }, name: null };
 
-    return { route, geom, maneuvers, destination: resolvedDest };
+    return { route, geom, maneuvers, timeSegments, destination: resolvedDest };
   }
 
   // --- NavState assembly + publishing --------------------------------------
@@ -330,6 +392,8 @@ export class NavigationService {
     let nextManeuver: Maneuver | null = null;
     let distanceToManeuver: number | null = null;
     let distanceRemaining: number | null = null;
+    let durationRemaining: number | null = null;
+    let eta: string | null = null;
     let destination: NavState['destination'] = null;
     let routeId: string | null = null;
 
@@ -344,6 +408,34 @@ export class NavigationService {
         nextManeuver = upcoming.maneuver;
         distanceToManeuver = Math.max(0, upcoming.progressM - progress);
       }
+
+      // E04-T2: base planned remaining * calibration factor, floored by
+      // remaining-distance/avg_speed (see eta.ts#computeEtaDuration).
+      const avgSpeedKmh = this.profileProvider?.getActive()?.avg_speed_kmh ?? null;
+      const { durationRemainingS: rawDuration } = computeEtaDuration({
+        segments: active.timeSegments,
+        totalLengthM: active.geom.totalLengthM,
+        progressM: progress,
+        calibration: this.calibration,
+        avgSpeedKmh,
+      });
+
+      // Publish-time clamp: NEVER let duration_remaining_s creep UP while
+      // navigating (docs/03 §5's monotonicity invariant, checkNavState, has
+      // zero tolerance for it) — a recalibration tick can otherwise nudge the
+      // raw computation upward for a moment (see eta.ts#updateCalibration's
+      // doc comment). The `eta` TIMESTAMP still recedes forward in real time
+      // even while duration_remaining_s holds flat here: that's exactly how a
+      // red-light stop (acceptance scenario 3) or a slower-than-planned
+      // stretch (scenario 2) is meant to show up -- the countdown just stops
+      // ticking down as fast (or, at a standstill, not at all).
+      durationRemaining =
+        this.lastDurationRemainingS === null
+          ? rawDuration
+          : Math.min(rawDuration, this.lastDurationRemainingS);
+      this.lastDurationRemainingS = durationRemaining;
+
+      eta = etaTimestamp(Date.now(), durationRemaining);
     }
 
     const speedKmh = this.lastPosition?.speed != null ? this.lastPosition.speed * 3.6 : null;
@@ -355,8 +447,8 @@ export class NavigationService {
       next_maneuver: nextManeuver,
       distance_to_maneuver_m: distanceToManeuver,
       distance_remaining_m: distanceRemaining,
-      duration_remaining_s: null, // E04-T2
-      eta: null, // E04-T2
+      duration_remaining_s: durationRemaining,
+      eta,
       speed_kmh: speedKmh,
       speed_limit_kmh: null, // E04-T3
       altitude_m: altitudeM,

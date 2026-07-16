@@ -115,6 +115,12 @@ export interface Maneuver {
   distance_m: number; // length of this maneuver segment
   begin_shape_index: number;
   lanes?: LaneInfo[];
+  // Planned duration of this maneuver segment in seconds (Valhalla's
+  // per-maneuver `time`, E04-T2 ETA calibration input). Optional: absent on
+  // routes computed before this field existed, or in hand-built fixtures --
+  // consumers (apps/core/src/navigation/eta.ts) fall back to a
+  // distance-proportional estimate when it's missing on ANY maneuver.
+  duration_s?: number;
 }
 
 // Complete route
