@@ -20,6 +20,14 @@ export interface ValhallaLocation {
   lon: number;
   /** All routing points are hard stops ("break") for our use case. */
   type: 'break';
+  /**
+   * E04-T4 (W-05): optional edge-heading bias in degrees (0 = North). Set ONLY
+   * on the origin location of a reroute request so Valhalla starts the new
+   * route on an edge pointing in the direction of travel — the first
+   * instruction then points forward instead of "turn around". Absent on every
+   * other location and on ordinary (non-reroute) routing.
+   */
+  heading?: number;
 }
 
 /**

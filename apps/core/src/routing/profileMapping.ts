@@ -130,6 +130,7 @@ export function buildValhallaRouteBody(
   profile: VehicleProfile,
   alternatives: number,
   excludeOptions?: RouteExcludeOptions,
+  originHeadingDeg?: number,
 ): ValhallaRouteRequestBody {
   const toLocation = (p: LatLng): ValhallaLocation => ({
     lat: p.lat,
@@ -137,8 +138,16 @@ export function buildValhallaRouteBody(
     type: 'break',
   });
 
+  // E04-T4 (W-05): the ORIGIN carries the current heading on a reroute so the
+  // new route continues in the direction of travel (forward-facing first
+  // instruction). Only the origin gets it; waypoints/destination never do.
+  const origin = toLocation(originLatLng);
+  if (originHeadingDeg !== undefined && Number.isFinite(originHeadingDeg)) {
+    origin.heading = originHeadingDeg;
+  }
+
   const locations: ValhallaLocation[] = [
-    toLocation(originLatLng),
+    origin,
     ...waypoints.map(toLocation),
     toLocation(destination),
   ];

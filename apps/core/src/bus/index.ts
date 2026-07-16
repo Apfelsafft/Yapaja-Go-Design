@@ -31,7 +31,12 @@ export type KnownBusTopic =
   | 'nav/state'
   | 'nav/instruction'
   | 'event/arrived'
-  | 'event/nav_recovered_route_available';
+  | 'event/nav_recovered_route_available'
+  // E04-T4 rerouting lifecycle:
+  | 'route/deviation'
+  | 'route/updated'
+  | 'event/reroute_loop'
+  | 'event/reroute_failed';
 
 export interface GpsLostPayload {
   /** Source that was active immediately before the fix was lost, if any. */
@@ -82,6 +87,58 @@ export interface NavRecoveredRoutePayload {
  */
 export type ExtrapolatedPositionPayload = Position & { extrapolated: true };
 
+/**
+ * `route/deviation` (E04-T4): published the moment a deviation is CONFIRMED
+ * (sustained cross-track/heading violation over ≥5 s AND ≥5 fixes) — a transient
+ * blip or 15 m GPS noise never reaches this. Precedes the reroute attempt.
+ */
+export interface RouteDeviationPayload {
+  /** Where the confirmed deviation was observed. */
+  at: LatLng;
+  /** Cross-track offset from the original route at confirmation, metres. */
+  cross_track_m: number;
+  /** ISO 8601 UTC timestamp of the confirmation. */
+  ts: string;
+}
+
+/**
+ * `route/updated` (E04-T4): the navigation switched onto a freshly computed
+ * route. `reason: 'reroute'` is the only cause today; the field keeps the topic
+ * open to future causes (e.g. traffic) without a shape change.
+ */
+export interface RouteUpdatedPayload {
+  reason: 'reroute';
+  /** Id of the new (cached) route now being navigated. */
+  route_id: string;
+}
+
+/**
+ * `event/reroute_loop` (E04-T4, W-05): three reroutes clustered within ~200 m in
+ * 5 min — auto-rerouting that spot is disabled and the UI offers the E03-T4
+ * "avoid this segment" action instead.
+ */
+export interface RerouteLoopPayload {
+  suggestion: 'avoid_segment';
+  /** The looping spot (centre of the clustered deviations). */
+  at: LatLng;
+  /** ISO 8601 UTC timestamp. */
+  ts: string;
+}
+
+/**
+ * `event/reroute_failed` (E04-T4): the reroute request could not be computed
+ * (Valhalla down / no route). Navigation KEEPS the old route; a retry is
+ * scheduled `retry_in_ms` from now.
+ */
+export interface RerouteFailedPayload {
+  /** Human-readable failure reason (never silently swallowed). */
+  reason: string;
+  /** ISO 8601 UTC timestamp of the failure. */
+  ts: string;
+  /** Milliseconds until the scheduled retry. */
+  retry_in_ms: number;
+}
+
 /** Maps each known topic to its payload type. */
 export interface BusPayloadMap {
   'pos/update': Position;
@@ -93,6 +150,10 @@ export interface BusPayloadMap {
   'nav/instruction': NavInstructionPayload;
   'event/arrived': ArrivedPayload;
   'event/nav_recovered_route_available': NavRecoveredRoutePayload;
+  'route/deviation': RouteDeviationPayload;
+  'route/updated': RouteUpdatedPayload;
+  'event/reroute_loop': RerouteLoopPayload;
+  'event/reroute_failed': RerouteFailedPayload;
 }
 
 /**
