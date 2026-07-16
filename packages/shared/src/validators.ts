@@ -12,6 +12,7 @@ import { vehicleProfileSchema } from './schemas/vehicle-profile';
 import { routeRequestSchema } from './schemas/route-request';
 import { routeSchema, maneuverSchema } from './schemas/route';
 import { navStateSchema } from './schemas/nav-state';
+import { navInstructionSchema } from './schemas/nav-instruction';
 import { apiErrorSchema } from './schemas/api-error';
 import { searchResultSchema } from './schemas/search-result';
 import { favoriteSchema } from './schemas/favorite';
@@ -25,6 +26,7 @@ import type {
   Route,
   Maneuver,
   NavState,
+  NavInstructionPayload,
   ApiError,
   SearchResult,
   Favorite,
@@ -43,6 +45,7 @@ const validateRouteRequestImpl = ajv.compile(routeRequestSchema);
 const validateRouteImpl = ajv.compile(routeSchema);
 const validateManeuverImpl = ajv.compile(maneuverSchema);
 const validateNavStateImpl = ajv.compile(navStateSchema);
+const validateNavInstructionImpl = ajv.compile(navInstructionSchema);
 const validateApiErrorImpl = ajv.compile(apiErrorSchema);
 const validateSearchResultImpl = ajv.compile(searchResultSchema);
 const validateFavoriteImpl = ajv.compile(favoriteSchema);
@@ -95,6 +98,13 @@ export function validateManeuver(data: unknown): data is Maneuver {
  */
 export function validateNavState(data: unknown): data is NavState {
   return validateNavStateImpl(data);
+}
+
+/**
+ * Type guard for NavInstructionPayload
+ */
+export function validateNavInstruction(data: unknown): data is NavInstructionPayload {
+  return validateNavInstructionImpl(data);
 }
 
 /**
@@ -198,6 +208,13 @@ export function getValidationErrorsManeuver(data: unknown): string[] {
  */
 export function getValidationErrorsNavState(data: unknown): string[] {
   return getValidationErrorsForValidator('NavState', data, validateNavStateImpl);
+}
+
+/**
+ * Get validation errors for NavInstructionPayload
+ */
+export function getValidationErrorsNavInstruction(data: unknown): string[] {
+  return getValidationErrorsForValidator('NavInstructionPayload', data, validateNavInstructionImpl);
 }
 
 /**

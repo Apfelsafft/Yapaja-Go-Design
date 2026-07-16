@@ -153,6 +153,17 @@ export interface NavState {
   } | null;
 }
 
+// Announcement published on the `nav/instruction` bus/WS topic (E04-T3, docs/03
+// §3): fired when the announcement engine crosses a speed-scaled distance
+// threshold to the active maneuver. `say` is the natural-language (de-DE)
+// sentence to speak/display; distance_m is the (unrounded) distance to the
+// maneuver AT THE MOMENT the threshold fired.
+export interface NavInstructionPayload {
+  maneuver: Maneuver;
+  distance_m: number;
+  say: string;
+}
+
 // Geocoding search result (E05-T1)
 export interface SearchResult {
   name: string; // short name, e.g. "Vaduz"

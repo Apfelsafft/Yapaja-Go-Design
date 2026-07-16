@@ -52,6 +52,15 @@ export const SEARCH_CORE_PORT = 4314;
 // exactly the class of cross-test contention `SEARCH_CORE_PORT` /
 // `SIMULATOR_CORE_PORT` already exist to avoid.
 export const FAVORITES_CORE_PORT = 4315;
+// Dedicated core for drive.spec.ts (E04-T3, Flow 2): the test POSTs a
+// synthetic `Route` straight to `/api/v1/navigation/start` and then drives a
+// sequence of exact `Position` fixes to `/api/v1/position/browser` to
+// deterministically step through maneuvers/thresholds/speed-limit segments --
+// same rationale as SEARCH_CORE_PORT (an unrelated parallel spec's browser
+// fix landing in between would flip an assertion flaky), plus this test
+// leaves navigation genuinely ACTIVE for a while, which no other spec's core
+// should ever observe.
+export const DRIVE_CORE_PORT = 4316;
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
@@ -59,3 +68,4 @@ export const SUBPATH_BASE_URL = `http://127.0.0.1:${SUBPATH_PORT}`;
 export const SIMULATOR_CORE_BASE_URL = `http://127.0.0.1:${SIMULATOR_CORE_PORT}`;
 export const SEARCH_CORE_BASE_URL = `http://127.0.0.1:${SEARCH_CORE_PORT}`;
 export const FAVORITES_CORE_BASE_URL = `http://127.0.0.1:${FAVORITES_CORE_PORT}`;
+export const DRIVE_CORE_BASE_URL = `http://127.0.0.1:${DRIVE_CORE_PORT}`;

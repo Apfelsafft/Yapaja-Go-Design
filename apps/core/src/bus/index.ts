@@ -9,9 +9,11 @@
 
 import {
   validateNavState,
+  validateNavInstruction,
   validatePosition,
   type LatLng,
   type NavState,
+  type NavInstructionPayload,
   type Position,
 } from '@yapaja/shared';
 
@@ -27,6 +29,7 @@ export type KnownBusTopic =
   | 'event/gps_source_changed'
   | 'system/health'
   | 'nav/state'
+  | 'nav/instruction'
   | 'event/arrived'
   | 'event/nav_recovered_route_available';
 
@@ -87,6 +90,7 @@ export interface BusPayloadMap {
   'event/gps_source_changed': GpsSourceChangedPayload;
   'system/health': SystemHealthPayload;
   'nav/state': NavState;
+  'nav/instruction': NavInstructionPayload;
   'event/arrived': ArrivedPayload;
   'event/nav_recovered_route_available': NavRecoveredRoutePayload;
 }
@@ -135,6 +139,9 @@ const topicValidators: Partial<Record<KnownBusTopic, TopicValidator>> = {
   // Every published `nav/state` is schema-checked (E04-T1): a malformed
   // navigation state is a programming bug and must never reach a subscriber.
   'nav/state': (data: unknown): boolean => validateNavState(data),
+  // Same rationale for `nav/instruction` (E04-T3): a malformed announcement
+  // must never reach a WS/MQTT subscriber.
+  'nav/instruction': (data: unknown): boolean => validateNavInstruction(data),
 };
 
 interface Subscription {

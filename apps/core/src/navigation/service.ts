@@ -47,6 +47,16 @@ import {
   type ManeuverAnchor,
   type TimeSegment,
 } from './eta.js';
+import {
+  buildSayText,
+  buildSpeedSegmentAnchors,
+  findActiveSpeedLimitKmh,
+  findUpcomingManeuver,
+  initialAnnouncementState,
+  tickAnnouncement,
+  type AnnouncementState,
+  type SpeedSegmentAnchor,
+} from './instructions.js';
 
 /** Distance-to-destination threshold for arrival (metres). */
 export const ARRIVAL_DISTANCE_M = 40;
@@ -110,6 +120,8 @@ interface ActiveNavigation {
   maneuvers: ManeuverAnchor[];
   /** Progress-ordered planned-time segments, ETA's base input (E04-T2). */
   timeSegments: TimeSegment[];
+  /** Progress-anchored speed-limit segments, E04-T3's `speed_limit_kmh` input. */
+  speedSegments: SpeedSegmentAnchor[];
   destination: NavDestination;
 }
 
@@ -135,6 +147,10 @@ export class NavigationService {
   private lastEtaTickMs: number | null = null;
   /** Last PUBLISHED duration_remaining_s; the non-increasing publish clamp's basis. */
   private lastDurationRemainingS: number | null = null;
+
+  // --- E04-T3 announcement-engine state ---------------------------------------
+  /** Per-maneuver "which thresholds already fired" tracker (Wargame W-23), reset per navigation. */
+  private announcementState: AnnouncementState = initialAnnouncementState();
 
   private readonly unsubscribe: () => void;
 
@@ -177,6 +193,7 @@ export class NavigationService {
     this.calibration = initialCalibrationState();
     this.lastEtaTickMs = null;
     this.lastDurationRemainingS = null;
+    this.announcementState = initialAnnouncementState();
 
     this.recoveryStore.save({ route_id: route.id, destination: active.destination });
     this.logger.info('Navigation started', { route_id: route.id });
@@ -203,6 +220,7 @@ export class NavigationService {
     this.calibration = initialCalibrationState();
     this.lastEtaTickMs = null;
     this.lastDurationRemainingS = null;
+    this.announcementState = initialAnnouncementState();
     this.recoveryStore.clear();
     this.logger.info('Navigation stopped');
     return this.publishState();
@@ -273,9 +291,53 @@ export class NavigationService {
     if (this.status === 'navigating' && !onRoute) this.applyInternal('DEVIATE');
     else if (this.status === 'off_route' && onRoute) this.applyInternal('RETURN');
 
+    this.tickAnnouncements(accepted, pos);
+
     if (this.checkArrival(pos, accepted)) return; // publishes its own state
 
     this.publishState();
+  }
+
+  /**
+   * One announcement-engine tick (E04-T3): finds the currently upcoming
+   * maneuver at `progressM` (SAME rule `buildState()` uses for
+   * `next_maneuver`), feeds it through `instructions.ts#tickAnnouncement`,
+   * and -- when it decides a NEW threshold was crossed -- publishes
+   * `nav/instruction`. A no-op (state stays as-is) whenever there's no
+   * upcoming maneuver (idle/arrived/past the last one) or no threshold newly
+   * crossed this tick.
+   */
+  private tickAnnouncements(progressM: number, pos: Position): void {
+    if (!this.active) return;
+
+    const upcoming = findUpcomingManeuver(this.active.maneuvers, progressM);
+    const maneuver = upcoming?.maneuver ?? null;
+    const maneuverKey = upcoming ? `${this.active.route.id}:${upcoming.maneuver.index}` : null;
+    const distanceToManeuverM = upcoming ? Math.max(0, upcoming.progressM - progressM) : null;
+
+    const result = tickAnnouncement(this.announcementState, {
+      maneuver,
+      maneuverKey,
+      distanceToManeuverM,
+      speedMs: pos.speed,
+    });
+    this.announcementState = result.state;
+
+    if (!result.fire) return;
+
+    const say = buildSayText(
+      {
+        maneuver: result.fire.maneuver,
+        distanceM: result.fire.distanceM,
+        immediate: result.fire.immediate,
+      },
+      'de',
+    );
+    this.bus.publish('nav/instruction', {
+      maneuver: result.fire.maneuver,
+      distance_m: result.fire.distanceM,
+      say,
+    });
   }
 
   /**
@@ -376,11 +438,15 @@ export class NavigationService {
     // E04-T2: precompute the planned-time segments once per navigation (not
     // per tick) -- they only depend on the route, not on progress.
     const timeSegments = buildTimeSegments(maneuvers, geom.totalLengthM, route.duration_s);
+    // E04-T3: same "precompute once per navigation" reasoning for speed
+    // limits. `route.speed_limits` is empty today (routing/mapResponse.ts
+    // doesn't populate it yet) -> anchors stay [] -> lookup always null, never 0.
+    const speedSegments = buildSpeedSegmentAnchors(route.speed_limits, geom);
 
     const resolvedDest: NavDestination =
       destination ?? { latlng: { ...geom.points[geom.points.length - 1] }, name: null };
 
-    return { route, geom, maneuvers, timeSegments, destination: resolvedDest };
+    return { route, geom, maneuvers, timeSegments, speedSegments, destination: resolvedDest };
   }
 
   // --- NavState assembly + publishing --------------------------------------
@@ -396,6 +462,7 @@ export class NavigationService {
     let eta: string | null = null;
     let destination: NavState['destination'] = null;
     let routeId: string | null = null;
+    let speedLimitKmh: number | null = null;
 
     // Every state that owns a route (all but `idle`) reports route-relative
     // fields; only `idle` (stopped) nulls them out.
@@ -403,11 +470,14 @@ export class NavigationService {
       routeId = active.route.id;
       distanceRemaining = Math.max(0, active.geom.totalLengthM - progress);
       destination = active.destination;
-      const upcoming = active.maneuvers.find((a) => a.progressM > progress);
+      const upcoming = findUpcomingManeuver(active.maneuvers, progress);
       if (upcoming) {
         nextManeuver = upcoming.maneuver;
         distanceToManeuver = Math.max(0, upcoming.progressM - progress);
       }
+      // E04-T3: active SpeedSegment by progress -> speed_limit_kmh. Empty
+      // `speed_limits` (or a gap between segments) -> null, never 0.
+      speedLimitKmh = findActiveSpeedLimitKmh(active.speedSegments, progress);
 
       // E04-T2: base planned remaining * calibration factor, floored by
       // remaining-distance/avg_speed (see eta.ts#computeEtaDuration).
@@ -450,7 +520,7 @@ export class NavigationService {
       duration_remaining_s: durationRemaining,
       eta,
       speed_kmh: speedKmh,
-      speed_limit_kmh: null, // E04-T3
+      speed_limit_kmh: speedLimitKmh,
       altitude_m: altitudeM,
       destination,
     };
