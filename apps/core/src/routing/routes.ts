@@ -10,7 +10,7 @@
  * Valhalla backend.
  */
 
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import type { ApiError, RouteRequest } from '@yapaja/shared';
 import { validateRouteRequest } from '@yapaja/shared';
 import { isRoutingError, type RoutingError } from './errors.js';
@@ -42,8 +42,69 @@ export interface RoutingRoutesOptions {
   fetchImpl?: FetchLike;
   /** Test seam: injectable regions provider (E03-T6). */
   regionsProvider?: InstalledRegionsProvider;
+  /**
+   * Pre-built service seam (E04-T1): when provided it is used as-is, so the
+   * same `RoutingService` instance (and its route cache) can be shared with
+   * the navigation plugin. Falls back to building one from the options above.
+   */
+  service?: RoutingService;
   logger?: RoutingLogger;
   cache?: RouteCacheOptions;
+}
+
+/**
+ * Construct a `RoutingService` from plugin options, wiring the Valhalla client
+ * and the installed-regions provider. Exported so `buildServer` can build ONE
+ * instance and share it between the routing and navigation plugins (E04-T1),
+ * rather than each plugin owning a private service + route cache.
+ */
+export function buildRoutingService(
+  fastify: FastifyInstance,
+  opts: RoutingRoutesOptions,
+): RoutingService {
+  const logger: RoutingLogger = opts.logger ?? {
+    info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+    warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+    error: (msg, meta) => fastify.log.error(meta ?? {}, msg),
+  };
+
+  const client: ValhallaClientLike =
+    opts.client ??
+    new ValhallaClient({
+      baseUrl: opts.valhallaUrl,
+      fetchImpl: opts.fetchImpl,
+      logger,
+    });
+
+  const regionsProvider: InstalledRegionsProvider =
+    opts.regionsProvider ?? {
+      async getInstalledRegions() {
+        const tilesDir = resolveTilesDir();
+        const regions = await listRegions(tilesDir, fastify.log);
+        return regions.map((r) => ({
+          id: r.region,
+          name: r.region,
+          bounds: r.bounds,
+        }));
+      },
+      async getCatalogRegions() {
+        const catalog = await loadCatalog();
+        return catalog.map((c) => ({
+          id: c.id,
+          name: c.name,
+          bounds: c.bounds,
+        }));
+      },
+    };
+
+  return new RoutingService({
+    client,
+    profileService: opts.profileService,
+    positionService: opts.positionService,
+    regionsProvider,
+    logger,
+    cache: opts.cache,
+  });
 }
 
 function errorResponse(
@@ -68,44 +129,7 @@ export const routingPlugin: FastifyPluginAsync<RoutingRoutesOptions> = async (fa
     error: (msg, meta) => fastify.log.error(meta ?? {}, msg),
   };
 
-  const client: ValhallaClientLike =
-    opts.client ??
-    new ValhallaClient({
-      baseUrl: opts.valhallaUrl,
-      fetchImpl: opts.fetchImpl,
-      logger,
-    });
-
-  // E03-T6: Create regions provider (can be injected for tests)
-  const regionsProvider: InstalledRegionsProvider =
-    opts.regionsProvider ?? {
-      async getInstalledRegions() {
-        const tilesDir = resolveTilesDir();
-        const regions = await listRegions(tilesDir, fastify.log);
-        return regions.map((r) => ({
-          id: r.region,
-          name: r.region, // Use region id as name (no better name available here)
-          bounds: r.bounds,
-        }));
-      },
-      async getCatalogRegions() {
-        const catalog = await loadCatalog();
-        return catalog.map((c) => ({
-          id: c.id,
-          name: c.name,
-          bounds: c.bounds,
-        }));
-      },
-    };
-
-  const service = new RoutingService({
-    client,
-    profileService: opts.profileService,
-    positionService: opts.positionService,
-    regionsProvider,
-    logger,
-    cache: opts.cache,
-  });
+  const service = opts.service ?? buildRoutingService(fastify, { ...opts, logger });
 
   // POST /routes
   fastify.post<{ Body: unknown; Reply: { data: unknown } | ApiError }>(

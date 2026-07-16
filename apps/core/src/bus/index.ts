@@ -7,19 +7,28 @@
  * is exactly one place (`packages/shared`) where a payload schema lives.
  */
 
-import { validatePosition, type Position } from '@yapaja/shared';
+import {
+  validateNavState,
+  validatePosition,
+  type LatLng,
+  type NavState,
+  type Position,
+} from '@yapaja/shared';
 
 /**
  * Topics with a statically-known payload shape. More topics will be added
- * by later tasks (`nav/*`, `route/*`, `addon/*`, ...); `BusTopic` below
- * stays open to those without requiring changes to this module.
+ * by later tasks (`route/*`, `addon/*`, ...); `BusTopic` below stays open to
+ * those without requiring changes to this module.
  */
 export type KnownBusTopic =
   | 'pos/update'
   | 'pos/extrapolated'
   | 'event/gps_lost'
   | 'event/gps_source_changed'
-  | 'system/health';
+  | 'system/health'
+  | 'nav/state'
+  | 'event/arrived'
+  | 'event/nav_recovered_route_available';
 
 export interface GpsLostPayload {
   /** Source that was active immediately before the fix was lost, if any. */
@@ -34,6 +43,30 @@ export interface GpsSourceChangedPayload {
 export interface SystemHealthPayload {
   status: 'ok' | 'degraded' | 'down';
   services: Record<string, string>;
+}
+
+/** A destination reference carried by navigation events. */
+export interface NavDestination {
+  latlng: LatLng;
+  name: string | null;
+}
+
+/** `event/arrived` (E04-T1): fired EXACTLY once when the destination is reached. */
+export interface ArrivedPayload {
+  route_id: string;
+  destination: NavDestination | null;
+  /** ISO 8601 UTC timestamp of the arrival. */
+  ts: string;
+}
+
+/**
+ * `event/nav_recovered_route_available` (E04-T1, W-19): fired on startup when a
+ * previously-active navigation's route is still available in the cache, so the
+ * UI can offer to resume. The core itself stays `idle` (no ghost navigation).
+ */
+export interface NavRecoveredRoutePayload {
+  route_id: string;
+  destination: NavDestination | null;
 }
 
 /**
@@ -53,6 +86,9 @@ export interface BusPayloadMap {
   'event/gps_lost': GpsLostPayload;
   'event/gps_source_changed': GpsSourceChangedPayload;
   'system/health': SystemHealthPayload;
+  'nav/state': NavState;
+  'event/arrived': ArrivedPayload;
+  'event/nav_recovered_route_available': NavRecoveredRoutePayload;
 }
 
 /**
@@ -96,6 +132,9 @@ const topicValidators: Partial<Record<KnownBusTopic, TopicValidator>> = {
     const { extrapolated, ...base } = data as Record<string, unknown>;
     return extrapolated === true && validatePosition(base) && (base as Position).fix !== 'none';
   },
+  // Every published `nav/state` is schema-checked (E04-T1): a malformed
+  // navigation state is a programming bug and must never reach a subscriber.
+  'nav/state': (data: unknown): boolean => validateNavState(data),
 };
 
 interface Subscription {
