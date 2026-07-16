@@ -196,7 +196,15 @@ export function normalizeGeoJsonSeqLine(
   line: string,
   sourceKind: 'place' | 'street',
 ): NormalizedRecord | null {
-  const trimmed = line.trim();
+  // `osmium export -f geojsonseq` emits RFC 8142 GeoJSON Text Sequences: each
+  // record is PREFIXED with an ASCII Record Separator (U+001E). `String.trim()`
+  // does NOT strip it (RS is not whitespace), so it must be removed explicitly
+  // before `JSON.parse` -- otherwise EVERY real osmium line throws and the whole
+  // index comes out empty. (Hand-written unit fixtures without the RS masked
+  // this; it was caught in CI against the real Liechtenstein PBF: 0/21 places
+  // and 0/14397 streets "uebernommen".)
+  const withoutRs = line.charCodeAt(0) === 0x1e ? line.slice(1) : line;
+  const trimmed = withoutRs.trim();
   if (trimmed.length === 0) return null;
 
   let feature: unknown;

@@ -248,6 +248,28 @@ describe('normalizeGeoJsonSeqLine', () => {
     expect(normalizeGeoJsonSeqLine(VADUZ_LINE, 'street')).toBeNull();
   });
 
+  // Regression: real `osmium export -f geojsonseq` prefixes every record with
+  // an ASCII Record Separator (U+001E, RFC 8142). `String.trim()` does NOT
+  // strip it, so without explicit handling JSON.parse throws on every line and
+  // the index comes out empty (caught in CI against the real LI PBF: 0/21
+  // places, 0/14397 streets). The RS prefix must be tolerated transparently.
+  it('parses an osmium geojsonseq line even with the leading RS (U+001E) prefix', () => {
+    const RS = String.fromCharCode(0x1e);
+    expect(normalizeGeoJsonSeqLine(RS + VADUZ_LINE, 'place')).toEqual({
+      kind: 'city',
+      name: 'Vaduz',
+      lat: 47.141,
+      lon: 9.5215,
+      population: undefined,
+    });
+    expect(normalizeGeoJsonSeqLine(RS + VADUZER_STRASSE_LINE, 'street')).toEqual({
+      kind: 'street',
+      name: 'Vaduzer Straße',
+      lat: 47.142,
+      lon: 9.522,
+    });
+  });
+
   it('returns null for blank lines and malformed JSON, never throws', () => {
     expect(normalizeGeoJsonSeqLine('', 'place')).toBeNull();
     expect(normalizeGeoJsonSeqLine('   ', 'place')).toBeNull();
