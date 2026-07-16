@@ -1,7 +1,7 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import pino from 'pino';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { profilesPlugin } from './profiles/routes.js';
@@ -15,7 +15,9 @@ import { SimulatorSource } from './position/simulator/index.js';
 import { simulatorPlugin } from './position/simulator/routes.js';
 import { GpsdSource } from './position/gpsd/index.js';
 import { mapPlugin } from './map/routes.js';
-import { routingPlugin } from './routing/routes.js';
+import { routingPlugin, buildRoutingService } from './routing/routes.js';
+import { navigationPlugin } from './navigation/routes.js';
+import { FileNavRecoveryStore } from './navigation/recoveryStore.js';
 import { searchPlugin } from './search/routes.js';
 import { favoritesPlugin } from './favorites/routes.js';
 
@@ -129,11 +131,38 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // Routing plugin (E03-T2, 🔴 W-08): maps the active vehicle profile onto
   // Valhalla truck costing. Additive; the Valhalla base URL comes from
   // VALHALLA_URL (defaults to http://localhost:8002 inside the client).
+  // The RoutingService is built HERE (not inside the plugin) so the exact
+  // same instance -- and its route cache -- is shared with the navigation
+  // plugin below (E04-T1: `POST /navigation/start {route_id}` looks routes up
+  // in that cache).
+  const routingService = buildRoutingService(fastify, {
+    positionService,
+    profileService,
+    valhallaUrl: process.env.VALHALLA_URL,
+  });
   await fastify.register(routingPlugin, {
     prefix: '/api/v1',
     positionService,
     profileService,
-    valhallaUrl: process.env.VALHALLA_URL,
+    service: routingService,
+  });
+
+  // Navigation plugin (E04-T1, 🔴 safety-critical): state machine +
+  // map-matching, driven off `pos/update`, publishing `nav/state` at ~1 Hz.
+  // Restart recovery (W-19) persists only the last active route reference to
+  // a small JSON file; navigation itself always boots `idle` (no ghost nav).
+  await fastify.register(navigationPlugin, {
+    prefix: '/api/v1',
+    bus: eventBus,
+    routeProvider: routingService,
+    recoveryStore: new FileNavRecoveryStore(
+      process.env.NAV_RECOVERY_PATH ?? join(__dirname, '../.data/nav-recovery.json'),
+      {
+        fs: { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync },
+        dirname,
+        logger: { warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg) },
+      },
+    ),
   });
 
   // Search plugin (E05-T1): Photon + Nominatim-Fallback geocoding, additive.
