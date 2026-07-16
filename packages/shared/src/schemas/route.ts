@@ -125,6 +125,11 @@ export const maneuverSchema = {
       items: laneInfoSchema,
       description: 'Optional lane information',
     },
+    duration_s: {
+      type: 'number',
+      minimum: 0,
+      description: 'Planned duration of this maneuver segment in seconds (Valhalla time), optional (E04-T2)',
+    },
   },
   required: ['index', 'type', 'instruction', 'street_names', 'distance_m', 'begin_shape_index'],
   additionalProperties: false,

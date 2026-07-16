@@ -86,6 +86,12 @@ function mapTrip(trip: ValhallaTrip, origin: LatLng, destination: LatLng): Route
         distance_m: m.length * 1000,
         // Re-base the leg-local shape index onto the joined route geometry.
         begin_shape_index: legOffset + m.begin_shape_index,
+        // E04-T2 ETA input: Valhalla's per-maneuver `time` (seconds), when
+        // present. Conditionally spread rather than `duration_s: m.time` so a
+        // missing Valhalla field stays ABSENT (not an explicit `undefined`
+        // key) -- keeps the object exactly what the (additionalProperties:
+        // false) maneuverSchema expects.
+        ...(m.time !== undefined ? { duration_s: m.time } : {}),
       });
     }
   });

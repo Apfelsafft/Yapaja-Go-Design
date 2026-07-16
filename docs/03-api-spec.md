@@ -78,7 +78,7 @@ interface NavState {
   distance_to_maneuver_m: number | null;
   distance_remaining_m: number | null;
   duration_remaining_s: number | null;
-  eta: string | null;                    // ISO 8601, lokale TZ des Geräts
+  eta: string | null;                    // ISO 8601 in UTC ('...Z'); Core UTC-only (W-22), Client formatiert lokal (formatEta)
   speed_kmh: number | null;              // aktuelle Geschwindigkeit
   speed_limit_kmh: number | null;        // erlaubt lt. Kartendaten, null = unbekannt
   altitude_m: number | null;

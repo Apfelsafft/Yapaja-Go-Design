@@ -155,6 +155,9 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     prefix: '/api/v1',
     bus: eventBus,
     routeProvider: routingService,
+    // E04-T2: the ETA avg-speed floor reads the active profile directly off
+    // ProfileService (same instance the routing plugin above uses).
+    profileProvider: profileService,
     recoveryStore: new FileNavRecoveryStore(
       process.env.NAV_RECOVERY_PATH ?? join(__dirname, '../.data/nav-recovery.json'),
       {

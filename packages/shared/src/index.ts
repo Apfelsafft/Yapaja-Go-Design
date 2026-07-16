@@ -74,3 +74,4 @@ export {
 
 // Utilities
 export { formatDistance } from './utils';
+export { formatEta, type FormatEtaOptions } from './formatEta';

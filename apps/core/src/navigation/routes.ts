@@ -15,6 +15,7 @@ import { validateLatLng, validateRoute } from '@yapaja/shared';
 import { isNavigationError } from './errors.js';
 import {
   NavigationService,
+  type ActiveProfileLookup,
   type NavDestination,
   type RouteProvider,
   type StartInput,
@@ -27,6 +28,8 @@ export interface NavigationRoutesOptions {
   bus: EventBus;
   routeProvider: RouteProvider;
   recoveryStore?: NavRecoveryStore;
+  /** ETA avg-speed floor input (E04-T2), see `NavigationService`. */
+  profileProvider?: ActiveProfileLookup;
   /** Test seam: inject a pre-built service (wins over the options above). */
   service?: NavigationService;
   logger?: NavigationServiceLogger;
@@ -62,6 +65,7 @@ export const navigationPlugin: FastifyPluginAsync<NavigationRoutesOptions> = asy
       bus: opts.bus,
       routeProvider: opts.routeProvider,
       recoveryStore: opts.recoveryStore,
+      profileProvider: opts.profileProvider,
       logger,
     });
 

@@ -115,6 +115,12 @@ export interface Maneuver {
   distance_m: number; // length of this maneuver segment
   begin_shape_index: number;
   lanes?: LaneInfo[];
+  // Planned duration of this maneuver segment in seconds (Valhalla's
+  // per-maneuver `time`, E04-T2 ETA calibration input). Optional: absent on
+  // routes computed before this field existed, or in hand-built fixtures --
+  // consumers (apps/core/src/navigation/eta.ts) fall back to a
+  // distance-proportional estimate when it's missing on ANY maneuver.
+  duration_s?: number;
 }
 
 // Complete route
@@ -137,7 +143,7 @@ export interface NavState {
   distance_to_maneuver_m: number | null;
   distance_remaining_m: number | null;
   duration_remaining_s: number | null;
-  eta: string | null; // ISO 8601, local TZ of device
+  eta: string | null; // ISO 8601 in UTC ('...Z'); Core is UTC-only (W-22). Client formats to the device's local TZ via @yapaja/shared formatEta.
   speed_kmh: number | null; // current speed
   speed_limit_kmh: number | null; // from map data, null = unknown
   altitude_m: number | null;
