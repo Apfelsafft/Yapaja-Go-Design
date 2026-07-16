@@ -450,3 +450,123 @@ jobs:
       - name: Show build-lite-index.sh output on failure
         if: failure()
         run: echo "Siehe vorherige Schritte fuer osmium/tsx-Ausgabe."
+
+  photon-setup:
+    name: Photon Setup — Skript-Fixtures & Xmx-Wiring (E05-T4)
+    runs-on: ubuntu-latest
+    # Bewusst KEIN `needs: quality` -- eigenstaendige Daten-/Infra-Pipeline
+    # (E05-T4), mirrors valhalla-li-build/lite-search-li-build's Begruendung.
+    #
+    # WICHTIG (volle Recherche in services/photon/README.md "Warum kein
+    # LI-only-Index in CI"): weder komoot/photons eigene Dumps
+    # (https://download1.graphhopper.com/public, nur "planet" + eine kleine
+    # Liste GROSSER Laender) noch der von docker-compose.yml genutzte
+    # rtuszik/photon-docker-Spiegel (BASE_URL https://r2.koalasec.org/public,
+    # exakt 16 fest vorgegebene Laender -- Liechtenstein NICHT darunter, nur
+    # als Teil von "switzerland-liechtenstein", und dort nur als
+    # experimentelles JSONL-Dump statt als fertiger Such-Index) bieten einen
+    # Liechtenstein-GROSSEN, schnellen, per-PR-tauglichen Photon-Index. Einen
+    # Photon-Index aus einer rohen OSM-PBF selbst zu bauen braucht offiziell
+    # eine volle Nominatim-Postgres-Importpipeline (schwergewichtig, fuer
+    # einen schnellen per-PR-Gate nicht angemessen -- anders als Valhalla/den
+    # Lite-Suchindex, die direkt aus einer PBF bauen).
+    #
+    # Deshalb prueft DIESER Job alles, was OHNE echte Geodaten belegbar ist:
+    # Skript-Logik (Resume+Checksumme, Akzeptanz #3), Compose-Config
+    # (JAVA_PARAMS-Interpolation, Healthcheck-Wiring), und die tatsaechliche
+    # Xmx-Wirkung auf die im Image gebuendelte JVM (Akzeptanz #2). Der echte
+    # "Vaduz"-Suchtest gegen ein LEBENDES Photon (Akzeptanz #1, E05-T1-
+    # SearchService-Integration) laeuft NIGHTLY (.github/workflows/nightly.yml
+    # Job `photon-li-nightly`, analog zu den "unverified" DE-Golden-Routes)
+    # gegen die naechstkleinere ECHTE Region, "switzerland-liechtenstein" --
+    # NICHT per-PR. "Prefer making the per-PR LI job work" wurde ernst
+    # genommen (siehe README fuer die vollstaendige Abwaegung); das Ergebnis
+    # dieser Recherche ist, dass es per-PR schlicht nicht sauber/schnell
+    # verifizierbar geht.
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Script syntax (bash -n)
+        run: |
+          bash -n services/photon/download-index.sh
+          bash -n services/photon/download-index.test.sh
+
+      # Beweist Akzeptanz #3 ("Download-Resume nachgewiesen") + den
+      # Pflicht-Test "Skript-Test mit Abbruch-Fixture" -- komplett offline
+      # gegen einen lokalen Loopback-Server (kein echtes Netzwerk noetig,
+      # laeuft daher identisch lokal wie hier in CI, siehe Kommentarkopf des
+      # Testskripts fuer die genaue Grenze dieser Aussage).
+      - name: download-index.sh fixture test (resume + checksum, local loopback)
+        run: |
+          chmod +x services/photon/download-index.sh services/photon/download-index.test.sh
+          services/photon/download-index.test.sh
+
+      # docker-compose.yml's `core`-Service referenziert `env_file: - .env`,
+      # das (wie in .gitignore) in einem frischen Checkout nicht existiert --
+      # `docker compose config` bricht sonst hart ab. .env.example ist exakt
+      # dafuer da.
+      - name: docker compose config validates (JAVA_PARAMS interpolation, healthcheck wiring)
+        run: |
+          cp .env.example .env
+          PHOTON_XMX=777m docker compose --profile search config | tee compose-config.yml
+          grep -q -- '-Xmx777m' compose-config.yml || { echo "::error::JAVA_PARAMS=-Xmx\${PHOTON_XMX} wurde nicht wie erwartet in die aufgeloeste Compose-Config interpoliert"; exit 1; }
+          grep -q '2322' compose-config.yml
+          grep -q '/status' compose-config.yml
+          echo "PLAUSIBEL - Compose-Config loest photon-Service inkl. Xmx-Env und /status-Healthcheck korrekt auf."
+
+      - name: Pull rtuszik/photon-docker image
+        run: docker pull rtuszik/photon-docker:latest
+
+      # Beweist Akzeptanz #2 ("Xmx wirkt, Container-Limit-Test") DIREKT gegen
+      # die im Image gebuendelte JVM -- unabhaengig davon, ob Photons eigener
+      # Python-Entrypoint mit einem (hier absichtlich leeren) Index ueberhaupt
+      # bis zum Ready-Zustand hochkommt (siehe naechster Schritt fuer diesen
+      # separaten, informativen Teil). `-XX:+PrintFlagsFinal` zeigt den
+      # EFFEKTIVEN Heap-Wert, den die JVM tatsaechlich anwendet, nicht nur die
+      # uebergebene Flag-Syntax.
+      - name: Xmx effective — direct JVM proof (container-limit test)
+        run: |
+          set -e
+          check_xmx() {
+            xmx_flag="$1"; expected_mb="$2"
+            out=$(docker run --rm --entrypoint sh rtuszik/photon-docker:latest -c \
+              "java -Xmx${xmx_flag} -XX:+PrintFlagsFinal -version 2>&1 | grep -iE '\bMaxHeapSize\b'")
+            echo "JAVA_PARAMS=-Xmx${xmx_flag} -> $out"
+            actual_bytes=$(echo "$out" | grep -oE '[0-9]+' | head -n1)
+            expected_bytes=$((expected_mb * 1024 * 1024))
+            low=$((expected_bytes * 90 / 100))
+            high=$((expected_bytes * 110 / 100))
+            if [ -z "$actual_bytes" ] || [ "$actual_bytes" -lt "$low" ] || [ "$actual_bytes" -gt "$high" ]; then
+              echo "::error::-Xmx${xmx_flag} sollte ~${expected_bytes} Bytes MaxHeapSize ergeben (+-10%), tatsaechlich: '${actual_bytes:-<leer>}'"
+              exit 1
+            fi
+            echo "OK: MaxHeapSize=$actual_bytes liegt innerhalb +-10% von $expected_bytes (-Xmx${xmx_flag})"
+          }
+          check_xmx 256m 256
+          check_xmx 1g 1024
+
+      # Zusaetzlicher, INFORMATIVER Beleg: derselbe Xmx-Wert kommt auch ueber
+      # den echten docker-compose-Pfad (JAVA_PARAMS-Env) im Container an.
+      # Ohne echten Index ist unklar, ob/wann Photons Python-Entrypoint die
+      # JVM tatsaechlich startet (README) -- dieser Schritt blockiert den Job
+      # daher NICHT auf einem gesunden /status, sondern nur auf der
+      # Env-Weitergabe selbst.
+      - name: Compose bring-up smoke (env wiring; no real geodata, tolerant of degraded status)
+        run: |
+          PHOTON_XMX=256m docker compose --profile search up -d photon
+          sleep 10
+          echo "-- Container-Status --"
+          docker inspect --format '{{.State.Status}}' yapaja-photon
+          echo "-- Env (JAVA_PARAMS muss ankommen) --"
+          docker inspect --format '{{.Config.Env}}' yapaja-photon | tee env.out
+          grep -q 'JAVA_PARAMS=-Xmx256m' env.out || { echo "::error::JAVA_PARAMS kam nicht wie erwartet im Container an"; exit 1; }
+          echo "-- /status (informativ -- ohne echten Index ist ein Nicht-200 hier erwartet und OK, siehe README) --"
+          curl -sS -o /dev/null -w "HTTP %{http_code}\n" http://localhost:2322/status || echo "kein Connect (ebenfalls moeglich ohne Index -- rein informativ)"
+          docker logs yapaja-photon 2>&1 | tail -60
+          docker compose --profile search down
+
+      - name: Dump Photon logs on failure
+        if: failure()
+        run: docker logs yapaja-photon 2>&1 | tail -150 || true

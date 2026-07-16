@@ -57,9 +57,31 @@ services:
     image: rtuszik/photon-docker:latest
     container_name: yapaja-photon
     volumes:
-      - ./data/photon:/photon/photon_data
+      # /photon/photon_data ist der Live-Datenpfad, den
+      # services/photon/download-index.sh per atomischem Swap befuellt
+      # (analog zu Valhalla's /custom_files, siehe oben). Initial leer bis
+      # der Skript einmal gelaufen ist -- Photon meldet dann degraded/keinen
+      # Index (services/photon/README.md).
+      - ./data/photon/photon_data:/photon/photon_data
     ports:
       - "2322:2322"
+    environment:
+      # RAM-Deckel fuer die JVM (docs/01 §4 Ressourcen-Budget: Photon ≤ 1 GB;
+      # ADR-005: DE-Index ~600 MB-1 GB RSS mit JVM-Tuning; W-12: auf kleineren
+      # Geraeten via .env PHOTON_XMX nach unten korrigierbar, z.B. 512m/256m).
+      # Wird vom rtuszik/photon-docker-Image unveraendert an den `java`-Prozess
+      # durchgereicht, der Photon startet (JAVA_PARAMS-Mechanismus des Images).
+      - JAVA_PARAMS=-Xmx${PHOTON_XMX:-1g}
+    healthcheck:
+      # Photon selbst beantwortet /status mit dem Index-Stand (siehe
+      # apps/core/src/search/photonBackend.ts, das denselben Host:Port nutzt).
+      # curl ist im Image vorhanden (das Upstream-Compose-Beispiel nutzt
+      # denselben Healthcheck-Aufruf).
+      test: ["CMD", "curl", "-f", "http://localhost:2322/status"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
     profiles:
       - search
