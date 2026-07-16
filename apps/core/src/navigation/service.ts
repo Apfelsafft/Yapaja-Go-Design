@@ -36,7 +36,7 @@ import type {
   VehicleProfile,
 } from '@yapaja/shared';
 import { checkNavState } from '@yapaja/shared';
-import type { EventBus } from '../bus/index.js';
+import type { EventBus, ProfileChangedPayload, ProfileChangePendingPayload } from '../bus/index.js';
 import {
   DeviationDetector,
   RerouteGuard,
@@ -129,9 +129,29 @@ export interface RerouteContext {
  * Just the profile lookup the ETA avg-speed floor needs (E04-T2;
  * ProfileService satisfies it). Optional: when omitted, no floor is applied
  * (matches pre-E04-T2 behaviour exactly for callers/tests that don't pass one).
+ *
+ * `getById` is OPTIONAL (E06-T3 addition, also satisfied by ProfileService):
+ * used to look up the PREVIOUS profile's name/dimensions for the
+ * confirmation-banner payload and the docs/07 §3b monotonicity log -- when
+ * absent, those two features degrade gracefully (id-as-name fallback / no
+ * monotonicity check) rather than failing.
  */
 export interface ActiveProfileLookup {
   getActive(): VehicleProfile | null;
+  getById?(id: string): VehicleProfile | null;
+}
+
+/**
+ * E06-T3: "is at least one UI client connected right now?" -- the signal that
+ * decides between showing the profile-change confirmation banner and
+ * auto-rerouting headless (docs/03 §2, E06-T3 spec). `WsClientRegistry`
+ * (`../bus/ws.ts`) satisfies this structurally. Optional: when omitted, the
+ * service always behaves as "no client connected" (headless auto-reroute) --
+ * the safe default, since without this signal we can't know a banner would
+ * ever be seen.
+ */
+export interface ClientPresence {
+  hasConnectedClients(): boolean;
 }
 
 export interface NavigationServiceLogger {
@@ -157,6 +177,8 @@ export interface NavigationServiceOptions {
   profileProvider?: ActiveProfileLookup;
   /** Reroute entry point (E04-T4). Omit to disable auto-rerouting (E04-T1 behaviour). */
   rerouteProvider?: RerouteProvider;
+  /** E06-T3: "is a UI client connected?" signal. Omit -> always headless (see {@link ClientPresence}). */
+  clientPresence?: ClientPresence;
 }
 
 export interface StartInput {
@@ -181,6 +203,27 @@ interface ActiveNavigation {
   destination: NavDestination;
 }
 
+/** E06-T3: the UI-facing "awaiting confirmation" snapshot -- same shape as
+ *  `event/profile_change_pending`'s payload, exposed via {@link NavigationService.getPendingProfileChange}. */
+export type PendingProfileChange = ProfileChangePendingPayload;
+
+/** E06-T3: which trigger a reroute-in-progress (incl. its retries) is for, plus
+ *  the inputs `applyReroute` needs to compute the warning banner / monotonicity
+ *  log -- ONLY meaningful when `reason === 'profile_change'`. Read/written as
+ *  plain instance state (not threaded through `executeReroute`'s signature) so
+ *  a failure-retry -- which re-invokes `executeReroute` without repeating the
+ *  original call site -- naturally keeps reusing the SAME context. */
+interface RerouteCtx {
+  reason: 'reroute' | 'profile_change';
+  /** Snapshot of the profile the route being REPLACED was computed for. */
+  oldProfile: VehicleProfile | null;
+  oldDurationS: number;
+}
+
+const DEVIATION_REROUTE_CTX: RerouteCtx = { reason: 'reroute', oldProfile: null, oldDurationS: 0 };
+/** docs/03 §2 / E06-T3 spec: reroute onto a route with >15% more duration warrants an advisory banner. */
+const DURATION_WARNING_THRESHOLD = 1.15;
+
 export class NavigationService {
   private readonly bus: EventBus;
   private readonly routeProvider: RouteProvider;
@@ -189,6 +232,7 @@ export class NavigationService {
   private readonly searchWindowM: number;
   private readonly profileProvider: ActiveProfileLookup | null;
   private readonly rerouteProvider: RerouteProvider | null;
+  private readonly clientPresence: ClientPresence;
 
   private status: NavStatus = 'idle';
   private active: ActiveNavigation | null = null;
@@ -223,7 +267,18 @@ export class NavigationService {
   /** Deviation position captured for the pending retry (retries reuse it). */
   private pendingRetryAt: LatLng | null = null;
 
+  // --- E06-T3 profile-change-during-navigation reroute coupling ---------------
+  /** The profile id the CURRENTLY ACTIVE route was computed with; set on `start()`
+   *  and after every successful reroute. The basis for recognising "Abbrechen"
+   *  (a re-activation of THIS id needs no reroute -- see `onProfileChanged`). */
+  private activeRouteProfileId: string | null = null;
+  /** Non-null while a UI confirmation is outstanding ("Mit '‹name›' neu berechnen?"). */
+  private pendingProfileChange: PendingProfileChange | null = null;
+  /** Context for the reroute currently in flight (or about to be retried); see {@link RerouteCtx}. */
+  private rerouteCtx: RerouteCtx = DEVIATION_REROUTE_CTX;
+
   private readonly unsubscribe: () => void;
+  private readonly unsubscribeProfile: () => void;
 
   constructor(opts: NavigationServiceOptions) {
     this.bus = opts.bus;
@@ -233,8 +288,12 @@ export class NavigationService {
     this.searchWindowM = opts.searchWindowM ?? SEARCH_WINDOW_M;
     this.profileProvider = opts.profileProvider ?? null;
     this.rerouteProvider = opts.rerouteProvider ?? null;
+    this.clientPresence = opts.clientPresence ?? { hasConnectedClients: () => false };
 
     this.unsubscribe = this.bus.subscribe('pos/update', (pos) => this.onPosition(pos));
+    this.unsubscribeProfile = this.bus.subscribe('event/profile_changed', (payload) =>
+      this.onProfileChanged(payload),
+    );
 
     this.recoverOnStartup();
   }
@@ -268,6 +327,12 @@ export class NavigationService {
     this.announcementState = initialAnnouncementState();
     this.resetRerouteState();
     this.rerouteContext = input.reroute ?? null;
+    // E06-T3: the profile this (freshly started) route was computed with --
+    // same resolution order `buildRerouteRequest` uses, so a later profile
+    // change is compared against the right baseline from the very first fix.
+    this.activeRouteProfileId =
+      this.profileProvider?.getActive()?.id ?? this.rerouteContext?.profile_id ?? null;
+    this.pendingProfileChange = null;
 
     this.recoveryStore.save({ route_id: route.id, destination: active.destination });
     this.logger.info('Navigation started', { route_id: route.id });
@@ -297,6 +362,8 @@ export class NavigationService {
     this.announcementState = initialAnnouncementState();
     this.resetRerouteState();
     this.rerouteContext = null;
+    this.activeRouteProfileId = null;
+    this.pendingProfileChange = null;
     this.recoveryStore.clear();
     this.logger.info('Navigation stopped');
     return this.publishState();
@@ -309,6 +376,35 @@ export class NavigationService {
 
   getStatus(): NavStatus {
     return this.status;
+  }
+
+  /** E06-T3: the outstanding "reroute with the new profile?" confirmation, or
+   *  `null` if none is pending (nothing changed the active profile since the
+   *  last reroute/start, or the change was already handled headless). */
+  getPendingProfileChange(): PendingProfileChange | null {
+    return this.pendingProfileChange;
+  }
+
+  /**
+   * E06-T3: the user answered "Ja" to the confirmation banner -- reroute with
+   * the (already active, per `event/profile_changed`) new profile. Fire-and-
+   * forget, same shape as the deviation-triggered reroute: returns the CURRENT
+   * (not-yet-rerouted) state immediately; the actual route swap lands
+   * asynchronously via `route/updated` + a fresh `nav/state`. Throws
+   * {@link NavigationError} (409) if nothing is pending (e.g. a stale/duplicate
+   * click, or the window already closed because the profile changed again).
+   */
+  confirmProfileChange(): NavState {
+    if (!this.pendingProfileChange) {
+      throw new NavigationError(
+        409,
+        'NO_PENDING_PROFILE_CHANGE',
+        'No profile change is awaiting confirmation',
+      );
+    }
+    this.pendingProfileChange = null;
+    void this.executeProfileChangeReroute();
+    return this.buildState();
   }
 
   /**
@@ -347,6 +443,7 @@ export class NavigationService {
   dispose(): void {
     this.clearRetryTimer();
     this.unsubscribe();
+    this.unsubscribeProfile();
   }
 
   // --- Position handling ---------------------------------------------------
@@ -535,6 +632,11 @@ export class NavigationService {
     }
 
     this.rerouteGuard.noteAttempt(nowMs);
+    // Explicit reset (not just "leave whatever was there"): a stale
+    // `profile_change` context from an earlier reroute must never bleed into
+    // this UNRELATED deviation-triggered one's `route/updated` reason / the
+    // duration-warning calculation.
+    this.rerouteCtx = DEVIATION_REROUTE_CTX;
     void this.executeReroute(pos, at, false);
   }
 
@@ -542,7 +644,11 @@ export class NavigationService {
    * Perform one reroute attempt (async). On success: seamlessly hand the
    * navigation onto the new route (see {@link applyReroute}). On failure
    * (Valhalla down / no route): KEEP the old route, publish
-   * `event/reroute_failed`, and schedule a 15 s retry.
+   * `event/reroute_failed`, and schedule a 15 s retry. `this.rerouteCtx`
+   * (set by the caller -- {@link maybeReroute} or
+   * {@link executeProfileChangeReroute}) decides the `route/updated` reason
+   * this attempt (and any of its retries, which call back into this same
+   * method) eventually publishes.
    */
   private async executeReroute(pos: Position, at: LatLng, isRetry: boolean): Promise<void> {
     if (!this.rerouteProvider || !this.active) return;
@@ -556,13 +662,22 @@ export class NavigationService {
       const primary = routes[0];
       if (!primary) throw new Error('reroute returned no route');
 
-      // Still navigating? (a stop/arrival during the in-flight window wins.)
-      if (this.status !== 'navigating' && this.status !== 'off_route') return;
+      // Still in a routable state? (a stop/arrival during the in-flight window
+      // wins.) `paused` is included -- E06-T3: a profile-change reroute the
+      // user confirmed (or the headless auto-yes) while paused must still land;
+      // pausing mid-flight was never a reason to discard an already-computed route.
+      if (this.status !== 'navigating' && this.status !== 'off_route' && this.status !== 'paused') {
+        return;
+      }
 
       this.rerouteGuard.noteSuccess(Date.now(), at);
       this.clearRetryTimer();
       this.applyReroute(primary, pos);
-      this.logger.info('Reroute applied', { route_id: primary.id, retry: isRetry });
+      this.logger.info('Reroute applied', {
+        route_id: primary.id,
+        retry: isRetry,
+        reason: this.rerouteCtx.reason,
+      });
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       this.logger.warn('Reroute failed — keeping old route, will retry', { reason });
@@ -613,9 +728,20 @@ export class NavigationService {
    * publish-time duration clamp; KEEPS the ETA calibration factor (the vehicle
    * is the same, only the road ahead changed). Re-matches the current position
    * onto the new geometry, returns to `navigating`, and publishes
-   * `route/updated { reason: 'reroute' }` followed by a fresh `nav/state`.
+   * `route/updated { reason }` (see {@link RerouteCtx}) followed by a fresh
+   * `nav/state`.
+   *
+   * E06-T3 additions (only meaningful when `this.rerouteCtx.reason ===
+   * 'profile_change'`): keeps `activeRouteProfileId` in sync with whatever
+   * profile the reroute actually used, attaches `duration_warning_pct` to
+   * `route/updated` when the new route is >15% longer in duration than the
+   * one it replaces (docs/03 §2 advisory warning banner), and logs a pino
+   * warning (docs/07 §3b) if switching onto a strictly LARGER/heavier profile
+   * ever produced a SHORTER-duration route -- a live plausibility check, never
+   * a hard failure.
    */
   private applyReroute(route: Route, pos: Position): void {
+    const ctx = this.rerouteCtx;
     const active = this.buildActive(route, this.active?.destination ?? null);
     this.active = active;
 
@@ -637,12 +763,65 @@ export class NavigationService {
       });
     }
 
-    // Return to navigating (off_route -> navigating); already-navigating is a no-op.
+    // Return to navigating (off_route -> navigating); already-navigating (or
+    // paused, E06-T3) is a no-op.
     if (this.status === 'off_route') this.applyInternal('RETURN');
 
+    // E06-T3: whichever profile this reroute actually requested with is now
+    // the one the ACTIVE route reflects -- same resolution `buildRerouteRequest`
+    // used for the request just sent.
+    this.activeRouteProfileId =
+      this.profileProvider?.getActive()?.id ?? this.rerouteContext?.profile_id ?? this.activeRouteProfileId;
+
+    let durationWarningPct: number | undefined;
+    if (ctx.reason === 'profile_change') {
+      if (ctx.oldDurationS > 0 && route.duration_s > ctx.oldDurationS * DURATION_WARNING_THRESHOLD) {
+        durationWarningPct = Math.round((route.duration_s / ctx.oldDurationS - 1) * 100);
+      }
+
+      const newProfile = this.profileProvider?.getActive() ?? null;
+      if (
+        ctx.oldProfile &&
+        newProfile &&
+        route.duration_s < ctx.oldDurationS &&
+        this.isLargerOrHeavier(ctx.oldProfile, newProfile)
+      ) {
+        this.logger.warn(
+          'Profile-change reroute onto a LARGER/heavier vehicle produced a SHORTER-duration route (docs/07 §3b monotonicity check)',
+          {
+            old_profile_id: ctx.oldProfile.id,
+            new_profile_id: newProfile.id,
+            old_duration_s: ctx.oldDurationS,
+            new_duration_s: route.duration_s,
+          },
+        );
+      }
+    }
+
     this.recoveryStore.save({ route_id: route.id, destination: active.destination });
-    this.bus.publish('route/updated', { reason: 'reroute', route_id: route.id });
+    this.bus.publish('route/updated', {
+      reason: ctx.reason,
+      route_id: route.id,
+      ...(durationWarningPct !== undefined ? { duration_warning_pct: durationWarningPct } : {}),
+    });
     this.publishState();
+  }
+
+  /**
+   * docs/07 §3b monotonicity check: does `newProfile` dominate `oldProfile` in
+   * EVERY physical dimension (none smaller, at least one strictly larger)?
+   * Deliberately strict (dominance, not e.g. "heavier alone") -- an ambiguous
+   * switch (taller but lighter) makes no directional prediction about the
+   * resulting route's duration, so it must never trigger this check.
+   */
+  private isLargerOrHeavier(oldProfile: VehicleProfile, newProfile: VehicleProfile): boolean {
+    const dims = ['height_m', 'width_m', 'length_m', 'weight_t'] as const;
+    let anyLarger = false;
+    for (const dim of dims) {
+      if (newProfile[dim] < oldProfile[dim]) return false;
+      if (newProfile[dim] > oldProfile[dim]) anyLarger = true;
+    }
+    return anyLarger;
   }
 
   /** Schedule (or leave running) the 15 s failure-retry timer. */
@@ -655,16 +834,23 @@ export class NavigationService {
   }
 
   /**
-   * Failure-retry tick: retry the reroute if we're still navigating AND still
-   * confirmed off-route. If the vehicle returned to route (or navigation
-   * stopped) in the meantime, drop the retry.
+   * Failure-retry tick: retry the reroute if we're still in a routable state
+   * AND the original reason for rerouting still holds -- either a still-
+   * confirmed deviation (E04-T4), or a still-pending profile-change reroute
+   * (E06-T3, which has no "detector" to re-check: once triggered it's retried
+   * until it succeeds or navigation ends). If the vehicle returned to route
+   * (or navigation stopped/paused-out) in the meantime, drop the retry.
    */
   private async retryReroute(): Promise<void> {
-    if (this.status !== 'navigating' && this.status !== 'off_route') {
+    const stillRoutable =
+      this.status === 'navigating' || this.status === 'off_route' || this.status === 'paused';
+    if (!stillRoutable) {
       this.pendingRetryAt = null;
       return;
     }
-    if (!this.detector.isConfirmed || !this.lastPosition || !this.pendingRetryAt) {
+    const deviationStillConfirmed = this.rerouteCtx.reason === 'reroute' && this.detector.isConfirmed;
+    const isProfileChangeRetry = this.rerouteCtx.reason === 'profile_change';
+    if (!this.lastPosition || !this.pendingRetryAt || !(deviationStillConfirmed || isProfileChangeRetry)) {
       this.pendingRetryAt = null;
       return; // vehicle recovered — nothing to retry
     }
@@ -679,12 +865,105 @@ export class NavigationService {
     this.pendingRetryAt = null;
   }
 
-  /** Reset all E04-T4 reroute state (per start/stop). */
+  /** Reset all E04-T4/E06-T3 reroute state (per start/stop). */
   private resetRerouteState(): void {
     this.detector.reset();
     this.rerouteGuard.reset();
     this.rerouteInFlight = false;
+    this.rerouteCtx = DEVIATION_REROUTE_CTX;
     this.clearRetryTimer();
+  }
+
+  // --- E06-T3 profile-change-during-navigation reroute coupling ------------
+
+  /**
+   * `event/profile_changed` handler (E06-T1's activate hook fires this for
+   * EVERY activation, not just ones during navigation). Couples a profile
+   * switch to a reroute decision (docs/03 §2 / E06-T3 spec):
+   *  - not `navigating`/`paused` -> nothing to couple; also clears any stale
+   *    pending confirmation (defensive -- shouldn't normally be reachable).
+   *  - the newly-active id already equals `activeRouteProfileId` -> this is
+   *    the "Abbrechen" reactivation of the profile the current route was
+   *    already computed for (or a redundant activate) -- no prompt, no
+   *    reroute, the prior state is untouched (nothing was ever changed).
+   *  - otherwise, a GENUINE profile change while navigating: show the UI
+   *    confirmation banner if a client is connected, else auto-reroute
+   *    headless (the "MQTT/API-triggered, no client" case from the spec is
+   *    identical -- this handler never sees WHO/WHAT triggered the activate).
+   */
+  private onProfileChanged(payload: ProfileChangedPayload): void {
+    if (this.status !== 'navigating' && this.status !== 'paused') {
+      this.pendingProfileChange = null;
+      return;
+    }
+    if (!this.active) return;
+
+    if (payload.id === this.activeRouteProfileId) {
+      this.pendingProfileChange = null;
+      return;
+    }
+
+    const previous = this.activeRouteProfileId
+      ? (this.profileProvider?.getById?.(this.activeRouteProfileId) ?? null)
+      : null;
+    const pending: PendingProfileChange = {
+      profile_id: payload.id,
+      profile_name: payload.name,
+      previous_profile_id: this.activeRouteProfileId ?? '',
+      previous_profile_name: previous?.name ?? this.activeRouteProfileId ?? '',
+    };
+
+    if (this.clientPresence.hasConnectedClients()) {
+      this.pendingProfileChange = pending;
+      this.logger.info('Profile changed during navigation — awaiting UI confirmation', {
+        profile_id: payload.id,
+      });
+      this.bus.publish('event/profile_change_pending', pending);
+      return;
+    }
+
+    // Headless: no UI client connected -- auto-yes (docs/03 §2).
+    this.pendingProfileChange = null;
+    this.logger.info('Profile changed during navigation, no client connected — auto-rerouting', {
+      profile_id: payload.id,
+    });
+    void this.executeProfileChangeReroute();
+  }
+
+  /**
+   * Runs the actual reroute for a profile change, whether it got here via
+   * {@link confirmProfileChange} (UI "Ja") or the headless auto-yes path.
+   * Reuses the SAME `executeReroute`/`applyReroute` machinery E04-T4 built for
+   * deviation-triggered reroutes (just tagged via `this.rerouteCtx`) -- same
+   * failure handling (`event/reroute_failed` + 15 s retry), same in-flight
+   * guard.
+   */
+  private async executeProfileChangeReroute(): Promise<void> {
+    if (!this.rerouteProvider || !this.active) return;
+    if (this.status !== 'navigating' && this.status !== 'paused') return;
+    if (!this.lastPosition) {
+      // No fix received yet this navigation (e.g. paused immediately after
+      // start) -- there is no "current position" to reroute FROM. Logged, not
+      // silently dropped; the confirmation banner (if any) has already closed,
+      // matching how a deviation-reroute with no profile similarly no-ops.
+      this.logger.warn('Cannot reroute for profile change: no position fix received yet');
+      return;
+    }
+    if (this.rerouteInFlight) {
+      this.logger.warn('Profile-change reroute skipped: another reroute is already in flight');
+      return;
+    }
+
+    const oldProfile = this.activeRouteProfileId
+      ? (this.profileProvider?.getById?.(this.activeRouteProfileId) ?? null)
+      : null;
+    this.rerouteCtx = {
+      reason: 'profile_change',
+      oldProfile,
+      oldDurationS: this.active.route.duration_s,
+    };
+    const at: LatLng = { lat: this.lastPosition.lat, lon: this.lastPosition.lon };
+    await this.executeReroute(this.lastPosition, at, false);
   }
 
   // --- State-machine plumbing ----------------------------------------------

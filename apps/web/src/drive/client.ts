@@ -101,6 +101,14 @@ export async function stopNavigation(): Promise<NavState> {
   return postControl('api/v1/navigation/stop');
 }
 
+/** `POST /api/v1/navigation/profile_change/confirm` (E06-T3): the user answered
+ *  "Ja" to the "Mit '‹name›' neu berechnen?" confirmation banner. Throws
+ *  `NavigationApiError` (409 `NO_PENDING_PROFILE_CHANGE`) if the window already
+ *  closed (stale click / already resolved). */
+export async function confirmProfileChangeReroute(): Promise<NavState> {
+  return postControl('api/v1/navigation/profile_change/confirm');
+}
+
 /** The W-19 reload-recovery envelope: the current `NavState` plus, when idle
  *  with a still-cached route from a prior (crashed/restarted) navigation, a
  *  `recovered_route` reference the UI can offer to resume. */

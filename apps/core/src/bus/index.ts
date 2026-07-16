@@ -36,7 +36,11 @@ export type KnownBusTopic =
   | 'route/deviation'
   | 'route/updated'
   | 'event/reroute_loop'
-  | 'event/reroute_failed';
+  | 'event/reroute_failed'
+  // E06-T1/T3: profile activation + the profile-change-during-navigation
+  // reroute coupling.
+  | 'event/profile_changed'
+  | 'event/profile_change_pending';
 
 export interface GpsLostPayload {
   /** Source that was active immediately before the fix was lost, if any. */
@@ -102,14 +106,51 @@ export interface RouteDeviationPayload {
 }
 
 /**
- * `route/updated` (E04-T4): the navigation switched onto a freshly computed
- * route. `reason: 'reroute'` is the only cause today; the field keeps the topic
- * open to future causes (e.g. traffic) without a shape change.
+ * `route/updated` (E04-T4, extended E06-T3): the navigation switched onto a
+ * freshly computed route. `reason: 'reroute'` is a confirmed-deviation
+ * auto-reroute (E04-T4); `reason: 'profile_change'` is the E06-T3 profile-
+ * change-during-navigation coupling (either UI-confirmed or headless auto-yes).
  */
 export interface RouteUpdatedPayload {
-  reason: 'reroute';
+  reason: 'reroute' | 'profile_change';
   /** Id of the new (cached) route now being navigated. */
   route_id: string;
+  /**
+   * E06-T3 warning-banner input: present ONLY for `reason: 'profile_change'`
+   * when the new route's `duration_s` exceeds the replaced route's by more
+   * than 15% (docs/03 §2 "Warnbanner falls neue Route deutlich länger").
+   * Rounded percentage, e.g. `23` for +23%. The reroute is applied regardless
+   * -- this is advisory, never a block.
+   */
+  duration_warning_pct?: number;
+}
+
+/**
+ * `event/profile_changed` (E06-T1, consumed by E06-T3): published whenever
+ * `PUT /profiles/{id}/activate` switches the single active profile -- fired
+ * from `ProfileService#onProfileChanged`, regardless of whether a navigation
+ * is active. `NavigationService` is the only current subscriber (couples it
+ * to a reroute decision while `navigating`/`paused`); the WS bridge also fans
+ * it straight out to any connected UI (e.g. the profile chip / list refresh).
+ */
+export interface ProfileChangedPayload {
+  id: string;
+  name: string;
+}
+
+/**
+ * `event/profile_change_pending` (E06-T3): published INSTEAD OF an immediate
+ * reroute when the active profile changes while `navigating`/`paused` AND at
+ * least one UI (WS) client is connected -- the confirmation-banner trigger
+ * ("Mit '‹name›' neu berechnen?"). Carries both the new and the PREVIOUS
+ * profile so the UI's "Abbrechen" action can reactivate the previous one
+ * without any extra round-trip to look it up.
+ */
+export interface ProfileChangePendingPayload {
+  profile_id: string;
+  profile_name: string;
+  previous_profile_id: string;
+  previous_profile_name: string;
 }
 
 /**
@@ -154,6 +195,8 @@ export interface BusPayloadMap {
   'route/updated': RouteUpdatedPayload;
   'event/reroute_loop': RerouteLoopPayload;
   'event/reroute_failed': RerouteFailedPayload;
+  'event/profile_changed': ProfileChangedPayload;
+  'event/profile_change_pending': ProfileChangePendingPayload;
 }
 
 /**

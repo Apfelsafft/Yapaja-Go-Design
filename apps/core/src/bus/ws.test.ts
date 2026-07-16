@@ -8,7 +8,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
 import { setTimeout } from 'node:timers';
 import { EventBus } from './index.js';
-import { busWebsocketPlugin } from './ws.js';
+import { busWebsocketPlugin, WsClientRegistry } from './ws.js';
 
 async function waitForMessage(socket: WebSocket): Promise<unknown> {
   return new Promise((resolve) => {
@@ -118,5 +118,61 @@ describe('/ws/v1 bus bridge', () => {
     socket.terminate();
     await delay(50);
     expect(bus.subscriberCount).toBe(0);
+  });
+});
+
+describe('WsClientRegistry (E06-T3 "is a UI client connected?" signal)', () => {
+  let fastify: FastifyInstance;
+  let bus: EventBus;
+  let registry: WsClientRegistry;
+
+  beforeEach(async () => {
+    fastify = Fastify();
+    bus = new EventBus({ isProduction: false });
+    registry = new WsClientRegistry();
+    await fastify.register(busWebsocketPlugin, { bus, registry });
+    await fastify.ready();
+  });
+
+  afterEach(async () => {
+    await fastify.close();
+  });
+
+  it('starts at zero / no clients connected', () => {
+    expect(registry.connectedCount).toBe(0);
+    expect(registry.hasConnectedClients()).toBe(false);
+  });
+
+  it('increments on connect, decrements on disconnect', async () => {
+    const socket = await fastify.injectWS('/ws/v1');
+    expect(registry.connectedCount).toBe(1);
+    expect(registry.hasConnectedClients()).toBe(true);
+
+    socket.terminate();
+    await delay(50);
+
+    expect(registry.connectedCount).toBe(0);
+    expect(registry.hasConnectedClients()).toBe(false);
+  });
+
+  it('counts multiple simultaneous clients independently', async () => {
+    const socketA = await fastify.injectWS('/ws/v1');
+    const socketB = await fastify.injectWS('/ws/v1');
+    expect(registry.connectedCount).toBe(2);
+
+    socketA.terminate();
+    await delay(50);
+    expect(registry.connectedCount).toBe(1);
+    expect(registry.hasConnectedClients()).toBe(true);
+
+    socketB.terminate();
+    await delay(50);
+    expect(registry.connectedCount).toBe(0);
+  });
+
+  it('never goes negative (defensive floor)', () => {
+    registry.decrement();
+    registry.decrement();
+    expect(registry.connectedCount).toBe(0);
   });
 });

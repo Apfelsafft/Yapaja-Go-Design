@@ -28,6 +28,24 @@ export type PendingResume =
   | { kind: 'active'; state: NavState }
   | { kind: 'recovered'; route_id: string; destination: { latlng: LatLng; name: string | null } | null };
 
+/**
+ * E06-T3: mirrors the core's `event/profile_change_pending` payload
+ * (`apps/core/src/bus/index.ts`) -- the confirmation-banner trigger. Carries
+ * BOTH the new and the previous profile so "Abbrechen" can reactivate the
+ * previous one without a separate lookup round-trip.
+ */
+export interface PendingProfileChange {
+  profile_id: string;
+  profile_name: string;
+  previous_profile_id: string;
+  previous_profile_name: string;
+}
+
+/** E06-T3: the >15%-longer advisory, derived from `route/updated`'s `duration_warning_pct`. */
+export interface ProfileChangeWarning {
+  pct: number;
+}
+
 interface NavStoreState {
   navState: NavState | null;
   /** Last `nav/instruction` received; the Drive UI/TTS react to it changing. */
@@ -45,6 +63,10 @@ interface NavStoreState {
    *  before -- this is opt-in, not a global gate. */
   resumeAcknowledged: boolean;
   pendingResume: PendingResume | null;
+  /** E06-T3: non-null while "Mit '‹name›' neu berechnen?" is awaiting an answer. */
+  pendingProfileChange: PendingProfileChange | null;
+  /** E06-T3: set from `route/updated`'s `duration_warning_pct` when a profile-change reroute lands >15% longer. */
+  profileChangeWarning: ProfileChangeWarning | null;
 
   setNavState: (s: NavState) => void;
   setInstruction: (i: NavInstructionPayload) => void;
@@ -52,6 +74,8 @@ interface NavStoreState {
   setPendingResume: (p: PendingResume | null) => void;
   /** Dismisses the prompt (if any) without touching server-side nav state. */
   acknowledgeResume: () => void;
+  setPendingProfileChange: (p: PendingProfileChange | null) => void;
+  setProfileChangeWarning: (w: ProfileChangeWarning | null) => void;
 }
 
 export const useNavStore = create<NavStoreState>((set) => ({
@@ -61,12 +85,16 @@ export const useNavStore = create<NavStoreState>((set) => ({
   isConnected: false,
   resumeAcknowledged: true,
   pendingResume: null,
+  pendingProfileChange: null,
+  profileChangeWarning: null,
 
   setNavState: (s) => set({ navState: s }),
   setInstruction: (i) => set((state) => ({ lastInstruction: i, instructionSeq: state.instructionSeq + 1 })),
   setConnected: (connected) => set({ isConnected: connected }),
   setPendingResume: (p) => set({ pendingResume: p, resumeAcknowledged: p === null }),
   acknowledgeResume: () => set({ pendingResume: null, resumeAcknowledged: true }),
+  setPendingProfileChange: (p) => set({ pendingProfileChange: p }),
+  setProfileChangeWarning: (w) => set({ profileChangeWarning: w }),
 }));
 
 /** Whether the Drive UI should treat `navState` as "live" right now (E04-T5,
@@ -131,7 +159,11 @@ class NavWSManager {
         useNavStore.getState().setConnected(true);
         this.reconnectAttempt = 0;
         this.reconnectDelay = 1000;
-        this.send({ type: 'subscribe', topics: ['nav/*'] });
+        // `route/*` + `event/profile_change_pending` (E06-T3): the profile-
+        // change-during-navigation reroute coupling's confirmation banner /
+        // warning-banner input -- same connection as `nav/*` rather than a
+        // second dedicated one, since it's the same "navigation" domain.
+        this.send({ type: 'subscribe', topics: ['nav/*', 'route/*', 'event/profile_change_pending'] });
       });
 
       this.ws.addEventListener('message', (event) => {
@@ -141,6 +173,22 @@ class NavWSManager {
             useNavStore.getState().setNavState(msg.payload as NavState);
           } else if (msg.topic === 'nav/instruction') {
             useNavStore.getState().setInstruction(msg.payload as NavInstructionPayload);
+          } else if (msg.topic === 'event/profile_change_pending') {
+            useNavStore.getState().setPendingProfileChange(msg.payload as PendingProfileChange);
+          } else if (msg.topic === 'route/updated') {
+            const payload = msg.payload as { reason: string; duration_warning_pct?: number };
+            if (payload.reason === 'profile_change') {
+              // The reroute landed (confirmed OR headless auto-yes) -- any
+              // outstanding confirmation banner is now moot.
+              useNavStore.getState().setPendingProfileChange(null);
+              useNavStore
+                .getState()
+                .setProfileChangeWarning(
+                  typeof payload.duration_warning_pct === 'number'
+                    ? { pct: payload.duration_warning_pct }
+                    : null,
+                );
+            }
           }
         } catch (err) {
           console.warn('[NavWSManager] Failed to parse message:', err);

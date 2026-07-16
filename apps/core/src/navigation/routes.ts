@@ -25,6 +25,7 @@ import { isRoutingError } from '../routing/errors.js';
 import {
   NavigationService,
   type ActiveProfileLookup,
+  type ClientPresence,
   type NavDestination,
   type RerouteContext,
   type RerouteProvider,
@@ -59,6 +60,8 @@ export interface NavigationRoutesOptions {
   rerouteProvider?: RerouteProvider;
   /** Geocoder for `POST /navigation/destination`'s `query` field (E04-T5). */
   searchProvider?: DestinationSearchProvider;
+  /** E06-T3: "is a UI client connected?" signal, see `NavigationService`. */
+  clientPresence?: ClientPresence;
   /** Test seam: inject a pre-built service (wins over the options above). */
   service?: NavigationService;
   logger?: NavigationServiceLogger;
@@ -151,6 +154,7 @@ export const navigationPlugin: FastifyPluginAsync<NavigationRoutesOptions> = asy
       recoveryStore: opts.recoveryStore,
       profileProvider: opts.profileProvider,
       rerouteProvider: opts.rerouteProvider,
+      clientPresence: opts.clientPresence,
       logger,
     });
 
@@ -222,6 +226,15 @@ export const navigationPlugin: FastifyPluginAsync<NavigationRoutesOptions> = asy
   fastify.post('/navigation/pause', control(() => service.pause()));
   fastify.post('/navigation/resume', control(() => service.resume()));
   fastify.post('/navigation/stop', control(() => service.stop()));
+
+  // POST /navigation/profile_change/confirm (E06-T3): the user answered "Ja"
+  // to the "Mit '‹name›' neu berechnen?" confirmation banner -- reroute with
+  // the (already active) new profile. 409 NO_PENDING_PROFILE_CHANGE when
+  // nothing is currently awaiting confirmation (stale click / already resolved).
+  fastify.post(
+    '/navigation/profile_change/confirm',
+    control(() => service.confirmProfileChange()),
+  );
 
   // GET /navigation/state
   //
