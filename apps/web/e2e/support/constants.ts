@@ -61,6 +61,14 @@ export const FAVORITES_CORE_PORT = 4315;
 // leaves navigation genuinely ACTIVE for a while, which no other spec's core
 // should ever observe.
 export const DRIVE_CORE_PORT = 4316;
+// Dedicated core for nav-control.spec.ts (E04-T5, Flow 2 full + W-19 reload
+// recovery): the W-19 test needs navigation to stay genuinely ACTIVE on the
+// Core process across a `page.reload()` -- sharing a core with any other
+// parallel spec (including drive.spec.ts's own dedicated one, which leaves
+// navigation active for stretches too) would risk another test's `stop()` or
+// position fix landing in the middle of this one's reload assertion, same
+// class of cross-test contention `DRIVE_CORE_PORT` already exists to avoid.
+export const NAV_CONTROL_CORE_PORT = 4317;
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
@@ -69,3 +77,4 @@ export const SIMULATOR_CORE_BASE_URL = `http://127.0.0.1:${SIMULATOR_CORE_PORT}`
 export const SEARCH_CORE_BASE_URL = `http://127.0.0.1:${SEARCH_CORE_PORT}`;
 export const FAVORITES_CORE_BASE_URL = `http://127.0.0.1:${FAVORITES_CORE_PORT}`;
 export const DRIVE_CORE_BASE_URL = `http://127.0.0.1:${DRIVE_CORE_PORT}`;
+export const NAV_CONTROL_CORE_BASE_URL = `http://127.0.0.1:${NAV_CONTROL_CORE_PORT}`;

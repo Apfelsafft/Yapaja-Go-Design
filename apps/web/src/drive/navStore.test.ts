@@ -44,7 +44,14 @@ function makeInstruction(overrides: Partial<NavInstructionPayload> = {}): NavIns
 
 describe('navStore', () => {
   beforeEach(() => {
-    useNavStore.setState({ navState: null, lastInstruction: null, instructionSeq: 0, isConnected: false });
+    useNavStore.setState({
+      navState: null,
+      lastInstruction: null,
+      instructionSeq: 0,
+      isConnected: false,
+      resumeAcknowledged: true,
+      pendingResume: null,
+    });
   });
 
   it('stores navState', () => {
@@ -79,5 +86,31 @@ describe('navStore', () => {
     expect(useNavStore.getState().isConnected).toBe(true);
     useNavStore.getState().setConnected(false);
     expect(useNavStore.getState().isConnected).toBe(false);
+  });
+
+  // E04-T5, W-19: the reload-recovery gate.
+  describe('resumeAcknowledged / pendingResume (W-19)', () => {
+    it('defaults resumeAcknowledged to true (opt-in gate, no flow is blocked unless the boot check runs)', () => {
+      expect(useNavStore.getState().resumeAcknowledged).toBe(true);
+      expect(useNavStore.getState().pendingResume).toBeNull();
+    });
+
+    it('setPendingResume closes the gate; acknowledgeResume reopens it and clears the pending case', () => {
+      const state = makeNavState({ status: 'navigating' });
+      useNavStore.getState().setPendingResume({ kind: 'active', state });
+      expect(useNavStore.getState().resumeAcknowledged).toBe(false);
+      expect(useNavStore.getState().pendingResume).toEqual({ kind: 'active', state });
+
+      useNavStore.getState().acknowledgeResume();
+      expect(useNavStore.getState().resumeAcknowledged).toBe(true);
+      expect(useNavStore.getState().pendingResume).toBeNull();
+    });
+
+    it('setPendingResume(null) reopens the gate directly (no separate acknowledge call needed)', () => {
+      useNavStore.getState().setPendingResume({ kind: 'recovered', route_id: 'r1', destination: null });
+      expect(useNavStore.getState().resumeAcknowledged).toBe(false);
+      useNavStore.getState().setPendingResume(null);
+      expect(useNavStore.getState().resumeAcknowledged).toBe(true);
+    });
   });
 });

@@ -13,7 +13,20 @@
  */
 
 import { create } from 'zustand';
-import type { NavInstructionPayload, NavState } from '@yapaja/shared';
+import type { LatLng, NavInstructionPayload, NavState } from '@yapaja/shared';
+
+/** W-19 reload-recovery: what the "Navigation fortsetzen?" prompt has to
+ *  offer, discovered once at app boot (see `resume.ts#checkResumeOnLoad`).
+ *  - `active`: the Core is ALREADY navigating (tab crashed/reloaded, Core
+ *    kept running) -- resuming just promotes this snapshot into `navState`,
+ *    no REST call needed.
+ *  - `recovered`: the Core restarted; `navigating` reset to `idle`, but the
+ *    last route is still cached (`event/nav_recovered_route_available`'s
+ *    REST-observable twin, `GET /navigation/state`'s `recovered_route`) --
+ *    resuming POSTs `/navigation/start` with this `route_id`. */
+export type PendingResume =
+  | { kind: 'active'; state: NavState }
+  | { kind: 'recovered'; route_id: string; destination: { latlng: LatLng; name: string | null } | null };
 
 interface NavStoreState {
   navState: NavState | null;
@@ -22,10 +35,23 @@ interface NavStoreState {
   /** Bumped on every `nav/instruction` (even if `say` text repeats) so consumers can detect "new one arrived" via reference/counter rather than deep-equality. */
   instructionSeq: number;
   isConnected: boolean;
+  /** W-19: true once the reload-recovery check has resolved (nothing to
+   *  resume, or the user acknowledged the prompt). The Drive UI (maneuver
+   *  panel, drive-mode camera/follow, pause/stop controls) stays hidden
+   *  while false EVEN IF `navState` already reports an active session --
+   *  avoids jumping straight into 3D drive mode before the user confirms.
+   *  Defaults to `true` so every flow that never runs the boot check (all
+   *  pre-E04-T5 tests, and every OTHER app entry point) behaves exactly as
+   *  before -- this is opt-in, not a global gate. */
+  resumeAcknowledged: boolean;
+  pendingResume: PendingResume | null;
 
   setNavState: (s: NavState) => void;
   setInstruction: (i: NavInstructionPayload) => void;
   setConnected: (connected: boolean) => void;
+  setPendingResume: (p: PendingResume | null) => void;
+  /** Dismisses the prompt (if any) without touching server-side nav state. */
+  acknowledgeResume: () => void;
 }
 
 export const useNavStore = create<NavStoreState>((set) => ({
@@ -33,11 +59,21 @@ export const useNavStore = create<NavStoreState>((set) => ({
   lastInstruction: null,
   instructionSeq: 0,
   isConnected: false,
+  resumeAcknowledged: true,
+  pendingResume: null,
 
   setNavState: (s) => set({ navState: s }),
   setInstruction: (i) => set((state) => ({ lastInstruction: i, instructionSeq: state.instructionSeq + 1 })),
   setConnected: (connected) => set({ isConnected: connected }),
+  setPendingResume: (p) => set({ pendingResume: p, resumeAcknowledged: p === null }),
+  acknowledgeResume: () => set({ pendingResume: null, resumeAcknowledged: true }),
 }));
+
+/** Whether the Drive UI should treat `navState` as "live" right now (E04-T5,
+ *  W-19): the reload-recovery prompt (if any) must be acknowledged first. */
+export function useDriveGateOpen(): boolean {
+  return useNavStore((state) => state.resumeAcknowledged);
+}
 
 declare global {
   interface Window {

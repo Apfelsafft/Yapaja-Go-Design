@@ -16,6 +16,9 @@ import { useTtsStore } from './ttsStore.js';
 import { ManeuverArrowSprite } from './arrows.js';
 import ManeuverPanel, { isDriveActive } from './ManeuverPanel.js';
 import SpeedLimitSign from './SpeedLimitSign.js';
+import DriveControls from './DriveControls.js';
+import DriveModeController from './DriveModeController.js';
+import ResumePrompt from './ResumePrompt.js';
 import { announce, cancelSpeech, isSpeechAvailable } from './tts.js';
 
 function TtsToggle(): React.ReactElement {
@@ -43,6 +46,8 @@ export default function DriveOverlay(): React.ReactElement {
   const instructionSeq = useNavStore((state) => state.instructionSeq);
   const lastInstruction = useNavStore((state) => state.lastInstruction);
   const ttsEnabled = useTtsStore((state) => state.enabled);
+  // W-19 (E04-T5): see `ManeuverPanel.tsx`'s identical gate.
+  const driveGateOpen = useNavStore((state) => state.resumeAcknowledged);
 
   // Connect the nav WS once at app root (same lifecycle as PositionInitializer).
   useEffect(() => {
@@ -66,16 +71,19 @@ export default function DriveOverlay(): React.ReactElement {
     if (!ttsEnabled) cancelSpeech();
   }, [ttsEnabled]);
 
-  const active = isDriveActive(navState?.status);
+  const active = driveGateOpen && isDriveActive(navState?.status);
 
   return (
     <>
       <ManeuverArrowSprite />
+      <DriveModeController />
+      <ResumePrompt />
       {active && (
         <>
           <ManeuverPanel />
           <SpeedLimitSign />
           <TtsToggle />
+          <DriveControls />
         </>
       )}
     </>

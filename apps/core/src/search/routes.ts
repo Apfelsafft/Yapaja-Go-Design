@@ -11,7 +11,7 @@
  * (possibly empty); only malformed query parameters yield 400
  * VALIDATION_ERROR -- a degraded backend chain is not a client error.
  */
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import type { ApiError, SearchResult } from '@yapaja/shared';
 import { CoordsBackend } from './coordsBackend.js';
 import type { SearchRegionsProvider } from './coverage.js';
@@ -91,7 +91,18 @@ function parseOptionalCoord(raw: string | undefined, min: number, max: number): 
   return n;
 }
 
-export const searchPlugin: FastifyPluginAsync<SearchRoutesOptions> = async (fastify, opts) => {
+/**
+ * Construct a `SearchService` from plugin options, wiring the Photon/
+ * Nominatim/lite backends and the installed-regions provider. Exported
+ * (mirrors `routing/routes.ts#buildRoutingService`, E04-T1) so `buildServer`
+ * can build ONE instance up front and share it with the navigation plugin
+ * (E04-T5: `POST /navigation/destination`'s `query` -> geocode path) instead
+ * of each plugin owning a private, differently-configured service.
+ */
+export function buildSearchService(
+  fastify: FastifyInstance,
+  opts: SearchRoutesOptions,
+): SearchService {
   const logger: SearchLogger = opts.logger ?? {
     info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
     warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
@@ -129,18 +140,20 @@ export const searchPlugin: FastifyPluginAsync<SearchRoutesOptions> = async (fast
       },
     };
 
-  const service =
-    opts.service ??
-    new SearchService({
-      coordsBackend,
-      photonBackend,
-      nominatimBackend,
-      liteBackend,
-      photonEnabled: opts.photonEnabled ?? true,
-      onlineFallback: opts.onlineFallback ?? false,
-      regionsProvider,
-      logger,
-    });
+  return new SearchService({
+    coordsBackend,
+    photonBackend,
+    nominatimBackend,
+    liteBackend,
+    photonEnabled: opts.photonEnabled ?? true,
+    onlineFallback: opts.onlineFallback ?? false,
+    regionsProvider,
+    logger,
+  });
+}
+
+export const searchPlugin: FastifyPluginAsync<SearchRoutesOptions> = async (fastify, opts) => {
+  const service = opts.service ?? buildSearchService(fastify, opts);
 
   // GET /search
   fastify.get<{ Querystring: SearchQuerystring; Reply: { data: SearchResult[] } | ApiError }>(

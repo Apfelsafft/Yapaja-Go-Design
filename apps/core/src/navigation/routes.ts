@@ -2,21 +2,31 @@
  * Fastify routes for the NavigationService (E04-T1).
  * Prefix: /api/v1 (docs/03 §2 "Routing & Navigation").
  *
- *  - POST /navigation/start   body `{ route_id }` | `{ route, destination? }`
+ *  - POST /navigation/start   body `{ route_id }` | `{ route, destination?, reroute? }`
  *  - POST /navigation/pause  | resume | stop
  *  - GET  /navigation/state
+ *  - POST /navigation/destination (E04-T5)  body `{ latlng | query, profile_id?, autostart? }`
  *
  * Invalid state-machine transitions surface as HTTP 409 (NavigationError).
  */
 
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
-import type { ApiError, LatLng } from '@yapaja/shared';
+import type {
+  ApiError,
+  LatLng,
+  Route,
+  RouteAvoidOverrides,
+  RouteRequest,
+  SearchResult,
+} from '@yapaja/shared';
 import { validateLatLng, validateRoute } from '@yapaja/shared';
 import { isNavigationError } from './errors.js';
+import { isRoutingError } from '../routing/errors.js';
 import {
   NavigationService,
   type ActiveProfileLookup,
   type NavDestination,
+  type RerouteContext,
   type RerouteProvider,
   type RouteProvider,
   type StartInput,
@@ -25,14 +35,30 @@ import type { EventBus } from '../bus/index.js';
 import type { NavRecoveryStore } from './recoveryStore.js';
 import type { NavigationServiceLogger } from './service.js';
 
+/** Just the geocode lookup the destination endpoint needs (E04-T5); the
+ *  shared `SearchService` satisfies it (`buildServer` wires the SAME
+ *  instance the search plugin uses, mirroring how `rerouteProvider` below
+ *  shares the routing plugin's `RoutingService`). */
+export interface DestinationSearchProvider {
+  search(query: { q: string; limit: number; lat?: number; lon?: number }): Promise<SearchResult[]>;
+}
+
 export interface NavigationRoutesOptions {
   bus: EventBus;
   routeProvider: RouteProvider;
   recoveryStore?: NavRecoveryStore;
-  /** ETA avg-speed floor input (E04-T2), see `NavigationService`. */
+  /** ETA avg-speed floor input (E04-T2), see `NavigationService`. Also the
+   *  fallback active-profile lookup for `POST /navigation/destination`
+   *  (E04-T5) when the request body omits `profile_id`. */
   profileProvider?: ActiveProfileLookup;
-  /** Reroute entry point (E04-T4); the shared RoutingService satisfies it. */
+  /** Reroute entry point (E04-T4); the shared RoutingService satisfies it.
+   *  E04-T5's `POST /navigation/destination` reuses this SAME seam
+   *  (`createRoutes`) to compute the initial route to a `latlng`/`query` --
+   *  it's the identical operation a reroute performs, just triggered by the
+   *  convenience endpoint instead of a confirmed deviation. */
   rerouteProvider?: RerouteProvider;
+  /** Geocoder for `POST /navigation/destination`'s `query` field (E04-T5). */
+  searchProvider?: DestinationSearchProvider;
   /** Test seam: inject a pre-built service (wins over the options above). */
   service?: NavigationService;
   logger?: NavigationServiceLogger;
@@ -50,6 +76,61 @@ function parseDestination(value: unknown): NavDestination | null | undefined {
   if (!validateLatLng(obj.latlng)) return undefined;
   const name = obj.name === undefined || obj.name === null ? null : String(obj.name);
   return { latlng: obj.latlng as LatLng, name };
+}
+
+function isLatLngArray(value: unknown): value is LatLng[] {
+  return Array.isArray(value) && value.every((v) => validateLatLng(v));
+}
+
+function isPolygonArray(value: unknown): value is LatLng[][] {
+  return Array.isArray(value) && value.every((ring) => isLatLngArray(ring));
+}
+
+function isAvoidOverrides(value: unknown): value is RouteAvoidOverrides {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return (['motorway', 'toll', 'ferry', 'unpaved'] as const).every(
+    (key) => obj[key] === undefined || typeof obj[key] === 'boolean',
+  );
+}
+
+/**
+ * Parses the optional `reroute` field of `POST /navigation/start` (E04-T5)
+ * into a `RerouteContext` -- the waypoints + E03-T4 avoidances the frontend's
+ * routing store already tracked for the route being started, so an
+ * auto-reroute (E04-T4) reproduces them instead of silently dropping them.
+ * `undefined` -> absent (no context, exactly pre-E04-T5 behaviour);
+ * `undefined` is ALSO returned for a malformed value so the caller can 400 --
+ * mirrors `parseDestination`'s two-undefined-meanings pattern (checked via
+ * `body.reroute !== undefined` at the call site, same as `destination`).
+ */
+function parseReroute(value: unknown): RerouteContext | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'object' || value === null) return undefined;
+  const obj = value as Record<string, unknown>;
+
+  const ctx: RerouteContext = {};
+  if (obj.waypoints !== undefined) {
+    if (!isLatLngArray(obj.waypoints)) return undefined;
+    ctx.waypoints = obj.waypoints;
+  }
+  if (obj.exclude_locations !== undefined) {
+    if (!isLatLngArray(obj.exclude_locations)) return undefined;
+    ctx.exclude_locations = obj.exclude_locations;
+  }
+  if (obj.exclude_polygons !== undefined) {
+    if (!isPolygonArray(obj.exclude_polygons)) return undefined;
+    ctx.exclude_polygons = obj.exclude_polygons;
+  }
+  if (obj.avoid_overrides !== undefined) {
+    if (!isAvoidOverrides(obj.avoid_overrides)) return undefined;
+    ctx.avoid_overrides = obj.avoid_overrides;
+  }
+  if (obj.profile_id !== undefined) {
+    if (typeof obj.profile_id !== 'string') return undefined;
+    ctx.profile_id = obj.profile_id;
+  }
+  return ctx;
 }
 
 export const navigationPlugin: FastifyPluginAsync<NavigationRoutesOptions> = async (
@@ -108,6 +189,17 @@ export const navigationPlugin: FastifyPluginAsync<NavigationRoutesOptions> = asy
       }
       if (destination !== undefined) start.destination = destination;
 
+      // E04-T5: the frontend's routing store passes its waypoints/avoidances/
+      // active profile through here so an auto-reroute (E04-T4) reproduces
+      // them instead of silently dropping them.
+      const reroute = parseReroute(body.reroute);
+      if (reroute === undefined && body.reroute !== undefined) {
+        return reply
+          .code(400)
+          .send(errorResponse('VALIDATION_ERROR', 'Invalid "reroute" in request body'));
+      }
+      if (reroute !== undefined) start.reroute = reroute;
+
       try {
         const state = service.start(start);
         return reply.code(200).send({ data: state });
@@ -132,9 +224,154 @@ export const navigationPlugin: FastifyPluginAsync<NavigationRoutesOptions> = asy
   fastify.post('/navigation/stop', control(() => service.stop()));
 
   // GET /navigation/state
+  //
+  // W-19: additive `recovered_route` envelope field (NOT part of the
+  // `NavState` contract itself -- that type is fixed by docs/03 §1/the
+  // shared JSON schema) carrying the last active navigation's route
+  // reference whenever one is recoverable (idle + still-cached route, see
+  // `NavigationService#getRecoverableRoute`). This is the ONLY way the
+  // frontend can ever learn about it: `event/nav_recovered_route_available`
+  // fires once, synchronously, at Core construction time -- long before any
+  // browser tab's reload could possibly have a WS subscription open to catch
+  // it. "REST then WS" (docs/08 W-19) is exactly this: fetch the current
+  // state (plus any pending recovery) on load, THEN let the WS take over.
   fastify.get('/navigation/state', async (_request, reply) => {
-    return reply.code(200).send({ data: service.getState() });
+    const recovered = service.getRecoverableRoute();
+    return reply
+      .code(200)
+      .send({ data: service.getState(), ...(recovered ? { recovered_route: recovered } : {}) });
   });
+
+  // POST /navigation/destination (E04-T5): convenience for HA/add-ons (and
+  // now the reload-recovery prompt) -- resolve a destination from `latlng` OR
+  // a geocoded `query`, compute a route to it with the active (or given)
+  // profile, and optionally start navigating immediately, all in one call
+  // (`autostart: true` needs zero further UI interaction).
+  fastify.post<{ Body: unknown; Reply: { data: unknown } | ApiError }>(
+    '/navigation/destination',
+    async (request, reply) => {
+      const body = (request.body ?? {}) as Record<string, unknown>;
+
+      const latlngRaw = body.latlng;
+      if (latlngRaw !== undefined && !validateLatLng(latlngRaw)) {
+        return reply
+          .code(400)
+          .send(errorResponse('VALIDATION_ERROR', 'Invalid "latlng" in request body'));
+      }
+      const query = typeof body.query === 'string' ? body.query.trim() : undefined;
+      if (body.query !== undefined && query === undefined) {
+        return reply
+          .code(400)
+          .send(errorResponse('VALIDATION_ERROR', '"query" must be a string'));
+      }
+      if (latlngRaw === undefined && !query) {
+        return reply
+          .code(400)
+          .send(errorResponse('VALIDATION_ERROR', 'Body must include "latlng" or "query"'));
+      }
+      if (body.profile_id !== undefined && typeof body.profile_id !== 'string') {
+        return reply
+          .code(400)
+          .send(errorResponse('VALIDATION_ERROR', '"profile_id" must be a string'));
+      }
+      const profileIdOverride = typeof body.profile_id === 'string' ? body.profile_id : undefined;
+      const autostart = body.autostart === true;
+
+      // 1. Resolve the destination: an explicit `latlng` wins; otherwise
+      // geocode `query` via the shared SearchService and take the top hit
+      // (docs/03: "geocodet via SearchService-Interface").
+      let destLatLng: LatLng;
+      let destName: string | null = null;
+      if (latlngRaw !== undefined) {
+        destLatLng = latlngRaw as LatLng;
+      } else {
+        if (!opts.searchProvider) {
+          return reply
+            .code(501)
+            .send(
+              errorResponse(
+                'SEARCH_NOT_CONFIGURED',
+                'Geocoding by "query" is not available on this server',
+              ),
+            );
+        }
+        let results: SearchResult[];
+        try {
+          results = await opts.searchProvider.search({ q: query as string, limit: 1 });
+        } catch (err) {
+          logger.error('destination geocode failed', {
+            reason: err instanceof Error ? err.message : String(err),
+          });
+          return reply
+            .code(502)
+            .send(errorResponse('GEOCODE_FAILED', 'Geocoding service failed unexpectedly'));
+        }
+        const top = results[0];
+        if (!top) {
+          return reply
+            .code(404)
+            .send(errorResponse('NO_GEOCODE_RESULT', `No location found for "${query}"`));
+        }
+        destLatLng = top.latlng;
+        destName = top.name;
+      }
+
+      // 2. Resolve the profile: explicit `profile_id` wins, else the active one.
+      const profileId = profileIdOverride ?? opts.profileProvider?.getActive()?.id ?? null;
+      if (!profileId) {
+        return reply
+          .code(409)
+          .send(errorResponse('NO_ACTIVE_PROFILE', 'No active vehicle profile and none given'));
+      }
+
+      // 3. Compute a route to it (E04-T5 reuses the same seam E04-T4's
+      // auto-reroute calls -- see the `rerouteProvider` doc comment above).
+      if (!opts.rerouteProvider) {
+        return reply
+          .code(501)
+          .send(errorResponse('ROUTING_NOT_CONFIGURED', 'Routing is not available on this server'));
+      }
+      const routeRequest: RouteRequest = {
+        origin: 'current',
+        destination: destLatLng,
+        waypoints: [],
+        profile_id: profileId,
+        alternatives: 0,
+      };
+      let routes: Route[];
+      try {
+        routes = await opts.rerouteProvider.createRoutes(routeRequest);
+      } catch (err) {
+        if (isRoutingError(err)) {
+          return reply.code(err.httpStatus).send(errorResponse(err.code, err.message));
+        }
+        logger.error('destination routing failed', {
+          reason: err instanceof Error ? err.message : String(err),
+        });
+        return reply.code(500).send(errorResponse('INTERNAL_ERROR', 'Unexpected routing error'));
+      }
+      const route = routes[0];
+      if (!route) {
+        return reply.code(404).send(errorResponse('NO_ROUTE', 'No route found to destination'));
+      }
+
+      // 4. Optionally start navigating right away -- zero further UI needed.
+      let navState = service.getState();
+      if (autostart) {
+        try {
+          navState = service.start({
+            route,
+            destination: { latlng: destLatLng, name: destName },
+            reroute: { profile_id: profileId },
+          });
+        } catch (err) {
+          return sendNavError(reply, err, logger);
+        }
+      }
+
+      return reply.code(200).send({ data: { route, nav_state: navState } });
+    },
+  );
 };
 
 // --- helpers ---------------------------------------------------------------

@@ -18,7 +18,7 @@ import { mapPlugin } from './map/routes.js';
 import { routingPlugin, buildRoutingService } from './routing/routes.js';
 import { navigationPlugin } from './navigation/routes.js';
 import { FileNavRecoveryStore } from './navigation/recoveryStore.js';
-import { searchPlugin } from './search/routes.js';
+import { searchPlugin, buildSearchService } from './search/routes.js';
 import { favoritesPlugin } from './favorites/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -147,6 +147,23 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     service: routingService,
   });
 
+  // Search service (E05-T1, built here rather than inside `searchPlugin` --
+  // E04-T5 needs the SAME instance for `POST /navigation/destination`'s
+  // `query` -> geocode path, mirroring how `routingService` above is shared
+  // between the routing and navigation plugins). `online_fallback` defaults
+  // to false (docs/03 §2, E05-T1) -- online Nominatim lookups only run when
+  // explicitly opted in via env. E05-T5/W-12: `photon_enabled` defaults to
+  // true (env `PHOTON_ENABLED=false` to turn Photon off, e.g. to save RAM) --
+  // the offline `lite` fallback then takes over automatically (also used
+  // whenever Photon is merely down).
+  const searchService = buildSearchService(fastify, {
+    photonUrl: process.env.PHOTON_URL,
+    onlineFallback: process.env.SEARCH_ONLINE_FALLBACK === 'true',
+    photonEnabled: process.env.PHOTON_ENABLED !== 'false',
+    liteDbPath: process.env.LITE_SEARCH_DB_PATH,
+    lang: process.env.SEARCH_LANG,
+  });
+
   // Navigation plugin (E04-T1, 🔴 safety-critical): state machine +
   // map-matching, driven off `pos/update`, publishing `nav/state` at ~1 Hz.
   // Restart recovery (W-19) persists only the last active route reference to
@@ -157,11 +174,16 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     routeProvider: routingService,
     // E04-T4: automatic rerouting reuses the SAME shared RoutingService — its
     // `createRoutes` is the reroute entry point (cache also shared with
-    // routeProvider above).
+    // routeProvider above). E04-T5's `POST /navigation/destination` reuses
+    // the very same seam to compute the initial route to a `latlng`/`query`.
     rerouteProvider: routingService,
     // E04-T2: the ETA avg-speed floor reads the active profile directly off
-    // ProfileService (same instance the routing plugin above uses).
+    // ProfileService (same instance the routing plugin above uses). E04-T5's
+    // destination endpoint also falls back to it when no `profile_id` is given.
     profileProvider: profileService,
+    // E04-T5: `POST /navigation/destination`'s `query` -> geocode path (the
+    // same shared SearchService instance registered below).
+    searchProvider: searchService,
     recoveryStore: new FileNavRecoveryStore(
       process.env.NAV_RECOVERY_PATH ?? join(__dirname, '../.data/nav-recovery.json'),
       {
@@ -173,18 +195,9 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   });
 
   // Search plugin (E05-T1): Photon + Nominatim-Fallback geocoding, additive.
-  // `online_fallback` defaults to false (docs/03 §2, E05-T1) -- online
-  // Nominatim lookups only run when explicitly opted in via env.
-  // E05-T5/W-12: `photon_enabled` defaults to true (env `PHOTON_ENABLED=false`
-  // to turn Photon off, e.g. to save RAM) -- the offline `lite` fallback then
-  // takes over automatically (also used whenever Photon is merely down).
   await fastify.register(searchPlugin, {
     prefix: '/api/v1',
-    photonUrl: process.env.PHOTON_URL,
-    onlineFallback: process.env.SEARCH_ONLINE_FALLBACK === 'true',
-    photonEnabled: process.env.PHOTON_ENABLED !== 'false',
-    liteDbPath: process.env.LITE_SEARCH_DB_PATH,
-    lang: process.env.SEARCH_LANG,
+    service: searchService,
   });
 
   // Favorites & history plugin (E05-T3, docs/03 §2): additive, does not

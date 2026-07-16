@@ -52,7 +52,11 @@ import {
 import { haversineM } from './geo.js';
 import { NavigationError } from './errors.js';
 import { canTransition, nextState, type NavAction, type NavStatus } from './stateMachine.js';
-import { InMemoryNavRecoveryStore, type NavRecoveryStore } from './recoveryStore.js';
+import {
+  InMemoryNavRecoveryStore,
+  type NavRecoveryRecord,
+  type NavRecoveryStore,
+} from './recoveryStore.js';
 import {
   buildManeuverAnchors,
   buildTimeSegments,
@@ -305,6 +309,28 @@ export class NavigationService {
 
   getStatus(): NavStatus {
     return this.status;
+  }
+
+  /**
+   * W-19 reload-recovery info: the last active navigation's route reference,
+   * available ONLY while `idle` (nothing to "recover" once a live session —
+   * navigating/off_route/paused — already exists; that case needs no prompt,
+   * the frontend just reconnects to it directly) and only while the
+   * referenced route is still in the routing cache. Mirrors exactly what
+   * `recoverOnStartup` already checked before publishing
+   * `event/nav_recovered_route_available` — this is the SAME check, exposed
+   * as a plain getter (E04-T5) so `GET /navigation/state` can surface it over
+   * REST. A bus event alone can't do this: it fires once, synchronously, at
+   * construction time, before any WS client could possibly have subscribed
+   * yet — so a page reload that happens any time after Core boot would
+   * otherwise never learn about the recoverable route at all.
+   */
+  getRecoverableRoute(): NavRecoveryRecord | null {
+    if (this.status !== 'idle') return null;
+    const record = this.recoveryStore.load();
+    if (!record) return null;
+    if (!this.routeProvider.getCachedRoute(record.route_id)) return null;
+    return record;
   }
 
   /**

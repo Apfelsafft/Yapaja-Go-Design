@@ -11,7 +11,7 @@
 
 import React from 'react';
 import type { Maneuver, NavState } from '@yapaja/shared';
-import { useNavState } from './navStore.js';
+import { useNavState, useNavStore } from './navStore.js';
 import { useRoutingStore } from '../routing/store.js';
 import { ManeuverArrow } from './arrows.js';
 import { formatDistance } from '../routing/format.js';
@@ -49,8 +49,12 @@ export function findFollowingManeuver(
 export default function ManeuverPanel(): React.ReactElement | null {
   const navState = useNavState();
   const routes = useRoutingStore((state) => state.routes);
+  // W-19 (E04-T5): stays hidden until any reload-recovery prompt is
+  // acknowledged, even if `navState` already reports an active session --
+  // see `navStore.ts#useDriveGateOpen`'s doc comment.
+  const driveGateOpen = useNavStore((state) => state.resumeAcknowledged);
 
-  if (!navState || !isDriveActive(navState.status)) return null;
+  if (!navState || !driveGateOpen || !isDriveActive(navState.status)) return null;
   const maneuver = navState.next_maneuver;
   if (!maneuver) return null;
 
