@@ -32,6 +32,8 @@ export type KnownBusTopic =
   | 'nav/instruction'
   | 'event/arrived'
   | 'event/nav_recovered_route_available'
+  // E04-T6 (W-01 GPS loss / dead reckoning):
+  | 'event/gps_lost_paused'
   // E04-T4 rerouting lifecycle:
   | 'route/deviation'
   | 'route/updated'
@@ -79,6 +81,23 @@ export interface ArrivedPayload {
 export interface NavRecoveredRoutePayload {
   route_id: string;
   destination: NavDestination | null;
+}
+
+/**
+ * `event/gps_lost_paused` (E04-T6, W-01): fired when GPS has been lost
+ * continuously for `MAX_DEAD_RECKONING_WINDOW_MS` (30 s, see
+ * `navigation/deadreckoning.ts`) while navigating -- dead reckoning can no
+ * longer responsibly keep guessing, so navigation transitions `navigating`/
+ * `off_route` -> `paused`. A subsequent real `pos/update` auto-resumes
+ * navigation and re-matches with a one-time widened search window (the
+ * vehicle may have travelled well beyond the normal ±500 m window during the
+ * outage) -- see `NavigationService`'s `onPosition`/`onGpsLost` handlers.
+ */
+export interface GpsLostPausedPayload {
+  /** The route navigation was paused on, or `null` defensively. */
+  route_id: string | null;
+  /** ISO 8601 UTC timestamp of the pause. */
+  ts: string;
 }
 
 /**
@@ -191,6 +210,7 @@ export interface BusPayloadMap {
   'nav/instruction': NavInstructionPayload;
   'event/arrived': ArrivedPayload;
   'event/nav_recovered_route_available': NavRecoveredRoutePayload;
+  'event/gps_lost_paused': GpsLostPausedPayload;
   'route/deviation': RouteDeviationPayload;
   'route/updated': RouteUpdatedPayload;
   'event/reroute_loop': RerouteLoopPayload;
