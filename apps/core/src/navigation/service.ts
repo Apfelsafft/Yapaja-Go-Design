@@ -1,3 +1,7 @@
+/* eslint-disable no-undef -- setTimeout/clearTimeout are standard Node globals
+ * (typed via @types/node); the shared eslint config's `globals` list predates
+ * this backend module. Same justification as position/service.ts. */
+
 /**
  * NavigationService (E04-T1, 🔴 safety-critical).
  *
@@ -21,9 +25,23 @@
  * E04-T4 and intentionally NOT implemented here.
  */
 
-import type { LatLng, Maneuver, NavState, Position, Route, VehicleProfile } from '@yapaja/shared';
+import type {
+  LatLng,
+  Maneuver,
+  NavState,
+  Position,
+  Route,
+  RouteAvoidOverrides,
+  RouteRequest,
+  VehicleProfile,
+} from '@yapaja/shared';
 import { checkNavState } from '@yapaja/shared';
 import type { EventBus } from '../bus/index.js';
+import {
+  DeviationDetector,
+  RerouteGuard,
+  RETRY_INTERVAL_MS,
+} from './reroute.js';
 import {
   buildRouteGeometry,
   evaluateOnRoute,
@@ -74,6 +92,36 @@ export interface RouteProvider {
 }
 
 /**
+ * The reroute entry point the service needs (E04-T4). `RoutingService`
+ * satisfies it — the SAME shared instance already provided as `routeProvider`,
+ * so production wires one object for both. Optional: when absent (older
+ * callers, most unit tests) the service behaves exactly as E04-T1 — it flips
+ * navigating ⇄ off_route but never launches a reroute.
+ */
+export interface RerouteProvider {
+  createRoutes(request: RouteRequest): Promise<Route[]>;
+}
+
+/**
+ * Optional reroute context threaded through `start` (E04-T4). Carries the
+ * ORIGINAL route request's remaining waypoints and the E03-T4 temporary
+ * avoidances so a reroute reproduces them; the active profile comes from
+ * `profileProvider` and the final destination from the active navigation.
+ * Absent ⇒ reroute with no avoidances / no waypoints (graceful). E04-T5 wires
+ * this from the frontend's navigation-start payload.
+ */
+export interface RerouteContext {
+  /** Remaining waypoints to still visit (passed through as-is; E04-T5 prunes visited ones). */
+  waypoints?: LatLng[];
+  /** E03-T4 temporary avoidances to reproduce on reroute. */
+  exclude_locations?: LatLng[];
+  exclude_polygons?: LatLng[][];
+  avoid_overrides?: RouteAvoidOverrides;
+  /** Fallback profile id when no `profileProvider` active profile is available. */
+  profile_id?: string;
+}
+
+/**
  * Just the profile lookup the ETA avg-speed floor needs (E04-T2;
  * ProfileService satisfies it). Optional: when omitted, no floor is applied
  * (matches pre-E04-T2 behaviour exactly for callers/tests that don't pass one).
@@ -103,6 +151,8 @@ export interface NavigationServiceOptions {
   searchWindowM?: number;
   /** ETA avg-speed floor input (E04-T2). Omit for "no floor" (e.g. most unit tests). */
   profileProvider?: ActiveProfileLookup;
+  /** Reroute entry point (E04-T4). Omit to disable auto-rerouting (E04-T1 behaviour). */
+  rerouteProvider?: RerouteProvider;
 }
 
 export interface StartInput {
@@ -112,6 +162,8 @@ export interface StartInput {
   route?: Route;
   /** Destination; when omitted it is derived from the route's last vertex. */
   destination?: NavDestination | null;
+  /** Optional reroute context (E04-T4): waypoints + E03-T4 avoidances to reproduce on reroute. */
+  reroute?: RerouteContext;
 }
 
 interface ActiveNavigation {
@@ -132,6 +184,7 @@ export class NavigationService {
   private readonly logger: NavigationServiceLogger;
   private readonly searchWindowM: number;
   private readonly profileProvider: ActiveProfileLookup | null;
+  private readonly rerouteProvider: RerouteProvider | null;
 
   private status: NavStatus = 'idle';
   private active: ActiveNavigation | null = null;
@@ -152,6 +205,20 @@ export class NavigationService {
   /** Per-maneuver "which thresholds already fired" tracker (Wargame W-23), reset per navigation. */
   private announcementState: AnnouncementState = initialAnnouncementState();
 
+  // --- E04-T4 rerouting state -------------------------------------------------
+  /** Confirms a deviation over 5 s / 5 fixes before a reroute is launched. */
+  private readonly detector = new DeviationDetector();
+  /** Debounce (≤1/10 s) + W-05 loop guard. */
+  private readonly rerouteGuard = new RerouteGuard();
+  /** Waypoints + avoidances to reproduce on reroute (from `start`, E04-T5 wires it). */
+  private rerouteContext: RerouteContext | null = null;
+  /** True while a `createRoutes` call is in flight (prevents overlapping reroutes). */
+  private rerouteInFlight = false;
+  /** Pending 15 s failure-retry timer, or null. */
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Deviation position captured for the pending retry (retries reuse it). */
+  private pendingRetryAt: LatLng | null = null;
+
   private readonly unsubscribe: () => void;
 
   constructor(opts: NavigationServiceOptions) {
@@ -161,6 +228,7 @@ export class NavigationService {
     this.logger = opts.logger ?? noopLogger;
     this.searchWindowM = opts.searchWindowM ?? SEARCH_WINDOW_M;
     this.profileProvider = opts.profileProvider ?? null;
+    this.rerouteProvider = opts.rerouteProvider ?? null;
 
     this.unsubscribe = this.bus.subscribe('pos/update', (pos) => this.onPosition(pos));
 
@@ -194,6 +262,8 @@ export class NavigationService {
     this.lastEtaTickMs = null;
     this.lastDurationRemainingS = null;
     this.announcementState = initialAnnouncementState();
+    this.resetRerouteState();
+    this.rerouteContext = input.reroute ?? null;
 
     this.recoveryStore.save({ route_id: route.id, destination: active.destination });
     this.logger.info('Navigation started', { route_id: route.id });
@@ -221,6 +291,8 @@ export class NavigationService {
     this.lastEtaTickMs = null;
     this.lastDurationRemainingS = null;
     this.announcementState = initialAnnouncementState();
+    this.resetRerouteState();
+    this.rerouteContext = null;
     this.recoveryStore.clear();
     this.logger.info('Navigation stopped');
     return this.publishState();
@@ -247,6 +319,7 @@ export class NavigationService {
 
   /** Unsubscribe from the bus. Call on shutdown/test teardown. */
   dispose(): void {
+    this.clearRetryTimer();
     this.unsubscribe();
   }
 
@@ -287,9 +360,13 @@ export class NavigationService {
     });
 
     // off_route is a sub-state of navigating; flip it per the cross-track/
-    // heading rule (the confirmed-deviation reroute trigger is E04-T4).
+    // heading rule (E04-T1). The CONFIRMED-deviation reroute trigger (E04-T4)
+    // is separate: `maybeReroute` runs the 5 s/5-fix detector and, on
+    // confirmation, launches the reroute lifecycle.
     if (this.status === 'navigating' && !onRoute) this.applyInternal('DEVIATE');
     else if (this.status === 'off_route' && onRoute) this.applyInternal('RETURN');
+
+    this.maybeReroute(onRoute, match.crossTrackM, pos);
 
     this.tickAnnouncements(accepted, pos);
 
@@ -379,6 +456,209 @@ export class NavigationService {
     });
     this.publishState();
     return true;
+  }
+
+  // --- E04-T4 deviation detection & rerouting ------------------------------
+
+  /**
+   * Feed one fix into the deviation detector and, on a CONFIRMED deviation
+   * (5 s/5 fixes), run the reroute policy: publish `route/deviation`, apply the
+   * debounce + loop guard, then launch a reroute (or a loop-suggestion event).
+   *
+   * A no-op unless a `rerouteProvider` is wired and we're actively navigating;
+   * also parks while a failure-retry is pending (that timer paces attempts) or
+   * a reroute is already in flight.
+   */
+  private maybeReroute(onRoute: boolean, crossTrackM: number, pos: Position): void {
+    if (!this.rerouteProvider || !this.active) return;
+    if (this.status !== 'navigating' && this.status !== 'off_route') return;
+
+    const nowMs = Date.now();
+    const update = this.detector.update({ onRoute, tsMs: nowMs });
+
+    if (update.justConfirmed) {
+      this.bus.publish('route/deviation', {
+        at: { lat: pos.lat, lon: pos.lon },
+        cross_track_m: crossTrackM,
+        ts: new Date(nowMs).toISOString(),
+      });
+    }
+
+    if (update.phase !== 'confirmed') return;
+    // A pending retry already owns the reroute cadence; don't double-fire.
+    if (this.retryTimer !== null || this.rerouteInFlight) return;
+
+    const at: LatLng = { lat: pos.lat, lon: pos.lon };
+    // W-05: this spot was already flagged as a reroute loop — auto-reroute off.
+    if (this.rerouteGuard.isBlocked(at)) return;
+    // Debounce: at most one reroute attempt per 10 s.
+    if (!this.rerouteGuard.canAttempt(nowMs)) return;
+
+    // W-05 loop guard: the 3rd clustered reroute within 5 min/200 m is a loop —
+    // suggest "avoid segment" instead of rerouting, and stop auto-rerouting here.
+    if (this.rerouteGuard.checkLoop(nowMs, at)) {
+      this.logger.warn('Reroute loop detected — suggesting avoid_segment', { at });
+      this.bus.publish('event/reroute_loop', {
+        suggestion: 'avoid_segment',
+        at,
+        ts: new Date(nowMs).toISOString(),
+      });
+      // Fresh streak so a later genuine deviation elsewhere can still confirm.
+      this.detector.reset();
+      return;
+    }
+
+    this.rerouteGuard.noteAttempt(nowMs);
+    void this.executeReroute(pos, at, false);
+  }
+
+  /**
+   * Perform one reroute attempt (async). On success: seamlessly hand the
+   * navigation onto the new route (see {@link applyReroute}). On failure
+   * (Valhalla down / no route): KEEP the old route, publish
+   * `event/reroute_failed`, and schedule a 15 s retry.
+   */
+  private async executeReroute(pos: Position, at: LatLng, isRetry: boolean): Promise<void> {
+    if (!this.rerouteProvider || !this.active) return;
+
+    const request = this.buildRerouteRequest(pos);
+    if (!request) return; // no profile to route with — logged in builder
+
+    this.rerouteInFlight = true;
+    try {
+      const routes = await this.rerouteProvider.createRoutes(request);
+      const primary = routes[0];
+      if (!primary) throw new Error('reroute returned no route');
+
+      // Still navigating? (a stop/arrival during the in-flight window wins.)
+      if (this.status !== 'navigating' && this.status !== 'off_route') return;
+
+      this.rerouteGuard.noteSuccess(Date.now(), at);
+      this.clearRetryTimer();
+      this.applyReroute(primary, pos);
+      this.logger.info('Reroute applied', { route_id: primary.id, retry: isRetry });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      this.logger.warn('Reroute failed — keeping old route, will retry', { reason });
+      this.bus.publish('event/reroute_failed', {
+        reason,
+        ts: new Date().toISOString(),
+        retry_in_ms: RETRY_INTERVAL_MS,
+      });
+      this.pendingRetryAt = at;
+      this.scheduleRetry();
+    } finally {
+      this.rerouteInFlight = false;
+    }
+  }
+
+  /** Build the reroute `RouteRequest`, or null when no profile is available. */
+  private buildRerouteRequest(pos: Position): RouteRequest | null {
+    const active = this.active;
+    if (!active) return null;
+
+    const profileId = this.profileProvider?.getActive()?.id ?? this.rerouteContext?.profile_id ?? null;
+    if (!profileId) {
+      this.logger.warn('Cannot reroute: no active profile / profile_id available');
+      return null;
+    }
+
+    const ctx = this.rerouteContext;
+    const request: RouteRequest = {
+      origin: { lat: pos.lat, lon: pos.lon },
+      destination: { ...active.destination.latlng },
+      waypoints: ctx?.waypoints ?? [],
+      profile_id: profileId,
+      alternatives: 0,
+    };
+    // W-05: forward-facing — pass the current heading so Valhalla starts on an
+    // edge in the direction of travel (no spurious "Bitte wenden").
+    if (pos.heading !== null && Number.isFinite(pos.heading)) request.heading = pos.heading;
+    // E03-T4 avoidances (present only when the start payload carried them).
+    if (ctx?.exclude_locations) request.exclude_locations = ctx.exclude_locations;
+    if (ctx?.exclude_polygons) request.exclude_polygons = ctx.exclude_polygons;
+    if (ctx?.avoid_overrides) request.avoid_overrides = ctx.avoid_overrides;
+    return request;
+  }
+
+  /**
+   * Seamless handoff onto a freshly computed route. RESETS the map-matching
+   * progress, the maneuver/announcement index, the deviation detector and the
+   * publish-time duration clamp; KEEPS the ETA calibration factor (the vehicle
+   * is the same, only the road ahead changed). Re-matches the current position
+   * onto the new geometry, returns to `navigating`, and publishes
+   * `route/updated { reason: 'reroute' }` followed by a fresh `nav/state`.
+   */
+  private applyReroute(route: Route, pos: Position): void {
+    const active = this.buildActive(route, this.active?.destination ?? null);
+    this.active = active;
+
+    // Reset per-route progress/announcement state; KEEP calibration.
+    this.lastProgressM = null;
+    this.arrivedFired = false;
+    this.lastDurationRemainingS = null;
+    this.announcementState = initialAnnouncementState();
+    this.detector.reset();
+
+    // Re-match the current fix onto the NEW route (whole-route search) so the
+    // first published state already carries correct progress and next_maneuver.
+    try {
+      const m = matchPosition(active.geom, { lat: pos.lat, lon: pos.lon }, null, this.searchWindowM);
+      this.lastProgressM = m.progressM;
+    } catch (err) {
+      this.logger.error('Post-reroute re-match failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // Return to navigating (off_route -> navigating); already-navigating is a no-op.
+    if (this.status === 'off_route') this.applyInternal('RETURN');
+
+    this.recoveryStore.save({ route_id: route.id, destination: active.destination });
+    this.bus.publish('route/updated', { reason: 'reroute', route_id: route.id });
+    this.publishState();
+  }
+
+  /** Schedule (or leave running) the 15 s failure-retry timer. */
+  private scheduleRetry(): void {
+    if (this.retryTimer !== null) return;
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      void this.retryReroute();
+    }, RETRY_INTERVAL_MS);
+  }
+
+  /**
+   * Failure-retry tick: retry the reroute if we're still navigating AND still
+   * confirmed off-route. If the vehicle returned to route (or navigation
+   * stopped) in the meantime, drop the retry.
+   */
+  private async retryReroute(): Promise<void> {
+    if (this.status !== 'navigating' && this.status !== 'off_route') {
+      this.pendingRetryAt = null;
+      return;
+    }
+    if (!this.detector.isConfirmed || !this.lastPosition || !this.pendingRetryAt) {
+      this.pendingRetryAt = null;
+      return; // vehicle recovered — nothing to retry
+    }
+    await this.executeReroute(this.lastPosition, this.pendingRetryAt, true);
+  }
+
+  private clearRetryTimer(): void {
+    if (this.retryTimer !== null) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+    this.pendingRetryAt = null;
+  }
+
+  /** Reset all E04-T4 reroute state (per start/stop). */
+  private resetRerouteState(): void {
+    this.detector.reset();
+    this.rerouteGuard.reset();
+    this.rerouteInFlight = false;
+    this.clearRetryTimer();
   }
 
   // --- State-machine plumbing ----------------------------------------------

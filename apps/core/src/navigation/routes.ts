@@ -17,6 +17,7 @@ import {
   NavigationService,
   type ActiveProfileLookup,
   type NavDestination,
+  type RerouteProvider,
   type RouteProvider,
   type StartInput,
 } from './service.js';
@@ -30,6 +31,8 @@ export interface NavigationRoutesOptions {
   recoveryStore?: NavRecoveryStore;
   /** ETA avg-speed floor input (E04-T2), see `NavigationService`. */
   profileProvider?: ActiveProfileLookup;
+  /** Reroute entry point (E04-T4); the shared RoutingService satisfies it. */
+  rerouteProvider?: RerouteProvider;
   /** Test seam: inject a pre-built service (wins over the options above). */
   service?: NavigationService;
   logger?: NavigationServiceLogger;
@@ -66,6 +69,7 @@ export const navigationPlugin: FastifyPluginAsync<NavigationRoutesOptions> = asy
       routeProvider: opts.routeProvider,
       recoveryStore: opts.recoveryStore,
       profileProvider: opts.profileProvider,
+      rerouteProvider: opts.rerouteProvider,
       logger,
     });
 

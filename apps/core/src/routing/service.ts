@@ -92,17 +92,34 @@ export class RoutingService {
     }
 
     const originLatLng = this.resolveOrigin(request.origin);
-    const { destination, waypoints, alternatives, exclude_locations, exclude_polygons, avoid_overrides } =
-      request;
+    const {
+      destination,
+      waypoints,
+      alternatives,
+      exclude_locations,
+      exclude_polygons,
+      avoid_overrides,
+      heading,
+    } = request;
 
     // E03-T6: Coverage check before Valhalla call
     await checkCoverage(originLatLng, destination, waypoints, this.regionsProvider);
 
-    const body = buildValhallaRouteBody(originLatLng, destination, waypoints, profile, alternatives, {
-      excludeLocations: exclude_locations,
-      excludePolygons: exclude_polygons,
-      avoidOverrides: avoid_overrides,
-    });
+    const body = buildValhallaRouteBody(
+      originLatLng,
+      destination,
+      waypoints,
+      profile,
+      alternatives,
+      {
+        excludeLocations: exclude_locations,
+        excludePolygons: exclude_polygons,
+        avoidOverrides: avoid_overrides,
+      },
+      // E04-T4 (W-05): forward-facing reroute — the origin edge is biased to the
+      // current heading so the first new instruction never says "turn around".
+      heading,
+    );
 
     const response = await this.client.route(body);
     const routes = mapValhallaResponse(response, originLatLng, destination);

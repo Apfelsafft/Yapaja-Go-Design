@@ -67,6 +67,15 @@ export const routeRequestSchema = {
       description:
         'Optional per-request overrides of the active profile\'s avoid flags; the profile itself is not modified',
     },
+    // E04-T4 (W-05): optional current heading, set only on reroute requests so
+    // the new route continues forward. Additive/backward-compatible.
+    heading: {
+      type: 'number',
+      minimum: 0,
+      maximum: 360,
+      description:
+        'Optional current vehicle heading in degrees (0 = North). On a reroute request it biases the origin edge in the direction of travel so the first instruction points forward.',
+    },
   },
   required: ['origin', 'destination', 'waypoints', 'profile_id', 'alternatives'],
   additionalProperties: false,

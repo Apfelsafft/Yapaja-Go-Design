@@ -155,6 +155,10 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     prefix: '/api/v1',
     bus: eventBus,
     routeProvider: routingService,
+    // E04-T4: automatic rerouting reuses the SAME shared RoutingService — its
+    // `createRoutes` is the reroute entry point (cache also shared with
+    // routeProvider above).
+    rerouteProvider: routingService,
     // E04-T2: the ETA avg-speed floor reads the active profile directly off
     // ProfileService (same instance the routing plugin above uses).
     profileProvider: profileService,

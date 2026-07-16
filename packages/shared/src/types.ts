@@ -67,6 +67,13 @@ export interface RouteRequest {
   exclude_polygons?: LatLng[][];
   /** Per-request avoid-flag overrides, see {@link RouteAvoidOverrides}. */
   avoid_overrides?: RouteAvoidOverrides;
+  // E04-T4 (W-05, safety): the vehicle's current heading in degrees (0 = North,
+  // clockwise, range 0–360). Optional and additive — set only on a REROUTE
+  // request so Valhalla biases the origin edge in the direction of travel and
+  // the first post-reroute instruction points FORWARD (never a spurious "Bitte
+  // wenden" when continuing is possible). Maps onto the origin location's
+  // Valhalla `heading`. Absent for ordinary A→B routing (behaviour unchanged).
+  heading?: number;
 }
 
 // TODO(spec): minimal definition, refine when first consumed
