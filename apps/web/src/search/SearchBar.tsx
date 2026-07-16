@@ -237,6 +237,22 @@ export default function SearchBar(): React.ReactElement {
               </div>
             )}
 
+            {/* E05-T5 (W-12): a subtle, non-alarming hint when the CURRENT
+                results came from the offline `lite` fallback (Photon
+                down/disabled) rather than Photon/Nominatim. A single
+                response is always from exactly one winning backend (see
+                SearchService's chain), so checking the first result's
+                `source` is enough -- purely additive, doesn't touch any
+                existing testid/behavior. */}
+            {hasOptions && results[0]?.source === 'lite' && (
+              <p
+                className="px-4 py-1.5 text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/40 border-b border-slate-100 dark:border-slate-700"
+                data-testid="search-lite-hint"
+              >
+                Vereinfachte Suche aktiv
+              </p>
+            )}
+
             {hasOptions && (
               <div role="listbox" id="search-listbox" data-testid="search-results">
                 {results.map((result, index) => {

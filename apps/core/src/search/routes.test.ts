@@ -149,6 +149,53 @@ describe('search plugin HTTP', () => {
     expect((JSON.parse(res.body) as ApiError).error.code).toBe('VALIDATION_ERROR');
   });
 
+  // E05-T5 (W-12): the `lite` fallback wired through the HTTP layer.
+  it('GET /search falls back to lite when Photon is down (source:"lite")', async () => {
+    server = await buildTestServer({
+      photonBackend: backend('photon', {
+        search: async () => {
+          throw new Error('ECONNREFUSED');
+        },
+      }),
+      liteBackend: backend('lite', { search: async () => [{ ...VADUZ, label: 'Vaduz', source: 'lite' }] }),
+    });
+
+    const res = await server.inject({ method: 'GET', url: '/api/v1/search?q=Vaduz' });
+
+    expect(res.statusCode).toBe(200);
+    const parsed = JSON.parse(res.body) as { data: SearchResult[] };
+    expect(parsed.data).toHaveLength(1);
+    expect(parsed.data[0].source).toBe('lite');
+    expect(validateSearchResult(parsed.data[0])).toBe(true);
+  });
+
+  it('GET /search: photonEnabled:false skips Photon entirely and uses lite directly', async () => {
+    const photonSearch = async () => [VADUZ];
+    server = await buildTestServer({
+      photonBackend: backend('photon', { search: photonSearch }),
+      liteBackend: backend('lite', { search: async () => [{ ...VADUZ, label: 'Vaduz', source: 'lite' }] }),
+      photonEnabled: false,
+    });
+
+    const res = await server.inject({ method: 'GET', url: '/api/v1/search?q=Vaduz' });
+
+    const parsed = JSON.parse(res.body) as { data: SearchResult[] };
+    expect(parsed.data[0].source).toBe('lite');
+  });
+
+  it('GET /search: Photon healthy with 0 hits does NOT use lite (lite must not override a healthy Photon)', async () => {
+    const liteSearch = async () => [{ ...VADUZ, label: 'Vaduz', source: 'lite' as const }];
+    server = await buildTestServer({
+      photonBackend: backend('photon', { search: async () => [] }),
+      liteBackend: backend('lite', { search: liteSearch }),
+    });
+
+    const res = await server.inject({ method: 'GET', url: '/api/v1/search?q=Vaduz' });
+
+    const parsed = JSON.parse(res.body) as { data: SearchResult[] };
+    expect(parsed.data).toEqual([]);
+  });
+
   it('out_of_coverage results are marked true in the HTTP response', async () => {
     server = await buildTestServer({
       photonBackend: backend('photon', { search: async () => [VADUZ] }),

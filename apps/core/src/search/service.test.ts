@@ -39,6 +39,14 @@ const NOMINATIM_RESULT: SearchResult = {
   source: 'nominatim',
 };
 
+const LITE_RESULT: SearchResult = {
+  name: 'Vaduz',
+  label: 'Vaduz',
+  latlng: { lat: 47.141, lon: 9.5215 },
+  type: 'city',
+  source: 'lite',
+};
+
 function backend(
   source: SearchResult['source'],
   impl: {
@@ -199,6 +207,237 @@ describe('SearchService', () => {
       const results = await service.search(QUERY);
 
       expect(results[0].out_of_coverage).toBe(true);
+    });
+  });
+
+  // E05-T5 (W-12) mandatory "Failover-Integration" test: Photon down/disabled
+  // -> lite is used (source:'lite'); Photon healthy -> lite is NEVER used,
+  // even with 0 hits (existing E05-T1 behavior stays intact).
+  describe('lite fallback chain (E05-T5, W-12)', () => {
+    it('Photon down (throws) -> lite is used, results carry source:"lite"', async () => {
+      const liteSearch = vi.fn(async () => [LITE_RESULT]);
+      const service = new SearchService({
+        coordsBackend: backend('coords'),
+        photonBackend: backend('photon', {
+          search: async () => {
+            throw new GeocoderBackendError('photon', 'UNAVAILABLE', 'Photon is unreachable');
+          },
+        }),
+        liteBackend: backend('lite', { search: liteSearch }),
+        regionsProvider: allowAllProvider(),
+      });
+
+      const results = await service.search(QUERY);
+
+      expect(results).toEqual([LITE_RESULT]);
+      expect(liteSearch).toHaveBeenCalledTimes(1);
+      expect(service.getBackendHealth().photon).toBe('degraded');
+    });
+
+    it('Photon healthy with a real hit -> lite is never called', async () => {
+      const liteSearch = vi.fn(async () => [LITE_RESULT]);
+      const service = new SearchService({
+        coordsBackend: backend('coords'),
+        photonBackend: backend('photon', { search: async () => [PHOTON_RESULT] }),
+        liteBackend: backend('lite', { search: liteSearch }),
+        regionsProvider: allowAllProvider(),
+      });
+
+      const results = await service.search(QUERY);
+
+      expect(results).toEqual([PHOTON_RESULT]);
+      expect(liteSearch).not.toHaveBeenCalled();
+    });
+
+    it('Photon healthy but 0 hits -> lite must NOT override a healthy Photon (falls through to Nominatim/[] exactly as pre-E05-T5)', async () => {
+      const liteSearch = vi.fn(async () => [LITE_RESULT]);
+      const service = new SearchService({
+        coordsBackend: backend('coords'),
+        photonBackend: backend('photon', { search: async () => [] }),
+        liteBackend: backend('lite', { search: liteSearch }),
+        onlineFallback: false,
+        regionsProvider: allowAllProvider(),
+      });
+
+      const results = await service.search(QUERY);
+
+      expect(results).toEqual([]);
+      expect(liteSearch).not.toHaveBeenCalled();
+    });
+
+    it('Photon healthy, 0 hits, online_fallback:true -> Nominatim is used, lite is still never called', async () => {
+      const liteSearch = vi.fn(async () => [LITE_RESULT]);
+      const service = new SearchService({
+        coordsBackend: backend('coords'),
+        photonBackend: backend('photon', { search: async () => [] }),
+        liteBackend: backend('lite', { search: liteSearch }),
+        nominatimBackend: backend('nominatim', { search: async () => [NOMINATIM_RESULT] }),
+        onlineFallback: true,
+        regionsProvider: allowAllProvider(),
+      });
+
+      const results = await service.search(QUERY);
+
+      expect(results).toEqual([NOMINATIM_RESULT]);
+      expect(liteSearch).not.toHaveBeenCalled();
+    });
+
+    it('photonEnabled:false -> Photon is never called, lite is used directly, photon health is "disabled"', async () => {
+      const photonSearch = vi.fn(async () => [PHOTON_RESULT]);
+      const service = new SearchService({
+        coordsBackend: backend('coords'),
+        photonBackend: backend('photon', { search: photonSearch }),
+        liteBackend: backend('lite', { search: async () => [LITE_RESULT] }),
+        photonEnabled: false,
+        regionsProvider: allowAllProvider(),
+      });
+
+      const results = await service.search(QUERY);
+
+      expect(results).toEqual([LITE_RESULT]);
+      expect(photonSearch).not.toHaveBeenCalled();
+      expect(service.getBackendHealth().photon).toBe('disabled');
+    });
+
+    it('Photon down + lite also 0 hits + online_fallback:true -> falls through to Nominatim', async () => {
+      const service = new SearchService({
+        coordsBackend: backend('coords'),
+        photonBackend: backend('photon', {
+          search: async () => {
+            throw new GeocoderBackendError('photon', 'TIMEOUT', 'timed out');
+          },
+        }),
+        liteBackend: backend('lite', { search: async () => [] }),
+        nominatimBackend: backend('nominatim', { search: async () => [NOMINATIM_RESULT] }),
+        onlineFallback: true,
+        regionsProvider: allowAllProvider(),
+      });
+
+      const results = await service.search(QUERY);
+
+      expect(results).toEqual([NOMINATIM_RESULT]);
+    });
+
+    it('Photon down + no liteBackend configured -> no crash, falls through exactly as pre-E05-T5', async () => {
+      const service = new SearchService({
+        coordsBackend: backend('coords'),
+        photonBackend: backend('photon', {
+          search: async () => {
+            throw new GeocoderBackendError('photon', 'UNAVAILABLE', 'down');
+          },
+        }),
+        regionsProvider: allowAllProvider(),
+      });
+
+      await expect(service.search(QUERY)).resolves.toEqual([]);
+    });
+
+    it('lite itself throws (index not built) -> degraded + chain continues, no crash', async () => {
+      const service = new SearchService({
+        coordsBackend: backend('coords'),
+        photonBackend: backend('photon', {
+          search: async () => {
+            throw new GeocoderBackendError('photon', 'UNAVAILABLE', 'down');
+          },
+        }),
+        liteBackend: backend('lite', {
+          search: async () => {
+            throw new GeocoderBackendError('lite', 'UNAVAILABLE', 'Lite-Suchindex nicht gebaut');
+          },
+        }),
+        regionsProvider: allowAllProvider(),
+      });
+
+      await expect(service.search(QUERY)).resolves.toEqual([]);
+      expect(service.getBackendHealth().lite).toBe('degraded');
+    });
+
+    it('coords hit still short-circuits everything, even with lite configured', async () => {
+      const liteSearch = vi.fn(async () => [LITE_RESULT]);
+      const service = new SearchService({
+        coordsBackend: backend('coords', { search: async () => [COORDS_RESULT] }),
+        photonBackend: backend('photon'),
+        liteBackend: backend('lite', { search: liteSearch }),
+        regionsProvider: allowAllProvider(),
+      });
+
+      const results = await service.search({ q: '47.14, 9.52', limit: 10 });
+
+      expect(results).toEqual([COORDS_RESULT]);
+      expect(liteSearch).not.toHaveBeenCalled();
+    });
+
+    it('out_of_coverage marking is applied to lite results too', async () => {
+      const service = new SearchService({
+        coordsBackend: backend('coords'),
+        photonBackend: backend('photon', {
+          search: async () => {
+            throw new GeocoderBackendError('photon', 'UNAVAILABLE', 'down');
+          },
+        }),
+        liteBackend: backend('lite', { search: async () => [LITE_RESULT] }),
+        regionsProvider: {
+          getInstalledRegions: async () => [{ id: 'somewhere-else', name: 'x', bounds: [0, 0, 1, 1] }],
+        },
+      });
+
+      const results = await service.search(QUERY);
+
+      expect(results[0].out_of_coverage).toBe(true);
+      expect(results[0].source).toBe('lite');
+    });
+
+    describe('reverse()', () => {
+      it('Photon down -> lite.reverse() is used', async () => {
+        const liteReverse = vi.fn(async () => [LITE_RESULT]);
+        const service = new SearchService({
+          coordsBackend: backend('coords'),
+          photonBackend: backend('photon', {
+            reverse: async () => {
+              throw new GeocoderBackendError('photon', 'UNAVAILABLE', 'down');
+            },
+          }),
+          liteBackend: backend('lite', { reverse: liteReverse }),
+          regionsProvider: allowAllProvider(),
+        });
+
+        const results = await service.reverse(REVERSE_QUERY);
+
+        expect(results).toEqual([LITE_RESULT]);
+        expect(liteReverse).toHaveBeenCalledTimes(1);
+      });
+
+      it('Photon healthy with 0 hits -> lite.reverse() is NOT used', async () => {
+        const liteReverse = vi.fn(async () => [LITE_RESULT]);
+        const service = new SearchService({
+          coordsBackend: backend('coords'),
+          photonBackend: backend('photon', { reverse: async () => [] }),
+          liteBackend: backend('lite', { reverse: liteReverse }),
+          onlineFallback: false,
+          regionsProvider: allowAllProvider(),
+        });
+
+        const results = await service.reverse(REVERSE_QUERY);
+
+        expect(results).toEqual([]);
+        expect(liteReverse).not.toHaveBeenCalled();
+      });
+
+      it('photonEnabled:false -> lite.reverse() is used directly', async () => {
+        const photonReverse = vi.fn(async () => [PHOTON_RESULT]);
+        const service = new SearchService({
+          coordsBackend: backend('coords'),
+          photonBackend: backend('photon', { reverse: photonReverse }),
+          liteBackend: backend('lite', { reverse: async () => [LITE_RESULT] }),
+          photonEnabled: false,
+          regionsProvider: allowAllProvider(),
+        });
+
+        const results = await service.reverse(REVERSE_QUERY);
+
+        expect(results).toEqual([LITE_RESULT]);
+        expect(photonReverse).not.toHaveBeenCalled();
+      });
     });
   });
 

@@ -16,6 +16,8 @@ import type { ApiError, SearchResult } from '@yapaja/shared';
 import { CoordsBackend } from './coordsBackend.js';
 import type { SearchRegionsProvider } from './coverage.js';
 import type { FetchLike } from './httpTypes.js';
+import { LiteBackend } from './lite/liteBackend.js';
+import { resolveLiteSearchDbPath } from './lite/paths.js';
 import { NominatimBackend } from './nominatimBackend.js';
 import { PhotonBackend } from './photonBackend.js';
 import { SearchService } from './service.js';
@@ -29,6 +31,14 @@ export interface SearchRoutesOptions {
   nominatimUserAgent?: string;
   /** Setting `online_fallback`; default false (docs/03, E05-T1). */
   onlineFallback?: boolean;
+  /** Setting `photon_enabled` (E05-T5, W-12); default true. `false` skips
+   *  Photon entirely and goes straight to the `lite` fallback. */
+  photonEnabled?: boolean;
+  /** Path to the built `lite_search.db` (E05-T5); default
+   *  `resolveLiteSearchDbPath()` (env `LITE_SEARCH_DB_PATH`, else
+   *  `data/lite-search/lite_search.db`). A missing file is not an error at
+   *  startup -- `LiteBackend` only fails (degraded) when actually queried. */
+  liteDbPath?: string;
   /** Default result language for Photon/Nominatim; default 'de'. */
   lang?: string;
   /** Test seam: injectable HTTP transport for the built-in backends. */
@@ -36,6 +46,7 @@ export interface SearchRoutesOptions {
   /** Test seam: pre-built backends win over the built-in ones. */
   photonBackend?: GeocoderBackend;
   nominatimBackend?: GeocoderBackend;
+  liteBackend?: GeocoderBackend;
   /** Test seam: injectable regions provider (mirrors routing's E03-T6 seam). */
   regionsProvider?: SearchRegionsProvider;
   /** Test seam: fully pre-built service wins over everything above. */
@@ -103,6 +114,9 @@ export const searchPlugin: FastifyPluginAsync<SearchRoutesOptions> = async (fast
 
   const coordsBackend: GeocoderBackend = new CoordsBackend();
 
+  const liteBackend: GeocoderBackend =
+    opts.liteBackend ?? new LiteBackend({ dbPath: opts.liteDbPath ?? resolveLiteSearchDbPath(), logger });
+
   // Mirrors the regions-provider construction in routing/routes.ts (E03-T6);
   // only `getInstalledRegions` is needed here (see coverage.ts).
   const regionsProvider: SearchRegionsProvider =
@@ -121,6 +135,8 @@ export const searchPlugin: FastifyPluginAsync<SearchRoutesOptions> = async (fast
       coordsBackend,
       photonBackend,
       nominatimBackend,
+      liteBackend,
+      photonEnabled: opts.photonEnabled ?? true,
       onlineFallback: opts.onlineFallback ?? false,
       regionsProvider,
       logger,

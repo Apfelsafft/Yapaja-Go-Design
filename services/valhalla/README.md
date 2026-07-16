@@ -128,3 +128,63 @@ Dateisystemebene, startet Valhalla exakt wie `docker-compose.yml` es im
 Normalbetrieb tut (serve-only), wartet auf `/status` und verifiziert eine
 LKW-Route Vaduz→Schaan gegen einen Plausibilitäts-Korridor (2–8 km / 3–20 min).
 Details siehe Kommentare im Workflow-Job selbst.
+
+## Lite-Suchindex (`build-lite-index.sh`, E05-T5, Wargame W-12)
+
+Zweiter, unabhängiger Build-Skript in diesem Verzeichnis: `build-lite-index.sh`
+baut aus **derselben** Geofabrik-PBF (die Valhalla-Datenquelle, siehe oben)
+einen Offline-Fallback-Suchindex für `apps/core`'s `SearchService` -- aktiv,
+wenn Photon down oder per Setting deaktiviert ist (W-12: "Photon abschalten,
+was passiert dann?"). Ergebnisquelle heißt dann `source: 'lite'` und die
+Web-UI zeigt einen dezenten Hinweis ("vereinfachte Suche aktiv").
+
+```bash
+services/valhalla/build-lite-index.sh /pfad/zu/liechtenstein-latest.osm.pbf
+```
+
+Kurzfassung (Details/Kommentare im Skript selbst und in
+`apps/core/src/search/lite/`):
+
+1. `osmium tags-filter` extrahiert Orte (`place=city,town,village`) und
+   benannte Straßen (`highway=*`) aus der PBF in zwei kleinere PBF-Dateien.
+2. `osmium export --geometry-types=point -f geojsonseq` wandelt beide in
+   GeoJSONSeq (eine Zeile pro Datensatz, Ways/Areas auf ihren Zentroid
+   reduziert).
+3. `apps/core/src/search/lite/cli.ts` (via `tsx`) normalisiert/filtert
+   (`extract.ts`, rein/unit-getestet) und baut eine neue SQLite-FTS5-DB
+   (`lite_search.db`, `tokenize='trigram'` für Tippfehler-Toleranz,
+   `buildIndex.ts`) in einer Temp-Datei, dann atomarer Swap per `rename(2)`
+   (dieselbe "temp file + rename"-Disziplin wie `build-tiles.sh`, W-17).
+
+Zielpfad: `data/lite-search/lite_search.db` (Default; override via Env
+`LITE_SEARCH_DB_PATH`, siehe `apps/core/src/search/lite/paths.ts`) -- `data/`
+ist gitignored, der Index ist reines Build-Artefakt, nie committet.
+
+**Ranking** (dokumentiert in `apps/core/src/search/lite/ranking.ts`): simpel,
+4-stufig -- Prefix-Treffer > Städte/Orte-Kind (city>town>village>street) >
+FTS-Rang (`bm25`) > Distanz-Bias zur übergebenen Position. Keine Hausnummern
+(nur Orts-/Straßen-Zentroide).
+
+**Warum `osmium-tool` statt einer Node-PBF-Bibliothek:** dieses Sandbox-
+Environment hat kein PBF-Tooling und keinen Netzwerkzugriff auf Geofabrik
+(siehe E05-T5-Task-Feasibility-Notiz) -- der volle PBF→Index-Build ist daher
+**nur in CI verifizierbar** (Job `lite-search-li-build`, mirrors
+`valhalla-li-build`s CI-only-PBF-Handling). Was lokal/unit-getestet ist: die
+gesamte Normalisierungs-/Filter-Logik (`extract.ts`) gegen handgeschriebene
+GeoJSON-Feature-Fixtures, der FTS5-Build+Query+Ranking-Pfad gegen ECHTES
+`better-sqlite3` (kein Mock, siehe `buildIndex.test.ts`), und der komplette
+CLI-Swap-Mechanismus (`cli.test.ts`) -- nur die `osmium`-Aufrufe selbst sind
+ungetestet-lokal.
+
+### CI-Nachweis (`lite-search-li-build`)
+
+`.github/workflows/ci.yml` Job `lite-search-li-build`: installiert
+`osmium-tool`, lädt die LI-PBF, ruft `build-lite-index.sh` auf (getimt, sollte
+für LI deutlich unter 1 Minute bleiben), und verifiziert direkt gegen die
+gebaute SQLite-Datei per FTS5-`MATCH`, dass "Vaduz" (kind `city`) gefunden
+wird und mindestens eine Straße im Index liegt (Akzeptanz #1). Akzeptanz #3
+("Index DE < 400 MB") ist eine DE-Scale-/Nightly-Behauptung und wird hier für
+den winzigen LI-Extract nicht assertet, nur der Dateigröße informativ
+ausgegeben -- ein DE-Build/Nightly-Nachweis ist ein separater, nicht in
+diesem Task enthaltener Job (analog zu Valhalla, das ebenfalls nur LI in
+CI baut).

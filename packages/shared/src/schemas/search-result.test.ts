@@ -33,6 +33,10 @@ describe('SearchResult schema (contract)', () => {
     expect(validateSearchResult(validResult({ source: 'coords', type: 'coordinates' }))).toBe(true);
   });
 
+  it('accepts a valid lite result (E05-T5)', () => {
+    expect(validateSearchResult(validResult({ source: 'lite' }))).toBe(true);
+  });
+
   it('accepts out_of_coverage true/false', () => {
     expect(validateSearchResult(validResult({ out_of_coverage: true }))).toBe(true);
     expect(validateSearchResult(validResult({ out_of_coverage: false }))).toBe(true);

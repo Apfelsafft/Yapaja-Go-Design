@@ -153,7 +153,7 @@ export interface SearchResult {
   label: string; // full display label, e.g. "Vaduz, Liechtenstein"
   latlng: LatLng;
   type: string; // result category, e.g. "city", "street", "coordinates"
-  source: 'photon' | 'nominatim' | 'coords'; // backend that produced this result
+  source: 'photon' | 'nominatim' | 'coords' | 'lite'; // backend that produced this result; 'lite' = offline SQLite/FTS5 fallback used when Photon is down/disabled (E05-T5, W-12)
   out_of_coverage?: boolean; // true if outside all installed map regions (Vorgriff W-09)
 }
 
