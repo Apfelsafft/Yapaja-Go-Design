@@ -198,3 +198,103 @@ jobs:
       - name: Dump Valhalla logs on failure
         if: failure()
         run: docker logs valhalla 2>&1 | tail -150 || true
+
+  photon-li-nightly:
+    name: Photon CH+LI Live Search (nightly, unverified/experimental, E05-T4)
+    runs-on: ubuntu-latest
+    # E05-T4 Akzeptanz #1 ("CI startet Photon-LI und E05-T1-Integration laeuft
+    # dagegen") NIGHTLY statt per-PR -- siehe `photon-setup` in ci.yml und
+    # services/photon/README.md "Warum kein LI-only-Index in CI" fuer die
+    # volle Recherche/Begruendung: ein Liechtenstein-ONLY-Suchindex existiert
+    # bei keiner bekannten Quelle vorgebaut (weder komoot/photons eigene
+    # Dumps noch der von docker-compose.yml genutzte rtuszik/photon-docker-
+    # Spiegel bieten diese Granularitaet). Die naechstkleinere ECHTE, real
+    # herunterladbare Region, die Liechtenstein/Vaduz enthaelt, ist
+    # "switzerland-liechtenstein" -- von rtuszik/photon-docker selbst als
+    # Beispiel fuer `IMPORT_MODE=jsonl` genannt, dort aber ausdruecklich als
+    # "experimental" markiert (der Index wird IM Container aus einem
+    # OSM-JSONL-Dump gebaut, nicht aus einem fertigen Photon-Suchindex
+    # geladen).
+    #
+    # continue-on-error: true, weil weder Groesse/Bauzeit noch die
+    # Zuverlaessigkeit des Drittanbieter-Mirrors (r2.koalasec.org) aus dieser
+    # Sandbox heraus verifizierbar waren (kein Docker-Daemon/kein
+    # Netzwerkzugriff auf Photon-Dumps im Dev-Sandbox -- Details in
+    # services/photon/README.md). Dieser Job ist analog zu `golden-routes-de`
+    # oben: er laeuft und meldet seine Beobachtungen, blockiert aber nicht,
+    # bis ein Mensch das JSONL-Bauverhalten einmal beobachtet/eingefroren hat.
+    continue-on-error: true
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Groesserer Xmx als der Mini-PC-Default (docker-compose.yml PHOTON_XMX,
+      # Default 1g), weil dieser Job den deutlich groesseren CH+LI-Index baut
+      # UND serviert -- nicht der repraesentative Mini-PC-Betriebsfall, siehe
+      # README fuer die Diskrepanz-Begruendung.
+      - name: Start Photon (IMPORT_MODE=jsonl, REGION=switzerland-liechtenstein)
+        run: |
+          mkdir -p data/photon/photon_data
+          docker run -d --name photon \
+            -p 2322:2322 \
+            -v "$PWD/data/photon/photon_data:/photon/photon_data" \
+            -e IMPORT_MODE=jsonl \
+            -e REGION=switzerland-liechtenstein \
+            -e LANGUAGES=en,de \
+            -e JAVA_PARAMS=-Xmx2g \
+            rtuszik/photon-docker:latest
+
+      - name: Wait for Photon /status (grosszuegiges Timeout -- JSONL-Import baut den Index IM Container)
+        run: |
+          for i in $(seq 1 150); do
+            if curl -sf http://localhost:2322/status >/dev/null 2>&1; then
+              echo "Photon /status ready after ~$((i * 10))s"
+              break
+            fi
+            if [ "$i" -eq 150 ]; then
+              echo "::warning::Photon kam nicht rechtzeitig hoch (unverifizierter JSONL-Importpfad, r2.koalasec.org-Mirror) -- Job bleibt dank continue-on-error non-blocking."
+              docker logs photon 2>&1 | tail -200
+              exit 1
+            fi
+            sleep 10
+          done
+
+      # Beweist Akzeptanz #1 direkt: E05-T1's PhotonBackend + SearchService
+      # gegen ein ECHTES, laufendes Photon (apps/core/src/search/
+      # photonBackend.live.test.ts, gated hinter PHOTON_LIVE=1).
+      - name: Live search integration (PhotonBackend + SearchService, "Vaduz")
+        run: |
+          PHOTON_LIVE=1 PHOTON_URL=http://localhost:2322 \
+            npx vitest run apps/core/src/search/photonBackend.live.test.ts
+
+      # Plausibilitaet (E05-T4-Spec): Photon-RSS unter Last (20 parallele
+      # Suchen) < Xmx + 300 MB. Informativ (docker stats statt einer harten
+      # Assertion) -- dieser gesamte Job ist ohnehin continue-on-error, bis
+      # das JSONL-Bauverhalten einmal beobachtet und eingefroren wurde.
+      - name: "RSS-under-load plausibility (20 parallel searches, E05-T4: RSS < Xmx + 300 MB)"
+        run: |
+          for i in $(seq 1 20); do
+            curl -sf "http://localhost:2322/api?q=Vaduz&limit=5" >/dev/null &
+          done
+          wait
+          docker stats --no-stream photon
+          echo "Vergleichswert: Xmx=2g + 300 MB Budget (informativ, siehe Job-Kommentarkopf)."
+
+      - name: Dump Photon logs on failure
+        if: failure()
+        run: docker logs photon 2>&1 | tail -200 || true
