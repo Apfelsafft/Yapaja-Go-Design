@@ -19,6 +19,7 @@ import SpeedLimitSign from './SpeedLimitSign.js';
 import DriveControls from './DriveControls.js';
 import DriveModeController from './DriveModeController.js';
 import ResumePrompt from './ResumePrompt.js';
+import ProfileChangeBanner from '../profiles/ProfileChangeBanner.js';
 import { announce, cancelSpeech, isSpeechAvailable } from './tts.js';
 
 function TtsToggle(): React.ReactElement {
@@ -78,6 +79,7 @@ export default function DriveOverlay(): React.ReactElement {
       <ManeuverArrowSprite />
       <DriveModeController />
       <ResumePrompt />
+      <ProfileChangeBanner />
       {active && (
         <>
           <ManeuverPanel />

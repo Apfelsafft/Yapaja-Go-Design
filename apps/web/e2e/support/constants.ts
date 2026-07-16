@@ -69,6 +69,18 @@ export const DRIVE_CORE_PORT = 4316;
 // position fix landing in the middle of this one's reload assertion, same
 // class of cross-test contention `DRIVE_CORE_PORT` already exists to avoid.
 export const NAV_CONTROL_CORE_PORT = 4317;
+// Dedicated core for profile-reroute.spec.ts (E06-T3, Flow 5): the ONLY spec
+// that needs a real (stubbed) Valhalla behind `RoutingService.createRoutes`
+// -- every other spec's routing is mocked at the BROWSER's `POST
+// /api/v1/routes` fetch (see nav-control.spec.ts's file-level comment), which
+// only covers UI-initiated routing. The profile-change reroute is triggered
+// SERVER-SIDE (`NavigationService` calls `RoutingService.createRoutes`
+// in-process, never through the browser), so it needs `VALHALLA_URL` pointed
+// at a real (stub) HTTP server -- this core is the only one configured that
+// way, kept separate so no other spec's routing is affected.
+export const PROFILE_REROUTE_CORE_PORT = 4318;
+/** The stub Valhalla HTTP server profile-reroute.spec.ts starts itself (in `test.beforeAll`). */
+export const PROFILE_REROUTE_VALHALLA_PORT = 4319;
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
@@ -78,3 +90,5 @@ export const SEARCH_CORE_BASE_URL = `http://127.0.0.1:${SEARCH_CORE_PORT}`;
 export const FAVORITES_CORE_BASE_URL = `http://127.0.0.1:${FAVORITES_CORE_PORT}`;
 export const DRIVE_CORE_BASE_URL = `http://127.0.0.1:${DRIVE_CORE_PORT}`;
 export const NAV_CONTROL_CORE_BASE_URL = `http://127.0.0.1:${NAV_CONTROL_CORE_PORT}`;
+export const PROFILE_REROUTE_CORE_BASE_URL = `http://127.0.0.1:${PROFILE_REROUTE_CORE_PORT}`;
+export const PROFILE_REROUTE_VALHALLA_BASE_URL = `http://127.0.0.1:${PROFILE_REROUTE_VALHALLA_PORT}`;

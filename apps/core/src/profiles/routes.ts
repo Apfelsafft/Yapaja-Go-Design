@@ -59,8 +59,16 @@ function validateProfileInput(
   return { valid: true };
 }
 
-export const profilesPlugin: FastifyPluginAsync = async (fastify) => {
-  const service = new ProfileService();
+export interface ProfileRoutesOptions {
+  /** Test/production seam: inject a pre-built service (wins over constructing
+   *  a fresh one) -- E06-T3 needs the SAME instance `buildServer` wires
+   *  `onProfileChanged` onto (publishing `event/profile_changed`), otherwise
+   *  activations made through these HTTP routes would never reach the bus. */
+  service?: ProfileService;
+}
+
+export const profilesPlugin: FastifyPluginAsync<ProfileRoutesOptions> = async (fastify, opts) => {
+  const service = opts.service ?? new ProfileService();
   await service.init();
 
   // GET /api/v1/profiles - List all profiles

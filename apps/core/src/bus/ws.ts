@@ -12,9 +12,40 @@ import fastifyWebsocket from '@fastify/websocket';
 import type { WebSocket, RawData } from 'ws';
 import type { EventBus } from './index.js';
 
+/**
+ * Tracks how many `/ws/v1` clients are currently connected (E06-T3): the
+ * "is a UI client connected?" signal `NavigationService` needs to decide
+ * between showing the profile-change confirmation banner and auto-rerouting
+ * headless. Deliberately minimal -- a plain counter, not a `Set<WebSocket>`,
+ * since nothing needs to iterate or address individual sockets here.
+ */
+export class WsClientRegistry {
+  private count = 0;
+
+  increment(): void {
+    this.count += 1;
+  }
+
+  decrement(): void {
+    this.count = Math.max(0, this.count - 1);
+  }
+
+  /** Current number of open `/ws/v1` connections. */
+  get connectedCount(): number {
+    return this.count;
+  }
+
+  /** Structural `ClientPresence` (see `navigation/service.ts`): any client connected right now? */
+  hasConnectedClients(): boolean {
+    return this.count > 0;
+  }
+}
+
 export interface BusWebsocketPluginOptions {
   bus: EventBus;
   path?: string;
+  /** E06-T3: connection-count tracker; omit to skip tracking (e.g. tests that don't need it). */
+  registry?: WsClientRegistry;
 }
 
 interface ClientMessage {
@@ -41,9 +72,10 @@ const busWebsocketPluginImpl: FastifyPluginAsync<BusWebsocketPluginOptions> = as
   await fastify.register(fastifyWebsocket);
 
   const path = opts.path ?? '/ws/v1';
-  const { bus } = opts;
+  const { bus, registry } = opts;
 
   fastify.get(path, { websocket: true }, (socket: WebSocket) => {
+    registry?.increment();
     // Unsubscribe functions for the client's current topic subscriptions.
     let unsubscribers: Array<() => void> = [];
 
@@ -77,6 +109,7 @@ const busWebsocketPluginImpl: FastifyPluginAsync<BusWebsocketPluginOptions> = as
     socket.on('close', () => {
       for (const unsub of unsubscribers) unsub();
       unsubscribers = [];
+      registry?.decrement();
     });
   });
 };

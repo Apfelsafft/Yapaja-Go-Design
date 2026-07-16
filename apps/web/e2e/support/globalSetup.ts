@@ -41,6 +41,8 @@ import {
   FAVORITES_CORE_PORT,
   DRIVE_CORE_PORT,
   NAV_CONTROL_CORE_PORT,
+  PROFILE_REROUTE_CORE_PORT,
+  PROFILE_REROUTE_VALHALLA_BASE_URL,
   CORE_BASE_URL,
   EMPTY_CORE_BASE_URL,
   SIMULATOR_CORE_BASE_URL,
@@ -48,6 +50,7 @@ import {
   FAVORITES_CORE_BASE_URL,
   DRIVE_CORE_BASE_URL,
   NAV_CONTROL_CORE_BASE_URL,
+  PROFILE_REROUTE_CORE_BASE_URL,
 } from './constants.js';
 // Reuse E01-T1's fixture generator directly (read-only import, apps/core is
 // not modified) instead of hand-rolling another PMTiles binary writer.
@@ -97,7 +100,7 @@ function prepareEmptyTilesDir(): void {
   mkdirSync(EMPTY_TILES_DIR, { recursive: true });
 }
 
-function startCore(port: number, tilesDir: string): ChildProcess {
+function startCore(port: number, tilesDir: string, extraEnv: Record<string, string> = {}): ChildProcess {
   const child = spawn('node', [CORE_DIST_INDEX], {
     cwd: CORE_ROOT,
     env: {
@@ -111,6 +114,7 @@ function startCore(port: number, tilesDir: string): ChildProcess {
       // the slower CI runner. :memory: is per-process, so no file, no lock, and
       // no leftover state between runs.
       DB_PATH: ':memory:',
+      ...extraEnv,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -158,6 +162,14 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   // Dedicated core for nav-control.spec.ts (E04-T5) -- see the
   // NAV_CONTROL_CORE_PORT comment in constants.ts.
   const navControlCore = startCore(NAV_CONTROL_CORE_PORT, FIXTURE_TILES_DIR);
+  // Dedicated core for profile-reroute.spec.ts (E06-T3, Flow 5) -- see the
+  // PROFILE_REROUTE_CORE_PORT comment in constants.ts. `VALHALLA_URL` points
+  // at the stub Valhalla HTTP server the spec itself starts/stops (per-test,
+  // in `test.beforeAll`/`afterAll`) -- nothing needs to be listening on that
+  // port yet for the core to boot; it's only dialled once a reroute fires.
+  const profileRerouteCore = startCore(PROFILE_REROUTE_CORE_PORT, FIXTURE_TILES_DIR, {
+    VALHALLA_URL: PROFILE_REROUTE_VALHALLA_BASE_URL,
+  });
 
   try {
     await Promise.all([
@@ -168,6 +180,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       waitForHealth(FAVORITES_CORE_BASE_URL, 20_000),
       waitForHealth(DRIVE_CORE_BASE_URL, 20_000),
       waitForHealth(NAV_CONTROL_CORE_BASE_URL, 20_000),
+      waitForHealth(PROFILE_REROUTE_CORE_BASE_URL, 20_000),
     ]);
   } catch (err) {
     fixtureCore.kill();
@@ -177,6 +190,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     favoritesCore.kill();
     driveCore.kill();
     navControlCore.kill();
+    profileRerouteCore.kill();
     throw err;
   }
 
@@ -188,5 +202,6 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     favoritesCore.kill();
     driveCore.kill();
     navControlCore.kill();
+    profileRerouteCore.kill();
   };
 }

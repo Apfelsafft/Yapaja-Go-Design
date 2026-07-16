@@ -7,7 +7,7 @@ import { dirname, join } from 'path';
 import { profilesPlugin } from './profiles/routes.js';
 import { ProfileService } from './profiles/service.js';
 import { EventBus } from './bus/index.js';
-import { busWebsocketPlugin } from './bus/ws.js';
+import { busWebsocketPlugin, WsClientRegistry } from './bus/ws.js';
 import { PositionService } from './position/service.js';
 import { positionPlugin } from './position/routes.js';
 import { DeadReckoningController, noopDeadReckoningProvider } from './position/deadReckoning.js';
@@ -66,16 +66,33 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   });
 
   const version = await readPackageVersion();
-  const profileService = new ProfileService();
+
+  // Internal event bus (ADR-010) + WS-client presence tracker (E06-T3):
+  // created BEFORE the profile service below so its `onProfileChanged` hook
+  // can publish straight onto the bus.
+  const eventBus = new EventBus();
+  const wsClientRegistry = new WsClientRegistry();
+
+  // E06-T1/T3: `onProfileChanged` (fired by `ProfileService#activate`) is
+  // published as `event/profile_changed` -- the ONLY way `NavigationService`
+  // (wired further below, sharing this SAME instance via `profilesPlugin`'s
+  // `service` option) learns a profile switch happened, so it can couple it
+  // to a reroute decision while navigating/paused.
+  const profileService = new ProfileService({
+    onProfileChanged: (profile) => {
+      eventBus.publish('event/profile_changed', { id: profile.id, name: profile.name });
+    },
+  });
 
   // Initialize profile service
   await profileService.init();
 
-  // Register profiles plugin
-  await fastify.register(profilesPlugin, { prefix: '/api/v1' });
+  // Register profiles plugin. `service: profileService` -- the SAME instance
+  // constructed above, not a second independent one -- is essential so
+  // activations made through THESE HTTP routes are the ones that carry the
+  // `onProfileChanged` hook (see comment above).
+  await fastify.register(profilesPlugin, { prefix: '/api/v1', service: profileService });
 
-  // Internal event bus (ADR-010) + position service (ADR-007)
-  const eventBus = new EventBus();
   const positionService = new PositionService({ bus: eventBus });
   // GPS simulator position source (E02-T4): registers as 'simulator' with
   // the same PositionService registry the real gpsd/browser sources use.
@@ -117,7 +134,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     positionService.dispose();
   });
 
-  await fastify.register(busWebsocketPlugin, { bus: eventBus });
+  await fastify.register(busWebsocketPlugin, { bus: eventBus, registry: wsClientRegistry });
   await fastify.register(positionPlugin, { prefix: '/api/v1', service: positionService });
   await fastify.register(simulatorPlugin, {
     prefix: '/api/v1',
@@ -184,6 +201,9 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     // E04-T5: `POST /navigation/destination`'s `query` -> geocode path (the
     // same shared SearchService instance registered below).
     searchProvider: searchService,
+    // E06-T3: "is a UI client connected?" -- decides confirmation-banner vs.
+    // headless auto-reroute when the active profile changes mid-navigation.
+    clientPresence: wsClientRegistry,
     recoveryStore: new FileNavRecoveryStore(
       process.env.NAV_RECOVERY_PATH ?? join(__dirname, '../.data/nav-recovery.json'),
       {

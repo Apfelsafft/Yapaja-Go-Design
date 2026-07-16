@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { setTimeout } from 'node:timers';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { LatLng, Route, RouteRequest, SearchResult, VehicleProfile } from '@yapaja/shared';
 import { EventBus } from '../bus/index.js';
@@ -594,6 +595,97 @@ describe('navigation REST plugin — GET /navigation/state recovered_route (W-19
 
     const res = await fastify.inject({ method: 'GET', url: '/api/v1/navigation/state' });
     expect(res.json().recovered_route).toBeUndefined();
+    await fastify.close();
+  });
+});
+
+describe('navigation REST plugin — POST /navigation/profile_change/confirm (E06-T3)', () => {
+  it('409 NO_PENDING_PROFILE_CHANGE when nothing is awaiting confirmation', async () => {
+    const fastify = await buildTestServer(makeRoute('pcc-confirm-none'));
+    const res = await fastify.inject({ method: 'POST', url: '/api/v1/navigation/profile_change/confirm' });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('NO_PENDING_PROFILE_CHANGE');
+    await fastify.close();
+  });
+
+  it('200s and triggers the reroute once a profile change is pending', async () => {
+    const route = makeRoute('pcc-confirm-start');
+    const rerouted = makeRoute('reroute-confirmed');
+    const bus = new EventBus({ isProduction: false });
+    const routeProvider: RouteProvider = { getCachedRoute: (id) => (id === route.id ? route : null) };
+    const profiles: Record<string, VehicleProfile> = {
+      pA: {
+        id: 'pA',
+        name: 'Camper',
+        height_m: 2.5,
+        width_m: 2.1,
+        length_m: 6.0,
+        weight_t: 3.0,
+        avg_speed_kmh: 85,
+        hazmat: false,
+        avoid: { motorway: false, toll: false, ferry: false, unpaved: false },
+        is_active: true,
+      },
+      pB: {
+        id: 'pB',
+        name: 'Alkoven 7,5 t',
+        height_m: 3.2,
+        width_m: 2.4,
+        length_m: 7.5,
+        weight_t: 7.5,
+        avg_speed_kmh: 80,
+        hazmat: false,
+        avoid: { motorway: false, toll: false, ferry: false, unpaved: false },
+        is_active: false,
+      },
+    };
+    let activeId = 'pA';
+    const profileProvider: ActiveProfileLookup = {
+      getActive: () => profiles[activeId],
+      getById: (id) => profiles[id] ?? null,
+    };
+    const rerouteProvider: RerouteProvider = { createRoutes: () => Promise.resolve([rerouted]) };
+
+    const fastify = Fastify();
+    await fastify.register(navigationPlugin, {
+      prefix: '/api/v1',
+      bus,
+      routeProvider,
+      profileProvider,
+      rerouteProvider,
+      clientPresence: { hasConnectedClients: () => true },
+    });
+    await fastify.ready();
+
+    await fastify.inject({ method: 'POST', url: '/api/v1/navigation/start', payload: { route_id: route.id } });
+    // One position fix so the service has a "current position" to reroute from.
+    bus.publish('pos/update', {
+      lat: 47.001,
+      lon: 9.5,
+      alt: null,
+      speed: 15,
+      heading: 0,
+      accuracy: 5,
+      source: 'simulator',
+      fix: '3d',
+      ts: new Date().toISOString(),
+    });
+
+    // Simulate the activation that fires `event/profile_changed` (E06-T1).
+    activeId = 'pB';
+    bus.publish('event/profile_changed', { id: 'pB', name: 'Alkoven 7,5 t' });
+
+    const confirmRes = await fastify.inject({
+      method: 'POST',
+      url: '/api/v1/navigation/profile_change/confirm',
+    });
+    expect(confirmRes.statusCode).toBe(200);
+
+    // Reroute lands asynchronously.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const stateRes = await fastify.inject({ method: 'GET', url: '/api/v1/navigation/state' });
+    expect(stateRes.json().data.route_id).toBe('reroute-confirmed');
+
     await fastify.close();
   });
 });
