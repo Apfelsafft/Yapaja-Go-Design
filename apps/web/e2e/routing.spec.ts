@@ -223,8 +223,10 @@ test('click destination -> request route -> tap alternative -> style switch surv
     MAIN_ROUTE.warnings[0].message,
   );
 
-  // "Navigation starten" is present but disabled (E04 not shipped yet).
-  await expect(page.getByTestId('start-navigation-button')).toBeDisabled();
+  // "Navigation starten" is present and enabled (E04-T5) -- not clicked here,
+  // this spec only exercises the routing/UI plumbing; the full nav-start ->
+  // drive-mode -> stop flow is nav-control.spec.ts's job (Flow 2).
+  await expect(page.getByTestId('start-navigation-button')).toBeEnabled();
 
   // 5. The route layer is actually on the map, and the store's active route
   // is the main route.

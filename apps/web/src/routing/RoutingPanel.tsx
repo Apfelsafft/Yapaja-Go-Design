@@ -32,6 +32,9 @@ import { NAV_ENABLED } from './featureFlags.js';
 import { useFavoritesStore } from '../favorites/store.js';
 import { FavoriteApiError } from '../favorites/client.js';
 import { iconForFavoriteCategory, FAVORITE_CATEGORIES, FAVORITE_CATEGORY_LABELS } from '../favorites/icons.js';
+import { startNavigation, NavigationApiError, type StartNavigationReroute } from '../drive/client.js';
+import { useNavStore } from '../drive/navStore.js';
+import { isDriveActive } from '../drive/ManeuverPanel.js';
 
 const AVOID_FLAGS = ['motorway', 'toll', 'ferry', 'unpaved'] as const;
 const AVOID_LABELS: Record<(typeof AVOID_FLAGS)[number], string> = {
@@ -58,6 +61,12 @@ export default function RoutingPanel(): React.ReactElement | null {
   // Needed only to know whether the map is ready; the map instance itself
   // isn't touched here (RouteLayer/DestinationSelector own all map access).
   const map = useMapStore((state) => state.map);
+  // E04-T5: hidden while a drive session is actually active -- `DriveControls`
+  // (pause/resume/stop) takes over the bottom-of-screen real estate then.
+  // Reappears once `nav/state` returns to idle/arrived (e.g. after "Stopp"),
+  // still showing the SAME route (this store is untouched by starting/
+  // stopping navigation) so "Navigation starten" can be pressed again.
+  const navStatus = useNavStore((state) => state.navState?.status ?? null);
 
   const handleRequestRoute = useCallback(() => {
     void requestRoute({ origin: 'current', profileId: activeProfile?.id });
@@ -80,6 +89,46 @@ export default function RoutingPanel(): React.ReactElement | null {
     },
     [removeAvoidance, activeProfile],
   );
+
+  // E04-T5: "Navigation starten" -- builds the E04-T4 reroute context DIRECTLY
+  // from this same routing store (`avoidOverrides` -> `avoid_overrides`,
+  // `tempAvoidances` -> `exclude_polygons`, the active profile) so a later
+  // auto-reroute reproduces exactly what the user configured here, instead of
+  // silently starting a "bare" navigation that would drop them on the first
+  // detour.
+  const navGateOpen = useNavStore((state) => state.resumeAcknowledged);
+  const setNavState = useNavStore((state) => state.setNavState);
+  const [navStarting, setNavStarting] = useState(false);
+  const [navStartError, setNavStartError] = useState<string | null>(null);
+
+  const handleStartNavigation = useCallback(async () => {
+    const activeRoute = selectActiveRoute({ routes, activeRouteId });
+    if (!activeRoute || !activeProfile) return;
+
+    setNavStarting(true);
+    setNavStartError(null);
+    try {
+      const reroute: StartNavigationReroute = { profile_id: activeProfile.id };
+      if (Object.keys(avoidOverrides).length > 0) reroute.avoid_overrides = avoidOverrides;
+      if (tempAvoidances.length > 0) reroute.exclude_polygons = tempAvoidances.map((a) => a.polygon);
+
+      const state = await startNavigation({
+        route: activeRoute,
+        destination: destination ? { latlng: destination, name: destinationName } : null,
+        reroute,
+      });
+      // Populate the live nav store immediately -- don't wait for the next WS
+      // tick (which the WS connection will also deliver, redundantly but
+      // harmlessly) before the Drive UI reacts.
+      setNavState(state);
+    } catch (err) {
+      setNavStartError(
+        err instanceof NavigationApiError ? err.message : 'Navigation konnte nicht gestartet werden.',
+      );
+    } finally {
+      setNavStarting(false);
+    }
+  }, [routes, activeRouteId, activeProfile, avoidOverrides, tempAvoidances, destination, destinationName, setNavState]);
 
   // E05-T3: "Als Favorit speichern".
   const createFavorite = useFavoritesStore((state) => state.createFavorite);
@@ -145,6 +194,9 @@ export default function RoutingPanel(): React.ReactElement | null {
   }, [openRegionsPanel]);
 
   if (!destination || !map) {
+    return null;
+  }
+  if (navGateOpen && isDriveActive(navStatus)) {
     return null;
   }
 
@@ -436,13 +488,26 @@ export default function RoutingPanel(): React.ReactElement | null {
           )}
 
           <button
-            disabled={!NAV_ENABLED}
-            title="kommt mit E04"
-            className="w-full px-4 py-2 rounded-md bg-slate-300 dark:bg-slate-600 text-slate-600 dark:text-slate-300 text-sm font-medium cursor-not-allowed"
+            onClick={() => void handleStartNavigation()}
+            disabled={!NAV_ENABLED || navStarting}
+            title={!NAV_ENABLED ? 'Navigation nicht verfügbar' : undefined}
+            className={
+              NAV_ENABLED
+                ? 'w-full px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium disabled:opacity-50'
+                : 'w-full px-4 py-2 rounded-md bg-slate-300 dark:bg-slate-600 text-slate-600 dark:text-slate-300 text-sm font-medium cursor-not-allowed'
+            }
             data-testid="start-navigation-button"
           >
-            Navigation starten
+            {navStarting ? 'Navigation wird gestartet…' : 'Navigation starten'}
           </button>
+          {navStartError && (
+            <p
+              className="rounded-md bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-3 py-2 text-xs"
+              data-testid="start-navigation-error"
+            >
+              {navStartError}
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -6,13 +6,15 @@
  */
 
 import React from 'react';
-import { useNavState } from './navStore.js';
+import { useNavState, useNavStore } from './navStore.js';
 import { isDriveActive } from './ManeuverPanel.js';
 
 export default function SpeedLimitSign(): React.ReactElement | null {
   const navState = useNavState();
+  // W-19 (E04-T5): see `ManeuverPanel.tsx`'s identical gate.
+  const driveGateOpen = useNavStore((state) => state.resumeAcknowledged);
 
-  if (!navState || !isDriveActive(navState.status)) return null;
+  if (!navState || !driveGateOpen || !isDriveActive(navState.status)) return null;
   const kmh = navState.speed_limit_kmh;
   if (kmh === null) return null;
 

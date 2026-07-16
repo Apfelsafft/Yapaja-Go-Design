@@ -269,4 +269,43 @@ describe('NavigationService restart recovery (W-19)', () => {
     expect(service.getStatus()).toBe('idle');
     service.dispose();
   });
+
+  // E04-T5: `getRecoverableRoute()` is the REST-observable counterpart of the
+  // startup event above -- the event fires once, synchronously, before any
+  // WS client could possibly be subscribed; this getter is what
+  // `GET /navigation/state` actually exposes to a reloading tab.
+  it('getRecoverableRoute() surfaces the same record while idle with a still-cached route', () => {
+    const bus = new EventBus({ isProduction: false });
+    const route = routeFromPoints(straightNorthPoints());
+    const destination = { latlng: { lat: BASE_LAT + 0.01, lon: BASE_LON }, name: 'Ziel' };
+    const store = new InMemoryNavRecoveryStore({ route_id: route.id, destination });
+    const service = new NavigationService({ bus, routeProvider: providerFor(route), recoveryStore: store });
+
+    expect(service.getRecoverableRoute()).toEqual({ route_id: route.id, destination });
+    service.dispose();
+  });
+
+  it('getRecoverableRoute() is null once navigating (nothing to "recover", already live)', () => {
+    const bus = new EventBus({ isProduction: false });
+    const route = routeFromPoints(straightNorthPoints());
+    const destination = { latlng: { lat: BASE_LAT + 0.01, lon: BASE_LON }, name: 'Ziel' };
+    const store = new InMemoryNavRecoveryStore({ route_id: route.id, destination });
+    const service = new NavigationService({ bus, routeProvider: providerFor(route), recoveryStore: store });
+
+    service.start({ route_id: route.id });
+    expect(service.getRecoverableRoute()).toBeNull();
+    service.dispose();
+  });
+
+  it('getRecoverableRoute() is null with no record and after stop/clear', () => {
+    const bus = new EventBus({ isProduction: false });
+    const route = routeFromPoints(straightNorthPoints());
+    const service = new NavigationService({ bus, routeProvider: providerFor(route) });
+    expect(service.getRecoverableRoute()).toBeNull(); // never navigated
+
+    service.start({ route_id: route.id });
+    service.stop();
+    expect(service.getRecoverableRoute()).toBeNull(); // stop() clears the recovery store
+    service.dispose();
+  });
 });
