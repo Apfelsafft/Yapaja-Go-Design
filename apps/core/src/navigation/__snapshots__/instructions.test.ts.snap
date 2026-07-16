@@ -1,0 +1,37 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildSayText > snapshot: type "continue" (de) 1`] = `"In 350 Metern der Straße folgen auf die Teststraße"`;
+
+exports[`buildSayText > snapshot: type "continue" (en) 1`] = `"In 350 meters continue on the road onto Teststraße"`;
+
+exports[`buildSayText > snapshot: type "roundabout_enter" (de) 1`] = `"In 350 Metern in den Kreisverkehr einfahren"`;
+
+exports[`buildSayText > snapshot: type "roundabout_enter" (en) 1`] = `"In 350 meters enter the roundabout"`;
+
+exports[`buildSayText > snapshot: type "roundabout_exit" (de) 1`] = `"In 350 Metern den Kreisverkehr verlassen"`;
+
+exports[`buildSayText > snapshot: type "roundabout_exit" (en) 1`] = `"In 350 meters exit the roundabout"`;
+
+exports[`buildSayText > snapshot: type "straight" (de) 1`] = `"In 350 Metern geradeaus weiterfahren auf die Teststraße"`;
+
+exports[`buildSayText > snapshot: type "straight" (en) 1`] = `"In 350 meters continue straight onto Teststraße"`;
+
+exports[`buildSayText > snapshot: type "turn_left" (de) 1`] = `"In 350 Metern links abbiegen auf die Teststraße"`;
+
+exports[`buildSayText > snapshot: type "turn_left" (en) 1`] = `"In 350 meters turn left onto Teststraße"`;
+
+exports[`buildSayText > snapshot: type "turn_right" (de) 1`] = `"In 350 Metern rechts abbiegen auf die Teststraße"`;
+
+exports[`buildSayText > snapshot: type "turn_right" (en) 1`] = `"In 350 meters turn right onto Teststraße"`;
+
+exports[`buildSayText > snapshot: type "uturn_left" (de) 1`] = `"In 350 Metern wenden"`;
+
+exports[`buildSayText > snapshot: type "uturn_left" (en) 1`] = `"In 350 meters make a U-turn"`;
+
+exports[`buildSayText > snapshot: type "uturn_right" (de) 1`] = `"In 350 Metern wenden"`;
+
+exports[`buildSayText > snapshot: type "uturn_right" (en) 1`] = `"In 350 meters make a U-turn"`;
+
+exports[`buildSayText > snapshot: unmapped/unknown type falls back gracefully instead of throwing (de) 1`] = `"In 350 Metern der Straße folgen auf die Teststraße"`;
+
+exports[`buildSayText > snapshot: unmapped/unknown type falls back gracefully instead of throwing (en) 1`] = `"In 350 meters continue on the road onto Teststraße"`;

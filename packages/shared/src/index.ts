@@ -13,6 +13,7 @@ export type {
   ManeuverType,
   Route,
   NavState,
+  NavInstructionPayload,
   ApiError,
   SearchResult,
   Favorite,
@@ -33,6 +34,7 @@ export {
   routeSchema,
 } from './schemas/route';
 export { navStateSchema } from './schemas/nav-state';
+export { navInstructionSchema } from './schemas/nav-instruction';
 export { apiErrorSchema } from './schemas/api-error';
 export { searchResultSchema } from './schemas/search-result';
 export { favoriteSchema } from './schemas/favorite';
@@ -47,6 +49,7 @@ export {
   validateRoute,
   validateManeuver,
   validateNavState,
+  validateNavInstruction,
   validateApiError,
   validateSearchResult,
   validateFavorite,
@@ -58,6 +61,7 @@ export {
   getValidationErrorsRoute,
   getValidationErrorsManeuver,
   getValidationErrorsNavState,
+  getValidationErrorsNavInstruction,
   getValidationErrorsApiError,
   getValidationErrorsSearchResult,
   getValidationErrorsFavorite,

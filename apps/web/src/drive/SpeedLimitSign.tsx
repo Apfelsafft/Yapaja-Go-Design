@@ -1,0 +1,29 @@
+/**
+ * Speed-limit sign (E04-T3, docs/06 §5): round EU-style sign showing
+ * `speed_limit_kmh`. Hidden entirely when the limit is unknown (`null`) --
+ * the plausibility invariant is "never render 0", so this component simply
+ * never renders anything at all for `null` rather than a placeholder/dash.
+ */
+
+import React from 'react';
+import { useNavState } from './navStore.js';
+import { isDriveActive } from './ManeuverPanel.js';
+
+export default function SpeedLimitSign(): React.ReactElement | null {
+  const navState = useNavState();
+
+  if (!navState || !isDriveActive(navState.status)) return null;
+  const kmh = navState.speed_limit_kmh;
+  if (kmh === null) return null;
+
+  return (
+    <div
+      data-testid="speed-limit-sign"
+      className="absolute top-3 right-3 z-20 flex items-center justify-center w-16 h-16 rounded-full bg-white border-4 border-red-600 shadow-lg"
+    >
+      <span data-testid="speed-limit-value" className="text-2xl font-extrabold text-slate-900 tabular-nums">
+        {kmh}
+      </span>
+    </div>
+  );
+}

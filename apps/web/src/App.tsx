@@ -5,6 +5,7 @@ import ProfilesPanel from './profiles/ProfilesPanel.js';
 import RoutingInitializer from './routing/RoutingInitializer.js';
 import SearchBar from './search/SearchBar.js';
 import FavoritesDrawer from './favorites/FavoritesDrawer.js';
+import DriveOverlay from './drive/DriveOverlay.js';
 
 export default function App(): React.ReactElement {
   return (
@@ -20,6 +21,7 @@ export default function App(): React.ReactElement {
       <RoutingInitializer />
       <SearchBar />
       <FavoritesDrawer />
+      <DriveOverlay />
     </div>
   );
 }

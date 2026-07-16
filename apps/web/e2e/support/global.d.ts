@@ -10,6 +10,7 @@ import type { mapController } from '../../src/state/mapStore';
 import type { usePositionStore } from '../../src/position/positionStore';
 import type { useRoutingStore } from '../../src/routing/store';
 import type { useProfileStore } from '../../src/profiles/store';
+import type { useNavStore } from '../../src/drive/navStore';
 
 declare global {
   interface Window {
@@ -17,6 +18,8 @@ declare global {
     __yapajaPositionStore?: typeof usePositionStore;
     __yapajaRoutingStore?: typeof useRoutingStore;
     __yapajaProfileStore?: typeof useProfileStore;
+    __yapajaNavStore?: typeof useNavStore;
+    __yapajaSpeechAvailable?: () => boolean;
   }
 }
 
