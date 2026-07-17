@@ -43,6 +43,7 @@ import {
   NAV_CONTROL_CORE_PORT,
   PROFILE_REROUTE_CORE_PORT,
   PROFILE_REROUTE_VALHALLA_BASE_URL,
+  SHELL_CORE_PORT,
   CORE_BASE_URL,
   EMPTY_CORE_BASE_URL,
   SIMULATOR_CORE_BASE_URL,
@@ -51,6 +52,7 @@ import {
   DRIVE_CORE_BASE_URL,
   NAV_CONTROL_CORE_BASE_URL,
   PROFILE_REROUTE_CORE_BASE_URL,
+  SHELL_CORE_BASE_URL,
 } from './constants.js';
 // Reuse E01-T1's fixture generator directly (read-only import, apps/core is
 // not modified) instead of hand-rolling another PMTiles binary writer.
@@ -170,6 +172,9 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   const profileRerouteCore = startCore(PROFILE_REROUTE_CORE_PORT, FIXTURE_TILES_DIR, {
     VALHALLA_URL: PROFILE_REROUTE_VALHALLA_BASE_URL,
   });
+  // Dedicated core for shell.spec.ts (E07-T1) -- see the SHELL_CORE_PORT
+  // comment in constants.ts.
+  const shellCore = startCore(SHELL_CORE_PORT, FIXTURE_TILES_DIR);
 
   try {
     await Promise.all([
@@ -181,6 +186,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       waitForHealth(DRIVE_CORE_BASE_URL, 20_000),
       waitForHealth(NAV_CONTROL_CORE_BASE_URL, 20_000),
       waitForHealth(PROFILE_REROUTE_CORE_BASE_URL, 20_000),
+      waitForHealth(SHELL_CORE_BASE_URL, 20_000),
     ]);
   } catch (err) {
     fixtureCore.kill();
@@ -191,6 +197,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     driveCore.kill();
     navControlCore.kill();
     profileRerouteCore.kill();
+    shellCore.kill();
     throw err;
   }
 
@@ -203,5 +210,6 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     driveCore.kill();
     navControlCore.kill();
     profileRerouteCore.kill();
+    shellCore.kill();
   };
 }

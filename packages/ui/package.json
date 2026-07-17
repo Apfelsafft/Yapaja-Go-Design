@@ -1,0 +1,28 @@
+{
+  "name": "@yapaja/ui",
+  "version": "0.1.0",
+  "description": "Widget contract + registry (E07-T1) -- the stable interface Core widgets AND future add-on widgets (docs/05 Section 4) implement against.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.48",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}
