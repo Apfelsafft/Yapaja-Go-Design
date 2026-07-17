@@ -6,13 +6,26 @@
  */
 
 import React from 'react';
+import type { NavState } from '@yapaja/shared';
 import { useNavState, useNavStore } from './navStore.js';
 import { isDriveActive } from './ManeuverPanel.js';
 
-export default function SpeedLimitSign(): React.ReactElement | null {
-  const navState = useNavState();
+export interface SpeedLimitSignProps {
+  /** Explicit `NavState` (E07-T1 widget reuse -- see
+   *  `ManeuverPanel.tsx`'s identical `ManeuverPanelProps.navState` doc
+   *  comment). Omit to use `useNavState()` as before. */
+  navState?: NavState | null;
+  /** Explicit drive-gate override, see `ManeuverPanelProps.driveGateOpen`. */
+  driveGateOpen?: boolean;
+}
+
+export default function SpeedLimitSign(props: SpeedLimitSignProps = {}): React.ReactElement | null {
+  const hookNavState = useNavState();
   // W-19 (E04-T5): see `ManeuverPanel.tsx`'s identical gate.
-  const driveGateOpen = useNavStore((state) => state.resumeAcknowledged);
+  const hookDriveGateOpen = useNavStore((state) => state.resumeAcknowledged);
+
+  const navState = props.navState !== undefined ? props.navState : hookNavState;
+  const driveGateOpen = props.driveGateOpen !== undefined ? props.driveGateOpen : hookDriveGateOpen;
 
   if (!navState || !driveGateOpen || !isDriveActive(navState.status)) return null;
   const kmh = navState.speed_limit_kmh;

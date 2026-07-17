@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@yapaja/shared': path.resolve(__dirname, 'packages/shared/src'),
+      '@yapaja/ui': path.resolve(__dirname, 'packages/ui/src'),
       '@yapaja/core': path.resolve(__dirname, 'apps/core/src'),
       '@yapaja/web': path.resolve(__dirname, 'apps/web/src'),
     },

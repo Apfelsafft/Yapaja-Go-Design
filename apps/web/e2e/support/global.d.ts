@@ -11,6 +11,8 @@ import type { usePositionStore } from '../../src/position/positionStore';
 import type { useRoutingStore } from '../../src/routing/store';
 import type { useProfileStore } from '../../src/profiles/store';
 import type { useNavStore } from '../../src/drive/navStore';
+import type { useShellWsStore } from '../../src/shell/wsStore';
+import type { useLayoutStore } from '../../src/shell/layoutStore';
 
 declare global {
   interface Window {
@@ -20,6 +22,8 @@ declare global {
     __yapajaProfileStore?: typeof useProfileStore;
     __yapajaNavStore?: typeof useNavStore;
     __yapajaSpeechAvailable?: () => boolean;
+    __yapajaShellWsStore?: typeof useShellWsStore;
+    __yapajaShellLayoutStore?: typeof useLayoutStore;
   }
 }
 

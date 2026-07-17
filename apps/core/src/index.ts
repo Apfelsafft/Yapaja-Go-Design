@@ -22,6 +22,7 @@ import { RouteAwareDeadReckoningProvider, MAX_DEAD_RECKONING_WINDOW_MS } from '.
 import { FileNavRecoveryStore } from './navigation/recoveryStore.js';
 import { searchPlugin, buildSearchService } from './search/routes.js';
 import { favoritesPlugin } from './favorites/routes.js';
+import { settingsPlugin } from './settings/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -258,6 +259,12 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // Favorites & history plugin (E05-T3, docs/03 §2): additive, does not
   // touch other plugins.
   await fastify.register(favoritesPlugin, { prefix: '/api/v1' });
+
+  // General-purpose settings plugin (E07-T1): additive, does not touch other
+  // plugins. The widget-shell's `layouts` key is its first consumer (see
+  // `apps/web/src/shell/persistence.ts`); future settings (units, theme,
+  // online_fallback, ...) reuse the same key/value store.
+  await fastify.register(settingsPlugin, { prefix: '/api/v1' });
 
   fastify.get<{ Reply: HealthResponse }>('/api/v1/health', async (_request, _reply) => {
     const dbHealth = await profileService.checkHealth();

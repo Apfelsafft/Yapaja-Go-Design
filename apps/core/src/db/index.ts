@@ -78,6 +78,20 @@ export function createDb(path: string): Database.Database {
     )
   `);
 
+  // Settings table (E07-T1): a general-purpose key/value store. `value` is
+  // an arbitrary JSON-serialized blob -- this table deliberately knows
+  // nothing about what any given key means (the `layouts` key holds the
+  // widget-shell's per-mode layouts today; units/theme/online_fallback and
+  // other future settings reuse the exact same table/service/routes rather
+  // than each growing their own bespoke schema).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+
   return db;
 }
 

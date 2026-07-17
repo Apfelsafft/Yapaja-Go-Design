@@ -46,13 +46,30 @@ export function findFollowingManeuver(
   return { type: next.type, street: next.street_names[0] ?? null };
 }
 
-export default function ManeuverPanel(): React.ReactElement | null {
-  const navState = useNavState();
+export interface ManeuverPanelProps {
+  /** Explicit `NavState` to render (E07-T1: the widget shell passes the
+   *  state it received over its OWN shared `/ws/v1` connection instead of
+   *  this falling back to `navStore`'s dedicated connection -- see
+   *  `apps/web/src/shell/widgets/nextInstruction.tsx`). Omit to use
+   *  `useNavState()` as before (every pre-E07 caller, e.g. `DriveOverlay`). */
+  navState?: NavState | null;
+  /** Explicit drive-gate override (see `navStore.ts#useDriveGateOpen`'s doc
+   *  comment for W-19). Omit to use the `navStore` hook as before. Widget
+   *  usage passes `true` -- the widget shell has no reload-recovery-prompt
+   *  concept of its own, so there is nothing to gate on. */
+  driveGateOpen?: boolean;
+}
+
+export default function ManeuverPanel(props: ManeuverPanelProps = {}): React.ReactElement | null {
+  const hookNavState = useNavState();
   const routes = useRoutingStore((state) => state.routes);
   // W-19 (E04-T5): stays hidden until any reload-recovery prompt is
   // acknowledged, even if `navState` already reports an active session --
   // see `navStore.ts#useDriveGateOpen`'s doc comment.
-  const driveGateOpen = useNavStore((state) => state.resumeAcknowledged);
+  const hookDriveGateOpen = useNavStore((state) => state.resumeAcknowledged);
+
+  const navState = props.navState !== undefined ? props.navState : hookNavState;
+  const driveGateOpen = props.driveGateOpen !== undefined ? props.driveGateOpen : hookDriveGateOpen;
 
   if (!navState || !driveGateOpen || !isDriveActive(navState.status)) return null;
   const maneuver = navState.next_maneuver;

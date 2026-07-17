@@ -81,6 +81,15 @@ export const NAV_CONTROL_CORE_PORT = 4317;
 export const PROFILE_REROUTE_CORE_PORT = 4318;
 /** The stub Valhalla HTTP server profile-reroute.spec.ts starts itself (in `test.beforeAll`). */
 export const PROFILE_REROUTE_VALHALLA_PORT = 4319;
+// Dedicated core for shell.spec.ts (E07-T1): drives synthetic `nav/state`/
+// `pos/update` fixes (same "POST browser fixes + navigation/start directly"
+// approach as drive.spec.ts/nav-control.spec.ts) to prove widgets update
+// live, PLUS asserts the exact WS-connection COUNT while doing so -- an
+// unrelated parallel spec's fix landing mid-sequence, or extra `/ws/v1`
+// connections opened by another spec sharing the port, would both flip
+// these assertions flaky, same rationale as every other dedicated-port spec
+// above.
+export const SHELL_CORE_PORT = 4320;
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
@@ -92,3 +101,4 @@ export const DRIVE_CORE_BASE_URL = `http://127.0.0.1:${DRIVE_CORE_PORT}`;
 export const NAV_CONTROL_CORE_BASE_URL = `http://127.0.0.1:${NAV_CONTROL_CORE_PORT}`;
 export const PROFILE_REROUTE_CORE_BASE_URL = `http://127.0.0.1:${PROFILE_REROUTE_CORE_PORT}`;
 export const PROFILE_REROUTE_VALHALLA_BASE_URL = `http://127.0.0.1:${PROFILE_REROUTE_VALHALLA_PORT}`;
+export const SHELL_CORE_BASE_URL = `http://127.0.0.1:${SHELL_CORE_PORT}`;
