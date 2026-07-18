@@ -90,6 +90,14 @@ export const PROFILE_REROUTE_VALHALLA_PORT = 4319;
 // these assertions flaky, same rationale as every other dedicated-port spec
 // above.
 export const SHELL_CORE_PORT = 4320;
+// Dedicated core for shell-edit.spec.ts (E07-T2): drives its own
+// move-widget/save/reload/cancel/reset flows against `pos/update` +
+// `/api/v1/settings` -- sharing `SHELL_CORE_PORT` with shell.spec.ts would
+// let one spec's `pos/update` fixture (needed for the standstill gate) or
+// layout save land mid-sequence of the other's assertions, exactly the
+// class of cross-test contention every other dedicated-port comment above
+// already explains.
+export const SHELL_EDIT_CORE_PORT = 4321;
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
@@ -102,3 +110,4 @@ export const NAV_CONTROL_CORE_BASE_URL = `http://127.0.0.1:${NAV_CONTROL_CORE_PO
 export const PROFILE_REROUTE_CORE_BASE_URL = `http://127.0.0.1:${PROFILE_REROUTE_CORE_PORT}`;
 export const PROFILE_REROUTE_VALHALLA_BASE_URL = `http://127.0.0.1:${PROFILE_REROUTE_VALHALLA_PORT}`;
 export const SHELL_CORE_BASE_URL = `http://127.0.0.1:${SHELL_CORE_PORT}`;
+export const SHELL_EDIT_CORE_BASE_URL = `http://127.0.0.1:${SHELL_EDIT_CORE_PORT}`;
