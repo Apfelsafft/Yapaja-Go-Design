@@ -21,21 +21,32 @@ import DriveModeController from './DriveModeController.js';
 import ResumePrompt from './ResumePrompt.js';
 import ProfileChangeBanner from '../profiles/ProfileChangeBanner.js';
 import { announce, cancelSpeech, isSpeechAvailable } from './tts.js';
+import { useHandednessStore } from '../shell/handednessStore.js';
+import { sideClassFor } from '../shell/handedness.js';
 
 function TtsToggle(): React.ReactElement {
   const enabled = useTtsStore((state) => state.enabled);
   const toggle = useTtsStore((state) => state.toggle);
+  const handedness = useHandednessStore((state) => state.handedness);
 
   return (
     <button
       type="button"
       data-testid="tts-toggle"
       aria-pressed={enabled}
+      aria-label={enabled ? 'Sprachansagen ausschalten' : 'Sprachansagen einschalten'}
       onClick={() => {
         toggle();
         if (enabled) cancelSpeech(); // was on, is being turned off -> stop mid-utterance
       }}
-      className="absolute bottom-24 right-3 z-20 rounded-full bg-slate-900/90 text-white px-3 py-2 text-sm font-medium shadow-lg"
+      // Touch-target audit (E07-T4, docs/06 §4): drive-mode-only control
+      // (only rendered while `active`, see this file's own gate below) --
+      // `min-h-[64px] min-w-[64px]` matches `DriveControls.tsx`'s own
+      // ≥64px sizing; the vertical gap to `DriveControls` below (bottom-24
+      // vs bottom-4, i.e. ~80px) comfortably clears the ≥8px spacing
+      // requirement. Mirrors to the configured LHD/RHD side, same as
+      // `DriveControls.tsx`.
+      className={`absolute bottom-24 ${sideClassFor(handedness)} z-20 min-h-[64px] min-w-[64px] rounded-full bg-slate-900/90 text-white px-3 py-2 text-sm font-medium shadow-lg`}
     >
       {enabled ? '🔊 Ansagen an' : '🔇 Ansagen aus'}
     </button>

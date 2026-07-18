@@ -75,3 +75,36 @@
     linear-gradient(to bottom, rgba(148, 163, 184, 0.35) 1px, transparent 1px);
   background-size: 12px 12px;
 }
+
+/* `prefers-reduced-motion` (E07-T4, docs/06 §4 "Animationen ... "prefers-
+   reduced-motion" respektieren"): the standard global reset -- collapses
+   every CSS animation/transition duration to effectively zero and disables
+   smooth scrolling, for ANY element (`*`), not just the ones this codebase
+   happens to animate today. Explicitly also kills `.edit-wobble`'s
+   `animation` outright (belt-and-suspenders on top of the universal
+   `animation-duration` collapse above -- an `infinite` iteration count
+   would otherwise still technically "run", just imperceptibly fast).
+   Scope note: this covers CSS-level animations/transitions only. The
+   compass/puck bearing needles (`map/CompassButton.tsx`,
+   `shell/widgets/compass.tsx`) rotate via a plain inline `transform` with NO
+   CSS transition applied (an instant per-render snap, not an animation) --
+   nothing there to disable. MapLibre's own internal paint-property
+   transitions on the position puck (`position/PositionPuck.tsx`'s
+   `circle-radius-transition` etc., a GL/canvas-level, non-CSS mechanism)
+   are consciously out of scope for this CSS-only rule -- respecting
+   reduced-motion there would need wiring `matchMedia` into the style spec
+   itself, tracked separately rather than folded into this task. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .edit-wobble {
+    animation: none !important;
+  }
+}

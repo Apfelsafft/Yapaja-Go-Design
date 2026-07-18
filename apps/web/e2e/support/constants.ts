@@ -98,6 +98,22 @@ export const SHELL_CORE_PORT = 4320;
 // class of cross-test contention every other dedicated-port comment above
 // already explains.
 export const SHELL_EDIT_CORE_PORT = 4321;
+// Dedicated core for drive-lock.spec.ts (E07-T4): drives exact `Position`
+// fixes to `/api/v1/position/browser` to deterministically engage/release
+// the Speed-Lock, and starts a real navigation session for the Stop-button
+// SAFETY INVARIANT test -- same "an unrelated parallel spec's fix could land
+// mid-sequence" contention rationale every other dedicated-port comment
+// above already explains.
+export const DRIVE_LOCK_CORE_PORT = 4322;
+// Dedicated core for touch-targets.spec.ts (E07-T4): starts a real
+// navigation session (so `DriveControls.tsx`/the TTS toggle are actually on
+// screen to measure) -- kept separate so no other spec's navigation-stop
+// races this one's bounding-box measurements.
+export const TOUCH_TARGETS_CORE_PORT = 4323;
+// Dedicated core for a11y.spec.ts (E07-T4): the axe-core scan needs BOTH
+// modes (explore + drive) reliably reproducible, including a real active
+// navigation session for the drive-mode scans -- same isolation rationale.
+export const A11Y_CORE_PORT = 4324;
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
@@ -111,3 +127,6 @@ export const PROFILE_REROUTE_CORE_BASE_URL = `http://127.0.0.1:${PROFILE_REROUTE
 export const PROFILE_REROUTE_VALHALLA_BASE_URL = `http://127.0.0.1:${PROFILE_REROUTE_VALHALLA_PORT}`;
 export const SHELL_CORE_BASE_URL = `http://127.0.0.1:${SHELL_CORE_PORT}`;
 export const SHELL_EDIT_CORE_BASE_URL = `http://127.0.0.1:${SHELL_EDIT_CORE_PORT}`;
+export const DRIVE_LOCK_CORE_BASE_URL = `http://127.0.0.1:${DRIVE_LOCK_CORE_PORT}`;
+export const TOUCH_TARGETS_CORE_BASE_URL = `http://127.0.0.1:${TOUCH_TARGETS_CORE_PORT}`;
+export const A11Y_CORE_BASE_URL = `http://127.0.0.1:${A11Y_CORE_PORT}`;

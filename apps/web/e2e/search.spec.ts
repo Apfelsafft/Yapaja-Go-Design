@@ -231,7 +231,9 @@ test('photon-source results do NOT show the lite hint', async ({ page }) => {
   await expect(page.getByTestId('search-lite-hint')).not.toBeVisible();
 });
 
-test('speed-lock: search field disables above 10 km/h and re-enables once slow again', async ({ page }) => {
+test('speed-lock (E07-T4): search field collapses to favorites-only quick-select above 10 km/h and expands again once slow', async ({
+  page,
+}) => {
   const pageErrors = collectPageErrors(page);
   await mockSearchEndpoint(page);
 
@@ -240,17 +242,21 @@ test('speed-lock: search field disables above 10 km/h and re-enables once slow a
 
   const input = page.getByTestId('search-input');
   await expect(input).toBeEnabled();
+  await expect(page.getByTestId('search-favorites-quickselect')).toHaveCount(0);
 
-  // 18 km/h (5 m/s) -- above the fixed 10 km/h threshold.
+  // 18 km/h (5 m/s) -- above the default 10 km/h threshold: the full search
+  // field is replaced ENTIRELY by the favorites-only quick-select (docs/06
+  // §4 "nur Favoriten-Schnellwahl"), not merely disabled in place.
   await postPosition(page, { speed: 5 });
-  await expect(input).toBeDisabled({ timeout: 5_000 });
+  await expect(page.getByTestId('search-favorites-quickselect')).toBeVisible({ timeout: 5_000 });
+  await expect(input).toHaveCount(0);
   await expect(page.getByTestId('search-speed-lock-hint')).toBeVisible();
   await expect(page.getByTestId('search-speed-lock-hint')).toContainText('10 km/h');
 
-  // Slow back down -> re-enabled.
+  // Slow back down -> the full search field reappears, quick-select is gone.
   await postPosition(page, { speed: 0 });
-  await expect(input).toBeEnabled({ timeout: 5_000 });
-  await expect(page.getByTestId('search-speed-lock-hint')).not.toBeVisible();
+  await expect(page.getByTestId('search-input')).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId('search-favorites-quickselect')).toHaveCount(0);
 
   expect(pageErrors).toEqual([]);
 });
