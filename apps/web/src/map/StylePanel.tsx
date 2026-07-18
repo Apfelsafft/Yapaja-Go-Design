@@ -12,6 +12,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useStyleStore } from '../state/styleStore';
 import { fetchStyleSummaries, type StyleLabelScale, type StyleLang, type StylePoiDensity, type StyleSummary } from './styleClient';
+import ThemeToggle from '../theme/ThemeToggle.js';
 
 const LANG_OPTIONS: Array<{ value: StyleLang; label: string }> = [
   { value: 'name', label: 'Original' },
@@ -68,6 +69,8 @@ export default function StylePanel(): React.ReactElement {
           className="absolute bottom-14 left-0 mb-2 w-64 rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"
           data-testid="style-panel"
         >
+          <ThemeToggle />
+
           <section>
             <h2 className="font-semibold mb-2">Kartenstil</h2>
             <div className="flex flex-col gap-1">

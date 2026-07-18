@@ -2,8 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  color-scheme: light dark;
+/*
+ * Design tokens (E07-T3, docs/06 §3): CSS custom properties for the two
+ * themes. Scoped to `:root` (light, the default) and `:root.dark` (dark) --
+ * the `dark` class is set/removed on `<html>` by the theme controller
+ * (`src/theme/applyThemeResolution.ts`), atomically with the map style, so
+ * these tokens and the map's light/dark style always agree.
+ *
+ * `color-scheme` follows the SAME class (not `light dark`, which would let
+ * the browser pick based on its own OS-driven guess) so native form
+ * controls / scrollbars match the resolved theme too, not just Tailwind's
+ * `dark:` utility classes.
+ */
+:root {
+  color-scheme: light;
+
+  --bg-surface: #ffffff;
+  --bg-map-ui: rgba(255, 255, 255, 0.92);
+  --text-primary: #1a1c1e;
+  --accent: #1a73e8;
+  --route-casing: #0b57d0;
+  --success: #188038;
+  --warn: #f29900;
+  --danger: #d93025;
+  --radius-panel: 12px;
+  --radius-fab: 999px;
+}
+
+:root.dark {
+  color-scheme: dark;
+
+  --bg-surface: #111417;
+  --bg-map-ui: rgba(20, 24, 28, 0.92);
+  --text-primary: #e7eaed;
+  --accent: #8ab4f8;
+  --route-casing: #4c8df6;
+  /* AA-konform dark-mode tints of the light success/warn/danger hues
+     (docs/06 §3: "angepasst, AA-konform") -- Material Design's own dark-
+     theme equivalents for green/yellow/red, chosen for the same reason the
+     light tokens already use Google's blue (`--accent`/`--route-casing`):
+     consistent, well-tested WCAG AA contrast against `--bg-surface` dark. */
+  --success: #81c995;
+  --warn: #fdd663;
+  --danger: #f28b82;
 }
 
 /* Edit-mode visuals (E07-T2): a subtle "wobble" on placed widgets (a
