@@ -5,3 +5,32 @@
 html {
   color-scheme: light dark;
 }
+
+/* Edit-mode visuals (E07-T2): a subtle "wobble" on placed widgets (a
+   long-established mobile-OS convention for "this can be moved/deleted
+   right now") and a visible grid backdrop behind each slot so the user can
+   see the layout structure they're editing. Both are purely decorative --
+   no test relies on the animation itself, only on the `data-edit-active`/
+   `data-drop-invalid` attributes `Shell.tsx` sets alongside them. */
+@keyframes edit-wobble {
+  0% {
+    transform: rotate(-1deg);
+  }
+  50% {
+    transform: rotate(1deg);
+  }
+  100% {
+    transform: rotate(-1deg);
+  }
+}
+
+.edit-wobble {
+  animation: edit-wobble 0.28s ease-in-out infinite;
+}
+
+.edit-slot-grid {
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.35) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
