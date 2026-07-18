@@ -45,6 +45,17 @@ export default defineConfig({
   use: {
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    // Block the PWA Service Worker (E07-T5) by DEFAULT for every spec. The SW
+    // is registered globally from `main.tsx`/`shell/main.tsx` with
+    // `clientsClaim`, so without this it takes control of every spec's page
+    // and routes all fetches (incl. live `/api/*`) through its worker thread.
+    // Harmless in production, but the extra per-fetch hop + install/activate
+    // work under CI's 2-worker contention tips the tight-budget specs
+    // (search/favorites/gps-loss assert with 2 s timeouts) over the edge. The
+    // specs that actually EXERCISE the SW opt back in with
+    // `test.use({ serviceWorkers: 'allow' })` (`pwa.spec.ts`, and the single
+    // W-19 recovery-with-SW test in `nav-control.spec.ts`).
+    serviceWorkers: 'block',
   },
   projects: [
     {

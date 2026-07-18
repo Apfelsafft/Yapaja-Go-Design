@@ -163,6 +163,13 @@ async function navStatus(page: Page): Promise<string | null> {
 
 test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
   test.describe.configure({ mode: 'serial' }); // one shared Core, one navigation session at a time
+  // Opt back IN to the PWA Service Worker that `playwright.config.ts` blocks
+  // by default (E07-T5): the W-19 test below is the mandatory "reload-recovery
+  // still works with the SW active" proof -- the resume prompt must appear and
+  // resume even though the reloaded app shell is now served from the SW's
+  // precache. (These tests already ran green with the SW; they aren't among
+  // the tight-budget specs the default block exists to protect.)
+  test.use({ serviceWorkers: 'allow' });
 
   test.afterEach(async ({ page }) => {
     await page

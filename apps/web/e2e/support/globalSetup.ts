@@ -48,6 +48,7 @@ import {
   DRIVE_LOCK_CORE_PORT,
   TOUCH_TARGETS_CORE_PORT,
   A11Y_CORE_PORT,
+  PWA_CORE_PORT,
   CORE_BASE_URL,
   EMPTY_CORE_BASE_URL,
   SIMULATOR_CORE_BASE_URL,
@@ -61,6 +62,7 @@ import {
   DRIVE_LOCK_CORE_BASE_URL,
   TOUCH_TARGETS_CORE_BASE_URL,
   A11Y_CORE_BASE_URL,
+  PWA_CORE_BASE_URL,
 } from './constants.js';
 // Reuse E01-T1's fixture generator directly (read-only import, apps/core is
 // not modified) instead of hand-rolling another PMTiles binary writer.
@@ -192,6 +194,9 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   const driveLockCore = startCore(DRIVE_LOCK_CORE_PORT, FIXTURE_TILES_DIR);
   const touchTargetsCore = startCore(TOUCH_TARGETS_CORE_PORT, FIXTURE_TILES_DIR);
   const a11yCore = startCore(A11Y_CORE_PORT, FIXTURE_TILES_DIR);
+  // Dedicated core for pwa.spec.ts (E07-T5) -- see the PWA_CORE_PORT comment
+  // in constants.ts.
+  const pwaCore = startCore(PWA_CORE_PORT, FIXTURE_TILES_DIR);
 
   try {
     await Promise.all([
@@ -208,6 +213,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       waitForHealth(DRIVE_LOCK_CORE_BASE_URL, 20_000),
       waitForHealth(TOUCH_TARGETS_CORE_BASE_URL, 20_000),
       waitForHealth(A11Y_CORE_BASE_URL, 20_000),
+      waitForHealth(PWA_CORE_BASE_URL, 20_000),
     ]);
   } catch (err) {
     fixtureCore.kill();
@@ -223,6 +229,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     driveLockCore.kill();
     touchTargetsCore.kill();
     a11yCore.kill();
+    pwaCore.kill();
     throw err;
   }
 
@@ -240,5 +247,6 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     driveLockCore.kill();
     touchTargetsCore.kill();
     a11yCore.kill();
+    pwaCore.kill();
   };
 }

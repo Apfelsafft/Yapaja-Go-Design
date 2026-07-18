@@ -114,6 +114,15 @@ export const TOUCH_TARGETS_CORE_PORT = 4323;
 // modes (explore + drive) reliably reproducible, including a real active
 // navigation session for the drive-mode scans -- same isolation rationale.
 export const A11Y_CORE_PORT = 4324;
+// Dedicated core for pwa.spec.ts (E07-T5): this spec toggles
+// `page.context().setOffline(true)` (Flow 1: cold-start offline) and
+// inspects `CacheStorage` after normal use -- context-scoped, so sharing a
+// core with another parallel spec's origin would be network-safe, but a
+// dedicated core keeps this spec's Service-Worker install/precache timing
+// (and the deliberate full-network-cut window) from being noisy alongside
+// other specs hammering the same origin in parallel, same rationale as every
+// other dedicated-port comment above.
+export const PWA_CORE_PORT = 4325;
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
@@ -130,3 +139,4 @@ export const SHELL_EDIT_CORE_BASE_URL = `http://127.0.0.1:${SHELL_EDIT_CORE_PORT
 export const DRIVE_LOCK_CORE_BASE_URL = `http://127.0.0.1:${DRIVE_LOCK_CORE_PORT}`;
 export const TOUCH_TARGETS_CORE_BASE_URL = `http://127.0.0.1:${TOUCH_TARGETS_CORE_PORT}`;
 export const A11Y_CORE_BASE_URL = `http://127.0.0.1:${A11Y_CORE_PORT}`;
+export const PWA_CORE_BASE_URL = `http://127.0.0.1:${PWA_CORE_PORT}`;

@@ -25,6 +25,8 @@ import ReactDOM from 'react-dom/client';
 import Shell from './Shell.js';
 import type { ShellMode } from '@yapaja/ui';
 import DriveLockController from '../drive/DriveLockController.js';
+import { initServiceWorker } from '../pwa/registerServiceWorker.js';
+import { requestPersistentStorage } from '../pwa/persistentStorage.js';
 import '../index.css';
 
 function readModeFromQuery(): ShellMode {
@@ -36,6 +38,14 @@ const root = document.getElementById('root');
 if (!root) {
   throw new Error('Root element not found');
 }
+
+// E07-T5: `shell.html` is a valid standalone kiosk entry too (e.g. a
+// second-screen widget display) -- register the SW / request persistent
+// storage here as well, same as `main.tsx`. Idempotent: both entries
+// register the SAME `sw.js` at the SAME scope, so whichever loads first
+// wins and the other just observes the existing registration.
+initServiceWorker();
+void requestPersistentStorage();
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
