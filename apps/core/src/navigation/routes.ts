@@ -11,14 +11,7 @@
  */
 
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
-import type {
-  ApiError,
-  LatLng,
-  Route,
-  RouteAvoidOverrides,
-  RouteRequest,
-  SearchResult,
-} from '@yapaja/shared';
+import type { ApiError, LatLng, RouteAvoidOverrides } from '@yapaja/shared';
 import { validateLatLng, validateRoute } from '@yapaja/shared';
 import { isNavigationError } from './errors.js';
 import { isRoutingError } from '../routing/errors.js';
@@ -35,14 +28,13 @@ import {
 import type { EventBus } from '../bus/index.js';
 import type { NavRecoveryStore } from './recoveryStore.js';
 import type { NavigationServiceLogger } from './service.js';
+import {
+  resolveDestinationAndRoute,
+  isDestinationError,
+  type DestinationSearchProvider,
+} from './destinationResolver.js';
 
-/** Just the geocode lookup the destination endpoint needs (E04-T5); the
- *  shared `SearchService` satisfies it (`buildServer` wires the SAME
- *  instance the search plugin uses, mirroring how `rerouteProvider` below
- *  shares the routing plugin's `RoutingService`). */
-export interface DestinationSearchProvider {
-  search(query: { q: string; limit: number; lat?: number; lon?: number }): Promise<SearchResult[]>;
-}
+export type { DestinationSearchProvider } from './destinationResolver.js';
 
 export interface NavigationRoutesOptions {
   bus: EventBus;
@@ -287,102 +279,37 @@ export const navigationPlugin: FastifyPluginAsync<NavigationRoutesOptions> = asy
           .code(400)
           .send(errorResponse('VALIDATION_ERROR', '"profile_id" must be a string'));
       }
-      const profileIdOverride = typeof body.profile_id === 'string' ? body.profile_id : undefined;
-      const autostart = body.autostart === true;
 
-      // 1. Resolve the destination: an explicit `latlng` wins; otherwise
-      // geocode `query` via the shared SearchService and take the top hit
-      // (docs/03: "geocodet via SearchService-Interface").
-      let destLatLng: LatLng;
-      let destName: string | null = null;
-      if (latlngRaw !== undefined) {
-        destLatLng = latlngRaw as LatLng;
-      } else {
-        if (!opts.searchProvider) {
-          return reply
-            .code(501)
-            .send(
-              errorResponse(
-                'SEARCH_NOT_CONFIGURED',
-                'Geocoding by "query" is not available on this server',
-              ),
-            );
-        }
-        let results: SearchResult[];
-        try {
-          results = await opts.searchProvider.search({ q: query as string, limit: 1 });
-        } catch (err) {
-          logger.error('destination geocode failed', {
-            reason: err instanceof Error ? err.message : String(err),
-          });
-          return reply
-            .code(502)
-            .send(errorResponse('GEOCODE_FAILED', 'Geocoding service failed unexpectedly'));
-        }
-        const top = results[0];
-        if (!top) {
-          return reply
-            .code(404)
-            .send(errorResponse('NO_GEOCODE_RESULT', `No location found for "${query}"`));
-        }
-        destLatLng = top.latlng;
-        destName = top.name;
-      }
-
-      // 2. Resolve the profile: explicit `profile_id` wins, else the active one.
-      const profileId = profileIdOverride ?? opts.profileProvider?.getActive()?.id ?? null;
-      if (!profileId) {
-        return reply
-          .code(409)
-          .send(errorResponse('NO_ACTIVE_PROFILE', 'No active vehicle profile and none given'));
-      }
-
-      // 3. Compute a route to it (E04-T5 reuses the same seam E04-T4's
-      // auto-reroute calls -- see the `rerouteProvider` doc comment above).
-      if (!opts.rerouteProvider) {
-        return reply
-          .code(501)
-          .send(errorResponse('ROUTING_NOT_CONFIGURED', 'Routing is not available on this server'));
-      }
-      const routeRequest: RouteRequest = {
-        origin: 'current',
-        destination: destLatLng,
-        waypoints: [],
-        profile_id: profileId,
-        alternatives: 0,
-      };
-      let routes: Route[];
+      // Delegates to the shared resolve-geocode-route-optionally-start
+      // pipeline (E08-T1 factored this out so the MQTT `cmd/destination` /
+      // `cmd/favorite` commands reuse the exact same service calls -- see
+      // `destinationResolver.ts`'s doc comment).
       try {
-        routes = await opts.rerouteProvider.createRoutes(routeRequest);
+        const { route, navState } = await resolveDestinationAndRoute(
+          {
+            navigationService: service,
+            rerouteProvider: opts.rerouteProvider,
+            profileProvider: opts.profileProvider,
+            searchProvider: opts.searchProvider,
+            logger,
+          },
+          {
+            latlng: latlngRaw !== undefined ? (latlngRaw as LatLng) : undefined,
+            query,
+            profileId: typeof body.profile_id === 'string' ? body.profile_id : undefined,
+            autostart: body.autostart === true,
+          },
+        );
+        return reply.code(200).send({ data: { route, nav_state: navState } });
       } catch (err) {
-        if (isRoutingError(err)) {
+        if (isDestinationError(err) || isRoutingError(err) || isNavigationError(err)) {
           return reply.code(err.httpStatus).send(errorResponse(err.code, err.message));
         }
-        logger.error('destination routing failed', {
+        logger.error('Unexpected destination error', {
           reason: err instanceof Error ? err.message : String(err),
         });
-        return reply.code(500).send(errorResponse('INTERNAL_ERROR', 'Unexpected routing error'));
+        return reply.code(500).send(errorResponse('INTERNAL_ERROR', 'Unexpected error'));
       }
-      const route = routes[0];
-      if (!route) {
-        return reply.code(404).send(errorResponse('NO_ROUTE', 'No route found to destination'));
-      }
-
-      // 4. Optionally start navigating right away -- zero further UI needed.
-      let navState = service.getState();
-      if (autostart) {
-        try {
-          navState = service.start({
-            route,
-            destination: { latlng: destLatLng, name: destName },
-            reroute: { profile_id: profileId },
-          });
-        } catch (err) {
-          return sendNavError(reply, err, logger);
-        }
-      }
-
-      return reply.code(200).send({ data: { route, nav_state: navState } });
     },
   );
 };
