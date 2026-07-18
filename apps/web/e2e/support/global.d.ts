@@ -13,6 +13,7 @@ import type { useProfileStore } from '../../src/profiles/store';
 import type { useNavStore } from '../../src/drive/navStore';
 import type { useShellWsStore } from '../../src/shell/wsStore';
 import type { useLayoutStore } from '../../src/shell/layoutStore';
+import type { usePwaStore } from '../../src/pwa/pwaStore';
 
 declare global {
   interface Window {
@@ -24,6 +25,7 @@ declare global {
     __yapajaSpeechAvailable?: () => boolean;
     __yapajaShellWsStore?: typeof useShellWsStore;
     __yapajaShellLayoutStore?: typeof useLayoutStore;
+    __yapajaPwaStore?: typeof usePwaStore;
   }
 }
 
