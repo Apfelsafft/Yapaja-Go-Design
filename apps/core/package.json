@@ -19,6 +19,7 @@
     "better-sqlite3": "^12.11.1",
     "fastify": "^4.26.1",
     "fastify-plugin": "^4.5.1",
+    "mqtt": "^5.15.2",
     "pino": "^8.17.2",
     "pmtiles": "^4.4.1"
   },
@@ -27,6 +28,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.12.12",
     "@types/ws": "^8.18.1",
+    "aedes": "^1.1.1",
     "tsup": "^8.5.0",
     "tsx": "^4.7.0",
     "typescript": "^5.4.5",

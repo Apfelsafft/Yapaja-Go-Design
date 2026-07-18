@@ -22,7 +22,11 @@ import { RouteAwareDeadReckoningProvider, MAX_DEAD_RECKONING_WINDOW_MS } from '.
 import { FileNavRecoveryStore } from './navigation/recoveryStore.js';
 import { searchPlugin, buildSearchService } from './search/routes.js';
 import { favoritesPlugin } from './favorites/routes.js';
+import { FavoriteService } from './favorites/service.js';
 import { settingsPlugin } from './settings/routes.js';
+import { SettingsService } from './settings/service.js';
+import { resolveMqttConfig } from './mqtt/config.js';
+import { MqttBridge } from './mqtt/bridge.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -263,8 +267,52 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // General-purpose settings plugin (E07-T1): additive, does not touch other
   // plugins. The widget-shell's `layouts` key is its first consumer (see
   // `apps/web/src/shell/persistence.ts`); future settings (units, theme,
-  // online_fallback, ...) reuse the same key/value store.
-  await fastify.register(settingsPlugin, { prefix: '/api/v1' });
+  // online_fallback, ...) reuse the same key/value store. Built HERE (rather
+  // than inside `settingsPlugin`, which otherwise builds its own) so the MQTT
+  // bridge below can read the SAME `mqtt` settings key the Settings UI writes.
+  const settingsService = new SettingsService();
+  await fastify.register(settingsPlugin, { prefix: '/api/v1', service: settingsService });
+
+  // MQTT bridge (E08-T1, docs/03 §4): OPTIONAL -- only constructed when a
+  // broker is configured (Settings key `mqtt` and/or env `MQTT_BROKER_URL`,
+  // see `mqtt/config.ts`). Shares the SAME bus/navigationService/
+  // profileService/routingService/searchService instances wired above (no
+  // second bus, no duplicated business logic -- see `mqtt/bridge.ts` and
+  // `navigation/destinationResolver.ts`). `FavoriteService` is the one
+  // exception: it is entirely stateless (every call re-reads the shared DB
+  // singleton, see `favorites/service.ts`), so a second instance here is
+  // behaviourally identical to the one `favoritesPlugin` builds internally --
+  // no shared-instance requirement, unlike `profileService`/`navigationService`
+  // (which carry live state/hooks) or `eventBus` (a single in-memory router).
+  const mqttConfig = resolveMqttConfig({ settings: settingsService, env: process.env });
+  const mqttLogger = {
+    info: (msg: string, meta?: Record<string, unknown>) => fastify.log.info(meta ?? {}, msg),
+    warn: (msg: string, meta?: Record<string, unknown>) => fastify.log.warn(meta ?? {}, msg),
+    error: (msg: string, meta?: Record<string, unknown>) => fastify.log.error(meta ?? {}, msg),
+  };
+  const mqttBridge = mqttConfig
+    ? new MqttBridge({
+        bus: eventBus,
+        brokerUrl: mqttConfig.brokerUrl,
+        username: mqttConfig.username,
+        password: mqttConfig.password,
+        prefix: mqttConfig.prefix,
+        navigationService,
+        profileService,
+        favoriteService: new FavoriteService(),
+        routeProvider: routingService,
+        rerouteProvider: routingService,
+        profileProvider: profileService,
+        searchProvider: searchService,
+        logger: mqttLogger,
+      })
+    : null;
+  if (mqttConfig) {
+    fastify.log.info({ prefix: mqttConfig.prefix }, 'MQTT bridge configured, connecting…');
+  }
+  fastify.addHook('onClose', async () => {
+    mqttBridge?.dispose();
+  });
 
   fastify.get<{ Reply: HealthResponse }>('/api/v1/health', async (_request, _reply) => {
     const dbHealth = await profileService.checkHealth();
@@ -273,6 +321,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
       version,
       services: {
         db: dbHealth ? 'ok' : 'down',
+        mqtt: mqttBridge ? mqttBridge.getHealthStatus() : 'disabled',
       },
     };
   });
