@@ -20,11 +20,15 @@
  * The THIRD mandatory proof -- reload-recovery (W-19 "Navigation
  * fortsetzen?") still working with the SW active -- is deliberately NOT
  * duplicated here: `nav-control.spec.ts`'s existing W-19 test already covers
- * it end-to-end, and the SW is now a GLOBAL app behavior (registered from
- * `main.tsx` for every spec, not something this file turns on specially) --
- * that spec passing IS the proof. See this task's verification command list
- * (`pwa.spec.ts offline-network.spec.ts subpath.spec.ts nav-control.spec.ts`)
- * for the same reasoning.
+ * it end-to-end. The SW is registered globally from `main.tsx`, but
+ * `playwright.config.ts` BLOCKS it by default (it added per-fetch overhead
+ * that flaked the tight-budget search/favorites/gps-loss specs under CI
+ * contention); the specs that need it opt back in with
+ * `test.use({ serviceWorkers: 'allow' })` -- this file, and the
+ * `nav-control.spec.ts` describe that owns the W-19 recovery test -- so that
+ * recovery-with-SW proof still runs with the SW genuinely active. See this
+ * task's verification command list (`pwa.spec.ts offline-network.spec.ts
+ * subpath.spec.ts nav-control.spec.ts`) for the same reasoning.
  *
  * Own dedicated core (`PWA_CORE_PORT`) per the harness's one-core-per-spec
  * convention -- see constants.ts's comment for why.
@@ -32,6 +36,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import { PWA_CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors } from './support/network.js';
+
+// This spec is the whole point of having a Service Worker, so opt back IN to
+// the SW that `playwright.config.ts` blocks by default (see that file's
+// comment for why the default is `block`). Scoped to this file only.
+test.use({ serviceWorkers: 'allow' });
 
 /** Resolves once the page's own Service Worker registration is `active` AND
  *  is the page's controller (i.e. `clientsClaim` has actually run) -- proof
