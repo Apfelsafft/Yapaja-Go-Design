@@ -65,6 +65,9 @@ import { useLongPress } from './edit/useLongPress.js';
 import { EditToolbar, ResetConfirmDialog } from './edit/EditToolbar.js';
 import { WidgetLibraryDrawer } from './edit/WidgetLibraryDrawer.js';
 import { TrashZone } from './edit/TrashZone.js';
+import { isControlLocked } from '../drive/driveLock.js';
+import { useDriveLockStore } from '../drive/driveLockStore.js';
+import DriveLockOverlay from '../drive/DriveLockOverlay.js';
 
 interface WidgetHostProps {
   instance: WidgetInstance;
@@ -287,6 +290,25 @@ export default function Shell({ mode }: ShellProps): React.ReactElement | null {
   });
   const atStandstill = isStandstill(currentSpeedMs);
 
+  // Speed-Lock for the Editor surface (E07-T4): computed directly from THIS
+  // shell's own `pos/update` topic subscription (`currentSpeedMs` above, the
+  // SAME source `atStandstill` already uses) rather than going through
+  // `DriveLockGate`/`driveLockStore`'s usual `usePositionStore` mirror --
+  // `shell.html` deliberately never mounts `PositionInitializer` (only
+  // `App.tsx`, the main app, does), specifically so the widget shell keeps
+  // its "exactly ONE `/ws/v1` connection" invariant (shell.spec.ts's
+  // Plausibilität check) instead of opening a second one just for
+  // `usePositionStore`. Reusing `currentSpeedMs` here sidesteps that
+  // entirely -- `isControlLocked` itself is the same pure predicate
+  // `DriveLockGate` uses everywhere else, just fed a different speed source.
+  const driveLockThresholdKmh = useDriveLockStore((state) => state.thresholdKmh);
+  const passengerOverrideActive = useDriveLockStore((state) => state.passengerOverride.active);
+  const editorLocked = isControlLocked('editor', {
+    speedMps: currentSpeedMs,
+    thresholdKmh: driveLockThresholdKmh,
+    passengerOverrideActive,
+  });
+
   const enterEditMode = useCallback(() => {
     if (editActive || !modeLayout) return;
     // Re-check at the moment of entry (the button's `disabled` state can lag
@@ -416,6 +438,19 @@ export default function Shell({ mode }: ShellProps): React.ReactElement | null {
       {...longPressHandlers}
     >
       {editActive ? (
+        // Speed-Lock (E07-T4): the layout Editor is one of docs/06 §4's
+        // "complex dialogs" -- if speed climbs past the configured
+        // threshold WHILE mid-edit, the DnD surface is replaced by the lock
+        // overlay (the standstill gate above already keeps ENTRY below 5
+        // km/h, which is stricter than the default 10 km/h threshold; this
+        // additionally covers speed picking up again after entry).
+        // `draftSlots` lives in this component's own state, untouched while
+        // the overlay is shown, so editing resumes exactly where it left
+        // off once unlocked. (`editorLocked` computed above -- see its own
+        // comment for why this doesn't use `DriveLockGate` directly.)
+        editorLocked ? (
+          <DriveLockOverlay />
+        ) : (
         <DndContext
           sensors={sensors}
           // `pointerWithin` (pointer-position based) rather than the default
@@ -444,6 +479,7 @@ export default function Shell({ mode }: ShellProps): React.ReactElement | null {
             <ResetConfirmDialog onConfirm={handleResetConfirmed} onCancel={() => setShowResetConfirm(false)} />
           )}
         </DndContext>
+        )
       ) : (
         <>
           {slotElements}

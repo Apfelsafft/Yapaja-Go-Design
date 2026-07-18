@@ -1,25 +1,25 @@
 /**
  * Speed-lock predicate for the search field (E05-T2 "Speed-Lock-Vorgriff"):
- * the search field is disabled above a fixed 10 km/h threshold while
- * driving. This is a hard-coded stand-in -- the real, user-configurable
- * threshold ships with E07's settings; this task only needs the fixed
- * 10 km/h behavior called out explicitly in the task text.
+ * originally a fixed-10-km/h stand-in, generalized in E07-T4 into the
+ * shared, CONFIGURABLE predicate `drive/driveLock.ts#isSpeedLocked`. This
+ * module now just re-exports the fixed-default-threshold shape this file's
+ * own pre-existing unit tests (`speedLock.test.ts`) already assert against,
+ * so that suite keeps passing unchanged.
  *
- * `usePositionStore`'s `position.speed` is in m/s over ground (see
- * `@yapaja/shared`'s `Position` type); this converts to km/h before
- * comparing, matching how `packages/shared/src/plausibility.ts` does the
- * same m/s -> km/h conversion for its own speed checks.
+ * `SearchBar.tsx` itself no longer uses this fixed-10 wrapper -- it calls
+ * `isSpeedLocked` directly with the user-CONFIGURED threshold from
+ * `drive/driveLockStore.ts` (E07-T4), so a non-default threshold actually
+ * affects search too. This file is kept for backward compatibility (the
+ * fixed-10 behavior it was written against) and as a thin, focused export.
  */
 
-export const SEARCH_SPEED_LOCK_KMH = 10;
+import { DEFAULT_DRIVE_LOCK_KMH, isSpeedLocked } from '../drive/driveLock.js';
+
+export const SEARCH_SPEED_LOCK_KMH = DEFAULT_DRIVE_LOCK_KMH;
 
 /** `speedMps` is `Position.speed` (m/s), or `null`/`undefined` when unknown
  *  (no fix yet, or the source doesn't report speed) -- treated as "not
  *  moving" (unlocked), the safe default absent better information. */
 export function isSearchSpeedLocked(speedMps: number | null | undefined): boolean {
-  if (speedMps === null || speedMps === undefined) {
-    return false;
-  }
-  const speedKmh = speedMps * 3.6;
-  return speedKmh > SEARCH_SPEED_LOCK_KMH;
+  return isSpeedLocked(speedMps, SEARCH_SPEED_LOCK_KMH);
 }

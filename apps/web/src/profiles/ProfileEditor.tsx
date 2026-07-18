@@ -388,6 +388,7 @@ function SliderInput({
           step={step}
           value={value}
           onChange={(e) => onChange(parseFloat(e.target.value))}
+          aria-label={label}
           className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
           data-testid={`${testId}-slider`}
         />
@@ -398,6 +399,7 @@ function SliderInput({
           step={step}
           value={value.toFixed(2)}
           onChange={(e) => onChange(parseFloat(e.target.value))}
+          aria-label={label}
           className="w-16 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           data-testid={`${testId}-number`}
         />

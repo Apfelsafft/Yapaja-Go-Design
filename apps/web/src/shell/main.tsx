@@ -24,6 +24,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import Shell from './Shell.js';
 import type { ShellMode } from '@yapaja/ui';
+import DriveLockController from '../drive/DriveLockController.js';
 import '../index.css';
 
 function readModeFromQuery(): ShellMode {
@@ -38,6 +39,7 @@ if (!root) {
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
+    <DriveLockController />
     <Shell mode={readModeFromQuery()} />
   </React.StrictMode>,
 );

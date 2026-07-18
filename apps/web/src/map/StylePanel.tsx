@@ -13,6 +13,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useStyleStore } from '../state/styleStore';
 import { fetchStyleSummaries, type StyleLabelScale, type StyleLang, type StylePoiDensity, type StyleSummary } from './styleClient';
 import ThemeToggle from '../theme/ThemeToggle.js';
+import DriveLockGate from '../drive/DriveLockGate.js';
+import HandednessToggle from '../shell/HandednessToggle.js';
 
 const LANG_OPTIONS: Array<{ value: StyleLang; label: string }> = [
   { value: 'name', label: 'Original' },
@@ -69,7 +71,15 @@ export default function StylePanel(): React.ReactElement {
           className="absolute bottom-14 left-0 mb-2 w-64 rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"
           data-testid="style-panel"
         >
+          {/* Speed-Lock (E07-T4): Settings is one of docs/06 §4's "complex
+              dialogs" gated above the configured threshold -- the FAB above
+              still opens this panel while locked, so the "Ich bin
+              Beifahrer" override stays reachable, only the settings CONTENT
+              itself is replaced by the overlay. */}
+          <DriveLockGate controlId="settings">
           <ThemeToggle />
+
+          <HandednessToggle />
 
           <section>
             <h2 className="font-semibold mb-2">Kartenstil</h2>
@@ -154,6 +164,7 @@ export default function StylePanel(): React.ReactElement {
               ))}
             </div>
           </section>
+          </DriveLockGate>
         </div>
       )}
 

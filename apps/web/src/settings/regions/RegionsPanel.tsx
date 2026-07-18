@@ -18,6 +18,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useUiStore } from '../../ui/store.js';
+import DriveLockGate from '../../drive/DriveLockGate.js';
 import {
   deleteRegion,
   fetchCatalog,
@@ -178,6 +179,11 @@ export default function RegionsPanel(): React.ReactElement {
           className="absolute top-14 right-0 mb-2 w-80 max-h-[70vh] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"
           data-testid="regions-panel"
         >
+          {/* Speed-Lock (E07-T4): "Store" (region/map management) is one of
+              docs/06 §4's "complex dialogs" gated above the configured
+              threshold -- see StylePanel.tsx's identical gate for the
+              reachable-FAB-while-locked rationale. */}
+          <DriveLockGate controlId="store">
           <section>
             <h2 className="font-semibold mb-2">Installierte Regionen</h2>
             {installed.length === 0 && (
@@ -285,6 +291,7 @@ export default function RegionsPanel(): React.ReactElement {
               })}
             </ul>
           </section>
+          </DriveLockGate>
         </div>
       )}
 

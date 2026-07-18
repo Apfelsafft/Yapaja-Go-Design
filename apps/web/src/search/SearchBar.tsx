@@ -22,23 +22,108 @@
  * inside a plain user-triggered event handler (a result click/Enter), not a
  * mount effect, so the always-current `map` value from this render's hook
  * call is exactly right -- it's guarded with `if (!map) return` regardless.
+ *
+ * SPEED-LOCK COLLAPSE (E07-T4, docs/06 §4): above the CONFIGURED Speed-Lock
+ * threshold (`drive/driveLockStore.ts`, default 10 km/h -- generalized from
+ * this file's original fixed-10 `isSearchSpeedLocked`, see
+ * `speedLock.ts`'s doc comment), the full search field is replaced entirely
+ * by a favorites-only quick-select strip (`navigateToFavorite`, the SAME
+ * one-tap-starts-a-route helper `FavoritesDrawer.tsx` uses) -- not merely
+ * disabled with a hint, per the task's explicit "nur Favoriten-Schnellwahl"
+ * requirement. An active "Ich bin Beifahrer" passenger override
+ * (`useIsControlLocked`) lifts this collapse too.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { SearchResult } from '@yapaja/shared';
+import type { Favorite, SearchResult } from '@yapaja/shared';
 import { useMapStore } from '../state/mapStore.js';
-import { usePositionStore } from '../position/positionStore.js';
 import { useRoutingStore } from '../routing/store.js';
 import { formatDistance } from '../routing/format.js';
 import { useSearchStore, SEARCH_MIN_CHARS } from './store.js';
 import { haversineMeters } from './distance.js';
 import { iconForSearchResultType } from './icons.js';
 import { friendlySearchErrorMessage } from './errors.js';
-import { isSearchSpeedLocked, SEARCH_SPEED_LOCK_KMH } from './speedLock.js';
 import { useFavoritesStore } from '../favorites/store.js';
+import { navigateToFavorite } from '../favorites/navigate.js';
+import { iconForFavoriteCategory } from '../favorites/icons.js';
+import { usePositionStore } from '../position/positionStore.js';
+import { useDriveLockStore, useIsControlLocked } from '../drive/driveLockStore.js';
 
 const SEARCH_FLY_TO_ZOOM = 14;
 const PANEL_ID = 'search-panel';
+
+/** Favorites-only quick-select shown in place of the full search field while
+ *  Speed-Locked (docs/06 §4). A tiny, self-contained sibling to
+ *  `FavoritesDrawer.tsx`'s favorites tab -- deliberately not the SAME
+ *  component: this one has none of the rename/reorder/delete affordances
+ *  (those are exactly the "complex dialog" surface Speed-Lock exists to
+ *  gate), just one-tap-to-navigate chips. */
+function FavoritesQuickSelect({ thresholdKmh }: { thresholdKmh: number }): React.ReactElement {
+  const favorites = useFavoritesStore((state) => state.favorites);
+  const fetchFavorites = useFavoritesStore((state) => state.fetchFavorites);
+  const map = useMapStore((state) => state.map);
+
+  useEffect(() => {
+    void fetchFavorites();
+  }, [fetchFavorites]);
+
+  const handleSelect = useCallback(
+    async (favorite: Favorite) => {
+      await navigateToFavorite(favorite);
+      if (map) {
+        map.flyTo({
+          center: [favorite.latlng.lon, favorite.latlng.lat],
+          zoom: SEARCH_FLY_TO_ZOOM,
+          essential: true,
+        });
+      }
+    },
+    [map],
+  );
+
+  return (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-20 w-[min(92vw,26rem)] pointer-events-none">
+      <div className="pointer-events-auto">
+        <div
+          className="flex items-center gap-2 overflow-x-auto rounded-full bg-white/95 dark:bg-slate-800/95 shadow-md px-3 py-2"
+          data-testid="search-favorites-quickselect"
+        >
+          <span className="flex-shrink-0" aria-hidden="true">
+            ⭐
+          </span>
+          {favorites.length === 0 ? (
+            <span
+              className="text-xs text-slate-500 dark:text-slate-400 truncate"
+              data-testid="search-favorites-quickselect-empty"
+            >
+              Keine Favoriten gespeichert.
+            </span>
+          ) : (
+            favorites.map((favorite) => (
+              <button
+                key={favorite.id}
+                type="button"
+                onClick={() => void handleSelect(favorite)}
+                aria-label={`Navigation zu ${favorite.name} starten`}
+                data-testid={`search-favorite-quickselect-${favorite.id}`}
+                className="flex-shrink-0 min-h-[48px] flex items-center gap-1.5 px-3 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-sm text-slate-800 dark:text-slate-100"
+              >
+                <span aria-hidden="true">{iconForFavoriteCategory(favorite.category)}</span>
+                <span className="truncate max-w-[8rem]">{favorite.name}</span>
+              </button>
+            ))
+          )}
+        </div>
+        <p
+          className="mt-1 px-1 text-xs text-amber-700 dark:text-amber-400"
+          data-testid="search-speed-lock-hint"
+        >
+          Suche während der Fahrt gesperrt (&gt; {thresholdKmh} km/h) — nur Favoriten verfügbar.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function SearchBar(): React.ReactElement {
   const query = useSearchStore((state) => state.query);
@@ -61,11 +146,15 @@ export default function SearchBar(): React.ReactElement {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const speedLocked = isSearchSpeedLocked(position?.speed);
+  // The CONFIGURED threshold (not a fixed 10) -- `isControlLocked` also
+  // folds in the "Ich bin Beifahrer" passenger override (E07-T4).
+  const speedLocked = useIsControlLocked('search-full');
+  const thresholdKmh = useDriveLockStore((state) => state.thresholdKmh);
 
   // The vehicle can start moving WHILE the dropdown is open -- close it
   // (rather than leave a now-untappable list on screen) as soon as the
-  // speed lock engages.
+  // speed lock engages, right before this component swaps to the collapsed
+  // quick-select render below.
   useEffect(() => {
     if (speedLocked) {
       resetSearch();
@@ -103,9 +192,10 @@ export default function SearchBar(): React.ReactElement {
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
-      if (speedLocked) {
-        return;
-      }
+      // No `speedLocked` guard needed here anymore -- this whole render
+      // path (below) is skipped entirely in favor of `FavoritesQuickSelect`
+      // while locked, so this handler is never even wired up to a DOM node
+      // during that time.
       switch (event.key) {
         case 'ArrowDown':
           if (results.length > 0) {
@@ -136,11 +226,11 @@ export default function SearchBar(): React.ReactElement {
           break;
       }
     },
-    [speedLocked, results, highlightedIndex, moveHighlight, handleSelect, resetSearch],
+    [results, highlightedIndex, moveHighlight, handleSelect, resetSearch],
   );
 
   const trimmedLength = query.trim().length;
-  const showDropdown = isFocused && !speedLocked && trimmedLength >= SEARCH_MIN_CHARS;
+  const showDropdown = isFocused && trimmedLength >= SEARCH_MIN_CHARS;
   const hasOptions = status === 'success' && results.length > 0;
 
   let liveMessage = '';
@@ -157,6 +247,14 @@ export default function SearchBar(): React.ReactElement {
     }
   }
 
+  // Speed-Lock collapse (E07-T4): swap the ENTIRE search field for the
+  // favorites-only quick-select, per docs/06 §4 -- all hooks above are still
+  // called unconditionally every render (rules-of-hooks), only the JSX
+  // returned differs.
+  if (speedLocked) {
+    return <FavoritesQuickSelect thresholdKmh={thresholdKmh} />;
+  }
+
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-20 w-[min(92vw,26rem)] pointer-events-none">
       <div className="pointer-events-auto relative">
@@ -169,7 +267,6 @@ export default function SearchBar(): React.ReactElement {
             onKeyDown={handleKeyDown}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            disabled={speedLocked}
             placeholder="Ziel suchen…"
             role="combobox"
             aria-expanded={showDropdown}
@@ -189,15 +286,6 @@ export default function SearchBar(): React.ReactElement {
             🔍
           </span>
         </div>
-
-        {speedLocked && (
-          <p
-            className="mt-1 px-1 text-xs text-amber-700 dark:text-amber-400"
-            data-testid="search-speed-lock-hint"
-          >
-            Suche während der Fahrt gesperrt (&gt; {SEARCH_SPEED_LOCK_KMH} km/h).
-          </p>
-        )}
 
         {/* Screen-reader-only live region: announces result-count/empty/error
             state changes as they happen, independent of the visual panel

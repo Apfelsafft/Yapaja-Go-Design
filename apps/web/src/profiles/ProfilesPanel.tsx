@@ -11,6 +11,7 @@ import { useProfileStore, type ProfileState } from './store.js';
 import ProfileChip from './ProfileChip.js';
 import ProfileEditor from './ProfileEditor.js';
 import { ProfileApiError } from './client.js';
+import DriveLockGate from '../drive/DriveLockGate.js';
 
 type EditorMode = 'create' | 'edit' | null;
 
@@ -233,12 +234,18 @@ export default function ProfilesPanel(): React.ReactElement {
               {editorMode === 'create' ? 'Neues Profil' : 'Profil bearbeiten'}
             </h2>
             <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-              <ProfileEditor
-                profile={editingProfile}
-                onSave={handleEditorSave}
-                onCancel={handleEditorCancel}
-                isSaving={isSaving}
-              />
+              {/* Speed-Lock (E07-T4): the Profile editor is one of docs/06
+                  §4's "complex dialogs" gated above the configured
+                  threshold. The list/activate view above stays reachable --
+                  only the editor FORM itself is gated. */}
+              <DriveLockGate controlId="profile-editor">
+                <ProfileEditor
+                  profile={editingProfile}
+                  onSave={handleEditorSave}
+                  onCancel={handleEditorCancel}
+                  isSaving={isSaving}
+                />
+              </DriveLockGate>
             </div>
           </div>
         </div>
