@@ -42,7 +42,12 @@ export type KnownBusTopic =
   // E06-T1/T3: profile activation + the profile-change-during-navigation
   // reroute coupling.
   | 'event/profile_changed'
-  | 'event/profile_change_pending';
+  | 'event/profile_change_pending'
+  // E08-T2: profile LIST membership/name changes (create/update/delete --
+  // distinct from `event/profile_changed`, which only fires on activate).
+  // `select.yapaja_profile`'s HA discovery config subscribes to this to
+  // re-publish its `options` with the live profile-name list.
+  | 'event/profile_list_changed';
 
 export interface GpsLostPayload {
   /** Source that was active immediately before the fix was lost, if any. */
@@ -158,6 +163,18 @@ export interface ProfileChangedPayload {
 }
 
 /**
+ * `event/profile_list_changed` (E08-T2): published whenever `ProfileService`
+ * create/update/delete changes the SET of profiles or a profile's `name` --
+ * unlike `event/profile_changed` above (which only fires on activation and
+ * never touches list membership). No payload data: the only mandated
+ * reaction (`MqttBridge` re-publishing `select.yapaja_profile`'s HA
+ * discovery `options`) always re-queries `ProfileService#getAll()` fresh
+ * rather than trusting a carried list, so there is nothing useful to embed
+ * here beyond "something changed, go re-read".
+ */
+export type ProfileListChangedPayload = Record<string, never>;
+
+/**
  * `event/profile_change_pending` (E06-T3): published INSTEAD OF an immediate
  * reroute when the active profile changes while `navigating`/`paused` AND at
  * least one UI (WS) client is connected -- the confirmation-banner trigger
@@ -217,6 +234,7 @@ export interface BusPayloadMap {
   'event/reroute_failed': RerouteFailedPayload;
   'event/profile_changed': ProfileChangedPayload;
   'event/profile_change_pending': ProfileChangePendingPayload;
+  'event/profile_list_changed': ProfileListChangedPayload;
 }
 
 /**

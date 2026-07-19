@@ -25,7 +25,7 @@ import { favoritesPlugin } from './favorites/routes.js';
 import { FavoriteService } from './favorites/service.js';
 import { settingsPlugin } from './settings/routes.js';
 import { SettingsService } from './settings/service.js';
-import { resolveMqttConfig } from './mqtt/config.js';
+import { resolveMqttConfig, resolveDiscoveryConfig } from './mqtt/config.js';
 import { MqttBridge } from './mqtt/bridge.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -88,6 +88,12 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   const profileService = new ProfileService({
     onProfileChanged: (profile) => {
       eventBus.publish('event/profile_changed', { id: profile.id, name: profile.name });
+    },
+    // E08-T2: create/update/delete -> re-publish `select.yapaja_profile`'s
+    // HA discovery `options` (see `mqtt/bridge.ts`'s `event/profile_list_changed`
+    // subscription).
+    onProfileListChanged: () => {
+      eventBus.publish('event/profile_list_changed', {});
     },
   });
 
@@ -285,6 +291,12 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // no shared-instance requirement, unlike `profileService`/`navigationService`
   // (which carry live state/hooks) or `eventBus` (a single in-memory router).
   const mqttConfig = resolveMqttConfig({ settings: settingsService, env: process.env });
+  // E08-T2: discovery is resolved independent of `mqttConfig` (its own
+  // Setting-key fields, `mqtt.discovery`/`mqtt.discovery_prefix`/
+  // `mqtt.configuration_url`, default enabled) but only ever matters when a
+  // broker is ALSO configured -- no broker, no bridge, no discovery, same as
+  // every other MQTT behaviour (acceptance criterion 4).
+  const discoveryConfig = resolveDiscoveryConfig({ settings: settingsService, env: process.env });
   const mqttLogger = {
     info: (msg: string, meta?: Record<string, unknown>) => fastify.log.info(meta ?? {}, msg),
     warn: (msg: string, meta?: Record<string, unknown>) => fastify.log.warn(meta ?? {}, msg),
@@ -305,6 +317,17 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
         profileProvider: profileService,
         searchProvider: searchService,
         logger: mqttLogger,
+        discovery: {
+          enabled: discoveryConfig.enabled,
+          discoveryPrefix: discoveryConfig.discoveryPrefix,
+          device: {
+            identifiers: ['yapaja_go'],
+            name: 'Yapaja Go',
+            // SAME version `/api/v1/health` reports (`readPackageVersion()` above).
+            sw_version: version,
+            configuration_url: discoveryConfig.configurationUrl,
+          },
+        },
       })
     : null;
   if (mqttConfig) {
