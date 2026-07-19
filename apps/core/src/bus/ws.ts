@@ -6,11 +6,12 @@
  * Server -> Client: `{topic, payload, ts}` for subscribed topics, `{type:'pong'}`.
  */
 
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import fastifyWebsocket from '@fastify/websocket';
 import type { WebSocket, RawData } from 'ws';
 import type { EventBus } from './index.js';
+import { AuthGuard, extractWsToken } from '../auth/authGuard.js';
 
 /**
  * Tracks how many `/ws/v1` clients are currently connected (E06-T3): the
@@ -46,7 +47,17 @@ export interface BusWebsocketPluginOptions {
   path?: string;
   /** E06-T3: connection-count tracker; omit to skip tracking (e.g. tests that don't need it). */
   registry?: WsClientRegistry;
+  /**
+   * E08-T3: token auth for the WS upgrade. When the guard reports auth is
+   * enforced, a `?token=`/`token`-cookie is required and validated in
+   * constant time; an unauthorized upgrade is closed with WS code 1008
+   * (policy violation). Omit to skip WS auth entirely (e.g. isolated tests).
+   */
+  authGuard?: AuthGuard;
 }
+
+/** WS close code for a policy violation (RFC 6455) -- used for auth rejection. */
+const WS_POLICY_VIOLATION = 1008;
 
 interface ClientMessage {
   type?: string;
@@ -72,9 +83,23 @@ const busWebsocketPluginImpl: FastifyPluginAsync<BusWebsocketPluginOptions> = as
   await fastify.register(fastifyWebsocket);
 
   const path = opts.path ?? '/ws/v1';
-  const { bus, registry } = opts;
+  const { bus, registry, authGuard } = opts;
 
-  fastify.get(path, { websocket: true }, (socket: WebSocket) => {
+  fastify.get(path, { websocket: true }, (socket: WebSocket, request: FastifyRequest) => {
+    // E08-T3: authenticate the upgrade. A browser can't send an
+    // `Authorization` header on a WS handshake, so the token arrives via the
+    // `?token=` query param or a `token` cookie. Same "enforced only when a
+    // token is configured (and not in ingress mode)" rule as the REST guard.
+    if (authGuard?.isEnforced()) {
+      const token = extractWsToken(request.query, request.headers.cookie);
+      if (!authGuard.verify(token)) {
+        // Reject the upgrade: close immediately, before any subscription is
+        // set up and before the registry is incremented.
+        socket.close(WS_POLICY_VIOLATION, 'unauthorized');
+        return;
+      }
+    }
+
     registry?.increment();
     // Unsubscribe functions for the client's current topic subscriptions.
     let unsubscribers: Array<() => void> = [];

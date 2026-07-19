@@ -27,6 +27,9 @@ import { settingsPlugin } from './settings/routes.js';
 import { SettingsService } from './settings/service.js';
 import { resolveMqttConfig, resolveDiscoveryConfig } from './mqtt/config.js';
 import { MqttBridge } from './mqtt/bridge.js';
+import { AuthGuard } from './auth/authGuard.js';
+import { authPlugin } from './auth/plugin.js';
+import { HaOutputChannel } from './ha/outputChannel.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -80,6 +83,27 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   const eventBus = new EventBus();
   const wsClientRegistry = new WsClientRegistry();
 
+  // E08-T3: settings store is created HERE (earlier than E07-T1 originally
+  // placed it) so the auth guard below can read the live `auth.token` and the
+  // HA output channel can read the live `ha` config. The SAME instance is
+  // shared with `settingsPlugin` (and the MQTT bridge) further down -- exactly
+  // the "build outside, inject via `service:`" pattern used for the routing/
+  // search/navigation services.
+  const settingsService = new SettingsService();
+
+  // E08-T3 token auth (docs/04 §2, SECURITY): a Bearer token guards `/api/*`
+  // (health + auth/status open). Auth is ENFORCED only when a token is
+  // configured (env `API_AUTH_TOKEN` wins, else Settings `auth.token`) and NOT
+  // in ingress mode -- a fresh, token-less install stays open so the bundled UI
+  // and `/ws/v1` work out of the box (see `auth/authGuard.ts` for the full
+  // rationale + trade-off). Registered BEFORE every API route plugin so its
+  // root `onRequest` hook applies to all of them.
+  const authGuard = new AuthGuard({ settings: settingsService });
+  await fastify.register(authPlugin, {
+    guard: authGuard,
+    settings: settingsService,
+  });
+
   // E06-T1/T3: `onProfileChanged` (fired by `ProfileService#activate`) is
   // published as `event/profile_changed` -- the ONLY way `NavigationService`
   // (wired further below, sharing this SAME instance via `profilesPlugin`'s
@@ -130,7 +154,13 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     gpsdSource.start();
   }
 
-  await fastify.register(busWebsocketPlugin, { bus: eventBus, registry: wsClientRegistry });
+  await fastify.register(busWebsocketPlugin, {
+    bus: eventBus,
+    registry: wsClientRegistry,
+    // E08-T3: the `/ws/v1` upgrade authenticates via `?token=`/cookie, same
+    // "enforced only when a token is configured (and not in ingress)" rule.
+    authGuard,
+  });
   await fastify.register(positionPlugin, { prefix: '/api/v1', service: positionService });
   await fastify.register(simulatorPlugin, {
     prefix: '/api/v1',
@@ -273,10 +303,10 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // General-purpose settings plugin (E07-T1): additive, does not touch other
   // plugins. The widget-shell's `layouts` key is its first consumer (see
   // `apps/web/src/shell/persistence.ts`); future settings (units, theme,
-  // online_fallback, ...) reuse the same key/value store. Built HERE (rather
-  // than inside `settingsPlugin`, which otherwise builds its own) so the MQTT
-  // bridge below can read the SAME `mqtt` settings key the Settings UI writes.
-  const settingsService = new SettingsService();
+  // online_fallback, ...) reuse the same key/value store. The SAME
+  // `settingsService` instance created at the top of `buildServer` (so the auth
+  // guard + HA output channel + MQTT bridge all read the SAME live settings) is
+  // injected here rather than letting the plugin build its own.
   await fastify.register(settingsPlugin, { prefix: '/api/v1', service: settingsService });
 
   // MQTT bridge (E08-T1, docs/03 §4): OPTIONAL -- only constructed when a
@@ -337,6 +367,26 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     mqttBridge?.dispose();
   });
 
+  // HA output channel (E08-T3, docs/04 §2): OPTIONAL Yapaja -> HA direction --
+  // an "HA-TTS" announcement sink (W-23: mutually exclusive with browser TTS,
+  // selected by Settings `ha.announce_sink`) plus arrival / GPS-lost HA
+  // notifications. Always constructed (it's just a bus subscriber); it does
+  // NOTHING until HA is configured in Settings (or via env `SUPERVISOR_TOKEN`
+  // as an add-on) -- see `ha/config.ts`. Every HA REST call has a 5 s timeout
+  // and swallows errors, so a down/misconfigured HA never affects navigation.
+  const haOutputChannel = new HaOutputChannel({
+    bus: eventBus,
+    settings: settingsService,
+    logger: {
+      info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+      warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+      error: (msg, meta) => fastify.log.error(meta ?? {}, msg),
+    },
+  });
+  fastify.addHook('onClose', async () => {
+    haOutputChannel.dispose();
+  });
+
   fastify.get<{ Reply: HealthResponse }>('/api/v1/health', async (_request, _reply) => {
     const dbHealth = await profileService.checkHealth();
     return {
@@ -370,9 +420,23 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   return fastify;
 }
 
+/**
+ * Resolves the bind host. An explicit `HOST` always wins. Otherwise, in HA
+ * ingress mode (`INGRESS_MODE=1`) HA proxies requests to the add-on over the
+ * container's internal interface and the port is NOT published externally, so
+ * we still bind `0.0.0.0` (the interface HA's ingress reaches) but auth is
+ * already handled by ingress (see `AuthGuard`); operators who publish the port
+ * directly instead set `HOST`/`API_AUTH_TOKEN` explicitly. Outside ingress the
+ * default is `0.0.0.0` (LAN device).
+ */
+function resolveBindHost(env: Record<string, string | undefined>): string {
+  if (typeof env.HOST === 'string' && env.HOST.length > 0) return env.HOST;
+  return '0.0.0.0';
+}
+
 async function main(): Promise<void> {
   const port = parseInt(process.env.PORT || '8080', 10);
-  const host = process.env.HOST || '0.0.0.0';
+  const host = resolveBindHost(process.env);
 
   // Create structured logger using pino
   const logger = pino({
