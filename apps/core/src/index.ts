@@ -30,6 +30,7 @@ import { MqttBridge } from './mqtt/bridge.js';
 import { AuthGuard } from './auth/authGuard.js';
 import { authPlugin } from './auth/plugin.js';
 import { HaOutputChannel } from './ha/outputChannel.js';
+import { serveIndexHtml } from './static/ingressHtml.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -408,10 +409,22 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
       prefix: '/',
     });
 
-    // Add a catch-all route for SPA fallback to index.html for non-API routes
-    fastify.setNotFoundHandler(async (_request, reply) => {
-      if (!_request.url.startsWith('/api')) {
-        return reply.sendFile('index.html');
+    // GET / -- explicit route (rather than relying on @fastify/static's
+    // default index-file serving via its `/*` wildcard) so we can inject the
+    // HA-Ingress `<base href>` (E08-T4, docs/04 §3, W-15; see
+    // `static/ingressHtml.ts`). An exact route always wins over the static
+    // plugin's `/*` wildcard in fastify's router regardless of registration
+    // order, so this does not change how any other asset path is served.
+    fastify.get('/', async (request, reply) => {
+      await serveIndexHtml(publicDir, request, reply);
+    });
+
+    // Add a catch-all route for SPA fallback to index.html for non-API routes.
+    // Goes through the same `serveIndexHtml` helper as `GET /` above so the
+    // ingress base-href injection applies to deep-linked SPA routes too.
+    fastify.setNotFoundHandler(async (request, reply) => {
+      if (!request.url.startsWith('/api')) {
+        return serveIndexHtml(publicDir, request, reply);
       }
       reply.code(404).send({ error: 'Not Found' });
     });

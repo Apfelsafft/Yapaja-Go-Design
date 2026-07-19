@@ -40,6 +40,44 @@ jobs:
       - name: Build
         run: pnpm build
 
+  addon-lint:
+    name: HA Add-on Linter (frenck/action-addon-linter, nightly, E08-T4)
+    runs-on: ubuntu-latest
+    # continue-on-error: true -- this is a third-party GitHub Action whose
+    # availability/behavior in this CI environment was not verifiable from
+    # the authoring sandbox (no outbound network to exercise it there). A
+    # flaky/unavailable third-party Action must never block a merge (same
+    # reasoning as golden-routes-de / photon-li-nightly above). The fast,
+    # deterministic, in-repo structural check
+    # (ha-addon/yapaja_go/config.test.ts) is what actually gates PRs --
+    # see .github/workflows/ci.yml job `addon-config-check` and
+    # ha-addon/README.md "CI strategy" for the full split rationale. This
+    # job exists to surface the FULL Supervisor add-on schema's findings
+    # nightly so a human can act on anything the narrower per-PR check
+    # doesn't cover.
+    continue-on-error: true
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Lint ha-addon/yapaja_go against the Supervisor add-on schema
+        uses: frenck/action-addon-linter@v2
+        with:
+          path: "./ha-addon/yapaja_go"
+
+  # E08-T4: the full multi-arch (amd64+aarch64) Supervisor-builder image
+  # build for ha-addon/yapaja_go/Dockerfile is intentionally NOT automated
+  # yet (documented as nightly/manual only, see ha-addon/README.md "CI
+  # strategy" table) -- it could not be exercised end-to-end from the
+  # authoring sandbox (no Docker daemon there) and involves compiling/
+  # linking native dependencies for two architectures, which is slow and,
+  # like `golden-routes-de`/`photon-li-nightly` above, not something to
+  # claim "done and passing" without having actually watched it run. A
+  # follow-up job here would mirror the `multiarch` job below, pointed at
+  # `-f ha-addon/yapaja_go/Dockerfile --build-arg BUILD_FROM=...` per
+  # `ha-addon/yapaja_go/build.yaml`'s per-arch base images.
+
   multiarch:
     name: Multi-Architecture Build
     runs-on: ubuntu-latest

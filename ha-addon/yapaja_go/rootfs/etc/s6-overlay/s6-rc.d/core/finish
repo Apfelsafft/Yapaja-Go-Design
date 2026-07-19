@@ -1,0 +1,16 @@
+#!/usr/bin/with-contenv bash
+# s6-rc "finish" script: runs after the `run` script's process exits, for
+# ANY reason (clean SIGTERM shutdown, crash, `run` never having managed to
+# exec at all). $1 is the exit code, $2 the signal number if killed by one.
+# We only log here (operator-facing "why did core stop" breadcrumb in the
+# add-on log) -- we deliberately do NOT try to restart it ourselves; s6-rc's
+# own supervisor already restarts a longrun whose `run` exits (unless the
+# whole service tree is being brought down for shutdown, which is exactly
+# the "clean shutdown" case docs/04 §3 asks for).
+exit_code="${1:-unknown}"
+signal="${2:-0}"
+if [ "${signal}" != "0" ]; then
+  bashio::log.warning "core: exited due to signal ${signal} (exit code ${exit_code})."
+else
+  bashio::log.info "core: exited with code ${exit_code}."
+fi

@@ -1,0 +1,27 @@
+#!/usr/bin/with-contenv bash
+# ==============================================================================
+# core -- s6-rc longrun (E08-T4). The Fastify app itself (apps/core), serving
+# the bundled web UI + REST/WS API on :8099 (config.yaml `ingress_port`).
+#
+# Dependency ordering: `dependencies.d/valhalla` makes s6-rc START valhalla
+# BEFORE core (matches docs/04 §3 "Abhängigkeits-Reihenfolge"). This is
+# start-ORDER only, not a readiness gate -- s6-rc considers a longrun
+# "started" once its `run` script has exec'd, not once it's actually serving
+# traffic. That's fine here: apps/core/src/routing/ already tolerates
+# Valhalla being briefly unreachable (retry/error-surfaced-to-UI, not a
+# startup crash) -- see routing/routes.ts and its tests. We do NOT declare a
+# dependency on `photon` or `gpsd`: both are optional/degrade gracefully
+# (Photon -> lite-search fallback; gpsd -> Core's own GPS-source handling),
+# so gating Core's start on either would make an optional feature block the
+# whole app, which is exactly the failure mode W-06/W-12 exist to prevent.
+#
+# `exec` (not a backgrounded/forked node process) is required so SIGTERM from
+# s6 on add-on stop/restart reaches the Node process DIRECTLY -- that's what
+# lets apps/core/src/index.ts's existing `gracefulShutdown` (SIGTERM handler,
+# closes the DB/MQTT/HTTP server cleanly) actually run instead of being
+# skipped because only an intermediate shell got the signal.
+# ==============================================================================
+set -uo pipefail
+
+cd /app
+exec node apps/core/dist/index.js

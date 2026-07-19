@@ -1,0 +1,115 @@
+# Home Assistant Add-on configuration for Yapaja Go (E08-T4, docs/04 §3).
+#
+# Schema reference: https://developers.home-assistant.io/docs/add-ons/configuration
+# Linted (nightly, continue-on-error) via frenck/action-addon-linter -- see
+# .github/workflows/nightly.yml job `addon-lint`. Per-PR CI instead runs an
+# in-repo, deterministic structural check
+# (ha-addon/yapaja_go/config.test.ts) so a flaky/unavailable third-party
+# Action can never block a merge -- see ha-addon/README.md "CI strategy".
+
+name: "Yapaja Go"
+description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
+slug: "yapaja_go"
+version: "0.1.0"
+url: "https://github.com/yapaja/yapaja-go"
+
+# amd64 covers typical Mini-PC/NUC installs; aarch64 covers Raspberry Pi
+# 4/5-class HAOS hardware. Other archs are intentionally NOT listed: Valhalla/
+# Photon upstream images this add-on bundles do not reliably ship armhf/armv7/
+# i386 builds (see DOCS.md "Supported architectures").
+arch:
+  - amd64
+  - aarch64
+
+# `application`: this is the user-facing product, not a background service
+# other add-ons depend on. `boot: auto` starts it with HAOS; operators can
+# still stop/disable it manually like any add-on.
+startup: application
+boot: auto
+
+# We ship our OWN s6-overlay (rootfs/etc/s6-overlay/, see Dockerfile) instead
+# of basing on Home Assistant's own base images (which already bundle
+# s6-overlay + their own init). `init: false` tells the Supervisor NOT to
+# inject a second init/PID-1 on top of ours.
+init: false
+
+# Ingress (docs/04 §3): the add-on UI appears in the HA sidebar, and HA
+# terminates auth + remote access (Nabu Casa) for it -- no separate
+# port-forwarding/reverse-proxy needed. `ingress_port` is the INTERNAL
+# container port the Core listens on; it is never published to the host
+# network directly (that's the whole point of Ingress).
+ingress: true
+ingress_port: 8099
+panel_icon: "mdi:map-marker-path"
+panel_title: "Yapaja Go"
+
+# Ingress-only by default (docs/04 §3: "ports: {} (ingress-only)"). Direct
+# (non-Ingress) HTTP access is an OPT-IN an operator can add locally by
+# uncommenting the block below in a fork/override -- documented in
+# DOCS.md "Direct (non-Ingress) access" rather than shipped enabled, since
+# publishing the port also means the `API_AUTH_TOKEN` bearer-auth path (not
+# the Ingress-bypass, see apps/core/src/auth/) becomes the operative one.
+#
+# ports:
+#   8080/tcp: 8080
+# ports_description:
+#   8080/tcp: "Optional direct HTTP access (bypasses Ingress). Set an API_AUTH_TOKEN if you enable this."
+ports: {}
+
+# W-16: map/routing/search data lives under /share/yapaja/ (host-persistent,
+# survives add-on updates/reinstalls) -- never inside the container's
+# writable layer. `share:rw` mounts HAOS's shared /share into the container.
+map:
+  - share:rw
+
+# bashio::services mqtt ... needs this so the Supervisor grants access to the
+# Mosquitto add-on's broker credentials (docs/04 §3 "MQTT-Credentials
+# automatisch"). `need` (not `want`): without MQTT the HA integration has no
+# purpose here, but the Core itself still runs standalone-safe if the
+# Supervisor were to unwire it after install (see AcceptanceCriteria "App
+# bleibt ohne Broker voll funktional", E08-T1).
+services:
+  - mqtt:need
+
+# USB-GPS passthrough (docs/04 §3, DOCS.md "USB-GPS").
+usb: true
+udev: true
+
+# Yapaja -> HA REST calls (HA-TTS output channel, notifications; E08-T3,
+# docs/04 §2) go through the Supervisor's proxied Core API
+# (http://supervisor/core/api + SUPERVISOR_TOKEN) instead of a manually
+# configured long-lived token when running as an add-on.
+hassio_api: true
+homeassistant_api: true
+
+# No elevated container privileges needed: usb+udev above already grant GPS
+# device access without `full_access: true` (which would disable Docker's
+# device allow-list entirely).
+full_access: false
+apparmor: true
+stdin: false
+
+# Options (docs/04 §3 "Kartenregion, MQTT-Prefix, Photon an/aus, GPS-Quelle,
+# Log-Level" + memory tuning). `region: ""` (empty) is a VALID, EXPECTED
+# state: the Core starts into onboarding (E08-T5 builds the wizard UI; T4
+# only guarantees no crash -- see rootfs .../init-yapaja-config/run.sh and
+# DOCS.md "Plausibilität: kein Crash ohne Region").
+options:
+  region: ""
+  mqtt_prefix: "yapaja"
+  photon_enabled: true
+  gps_source: "usb"
+  log_level: "info"
+  photon_xmx_mb: 1024
+  valhalla_memory_mb: 2048
+
+schema:
+  region: "str?"
+  mqtt_prefix: "str"
+  photon_enabled: "bool"
+  gps_source: "list(usb|network|none)"
+  log_level: "list(debug|info|warn|error)"
+  photon_xmx_mb: "int(256,4096)"
+  valhalla_memory_mb: "int(512,8192)"
+
+image: "ghcr.io/yapaja/yapaja-go-{arch}"

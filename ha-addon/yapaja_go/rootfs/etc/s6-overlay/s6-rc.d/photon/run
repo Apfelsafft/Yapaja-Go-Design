@@ -1,0 +1,44 @@
+#!/usr/bin/with-contenv bash
+# ==============================================================================
+# photon -- s6-rc longrun (E08-T4). Full-text geocoding search on :2322,
+# mirrors the standalone `photon` compose service (services/photon/README.md).
+#
+# `PHOTON_ENABLED` (config.yaml option `photon_enabled`, W-12 RAM-saver): when
+# false, we deliberately do NOT start the JVM at all -- not "start then
+# immediately exit" (which under s6 supervision would crash-restart-loop),
+# but idle forever. apps/core's SearchService (apps/core/src/search/) already
+# falls back to the offline lite-search index automatically whenever Photon
+# is unreachable (`source: 'lite'`, see services/photon/README.md "Abschalt-
+# Option W-12") -- so an idling Photon service here is functionally
+# equivalent to "Photon off" in the standalone compose profile.
+# ==============================================================================
+set -uo pipefail
+
+if [ "${PHOTON_ENABLED}" != "true" ]; then
+  bashio::log.info "photon: disabled via add-on option 'photon_enabled: false' (W-12 RAM-saver) -- idling, Core falls back to the offline lite-search index."
+  exec sleep infinity
+fi
+
+PHOTON_INDEX_DIR="${PHOTON_DATA_DIR}/elasticsearch"
+
+# No index installed yet for the configured region -- idle rather than
+# crash-loop (same E08-T4 "no crash" plausibility criterion as the valhalla
+# service above), re-checking periodically in case an operator installs an
+# index while the add-on is running.
+if [ ! -d "${PHOTON_INDEX_DIR}" ]; then
+  bashio::log.warning "photon: no index yet at ${PHOTON_DATA_DIR} -- search falls back to the lite-search index until you install a Photon index for your region (DOCS.md 'Kartendaten installieren'). Idling, not crash-looping."
+  while [ ! -d "${PHOTON_INDEX_DIR}" ]; do
+    sleep 30
+  done
+  bashio::log.info "photon: index appeared at ${PHOTON_DATA_DIR} -- starting Photon."
+fi
+
+# Dockerfile installs a plain openjdk JRE (see its comment) rather than
+# copying the JVM out of the upstream rtuszik/photon-docker image, precisely
+# so this java invocation is portable regardless of that image's internal
+# JRE distribution/version. `photon.jar` IS copied from that image (a JAR is
+# portable across JVMs, unlike native binaries/shared libs).
+exec java "-Xmx${PHOTON_XMX_MB}m" -jar /opt/photon/photon.jar \
+  -listen-ip 127.0.0.1 \
+  -listen-port 2322 \
+  -data-dir "${PHOTON_DATA_DIR}"

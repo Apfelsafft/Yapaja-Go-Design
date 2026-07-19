@@ -16,7 +16,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['apps/**/*.test.ts', 'apps/**/*.test.tsx', 'packages/**/*.test.ts', 'packages/**/*.test.tsx'],
+    include: [
+      'apps/**/*.test.ts',
+      'apps/**/*.test.tsx',
+      'packages/**/*.test.ts',
+      'packages/**/*.test.tsx',
+      'ha-addon/**/*.test.ts',
+    ],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.turbo/**'],
     coverage: {
       provider: 'v8',
