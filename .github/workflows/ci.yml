@@ -45,6 +45,44 @@ jobs:
       - name: Build
         run: pnpm build
 
+  addon-config-check:
+    name: HA Add-on Config Validity (E08-T4)
+    runs-on: ubuntu-latest
+    # Bewusst KEIN `needs: quality` -- eigenstaendig, mirrors valhalla-li-
+    # build/lite-search-li-build's Begruendung: schnell, in-repo, keine
+    # Abhaengigkeit vom Rest der Suite. Der eigentliche `frenck/action-
+    # addon-linter` (Drittanbieter-Action, Schema-Vollpruefung) laeuft
+    # bewusst NICHT hier, sondern nightly mit continue-on-error --
+    # Begruendung: ha-addon/README.md "CI strategy". Dieser Job prueft nur
+    # die konkreten, in tasks/E08-home-assistant.md + docs/04 §3 genannten
+    # Pflicht-Keys (ingress, slug, arch, map, services, options/schema),
+    # rein in-repo via ha-addon/yapaja_go/config.test.ts (Vitest + js-yaml)
+    # -- deterministisch, kein Netzwerk, kann daher gefahrlos Merge-Gate sein.
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate ha-addon/yapaja_go/config.yaml structure
+        run: npx vitest run ha-addon/yapaja_go/config.test.ts
+
+      - name: Lint ha-addon/ TypeScript (config.test.ts)
+        run: npx eslint ha-addon --ext .ts
+
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest

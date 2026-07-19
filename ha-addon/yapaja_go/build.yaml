@@ -1,0 +1,29 @@
+# Companion to config.yaml's `image: ghcr.io/yapaja/yapaja-go-{arch}`.
+# Used by the Supervisor's multi-arch builder (`ha-addons/builder` /
+# `home-assistant/builder`) -- see .github/workflows/nightly.yml job
+# `addon-multiarch-build` (nightly/manual, NOT per-PR; see ha-addon/README.md
+# "CI strategy" for why a full multi-arch build is unsuitable as a per-PR
+# merge gate).
+# We build on top of the SAME `gis-ops/docker-valhalla` image the standalone
+# docker-compose stack already uses (ADR-014, services/valhalla/README.md),
+# instead of on `node:22-slim` (which apps/core/Dockerfile uses standalone).
+# Rationale (Dockerfile has the full comment): Valhalla's native binary +
+# shared-library graph is exactly what that image already gets right for us;
+# copying `valhalla_service` + its libs OUT of it into an unrelated base
+# image (e.g. node:22-slim's Debian) risks a glibc/shared-lib mismatch that
+# is very easy to get subtly wrong and hard to verify without a live build.
+# Node.js, the JRE (for Photon) and gpsd, by contrast, are all easy to add
+# on top of an Ubuntu-family base (apt / official upstream tarballs) --
+# so we add THOSE on top of Valhalla's base instead of the reverse.
+build_from:
+  amd64: "ghcr.io/gis-ops/docker-valhalla/valhalla:latest"
+  aarch64: "ghcr.io/gis-ops/docker-valhalla/valhalla:latest"
+labels:
+  org.opencontainers.image.title: "Yapaja Go"
+  org.opencontainers.image.description: "Offline motorhome navigation, packaged as a Home Assistant add-on"
+  org.opencontainers.image.source: "https://github.com/yapaja/yapaja-go"
+  org.opencontainers.image.licenses: "MIT"
+args:
+  # Threaded through to the Dockerfile's `ARG S6_OVERLAY_VERSION` so a
+  # security/bugfix bump only needs to change one place.
+  S6_OVERLAY_VERSION: "3.1.6.2"

@@ -1,0 +1,7 @@
+#!/command/execlineb -P
+# s6-rc oneshot "up" script (execline). Runs init-yapaja-config.sh to
+# completion (`foreground {}`) before s6-rc considers this service "up",
+# which is what makes every longrun service's
+# `dependencies.d/init-yapaja-config` actually block on it finishing.
+foreground { bash /etc/yapaja/init-yapaja-config.sh }
+true

@@ -1,0 +1,49 @@
+#!/usr/bin/with-contenv bash
+# ==============================================================================
+# valhalla -- s6-rc longrun (E08-T4). Serves routing/turn-by-turn/isochrone
+# requests on :8002, exactly like the standalone-compose `valhalla` service
+# (docker-compose.yml, ADR-014) -- but here as an in-container s6 service
+# instead of a separate container, because HA add-ons are single-container
+# (no docker-compose inside an add-on).
+#
+# We call the real `valhalla_service` binary DIRECTLY (its actual upstream
+# CLI: `valhalla_service <config.json> [concurrency]`) rather than the
+# gis-ops image's own auto-build wrapper entrypoint: that wrapper is built
+# for "download a PBF and build tiles from scratch", which is NOT what we
+# want here (W-17's atomic-swap build step stays a separate, explicit,
+# operator-triggered action -- see DOCS.md "Kartendaten aktualisieren" --
+# not something that happens implicitly on every container start). This
+# service only SERVES an already-built graph.
+#
+# `build.yaml` bases the final image ON `ghcr.io/gis-ops/docker-valhalla/
+# valhalla:latest` specifically so `valhalla_service` and its shared
+# libraries are already correctly installed/linked on PATH -- see that
+# file's comment for the full rationale.
+# ==============================================================================
+set -uo pipefail
+
+# VALHALLA_TILES_DIR (not TILES_DIR -- that env var is the Core's own
+# PMTiles map-region store, see init-yapaja-config.sh's comment on the two).
+CONFIG="${VALHALLA_TILES_DIR}/valhalla.json"
+
+# No graph installed/built yet for the configured region (fresh install, or
+# region left unset -- see init-yapaja-config.sh's onboarding-state comment).
+# We do NOT want a crash-restart-loop here (E08-T4 plausibility criterion:
+# "no crash without a configured region") -- so we idle, re-checking every
+# 30s in case an operator runs the tile-build step (DOCS.md) while the
+# add-on is up, and log ONCE so the add-on log isn't spammed every 30s.
+if [ ! -f "${CONFIG}" ]; then
+  bashio::log.warning "valhalla: no ${CONFIG} yet -- no map region installed. Routing is unavailable until you build/install a region's tiles (see DOCS.md 'Kartendaten installieren'). Idling, not crash-looping."
+  while [ ! -f "${CONFIG}" ]; do
+    sleep 30
+  done
+  bashio::log.info "valhalla: ${CONFIG} appeared -- starting valhalla_service."
+fi
+
+# `VALHALLA_MEMORY_MB` (config.yaml option) is informational/documented in
+# DOCS.md for the operator's own RAM-budgeting (docs/01 §4: Valhalla ≤ 1.5 GB
+# on the reference Mini-PC) -- valhalla_service itself doesn't take a direct
+# `--max-memory` flag, memory behavior is governed by the tileset's own
+# `mjolnir.max_cache_size` inside valhalla.json (set at build time by
+# build-tiles.sh / the gis-ops image, not tunable per-start here).
+exec valhalla_service "${CONFIG}" 1

@@ -1,0 +1,52 @@
+#!/usr/bin/with-contenv bash
+# ==============================================================================
+# gpsd -- s6-rc longrun (E08-T4, docs/04 §3 "USB-GPS: usb: true + udev; gpsd
+# läuft im Add-on-Container"). Bridges a USB GPS receiver to the Core's
+# `apps/core/src/position/gpsd/` client over TCP :2947 (127.0.0.1 only --
+# never exposed outside the container).
+#
+# `GPS_SOURCE` (config.yaml option): "usb" -> look for a serial GPS device
+# under /dev (passed through by config.yaml's `usb: true` + `udev: true`,
+# which make the Supervisor forward USB device nodes + udev events into the
+# container). "network" -> an external gpsd is expected to be reachable
+# separately (documented in DOCS.md); this add-on's own gpsd doesn't need to
+# run. "none" -> no GPS at all (simulator source only, e.g. for a first
+# smoke-test of the add-on before wiring real hardware).
+# ==============================================================================
+set -uo pipefail
+
+if [ "${GPS_SOURCE}" != "usb" ]; then
+  bashio::log.info "gpsd: GPS source is '${GPS_SOURCE}', not 'usb' -- this in-container gpsd is not needed, idling."
+  exec sleep infinity
+fi
+
+# Common USB-GPS device node patterns (ttyACM* = u-blox and most
+# USB-CDC-ACM GPS mice; ttyUSB* = USB-serial-adapter-based receivers).
+find_gps_device() {
+  for pattern in /dev/ttyACM* /dev/ttyUSB*; do
+    if [ -e "${pattern}" ]; then
+      echo "${pattern}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+DEVICE="$(find_gps_device || true)"
+
+if [ -z "${DEVICE}" ]; then
+  bashio::log.warning "gpsd: gps_source=usb but no /dev/ttyACM*|/dev/ttyUSB* device is present -- check the USB-GPS is plugged in and config.yaml's usb+udev passthrough is working (DOCS.md 'USB-GPS'). Retrying every 15s, not crash-looping (position falls back to the simulator/dead-reckoning source in the Core, same as any other 'no GPS' state)."
+  while [ -z "${DEVICE}" ]; do
+    sleep 15
+    DEVICE="$(find_gps_device || true)"
+  done
+  bashio::log.info "gpsd: found GPS device at ${DEVICE}."
+fi
+
+# -N: foreground (required under s6 supervision -- no daemonizing/double-fork,
+#     so SIGTERM from s6 on shutdown reaches this process directly).
+# -n: don't wait for a client to connect before polling the device.
+# -G: listen on all configured addresses is NOT used here on purpose -- gpsd
+#     defaults to localhost-only, which is exactly what we want (only the
+#     Core, in the same container/network-namespace, talks to it).
+exec gpsd -N -n "${DEVICE}"
