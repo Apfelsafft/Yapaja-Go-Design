@@ -1,0 +1,27 @@
+# Upgrade-E2E Compose setup (E08-T6, Wargame W-16, docs/07 §6 Release).
+#
+# Single `core` service whose image is picked at `docker compose up` time via
+# the `YAPAJA_CORE_IMAGE` env var -- `run-upgrade-test.sh` starts this stack
+# once with the previous release's image, creates data, tears the container
+# down (WITHOUT removing the `upgrade-db` volume), then starts it again with
+# the new image so the same on-disk DB file goes through `createDb`'s
+# migration runner exactly like a real in-place upgrade would.
+#
+# Deliberately does NOT include valhalla/photon -- this test only exercises
+# the DB layer (profiles/favorites/settings survive + migration log), not
+# routing/search.
+services:
+  core:
+    image: ${YAPAJA_CORE_IMAGE:?set YAPAJA_CORE_IMAGE before 'docker compose up'}
+    container_name: yapaja-upgrade-core
+    ports:
+      - '8080:8080'
+    volumes:
+      - upgrade-db:/app/data/db
+    environment:
+      - PORT=8080
+      - DB_PATH=/app/data/db/yapaja.db
+      - NODE_ENV=production
+
+volumes:
+  upgrade-db:
