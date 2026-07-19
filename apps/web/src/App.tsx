@@ -10,6 +10,7 @@ import ThemeController from './theme/ThemeController.js';
 import DriveLockController from './drive/DriveLockController.js';
 import HandednessController from './shell/HandednessController.js';
 import UpdatePrompt from './pwa/UpdatePrompt.js';
+import OnboardingWizard from './onboarding/OnboardingWizard.js';
 
 export default function App(): React.ReactElement {
   return (
@@ -30,6 +31,7 @@ export default function App(): React.ReactElement {
       <FavoritesDrawer />
       <DriveOverlay />
       <UpdatePrompt />
+      <OnboardingWizard />
     </div>
   );
 }

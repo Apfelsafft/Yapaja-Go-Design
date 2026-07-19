@@ -25,7 +25,9 @@
 import { execSync, spawn, type ChildProcess } from 'child_process';
 import { existsSync, mkdirSync, rmSync, cpSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { createServer, type Server } from 'http';
 import {
+  WEB_ROOT,
   REPO_ROOT,
   CORE_ROOT,
   CORE_DIST_INDEX,
@@ -49,6 +51,10 @@ import {
   TOUCH_TARGETS_CORE_PORT,
   A11Y_CORE_PORT,
   PWA_CORE_PORT,
+  ONBOARDING_CORE_PORT,
+  ONBOARDING_TILES_DIR,
+  ONBOARDING_REGION_ID,
+  ONBOARDING_REGION_HTTP_PORT,
   CORE_BASE_URL,
   EMPTY_CORE_BASE_URL,
   SIMULATOR_CORE_BASE_URL,
@@ -63,10 +69,16 @@ import {
   TOUCH_TARGETS_CORE_BASE_URL,
   A11Y_CORE_BASE_URL,
   PWA_CORE_BASE_URL,
+  ONBOARDING_CORE_BASE_URL,
 } from './constants.js';
 // Reuse E01-T1's fixture generator directly (read-only import, apps/core is
 // not modified) instead of hand-rolling another PMTiles binary writer.
 import { buildPMTilesFixtureBuffer } from '../../../core/src/map/__fixtures__/pmtiles-fixture.js';
+// Reuse the wizard's own disclaimer-version constant (rather than a
+// duplicated string literal here) so the consent seeded into every
+// NON-onboarding core below can never silently drift out of sync with what
+// `hasValidConsent()` actually checks client-side.
+import { DISCLAIMER_VERSION } from '../../src/onboarding/state.js';
 
 async function waitForHealth(baseUrl: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -112,6 +124,73 @@ function prepareEmptyTilesDir(): void {
   mkdirSync(EMPTY_TILES_DIR, { recursive: true });
 }
 
+/** onboarding.spec.ts's core starts with NO region installed -- the wizard's
+ *  region step downloads one itself. */
+function prepareOnboardingTilesDir(): void {
+  rmSync(ONBOARDING_TILES_DIR, { recursive: true, force: true });
+  mkdirSync(ONBOARDING_TILES_DIR, { recursive: true });
+}
+
+/** A tiny local HTTP server serving the SAME deterministic PMTiles fixture
+ *  buffer the other cores install directly -- but here served over HTTP so
+ *  the onboarding wizard's region step can genuinely POST /api/v1/map/regions
+ *  and watch a real (if instant) download job run to completion. Never a
+ *  real foreign host, same rule `regions.spec.ts`/`routes.test.ts` follow. */
+function startOnboardingRegionServer(buffer: Buffer): Server {
+  const server = createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Length': String(buffer.length) });
+    res.end(buffer);
+  });
+  server.listen(ONBOARDING_REGION_HTTP_PORT, '127.0.0.1');
+  return server;
+}
+
+/** Writes a regions catalog (`MAP_REGIONS_CATALOG_FILE` override, same
+ *  mechanism `disk-check.routes.test.ts`/`routes.test.ts` use) with a SINGLE
+ *  entry pointing at the local fixture server above. */
+function writeOnboardingCatalog(catalogPath: string, sizeBytes: number): void {
+  writeFileSync(
+    catalogPath,
+    JSON.stringify([
+      {
+        id: ONBOARDING_REGION_ID,
+        name: 'Wizard-Testregion',
+        url: `http://127.0.0.1:${ONBOARDING_REGION_HTTP_PORT}/${ONBOARDING_REGION_ID}.pmtiles`,
+        sizeBytes,
+        bounds: [9.4, 47.0, 9.7, 47.3],
+      },
+    ]),
+  );
+}
+
+/**
+ * Seeds `settings.onboarding_state` as already-completed, WITH a valid
+ * (current-version) disclaimer consent, on every core EXCEPT the dedicated
+ * onboarding core. This is THE fix for the E08-T5 regression risk: without
+ * it, `OnboardingWizard`'s full-screen overlay would auto-show on every one
+ * of the 40+ pre-existing specs' cores (none of them ever set
+ * `onboarding_state` themselves) and cover the UI those specs assert on --
+ * and separately, `RoutingPanel`'s disclaimer gate
+ * (`onboarding/store.ts#selectNavigationAllowed`) would disable "Navigation
+ * starten" in drive.spec.ts/nav-control.spec.ts/etc. without a seeded
+ * consent. Reuses the exact shape `patchOnboardingState`/`coerceOnboardingState`
+ * (`apps/web/src/onboarding/{client,state}.ts`) expect, so it round-trips
+ * exactly like a real wizard completion would have written it.
+ */
+async function seedOnboardingCompleted(baseUrl: string): Promise<void> {
+  await fetch(`${baseUrl}/api/v1/settings`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      onboarding_state: {
+        step: 'mqtt',
+        completed: true,
+        disclaimer: { version: DISCLAIMER_VERSION, acceptedAt: new Date().toISOString() },
+      },
+    }),
+  });
+}
+
 function startCore(port: number, tilesDir: string, extraEnv: Record<string, string> = {}): ChildProcess {
   const child = spawn('node', [CORE_DIST_INDEX], {
     cwd: CORE_ROOT,
@@ -154,6 +233,18 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   preparePublicDir();
   prepareFixtureTilesDir();
   prepareEmptyTilesDir();
+  prepareOnboardingTilesDir();
+
+  // E08-T5: the onboarding core's own tiny region-download fixture -- a
+  // local HTTP server serving the SAME deterministic PMTiles buffer the
+  // other cores install directly onto disk, plus a catalog.json pointing at it.
+  const onboardingRegionBuffer = buildPMTilesFixtureBuffer({});
+  const onboardingRegionServer = startOnboardingRegionServer(onboardingRegionBuffer);
+  const onboardingCatalogDir = join(WEB_ROOT, 'e2e', '.tmp', 'onboarding-catalog');
+  rmSync(onboardingCatalogDir, { recursive: true, force: true });
+  mkdirSync(onboardingCatalogDir, { recursive: true });
+  const onboardingCatalogPath = join(onboardingCatalogDir, 'catalog.json');
+  writeOnboardingCatalog(onboardingCatalogPath, onboardingRegionBuffer.length);
 
   const fixtureCore = startCore(CORE_PORT, FIXTURE_TILES_DIR);
   const emptyCore = startCore(EMPTY_CORE_PORT, EMPTY_TILES_DIR);
@@ -197,6 +288,31 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   // Dedicated core for pwa.spec.ts (E07-T5) -- see the PWA_CORE_PORT comment
   // in constants.ts.
   const pwaCore = startCore(PWA_CORE_PORT, FIXTURE_TILES_DIR);
+  // Dedicated core for onboarding.spec.ts (E08-T5) -- see the
+  // ONBOARDING_CORE_PORT comment in constants.ts. Deliberately NOT seeded
+  // with `onboarding_state` below (every other core is) -- this is the one
+  // core that must boot genuinely fresh so the wizard auto-shows.
+  const onboardingCore = startCore(ONBOARDING_CORE_PORT, ONBOARDING_TILES_DIR, {
+    MAP_REGIONS_CATALOG_FILE: onboardingCatalogPath,
+  });
+
+  const allCores = [
+    fixtureCore,
+    emptyCore,
+    simulatorCore,
+    searchCore,
+    favoritesCore,
+    driveCore,
+    navControlCore,
+    profileRerouteCore,
+    shellCore,
+    shellEditCore,
+    driveLockCore,
+    touchTargetsCore,
+    a11yCore,
+    pwaCore,
+    onboardingCore,
+  ];
 
   try {
     await Promise.all([
@@ -214,39 +330,39 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       waitForHealth(TOUCH_TARGETS_CORE_BASE_URL, 20_000),
       waitForHealth(A11Y_CORE_BASE_URL, 20_000),
       waitForHealth(PWA_CORE_BASE_URL, 20_000),
+      waitForHealth(ONBOARDING_CORE_BASE_URL, 20_000),
     ]);
   } catch (err) {
-    fixtureCore.kill();
-    emptyCore.kill();
-    simulatorCore.kill();
-    searchCore.kill();
-    favoritesCore.kill();
-    driveCore.kill();
-    navControlCore.kill();
-    profileRerouteCore.kill();
-    shellCore.kill();
-    shellEditCore.kill();
-    driveLockCore.kill();
-    touchTargetsCore.kill();
-    a11yCore.kill();
-    pwaCore.kill();
+    for (const core of allCores) core.kill();
+    onboardingRegionServer.close();
     throw err;
   }
 
+  // E08-T5: seed every core EXCEPT the dedicated onboarding one with an
+  // already-completed `onboarding_state` (+ valid disclaimer consent) --
+  // see `seedOnboardingCompleted`'s doc comment for why this is required to
+  // keep the other 40+ pre-existing specs green.
+  await Promise.all(
+    [
+      CORE_BASE_URL,
+      EMPTY_CORE_BASE_URL,
+      SIMULATOR_CORE_BASE_URL,
+      SEARCH_CORE_BASE_URL,
+      FAVORITES_CORE_BASE_URL,
+      DRIVE_CORE_BASE_URL,
+      NAV_CONTROL_CORE_BASE_URL,
+      PROFILE_REROUTE_CORE_BASE_URL,
+      SHELL_CORE_BASE_URL,
+      SHELL_EDIT_CORE_BASE_URL,
+      DRIVE_LOCK_CORE_BASE_URL,
+      TOUCH_TARGETS_CORE_BASE_URL,
+      A11Y_CORE_BASE_URL,
+      PWA_CORE_BASE_URL,
+    ].map((baseUrl) => seedOnboardingCompleted(baseUrl)),
+  );
+
   return async () => {
-    fixtureCore.kill();
-    emptyCore.kill();
-    simulatorCore.kill();
-    searchCore.kill();
-    favoritesCore.kill();
-    driveCore.kill();
-    navControlCore.kill();
-    profileRerouteCore.kill();
-    shellCore.kill();
-    shellEditCore.kill();
-    driveLockCore.kill();
-    touchTargetsCore.kill();
-    a11yCore.kill();
-    pwaCore.kill();
+    for (const core of allCores) core.kill();
+    onboardingRegionServer.close();
   };
 }

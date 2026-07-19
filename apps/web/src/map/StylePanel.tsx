@@ -15,6 +15,7 @@ import { fetchStyleSummaries, type StyleLabelScale, type StyleLang, type StylePo
 import ThemeToggle from '../theme/ThemeToggle.js';
 import DriveLockGate from '../drive/DriveLockGate.js';
 import HandednessToggle from '../shell/HandednessToggle.js';
+import { useOnboardingStore } from '../onboarding/store.js';
 
 const LANG_OPTIONS: Array<{ value: StyleLang; label: string }> = [
   { value: 'name', label: 'Original' },
@@ -42,6 +43,7 @@ export default function StylePanel(): React.ReactElement {
   const setLang = useStyleStore((state) => state.setLang);
   const setLabelScale = useStyleStore((state) => state.setLabelScale);
   const setPoi = useStyleStore((state) => state.setPoi);
+  const reopenOnboardingWizard = useOnboardingStore((state) => state.reopen);
 
   useEffect(() => {
     if (!isOpen || styles.length > 0) {
@@ -163,6 +165,24 @@ export default function StylePanel(): React.ReactElement {
                 </button>
               ))}
             </div>
+          </section>
+
+          {/* E08-T5: "wieder aufrufbar aus Settings" -- reopens the
+              first-run onboarding wizard on demand (e.g. to redo the
+              disclaimer, change GPS source, or set up MQTT later).
+              `reopen()` shows the wizard WITHOUT touching the persisted
+              `onboarding_state.completed` flag until the user actually
+              finishes it again -- see `onboarding/store.ts`. */}
+          <section>
+            <h2 className="font-semibold mb-2">Einrichtung</h2>
+            <button
+              type="button"
+              onClick={() => reopenOnboardingWizard()}
+              className="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 text-left hover:bg-slate-100 dark:hover:bg-slate-700 text-xs"
+              data-testid="onboarding-reopen-button"
+            >
+              🧭 Setup-Assistent erneut öffnen
+            </button>
           </section>
           </DriveLockGate>
         </div>

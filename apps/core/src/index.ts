@@ -31,6 +31,7 @@ import { AuthGuard } from './auth/authGuard.js';
 import { authPlugin } from './auth/plugin.js';
 import { HaOutputChannel } from './ha/outputChannel.js';
 import { serveIndexHtml } from './static/ingressHtml.js';
+import { systemPlugin } from './system/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -309,6 +310,12 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // guard + HA output channel + MQTT bridge all read the SAME live settings) is
   // injected here rather than letting the plugin build its own.
   await fastify.register(settingsPlugin, { prefix: '/api/v1', service: settingsService });
+
+  // System resources (E08-T5, W-12/W-18): real measured free/total disk (of
+  // the map-tiles data dir) + free/total RAM, for the onboarding wizard's
+  // region step to derive its "< 3 GB free -> recommend Photon off"
+  // recommendation from. Additive; does not touch other plugins.
+  await fastify.register(systemPlugin);
 
   // MQTT bridge (E08-T1, docs/03 §4): OPTIONAL -- only constructed when a
   // broker is configured (Settings key `mqtt` and/or env `MQTT_BROKER_URL`,
