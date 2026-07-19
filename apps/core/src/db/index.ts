@@ -7,6 +7,7 @@ import Database from 'better-sqlite3';
 import { mkdirSync, existsSync } from 'fs';
 import { dirname } from 'path';
 import type { VehicleProfile, Favorite, HistoryEntry } from '@yapaja/shared';
+import { runMigrations } from './migrations/index.js';
 
 let dbInstance: Database.Database | null = null;
 
@@ -28,69 +29,19 @@ export function createDb(path: string): Database.Database {
   // Enable WAL mode for better concurrent reads
   db.pragma('journal_mode = WAL');
 
-  // Create profiles table if it doesn't exist
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS profiles (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      height_m REAL NOT NULL,
-      width_m REAL NOT NULL,
-      length_m REAL NOT NULL,
-      weight_t REAL NOT NULL,
-      avg_speed_kmh REAL NOT NULL,
-      hazmat INTEGER NOT NULL DEFAULT 0,
-      avoid_motorway INTEGER NOT NULL DEFAULT 0,
-      avoid_toll INTEGER NOT NULL DEFAULT 0,
-      avoid_ferry INTEGER NOT NULL DEFAULT 0,
-      avoid_unpaved INTEGER NOT NULL DEFAULT 0,
-      is_active INTEGER NOT NULL DEFAULT 0
-    )
-  `);
-
-  // Favorites table (E05-T3, docs/03 §2): category 'home' is kept unique at
-  // the service layer (transactional replace-or-reject), not via a SQL
-  // constraint, so the service can return a friendly 409 instead of a raw
-  // SQLite constraint-violation error.
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS favorites (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      lat REAL NOT NULL,
-      lon REAL NOT NULL,
-      icon TEXT NOT NULL,
-      category TEXT NOT NULL,
-      sort_order INTEGER NOT NULL
-    )
-  `);
-
-  // History table (E05-T3, docs/03 §2): records search queries and/or picked
-  // destinations. Capped at 100 rows, FIFO eviction (service layer). `query`/
-  // `dest_*` are all nullable -- exactly one "half" may be null, never both
-  // (enforced by the service, not this schema).
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS history (
-      id TEXT PRIMARY KEY,
-      query TEXT,
-      dest_lat REAL,
-      dest_lon REAL,
-      dest_name TEXT,
-      ts TEXT NOT NULL
-    )
-  `);
-
-  // Settings table (E07-T1): a general-purpose key/value store. `value` is
-  // an arbitrary JSON-serialized blob -- this table deliberately knows
-  // nothing about what any given key means (the `layouts` key holds the
-  // widget-shell's per-mode layouts today; units/theme/online_fallback and
-  // other future settings reuse the exact same table/service/routes rather
-  // than each growing their own bespoke schema).
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
-  `);
+  // E08-T6 (Wargame W-16): schema creation/evolution now goes through the
+  // numbered migration runner instead of inline `CREATE TABLE`s. For a
+  // brand-new DB this produces the exact same 4 tables (`001_baseline`,
+  // see `db/migrations/001_baseline.ts`, moved verbatim from what used to
+  // be here). For an EXISTING DB from before this task, it adopts the
+  // schema at the baseline version without re-running -- and without ever
+  // dropping/recreating -- anything, so existing profiles/favorites/
+  // history/settings survive. A file DB is backed up before any pending
+  // migration runs (rotated to the 3 most recent backups). If a migration
+  // fails, this throws a `MigrationError` that propagates out of
+  // `createDb`/`getDb` -- the Core must refuse to start rather than run on
+  // a half-applied schema (see `db/migrations/README.md`).
+  runMigrations(db, path);
 
   return db;
 }
