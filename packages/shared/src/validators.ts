@@ -17,6 +17,8 @@ import { apiErrorSchema } from './schemas/api-error';
 import { searchResultSchema } from './schemas/search-result';
 import { favoriteSchema } from './schemas/favorite';
 import { historyEntrySchema } from './schemas/history-entry';
+import { addonManifestSchema } from './schemas/addon-manifest';
+import { isValidSemver, isValidRange } from './semver';
 
 import type {
   LatLng,
@@ -31,6 +33,7 @@ import type {
   SearchResult,
   Favorite,
   HistoryEntry,
+  AddonManifest,
 } from './types';
 
 // Initialize AJV with formats
@@ -50,6 +53,7 @@ const validateApiErrorImpl = ajv.compile(apiErrorSchema);
 const validateSearchResultImpl = ajv.compile(searchResultSchema);
 const validateFavoriteImpl = ajv.compile(favoriteSchema);
 const validateHistoryEntryImpl = ajv.compile(historyEntrySchema);
+const validateAddonManifestStructuralImpl = ajv.compile(addonManifestSchema);
 
 /**
  * Type guard for LatLng
@@ -243,4 +247,45 @@ export function getValidationErrorsFavorite(data: unknown): string[] {
  */
 export function getValidationErrorsHistoryEntry(data: unknown): string[] {
   return getValidationErrorsForValidator('HistoryEntry', data, validateHistoryEntryImpl);
+}
+
+/**
+ * Add-on manifest (`yapaja-addon.json`, E09-T1) validation: layers the
+ * hand-rolled semver checks (`isValidSemver`/`isValidRange`, `./semver.ts`)
+ * on top of the AJV structural schema, since AJV alone can't express "is
+ * this a valid semver range". Both layers must pass. The semver checks only
+ * run once the structural schema has already confirmed `version`/`core_api`
+ * are non-empty strings, so they never see the wrong type.
+ */
+function addonManifestSemverErrors(data: unknown): string[] {
+  const errors: string[] = [];
+  const obj = data as Partial<AddonManifest>;
+  if (typeof obj?.version === 'string' && !isValidSemver(obj.version)) {
+    errors.push(`AddonManifest[version]: "${obj.version}" is not a valid semver version`);
+  }
+  if (typeof obj?.core_api === 'string' && !isValidRange(obj.core_api)) {
+    errors.push(`AddonManifest[core_api]: "${obj.core_api}" is not a valid semver range`);
+  }
+  return errors;
+}
+
+/**
+ * Type guard for AddonManifest (structural + semver validity).
+ */
+export function validateAddonManifest(data: unknown): data is AddonManifest {
+  return validateAddonManifestStructuralImpl(data) && addonManifestSemverErrors(data).length === 0;
+}
+
+/**
+ * Get validation errors for AddonManifest (structural AJV errors first,
+ * then semver-specific errors if the structural pass succeeded).
+ */
+export function getValidationErrorsAddonManifest(data: unknown): string[] {
+  const structuralErrors = getValidationErrorsForValidator(
+    'AddonManifest',
+    data,
+    validateAddonManifestStructuralImpl,
+  );
+  if (structuralErrors.length > 0) return structuralErrors;
+  return addonManifestSemverErrors(data);
 }

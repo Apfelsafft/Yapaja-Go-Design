@@ -32,6 +32,8 @@ import { authPlugin } from './auth/plugin.js';
 import { HaOutputChannel } from './ha/outputChannel.js';
 import { serveIndexHtml } from './static/ingressHtml.js';
 import { systemPlugin } from './system/routes.js';
+import { readPackageVersion } from './version.js';
+import { addonsPlugin } from './addons/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -60,16 +62,6 @@ function isGpsdEnabled(): boolean {
   if (raw === 'true' || raw === '1') return true;
   if (raw === 'false' || raw === '0') return false;
   return process.env.NODE_ENV === 'production';
-}
-
-async function readPackageVersion(): Promise<string> {
-  try {
-    const packagePath = join(__dirname, '../../package.json');
-    const packageJson = JSON.parse(readFileSync(packagePath, 'utf-8'));
-    return packageJson.version || '0.0.0';
-  } catch {
-    return '0.0.0';
-  }
 }
 
 export async function buildServer(opts: BuildServerOptions = {}): Promise<FastifyInstance> {
@@ -310,6 +302,15 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // guard + HA output channel + MQTT bridge all read the SAME live settings) is
   // injected here rather than letting the plugin build its own.
   await fastify.register(settingsPlugin, { prefix: '/api/v1', service: settingsService });
+
+  // Add-on manifest/install/lifecycle plugin (E09-T1, docs/05 §2/§5):
+  // additive, does not touch other plugins. `coreVersion: version` reuses
+  // the SAME `readPackageVersion()` result `/api/v1/health` reports above
+  // for the manifest `core_api` semver-range check (Wargame W-11) -- see
+  // `addons/installService.ts`. This task only covers manifest validation +
+  // install/lifecycle + DB + tarball-extraction hardening; it does not start
+  // any add-on service process or serve add-on UIs (E09-T2/T3).
+  await fastify.register(addonsPlugin, { prefix: '/api/v1', coreVersion: version });
 
   // System resources (E08-T5, W-12/W-18): real measured free/total disk (of
   // the map-tiles data dir) + free/total RAM, for the onboarding wizard's

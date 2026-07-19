@@ -18,6 +18,11 @@ export type {
   SearchResult,
   Favorite,
   HistoryEntry,
+  AddonManifest,
+  AddonManifestUi,
+  AddonManifestWidget,
+  AddonManifestMapLayer,
+  AddonManifestService,
 } from './types';
 
 // Schemas (as const for validation)
@@ -39,6 +44,16 @@ export { apiErrorSchema } from './schemas/api-error';
 export { searchResultSchema } from './schemas/search-result';
 export { favoriteSchema } from './schemas/favorite';
 export { historyEntrySchema } from './schemas/history-entry';
+export {
+  addonManifestSchema,
+  addonManifestUiSchema,
+  addonManifestServiceSchema,
+  addonManifestWidgetSchema,
+  addonManifestMapLayerSchema,
+  ADDON_ID_PATTERN,
+  ADDON_PERMISSION_SCOPES,
+  ADDON_NET_FETCH_PATTERN,
+} from './schemas/addon-manifest';
 
 // Validators (type guards)
 export {
@@ -66,7 +81,13 @@ export {
   getValidationErrorsSearchResult,
   getValidationErrorsFavorite,
   getValidationErrorsHistoryEntry,
+  validateAddonManifest,
+  getValidationErrorsAddonManifest,
 } from './validators';
+
+// Semver helpers (E09-T1, docs/05 §2/§3): validate/compare `version` and
+// `core_api` range strings from the add-on manifest.
+export { isValidSemver, isValidRange, satisfies, compareVersions } from './semver';
 
 // Plausibility checks
 export {
