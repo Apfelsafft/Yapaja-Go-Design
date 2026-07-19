@@ -212,3 +212,47 @@ export interface ApiError {
     details?: object;
   };
 }
+
+// Add-on manifest (`yapaja-addon.json`, E09-T1, docs/05 §2 "Manifest"). `id`
+// becomes a DIRECTORY NAME under `data/addons/` at install time -- validated
+// strictly (reverse-DNS-ish, no `/`, `\`, `..`) by `addonManifestSchema`/
+// `validateAddonManifest`, not just this structural interface. `core_api` is
+// a semver RANGE (see `semver.ts`) checked against the running Core's
+// version at install (Wargame W-11).
+export interface AddonManifestWidget {
+  id: string;
+  name: string;
+  slots: string[];
+}
+
+export interface AddonManifestMapLayer {
+  id: string;
+  name: string;
+  source: string;
+}
+
+export interface AddonManifestUi {
+  entry: string;
+  widgets?: AddonManifestWidget[];
+  map_layers?: AddonManifestMapLayer[];
+  settings_page?: boolean;
+}
+
+export interface AddonManifestService {
+  runtime: 'node18' | 'node20' | 'external';
+  entry: string;
+}
+
+export interface AddonManifest {
+  id: string;
+  name: string;
+  version: string; // exact semver, e.g. "1.2.0"
+  core_api: string; // semver RANGE, e.g. "^1.0"
+  author: string;
+  license: string;
+  description: string;
+  requires_online?: boolean;
+  ui?: AddonManifestUi;
+  service?: AddonManifestService;
+  permissions: string[]; // see `ADDON_PERMISSION_SCOPES` in schemas/addon-manifest.ts
+}

@@ -17,6 +17,13 @@ import { MIGRATIONS } from './index.js';
 
 const BASELINE_TABLES = ['profiles', 'favorites', 'history', 'settings'];
 
+/** The version `runMigrations(db, path, MIGRATIONS)` (the REAL, full
+ *  migration list) leaves a DB at once every pending migration has applied.
+ *  Was hardcoded `1` before E09-T1 added `002_addons` -- derived from
+ *  `MIGRATIONS` itself here so a future migration doesn't silently
+ *  desynchronize these assertions again. */
+const LATEST_MIGRATION_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
+
 function tableNames(db: Database.Database): string[] {
   return (db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table'`).all() as { name: string }[]).map(
     (r) => r.name,
@@ -51,7 +58,7 @@ describe('runMigrations -- fresh schema', () => {
     for (const t of BASELINE_TABLES) {
       expect(names).toContain(t);
     }
-    expect(currentVersion(db)).toBe(1);
+    expect(currentVersion(db)).toBe(LATEST_MIGRATION_VERSION);
     db.close();
   });
 
@@ -83,10 +90,10 @@ describe('runMigrations -- idempotency', () => {
   it('running twice on an already-migrated :memory: DB is a no-op the second time', () => {
     const db = new Database(':memory:');
     runMigrations(db, ':memory:', MIGRATIONS);
-    expect(currentVersion(db)).toBe(1);
+    expect(currentVersion(db)).toBe(LATEST_MIGRATION_VERSION);
 
     expect(() => runMigrations(db, ':memory:', MIGRATIONS)).not.toThrow();
-    expect(currentVersion(db)).toBe(1);
+    expect(currentVersion(db)).toBe(LATEST_MIGRATION_VERSION);
     db.close();
   });
 
@@ -102,7 +109,7 @@ describe('runMigrations -- idempotency', () => {
     const backupsAfterSecond = readdirSync(dir).filter((f) => f.endsWith('.bak'));
 
     expect(backupsAfterSecond).toEqual(backupsAfterFirst);
-    expect(currentVersion(db)).toBe(1);
+    expect(currentVersion(db)).toBe(LATEST_MIGRATION_VERSION);
     db.close();
   });
 });
@@ -226,7 +233,7 @@ describe('runMigrations -- baseline adoption (no data loss)', () => {
     const db = new Database(dbPath);
     runMigrations(db, dbPath, MIGRATIONS);
 
-    expect(currentVersion(db)).toBe(1);
+    expect(currentVersion(db)).toBe(LATEST_MIGRATION_VERSION);
     const row = db.prepare(`SELECT * FROM profiles WHERE id = ?`).get('profile-1') as { name: string } | undefined;
     expect(row).toBeDefined();
     expect(row?.name).toBe('Camper');
