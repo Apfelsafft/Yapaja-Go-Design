@@ -35,6 +35,7 @@ import { iconForFavoriteCategory, FAVORITE_CATEGORIES, FAVORITE_CATEGORY_LABELS 
 import { startNavigation, NavigationApiError, type StartNavigationReroute } from '../drive/client.js';
 import { useNavStore } from '../drive/navStore.js';
 import { isDriveActive } from '../drive/ManeuverPanel.js';
+import { useOnboardingStore, selectNavigationAllowed } from '../onboarding/store.js';
 
 const AVOID_FLAGS = ['motorway', 'toll', 'ferry', 'unpaved'] as const;
 const AVOID_LABELS: Record<(typeof AVOID_FLAGS)[number], string> = {
@@ -101,9 +102,17 @@ export default function RoutingPanel(): React.ReactElement | null {
   const [navStarting, setNavStarting] = useState(false);
   const [navStartError, setNavStartError] = useState<string | null>(null);
 
+  // E08-T5 disclaimer gate (acceptance criterion #3): navigation must not be
+  // startable without a CURRENT-version disclaimer consent recorded in
+  // `settings.onboarding_state` -- see `onboarding/store.ts#selectNavigationAllowed`.
+  // Reads the SAME onboarding store the wizard itself writes to, so a
+  // consent given mid-session (wizard reopened from Settings) unlocks this
+  // immediately without a reload.
+  const navigationAllowed = useOnboardingStore(selectNavigationAllowed);
+
   const handleStartNavigation = useCallback(async () => {
     const activeRoute = selectActiveRoute({ routes, activeRouteId });
-    if (!activeRoute || !activeProfile) return;
+    if (!activeRoute || !activeProfile || !navigationAllowed) return;
 
     setNavStarting(true);
     setNavStartError(null);
@@ -128,7 +137,17 @@ export default function RoutingPanel(): React.ReactElement | null {
     } finally {
       setNavStarting(false);
     }
-  }, [routes, activeRouteId, activeProfile, avoidOverrides, tempAvoidances, destination, destinationName, setNavState]);
+  }, [
+    routes,
+    activeRouteId,
+    activeProfile,
+    avoidOverrides,
+    tempAvoidances,
+    destination,
+    destinationName,
+    setNavState,
+    navigationAllowed,
+  ]);
 
   // E05-T3: "Als Favorit speichern".
   const createFavorite = useFavoritesStore((state) => state.createFavorite);
@@ -489,17 +508,32 @@ export default function RoutingPanel(): React.ReactElement | null {
 
           <button
             onClick={() => void handleStartNavigation()}
-            disabled={!NAV_ENABLED || navStarting}
-            title={!NAV_ENABLED ? 'Navigation nicht verfügbar' : undefined}
+            disabled={!NAV_ENABLED || navStarting || !navigationAllowed}
+            title={
+              !NAV_ENABLED
+                ? 'Navigation nicht verfügbar'
+                : !navigationAllowed
+                  ? 'Bitte zuerst den Haftungsausschluss im Setup-Assistenten akzeptieren'
+                  : undefined
+            }
             className={
               NAV_ENABLED
                 ? 'w-full px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium disabled:opacity-50'
                 : 'w-full px-4 py-2 rounded-md bg-slate-300 dark:bg-slate-600 text-slate-600 dark:text-slate-300 text-sm font-medium cursor-not-allowed'
             }
             data-testid="start-navigation-button"
+            data-disclaimer-gated={!navigationAllowed}
           >
             {navStarting ? 'Navigation wird gestartet…' : 'Navigation starten'}
           </button>
+          {!navigationAllowed && (
+            <p
+              className="text-xs text-amber-700 dark:text-amber-400"
+              data-testid="start-navigation-disclaimer-gate"
+            >
+              Bitte zuerst den Haftungsausschluss im Setup-Assistenten akzeptieren.
+            </p>
+          )}
           {navStartError && (
             <p
               className="rounded-md bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-3 py-2 text-xs"

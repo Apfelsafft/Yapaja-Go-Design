@@ -123,6 +123,20 @@ export const A11Y_CORE_PORT = 4324;
 // other specs hammering the same origin in parallel, same rationale as every
 // other dedicated-port comment above.
 export const PWA_CORE_PORT = 4325;
+// Dedicated core for onboarding.spec.ts (E08-T5): the ONLY core in this
+// harness that must boot WITHOUT a seeded `settings.onboarding_state` --
+// every other core here gets `onboarding_state.completed:true` (+ a valid
+// disclaimer consent) PATCHed in during `globalSetup`, specifically so the
+// wizard's full-screen overlay does NOT auto-show and cover the UI the other
+// 40+ specs assert on (see globalSetup.ts's `seedOnboardingCompleted`). This
+// core stays genuinely fresh so the wizard auto-shows, and gets its own
+// tiles dir (starts EMPTY -- the wizard installs a region itself) + its own
+// regions catalog pointing at a small local HTTP fixture server (never a
+// real foreign host, same rule every other region-download test follows).
+export const ONBOARDING_CORE_PORT = 4326;
+export const ONBOARDING_TILES_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'tiles-onboarding');
+export const ONBOARDING_REGION_ID = 'wizardregion';
+export const ONBOARDING_REGION_HTTP_PORT = 4327;
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
@@ -140,3 +154,4 @@ export const DRIVE_LOCK_CORE_BASE_URL = `http://127.0.0.1:${DRIVE_LOCK_CORE_PORT
 export const TOUCH_TARGETS_CORE_BASE_URL = `http://127.0.0.1:${TOUCH_TARGETS_CORE_PORT}`;
 export const A11Y_CORE_BASE_URL = `http://127.0.0.1:${A11Y_CORE_PORT}`;
 export const PWA_CORE_BASE_URL = `http://127.0.0.1:${PWA_CORE_PORT}`;
+export const ONBOARDING_CORE_BASE_URL = `http://127.0.0.1:${ONBOARDING_CORE_PORT}`;
