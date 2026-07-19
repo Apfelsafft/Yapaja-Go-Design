@@ -329,6 +329,15 @@ describe('ProfileService', () => {
       }).toThrow('not found');
     });
 
+    it('should NOT call onProfileListChanged on activate (E08-T2: list membership/names are unchanged)', async () => {
+      let listChangedCount = 0;
+      const serviceWithHook = new ProfileService({ onProfileListChanged: () => listChangedCount++ });
+      await serviceWithHook.init();
+      const [p1] = serviceWithHook.getAll();
+      serviceWithHook.activate(p1!.id);
+      expect(listChangedCount).toBe(0);
+    });
+
     it('should handle parallel activates correctly', async () => {
       await service.init();
       const profiles = Array.from({ length: 10 }, () =>
@@ -351,6 +360,53 @@ describe('ProfileService', () => {
       const all = service.getAll();
       const activeCount = all.filter((p) => p.is_active).length;
       expect(activeCount).toBe(1);
+    });
+  });
+
+  describe('onProfileListChanged hook (E08-T2, select.yapaja_profile discovery options)', () => {
+    it('fires on create()', async () => {
+      let listChangedCount = 0;
+      const serviceWithHook = new ProfileService({ onProfileListChanged: () => listChangedCount++ });
+      await serviceWithHook.init();
+      serviceWithHook.create({
+        name: 'Test',
+        height_m: 2.0,
+        width_m: 2.0,
+        length_m: 5.0,
+        weight_t: 2.0,
+        avg_speed_kmh: 80,
+        hazmat: false,
+        avoid: { motorway: false, toll: false, ferry: false, unpaved: false },
+      });
+      expect(listChangedCount).toBe(1);
+    });
+
+    it('fires on update() (a rename must refresh select options)', async () => {
+      let listChangedCount = 0;
+      const serviceWithHook = new ProfileService({ onProfileListChanged: () => listChangedCount++ });
+      await serviceWithHook.init();
+      const [p1] = serviceWithHook.getAll();
+      serviceWithHook.update(p1!.id, { name: 'Renamed' });
+      expect(listChangedCount).toBe(1);
+    });
+
+    it('fires on delete()', async () => {
+      let listChangedCount = 0;
+      const serviceWithHook = new ProfileService({ onProfileListChanged: () => listChangedCount++ });
+      await serviceWithHook.init();
+      const extra = serviceWithHook.create({
+        name: 'Deletable',
+        height_m: 2.0,
+        width_m: 2.0,
+        length_m: 5.0,
+        weight_t: 2.0,
+        avg_speed_kmh: 80,
+        hazmat: false,
+        avoid: { motorway: false, toll: false, ferry: false, unpaved: false },
+      });
+      listChangedCount = 0;
+      serviceWithHook.delete(extra.id);
+      expect(listChangedCount).toBe(1);
     });
   });
 

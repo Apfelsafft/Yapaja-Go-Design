@@ -4,7 +4,13 @@
  * settings win over env when both are present, default prefix is `yapaja`.
  */
 import { describe, it, expect } from 'vitest';
-import { MQTT_DEFAULT_PREFIX, resolveMqttConfig, type SettingsLookup } from './config.js';
+import {
+  MQTT_DEFAULT_PREFIX,
+  MQTT_DEFAULT_DISCOVERY_PREFIX,
+  resolveMqttConfig,
+  resolveDiscoveryConfig,
+  type SettingsLookup,
+} from './config.js';
 
 function settingsWith(mqtt: unknown): SettingsLookup {
   return { get: (key: string) => (key === 'mqtt' ? mqtt : undefined) };
@@ -84,5 +90,65 @@ describe('resolveMqttConfig', () => {
       env: { MQTT_BROKER_URL: 'mqtt://broker.local:1883' },
     });
     expect(config?.brokerUrl).toBe('mqtt://broker.local:1883');
+  });
+});
+
+describe('resolveDiscoveryConfig (E08-T2)', () => {
+  it('defaults to enabled, prefix "homeassistant", and a sensible configuration_url with nothing configured', () => {
+    const config = resolveDiscoveryConfig({ env: {} });
+    expect(config).toEqual({
+      enabled: true,
+      discoveryPrefix: MQTT_DEFAULT_DISCOVERY_PREFIX,
+      configurationUrl: 'http://homeassistant.local:8080',
+    });
+  });
+
+  it('Setting mqtt.discovery:false disables discovery (docs/04 §1 toggle)', () => {
+    const config = resolveDiscoveryConfig({ settings: settingsWith({ discovery: false }), env: {} });
+    expect(config.enabled).toBe(false);
+  });
+
+  it('Setting mqtt.discovery:true is honoured explicitly (not just "truthy")', () => {
+    const config = resolveDiscoveryConfig({ settings: settingsWith({ discovery: true }), env: {} });
+    expect(config.enabled).toBe(true);
+  });
+
+  it('env MQTT_DISCOVERY=false disables when no Settings value overrides it', () => {
+    expect(resolveDiscoveryConfig({ env: { MQTT_DISCOVERY: 'false' } }).enabled).toBe(false);
+    expect(resolveDiscoveryConfig({ env: { MQTT_DISCOVERY: '0' } }).enabled).toBe(false);
+  });
+
+  it('Settings mqtt.discovery wins over env MQTT_DISCOVERY when both are present', () => {
+    const config = resolveDiscoveryConfig({
+      settings: settingsWith({ discovery: true }),
+      env: { MQTT_DISCOVERY: 'false' },
+    });
+    expect(config.enabled).toBe(true);
+  });
+
+  it('resolves discovery_prefix and configuration_url from Settings', () => {
+    const config = resolveDiscoveryConfig({
+      settings: settingsWith({ discovery_prefix: 'ha-custom', configuration_url: 'http://yapaja.local:8080' }),
+      env: {},
+    });
+    expect(config.discoveryPrefix).toBe('ha-custom');
+    expect(config.configurationUrl).toBe('http://yapaja.local:8080');
+  });
+
+  it('resolves discovery_prefix and configuration_url from env when Settings omit them', () => {
+    const config = resolveDiscoveryConfig({
+      env: {
+        MQTT_DISCOVERY_PREFIX: 'env-prefix',
+        MQTT_DISCOVERY_CONFIGURATION_URL: 'http://env-host:8080',
+      },
+    });
+    expect(config.discoveryPrefix).toBe('env-prefix');
+    expect(config.configurationUrl).toBe('http://env-host:8080');
+  });
+
+  it('ignores a malformed (non-object) "mqtt" settings value instead of throwing', () => {
+    const config = resolveDiscoveryConfig({ settings: settingsWith('not-an-object'), env: {} });
+    expect(config.enabled).toBe(true);
+    expect(config.discoveryPrefix).toBe(MQTT_DEFAULT_DISCOVERY_PREFIX);
   });
 });

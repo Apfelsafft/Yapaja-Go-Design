@@ -58,11 +58,13 @@ import {
   parseProfileCommand,
   type NavigationCommandAction,
 } from './commands.js';
+import { buildDiscoveryConfigs, buildSelectProfileConfig, type DiscoveryDevice } from './discovery.js';
 
 const DEFAULT_PREFIX = 'yapaja';
 const DEFAULT_MIN_BACKOFF_MS = 1000;
 const DEFAULT_MAX_BACKOFF_MS = 60_000;
 const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
+const DEFAULT_DISCOVERY_PREFIX = 'homeassistant';
 
 /** Just the profile operations the bridge needs; `ProfileService` satisfies
  *  it (it already exposes exactly this shape). */
@@ -96,6 +98,20 @@ export interface MqttReconnectOptions {
   maxMs?: number;
 }
 
+/**
+ * HA auto-discovery wiring (E08-T2). Omitting this entirely (the default)
+ * disables discovery outright -- there is no sensible device/sw_version to
+ * publish without it, distinct from `enabled: false` (Setting
+ * `mqtt.discovery: false`, docs/04 §1), which is the explicit user-facing
+ * toggle `resolveDiscoveryConfig` (config.ts) produces.
+ */
+export interface MqttBridgeDiscoveryOptions {
+  enabled: boolean;
+  /** HA discovery-topic prefix, default `'homeassistant'`. */
+  discoveryPrefix?: string;
+  device: DiscoveryDevice;
+}
+
 export interface MqttBridgeOptions {
   bus: EventBus;
   brokerUrl: string;
@@ -116,6 +132,9 @@ export interface MqttBridgeOptions {
   profileProvider?: ActiveProfileLookup;
   /** Geocoder for `cmd/destination`'s `query` field (SearchService satisfies it). */
   searchProvider?: DestinationSearchProvider;
+
+  /** HA auto-discovery (E08-T2). Omit entirely to disable (no device/sw_version to publish with). */
+  discovery?: MqttBridgeDiscoveryOptions;
 
   logger?: MqttBridgeLogger;
   reconnect?: MqttReconnectOptions;
@@ -142,6 +161,9 @@ export class MqttBridge {
   private readonly maxBackoffMs: number;
   private readonly connectTimeoutMs: number;
   private readonly connectFn: (url: string, opts: IClientOptions) => MqttClient;
+  private readonly discoveryEnabled: boolean;
+  private readonly discoveryPrefix: string;
+  private readonly discoveryDevice: DiscoveryDevice | null;
 
   private readonly navigationService: NavigationService;
   private readonly profileService: MqttProfileLookup;
@@ -182,6 +204,9 @@ export class MqttBridge {
     this.connectTimeoutMs = opts.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
     this.connectFn = opts.connectFn ?? mqttConnect;
     this.backoffMs = this.minBackoffMs;
+    this.discoveryEnabled = opts.discovery?.enabled ?? false;
+    this.discoveryPrefix = opts.discovery?.discoveryPrefix ?? DEFAULT_DISCOVERY_PREFIX;
+    this.discoveryDevice = opts.discovery?.device ?? null;
 
     this.navigationService = opts.navigationService;
     this.profileService = opts.profileService;
@@ -311,12 +336,24 @@ export class MqttBridge {
     // whatever the bus's CURRENT state is for every topic seen so far.
     this.publishRetained(`${this.prefix}/status`, 'online');
     this.republishAllRetained();
+    // E08-T2: (re)publish every discovery config on every (re)connect too --
+    // a fresh broker, or an HA that only just subscribed, must see them
+    // without waiting for `<discoveryPrefix>/status online` (which only
+    // fires on an HA-side restart, not a Core-side reconnect).
+    this.publishDiscovery();
 
     this.client?.subscribe(`${this.prefix}/cmd/#`, { qos: 1 }, (err) => {
       if (err) {
         this.logger.warn('mqtt: cmd subscribe failed', { error: err.message });
       }
     });
+    if (this.discoveryEnabled) {
+      this.client?.subscribe(`${this.discoveryPrefix}/status`, { qos: 1 }, (err) => {
+        if (err) {
+          this.logger.warn('mqtt: discovery status subscribe failed', { error: err.message });
+        }
+      });
+    }
   }
 
   private handleClose(): void {
@@ -356,6 +393,14 @@ export class MqttBridge {
       ),
       this.bus.subscribe('event/reroute_failed', (payload) => this.publishEvent('reroute_failed', payload)),
       this.bus.subscribe('event/reroute_loop', (payload) => this.publishEvent('reroute_loop', payload)),
+      // E08-T2: `select.yapaja_profile`'s discovery `options` follow the
+      // live profile list -- `event/profile_list_changed` (create/update/
+      // rename/delete) is the primary trigger; `event/profile_changed`
+      // (activate) never changes the list itself but is cheap/idempotent to
+      // also react to and keeps this in sync even if a future profile
+      // change starts mutating `name` as a side effect of activation.
+      this.bus.subscribe('event/profile_list_changed', () => this.publishProfileSelectDiscovery()),
+      this.bus.subscribe('event/profile_changed', () => this.publishProfileSelectDiscovery()),
     );
   }
 
@@ -430,10 +475,52 @@ export class MqttBridge {
   // --- MQTT -> Core (commands) -----------------------------------------------
 
   private async handleMessage(topic: string, payload: Buffer): Promise<void> {
+    // E08-T2/W-07: HA restarting republishes its own birth message to
+    // `<discoveryPrefix>/status` = `online` -- that's our cue to republish
+    // every discovery config fresh (HA cleared its own retained store on
+    // restart in this scenario, or a brand-new HA instance just appeared).
+    if (this.discoveryEnabled && topic === `${this.discoveryPrefix}/status`) {
+      if (payload.toString('utf8').trim() === 'online') {
+        this.logger.info('mqtt: HA discovery status online, republishing discovery configs', {
+          discoveryPrefix: this.discoveryPrefix,
+        });
+        this.publishDiscovery();
+      }
+      return;
+    }
+
     const cmdPrefix = `${this.prefix}/cmd/`;
     if (!topic.startsWith(cmdPrefix)) return;
     const cmdName = topic.slice(cmdPrefix.length);
     await this.handleCommand(cmdName, payload);
+  }
+
+  // --- HA auto-discovery (E08-T2) --------------------------------------------
+
+  /** Every discovery entity (docs/04 §1's full table), retained. No-op when discovery is off/unconfigured. */
+  private publishDiscovery(): void {
+    if (!this.discoveryEnabled || !this.discoveryDevice) return;
+    const configs = buildDiscoveryConfigs({
+      statePrefix: this.prefix,
+      discoveryPrefix: this.discoveryPrefix,
+      device: this.discoveryDevice,
+      profileNames: this.profileService.getAll().map((p) => p.name),
+    });
+    for (const config of configs) {
+      this.safePublish(config.topic, JSON.stringify(config.payload), { retain: true, qos: 1 });
+    }
+  }
+
+  /** Just `select.yapaja_profile` -- the live-options republish on a profile list/name change. */
+  private publishProfileSelectDiscovery(): void {
+    if (!this.discoveryEnabled || !this.discoveryDevice) return;
+    const config = buildSelectProfileConfig({
+      statePrefix: this.prefix,
+      discoveryPrefix: this.discoveryPrefix,
+      device: this.discoveryDevice,
+      profileNames: this.profileService.getAll().map((p) => p.name),
+    });
+    this.safePublish(config.topic, JSON.stringify(config.payload), { retain: true, qos: 1 });
   }
 
   private async handleCommand(cmdName: string, raw: Buffer): Promise<void> {
