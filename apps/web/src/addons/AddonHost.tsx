@@ -41,6 +41,21 @@ function AddonFrame({ addon, deps }: AddonFrameProps): React.ReactElement {
   const entry = addon.manifest.ui?.entry ?? 'ui/index.html';
   const src = addonUiSrc(addon.id, entry);
 
+  // BUGFIX (found while writing the E09-T2 e2e): `addon` comes from
+  // `fetchAddons()`, which returns a FRESH array/object graph on every
+  // `AddonHost` poll tick (2 s) even when nothing actually changed. Using
+  // `addon.manifest.permissions` (an array) directly as a dependency compared
+  // the REFERENCE, which is a new one every tick -- so this effect's cleanup
+  // (`bridge.destroy()`, which wipes the add-on's map layers/widgets/route
+  // proposals, by design for a real disable) was firing every ~2 s for every
+  // ENABLED add-on, and the recreated bridge never got a fresh handshake (the
+  // iframe only sends `ready` once, on its own load) -- so the widget/layer/
+  // proposal vanished for good moments after ever appearing. Depending on a
+  // stable PRIMITIVE derived from the permission set (rather than the array
+  // object) fixes this while still correctly recreating the bridge if the
+  // granted scopes genuinely change (e.g. an add-on update).
+  const scopeKey = addon.manifest.permissions.join(',');
+
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -56,7 +71,10 @@ function AddonFrame({ addon, deps }: AddonFrameProps): React.ReactElement {
     bridge.start();
     return () => bridge.destroy();
     // Re-create the bridge only if the add-on identity/scopes change.
-  }, [addon.id, addon.manifest.permissions, deps]);
+    // `scopeKey` is the intentional, stable stand-in for
+    // `addon.manifest.permissions` (see the comment above); depending on the
+    // array itself reintroduces the bug.
+  }, [addon.id, scopeKey, deps]);
 
   return (
     <iframe
