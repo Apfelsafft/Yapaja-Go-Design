@@ -3,6 +3,64 @@
 Persistenter Zustand der Orchestrierung (Master-Prompt: tasks/KICKOFF-PROMPT.md).
 Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 
+---
+
+## ⏸️ SESSION PAUSIERT — WARTE AUF GITHUB-ACTIONS-QUOTA-RESET (Stand 2026-07-20)
+
+**WARUM PAUSIERT:** Das GitHub-Actions-Minuten-Kontingent des Accounts ist aufgebraucht
+(Privat-Repo). Symptom: JEDER CI-Job (auch unabhängige wie Photon/Valhalla/Lite-Search)
+schlägt ~3 s nach Start ohne Logs fehl, über frische Runs hinweg. Der Nutzer bestätigte
+das Quota-Limit und meldet sich, sobald es zurückgesetzt ist (kann Tage dauern).
+
+**WO WIR STEHEN:**
+- **E09-T2 (Frontend-Plugin-Runtime: iframe-Sandbox + Bridge)** ist CODE-KOMPLETT und
+  LOKAL VOM ORCHESTRATOR VERIFIZIERT (voll: 1802 Unit grün; E2E addon-ui + nav-control +
+  shell 8/8 inkl. aller 4 W-10-Sicherheitsbeweise: Sandbox blockt Parent-DOM-Read,
+  Scope-Matrix host-seitig, route.propose inert bis bestätigt, disable-Teardown;
+  Bridge-Source-Pinning + Scope-Enforcement per Hand gelesen). Ein echter Prod-Bug
+  wurde vom E2E gefunden+gefixt (jedes Add-on-UI verschwand ~2 s nach Erscheinen wegen
+  Bridge-Neuaufbau bei jedem 2-s-Poll — jetzt auf stabilen `permissions.join(',')`-Key).
+- Branch: **`task/E09-T2-frontend-plugin-runtime`**, HEAD **`e97ec70`** (die letzten 2
+  Commits `e7797bd`/`e97ec70` sind LEERE CI-Retrigger-Commits; `5d7cd88` = pnpm-lock-Fix
+  für das neue `@yapaja/addon-sdk`-Package; `e152342` = e2e+Bugfix; `f7ab1aa` = WIP-Impl).
+- **PR #60** offen gegen main. **Blockiert AUSSCHLIESSLICH durch die Actions-Quota**, NICHT
+  durch Code. NICHT gemergt (CI-Gate ist Pflicht — kein Fake-Green).
+
+**EXAKTE RESUME-SCHRITTE (in dieser Reihenfolge), sobald die Quota zurück ist:**
+1. CI auf PR #60 neu triggern: `mcp__github__actions_run_trigger` `rerun_workflow_run`
+   auf dem letzten Run von Branch `task/E09-T2-frontend-plugin-runtime`, ODER einfacher ein
+   leerer Commit (`git commit --allow-empty`) auf den Branch + push.
+2. Auf ALLE 8 Checks grün gaten (Quality, E2E, Docker, Golden-Routes-Merge-Blocker,
+   Valhalla, Lite-Search, Photon-Setup, HA-Add-on-Config). Bei echtem Fehler (nicht Infra)
+   diagnostizieren + fixen; bei bekanntem Flake (search/gps-loss/map-routes) isoliert rerun.
+3. Squash-merge #60 (`merge_pull_request` squash, Titel `E09-T2: Frontend-Plugin-Runtime (iframe-Sandbox + Bridge) (#60)`).
+4. `git checkout main && git fetch origin main && git reset --hard origin/main &&
+   git branch -D task/E09-T2-frontend-plugin-runtime`.
+5. E09-T2-Zeile in die Task-Tabelle unten eintragen (Muster wie E09-T1) + Task #49 auf
+   completed; Header-„Offen“-Zeile aktualisieren; **DIESEN PAUSE-BLOCK LÖSCHEN**; committen+pushen.
+6. WEITER mit **E09-T3** (Service-Plugin-Runtime: Node-Child-Prozesse + scoped Tokens,
+   W-14 — SICHERHEITSKRITISCH → opus, wenn opus-Limit frei) und dann T4–T8, danach E10.
+
+**OFFENE E09-TASKS (tasks/E09-addon-system.md):** T3 Service-Plugin-Runtime (Node-Prozesse +
+scoped Tokens, W-14), T4 SDK-Paket `@yapaja/addon-sdk` (Ausbau), T5 Add-on-Store/Registry,
+T6 Referenz-Add-on #1, T7 Referenz-Add-on #2, T8 Add-on-Security-Audit/Gate G4. (Genaue
+Specs in der Task-Datei nachlesen — T3+ Details dort.) Danach **E10** (Qualität & Release
+v1.0, 6 Tasks).
+
+**STEHENDE ORCHESTRATOR-REGELN (nicht vergessen):** jede Subagent-Lieferung SELBST
+verifizieren (nie „grün“ vertrauen: lint + Builds + tsc + `npx vitest run` + relevante E2E
++ Kernlogik per Hand lesen); CI ist Pflicht-Merge-Gate; Modell-Matrix (sicherheits-/
+sicherheitskritisch → opus, sonst sonst sonnet/haiku); Dev auf `task/<ID>-…`-Branch, Squash
+nach main. **GELERNTE FALLE:** nach JEDER neuen Dependency/Workspace-Package MUSS der
+Subagent `pnpm install --frozen-lockfile` lokal laufen lassen (sonst ERR_PNPM_OUTDATED_LOCKFILE
+in CI — genau das ist bei #60 passiert und kostete einen Extra-Fix-Commit).
+
+**MODELL-LIMITS (Kontext):** opus-Account-Session-Limit wurde in dieser Session 2× getroffen
+(E07-T4 + E09-T2-Erstlauf) → Fallback auf sonnet MIT Orchestrator-Eigen-Sicherheitsverifikation
+hat gut funktioniert; bei rate-limitiertem opus für sicherheitskritische Tasks so verfahren.
+
+---
+
 **Umgebung:** Node v22.22.2, pnpm 10.33.0, Docker 29.3.1 — alles verfügbar.
 **Basis-Branch:** main · **Aktuelle Welle:** Phase 2 (Routing/Nav) — G1 bestanden; **E03-Routing-Epic KOMPLETT (T1–T6)**; **E05-T1+T2+T3+T5 (Suche) + E04-T1–T6 (Navigation KOMPLETT inkl. Dead-Reckoning) + E06 (Profile KOMPLETT) MERGED**. Die App ist jetzt ein voll funktionsfähiger Offline-Turn-by-Turn-Navigator (Suche→Route→Drive mit Sprachansage→Auto-Reroute→Ankunft→Reload-Fortsetzung, GPS-Verlust-Dead-Reckoning). **E01–E06 ALLE komplett — gesamtes Kernprodukt fertig** (Karten, Position, Routing, Navigation inkl. Dead-Reckoning, Suche inkl. Photon+Lite, Profile). App = voll funktionsfähiger Offline-Truck-Navigator. **E07-UI-Shell-Epic KOMPLETT (T1–T5): Widget/Slot-Engine + Drag&Drop-Edit + Tag/Nacht-Theme + Fahrbetrieb-Härtung/Speed-Lock/A11y + PWA/Kiosk. Die App ist jetzt produktreif als installierbare, offline-fähige Kiosk-PWA mit anpassbarer Widget-Oberfläche.** **E08-HA-Epic KOMPLETT (T1–T6): MQTT-Bridge + HA-Auto-Discovery + REST/WS-Token-Auth + HA-Ausgabekanal + HA-Add-on-Packaging(Ingress/s6/bashio) + Onboarding-Wizard + Update-sichere DB-Migrationen. App voll HA-integriert & als Add-on auslieferbar.** **E09-Add-on-Epic gestartet: T1 (Manifest/Install/Lifecycle inkl. gehärteter Tarball-Extraktion) MERGED.** **Offen Richtung v1.0:** E09 (Rest: T2 Frontend-Plugin-Runtime iframe-Sandbox, T3 Service-Plugin-Runtime/scoped-Tokens, T4-T8), E10 (Qualität & Release v1.0, 6 Tasks) (Home-Assistant-Integration MQTT/Add-on/Ingress, 6), E09 (Add-on-System Runtime/SDK/Store, 8), E10 (Qualität & Release v1.0, 6). **Nächste sinnvolle Reihenfolge:** E07 (finale App-Shell, macht die Drive-UI produktreif) → E08 (HA-Integration) → E09 (Add-on-Plattform) → E10 (Release-Härtung inkl. echte DE-Golden-Routes/Security-Audit/Doku). Gate G2 (Golden-Routes-Framework + LI) steht. G2-Kriterium (Golden-Routes) hat jetzt Framework+LI-Gate; echte DE-Restriktionsfälle = nightly-Nachrüstung (Daten)
 
