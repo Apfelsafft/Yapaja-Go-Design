@@ -137,6 +137,15 @@ export const ONBOARDING_CORE_PORT = 4326;
 export const ONBOARDING_TILES_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'tiles-onboarding');
 export const ONBOARDING_REGION_ID = 'wizardregion';
 export const ONBOARDING_REGION_HTTP_PORT = 4327;
+// Dedicated core for addon-ui.spec.ts (E09-T2, W-10): installs + enables a
+// fixture UI add-on and exercises the sandboxed iframe + scope-checked bridge.
+// Gets its OWN add-ons + add-on-storage directories (via env) so its installs
+// never collide with the shared CORE_ROOT cwd another core might reuse, and so
+// re-runs start clean. Uses the fixture tiles dir so the map renders (add-on
+// map layers need a live map).
+export const ADDON_UI_CORE_PORT = 4328;
+export const ADDON_UI_ADDONS_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addons-ui');
+export const ADDON_UI_STORAGE_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addon-storage-ui');
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
@@ -155,3 +164,4 @@ export const TOUCH_TARGETS_CORE_BASE_URL = `http://127.0.0.1:${TOUCH_TARGETS_COR
 export const A11Y_CORE_BASE_URL = `http://127.0.0.1:${A11Y_CORE_PORT}`;
 export const PWA_CORE_BASE_URL = `http://127.0.0.1:${PWA_CORE_PORT}`;
 export const ONBOARDING_CORE_BASE_URL = `http://127.0.0.1:${ONBOARDING_CORE_PORT}`;
+export const ADDON_UI_CORE_BASE_URL = `http://127.0.0.1:${ADDON_UI_CORE_PORT}`;

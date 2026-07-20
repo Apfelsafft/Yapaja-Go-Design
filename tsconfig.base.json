@@ -26,6 +26,7 @@
     "paths": {
       "@yapaja/shared": ["packages/shared/src"],
       "@yapaja/ui": ["packages/ui/src"],
+      "@yapaja/addon-sdk": ["packages/addon-sdk/src"],
       "@yapaja/core/*": ["apps/core/src/*"],
       "@yapaja/web/*": ["apps/web/src/*"]
     }

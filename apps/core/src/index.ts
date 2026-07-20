@@ -34,6 +34,8 @@ import { serveIndexHtml } from './static/ingressHtml.js';
 import { systemPlugin } from './system/routes.js';
 import { readPackageVersion } from './version.js';
 import { addonsPlugin } from './addons/routes.js';
+import { addonUiHostPlugin } from './addons/ui-host.js';
+import { addonStoragePlugin } from './addons/storageRoutes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -311,6 +313,19 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // install/lifecycle + DB + tarball-extraction hardening; it does not start
   // any add-on service process or serve add-on UIs (E09-T2/T3).
   await fastify.register(addonsPlugin, { prefix: '/api/v1', coreVersion: version });
+
+  // E09-T2 (docs/05 §1A, Wargame W-10): serve an ENABLED add-on's UI assets
+  // under `/addons/{id}/ui/**` behind a strict CSP (no external hosts,
+  // `connect-src 'none'`, `frame-ancestors 'self'`), plus the host-side,
+  // namespace-enforced `storage.own` KV surface under `/api/v1/addons/:id/
+  // storage/:key`. The UI-host route is registered at the ROOT (no `/api`
+  // prefix) so a plain iframe navigation reaches it, and -- being a real
+  // registered route -- always wins over the SPA not-found fallback below,
+  // so an add-on UI is never served the main app's index.html. Only the
+  // FRONTEND runtime (iframe + bridge) lives in this task; add-on SERVICE
+  // processes are E09-T3.
+  await fastify.register(addonUiHostPlugin);
+  await fastify.register(addonStoragePlugin, { prefix: '/api/v1' });
 
   // System resources (E08-T5, W-12/W-18): real measured free/total disk (of
   // the map-tiles data dir) + free/total RAM, for the onboarding wizard's

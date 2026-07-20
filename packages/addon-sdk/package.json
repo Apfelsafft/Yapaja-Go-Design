@@ -1,0 +1,24 @@
+{
+  "name": "@yapaja/addon-sdk",
+  "version": "0.1.0",
+  "description": "Frontend add-on SDK (E09-T2, docs/05 §3) -- the UNTRUSTED add-on-side postMessage client + the wire protocol it and the host agree on. Runs inside the sandboxed add-on iframe; the REAL scope enforcement lives host-side (apps/web/src/addons).",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}

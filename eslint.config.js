@@ -50,13 +50,15 @@ export default [
     }
   },
   {
-    // apps/web only: TypeScript (with the DOM lib) already flags genuinely
+    // Browser/DOM code: TypeScript (with the DOM lib) already flags genuinely
     // undefined identifiers at compile time; base `no-undef` only knows the
     // small manual `globals` list above and false-positives on standard
-    // browser/DOM globals (fetch, HTMLDivElement, ResizeObserver, …) that
-    // frontend code legitimately uses. Scoped to apps/web so it doesn't
-    // affect apps/core's existing, separately-justified no-undef handling.
-    files: ['apps/web/**/*.ts', 'apps/web/**/*.tsx'],
+    // browser/DOM globals (fetch, HTMLDivElement, ResizeObserver, Window,
+    // MessageEvent, setTimeout, …) that frontend code legitimately uses.
+    // Scoped to the frontend packages (apps/web + the browser-side add-on SDK)
+    // so it doesn't affect apps/core's existing, separately-justified no-undef
+    // handling.
+    files: ['apps/web/**/*.ts', 'apps/web/**/*.tsx', 'packages/addon-sdk/**/*.ts', 'packages/addon-sdk/**/*.tsx'],
     rules: {
       'no-undef': 'off'
     }

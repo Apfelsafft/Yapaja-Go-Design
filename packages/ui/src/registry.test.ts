@@ -40,4 +40,16 @@ describe('WidgetRegistry', () => {
     registry.register(makeWidget('c'));
     expect(registry.list().map((w) => w.id)).toEqual(['a', 'b', 'c']);
   });
+
+  it('unregister removes a widget and is idempotent (E09-T2 add-on teardown)', () => {
+    const registry = new WidgetRegistry();
+    registry.register(makeWidget('com.example.addon/w1'));
+    expect(registry.has('com.example.addon/w1')).toBe(true);
+    expect(registry.unregister('com.example.addon/w1')).toBe(true);
+    expect(registry.has('com.example.addon/w1')).toBe(false);
+    // Idempotent: a second removal (or an unknown id) is a no-op, never throws.
+    expect(registry.unregister('com.example.addon/w1')).toBe(false);
+    // And the id is free to register again afterwards (no residue).
+    expect(() => registry.register(makeWidget('com.example.addon/w1'))).not.toThrow();
+  });
 });
