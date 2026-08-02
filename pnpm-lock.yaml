@@ -179,6 +179,15 @@ importers:
         specifier: ^7.4.1
         version: 7.4.1
 
+  packages/addon-sdk:
+    devDependencies:
+      typescript:
+        specifier: ^5.4.5
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@20.19.43)(terser@5.49.0)
+
   packages/shared:
     dependencies:
       ajv:

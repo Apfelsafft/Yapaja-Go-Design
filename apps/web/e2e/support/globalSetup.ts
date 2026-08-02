@@ -55,6 +55,10 @@ import {
   ONBOARDING_TILES_DIR,
   ONBOARDING_REGION_ID,
   ONBOARDING_REGION_HTTP_PORT,
+  ADDON_UI_CORE_PORT,
+  ADDON_UI_CORE_BASE_URL,
+  ADDON_UI_ADDONS_DIR,
+  ADDON_UI_STORAGE_DIR,
   CORE_BASE_URL,
   EMPTY_CORE_BASE_URL,
   SIMULATOR_CORE_BASE_URL,
@@ -295,6 +299,15 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   const onboardingCore = startCore(ONBOARDING_CORE_PORT, ONBOARDING_TILES_DIR, {
     MAP_REGIONS_CATALOG_FILE: onboardingCatalogPath,
   });
+  // Dedicated core for addon-ui.spec.ts (E09-T2) -- see the ADDON_UI_CORE_PORT
+  // comment in constants.ts. Its own add-ons + storage dirs (cleaned here so
+  // re-runs start fresh) keep its installs off the shared CORE_ROOT cwd.
+  rmSync(ADDON_UI_ADDONS_DIR, { recursive: true, force: true });
+  rmSync(ADDON_UI_STORAGE_DIR, { recursive: true, force: true });
+  const addonUiCore = startCore(ADDON_UI_CORE_PORT, FIXTURE_TILES_DIR, {
+    ADDONS_DIR: ADDON_UI_ADDONS_DIR,
+    ADDON_STORAGE_DIR: ADDON_UI_STORAGE_DIR,
+  });
 
   const allCores = [
     fixtureCore,
@@ -312,6 +325,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     a11yCore,
     pwaCore,
     onboardingCore,
+    addonUiCore,
   ];
 
   try {
@@ -331,6 +345,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       waitForHealth(A11Y_CORE_BASE_URL, 20_000),
       waitForHealth(PWA_CORE_BASE_URL, 20_000),
       waitForHealth(ONBOARDING_CORE_BASE_URL, 20_000),
+      waitForHealth(ADDON_UI_CORE_BASE_URL, 20_000),
     ]);
   } catch (err) {
     for (const core of allCores) core.kill();
@@ -358,6 +373,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       TOUCH_TARGETS_CORE_BASE_URL,
       A11Y_CORE_BASE_URL,
       PWA_CORE_BASE_URL,
+      ADDON_UI_CORE_BASE_URL,
     ].map((baseUrl) => seedOnboardingCompleted(baseUrl)),
   );
 

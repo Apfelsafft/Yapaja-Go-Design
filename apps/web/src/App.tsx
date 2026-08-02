@@ -11,6 +11,7 @@ import DriveLockController from './drive/DriveLockController.js';
 import HandednessController from './shell/HandednessController.js';
 import UpdatePrompt from './pwa/UpdatePrompt.js';
 import OnboardingWizard from './onboarding/OnboardingWizard.js';
+import AddonHost from './addons/AddonHost.js';
 
 export default function App(): React.ReactElement {
   return (
@@ -32,6 +33,10 @@ export default function App(): React.ReactElement {
       <DriveOverlay />
       <UpdatePrompt />
       <OnboardingWizard />
+      {/* E09-T2: sandboxed UI add-on runtime (iframes + scope-checked bridge,
+          add-on widgets, route-proposal banner). Renders nothing until an
+          enabled UI add-on is installed. */}
+      <AddonHost />
     </div>
   );
 }

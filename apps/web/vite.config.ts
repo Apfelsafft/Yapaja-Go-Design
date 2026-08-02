@@ -119,6 +119,7 @@ export default defineConfig({
     alias: {
       '@yapaja/shared': resolve(__dirname, '../../packages/shared/src'),
       '@yapaja/ui': resolve(__dirname, '../../packages/ui/src'),
+      '@yapaja/addon-sdk': resolve(__dirname, '../../packages/addon-sdk/src'),
     },
   },
   server: {

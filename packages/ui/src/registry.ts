@@ -27,6 +27,14 @@ export class WidgetRegistry {
     this.widgets.set(widget.id, widget);
   }
 
+  /** Removes a widget by id. Returns `true` if one was present. Idempotent --
+   *  used by the add-on runtime (E09-T2) to tear a disabled/uninstalled
+   *  add-on's widget back out of the registry with no residue; a miss is the
+   *  expected, non-exceptional case (already gone), never an error. */
+  unregister(id: string): boolean {
+    return this.widgets.delete(id);
+  }
+
   /** Looks up a widget by id. Returns `undefined` for an unknown id -- this
    *  is the expected, non-exceptional path for a stale/uninstalled add-on
    *  widget id found in a persisted layout. */
