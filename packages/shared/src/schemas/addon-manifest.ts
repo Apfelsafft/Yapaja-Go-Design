@@ -89,6 +89,11 @@ export const addonManifestServiceSchema = {
   properties: {
     runtime: { type: 'string', enum: ['node18', 'node20', 'external'] },
     entry: { type: 'string', minLength: 1 },
+    /** E09-T3 / W-14: optional RSS ceiling in MB for a Core-spawned service
+     *  process. The Core defaults to 256 MB when absent and clamps the value
+     *  (see `addons/service-host.ts`) -- a manifest cannot grant itself
+     *  unlimited memory. */
+    max_rss_mb: { type: 'number', minimum: 16, maximum: 4096 },
   },
   required: ['runtime', 'entry'],
   additionalProperties: false,

@@ -145,6 +145,21 @@ describe('E08-T3 REST auth matrix', () => {
       }
     });
 
+    it('401 on a PERCENT-ENCODED spelling of a guarded path (E09-T3 guard/router agreement)', async () => {
+      // fastify's router decodes escapes before matching, so `/%61pi/...`
+      // reaches the `/api/...` handler. A guard that only looked at the raw
+      // `request.url` would skip it entirely -- these must be 401, not 200.
+      for (const url of [
+        '/%61pi/v1/settings',
+        '/api/%76%31/settings',
+        '/api/v1/%73ettings',
+        '/api/v1/n%61vigation/state',
+      ]) {
+        const res = await server.inject({ method: 'GET', url });
+        expect(res.statusCode, `${url} must not bypass the guard`).toBe(401);
+      }
+    });
+
     it('401 with a WRONG token', async () => {
       const res = await server.inject({
         method: 'GET',

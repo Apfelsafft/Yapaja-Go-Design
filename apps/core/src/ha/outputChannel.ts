@@ -36,6 +36,14 @@ function splitService(full: string): { domain: string; service: string } | null 
   return { domain: full.slice(0, dot), service: full.slice(dot + 1) };
 }
 
+/** `event/addon_notify` payload (published by `addons/serviceRoutes.ts`). */
+export interface AddonNotifyPayload {
+  addon_id: string;
+  addon_name?: string;
+  title?: string | null;
+  message: string;
+}
+
 export interface HaOutputChannelOptions {
   bus: EventBus;
   settings?: HaSettingsLookup;
@@ -74,6 +82,14 @@ export class HaOutputChannel {
       }),
       this.bus.subscribe('event/gps_lost_paused', (payload) => {
         void this.onGpsLostPaused(payload);
+      }),
+      // E09-T3: the `ha.notify` add-on scope. An add-on POSTs to
+      // `/api/v1/addons/{id}/notifications` (scope-checked server-side) and
+      // the Core republishes it here -- add-on code never touches HA
+      // credentials, and the notification is always labelled with the add-on
+      // name so it cannot impersonate the Core.
+      this.bus.subscribe('event/addon_notify', (payload) => {
+        void this.onAddonNotify(payload as AddonNotifyPayload);
       }),
     );
   }
@@ -127,6 +143,20 @@ export class HaOutputChannel {
     await this.call(config, config.notify.service, {
       title: 'Yapaja Go',
       message: name ? `Ziel erreicht: ${name}` : 'Ziel erreicht.',
+    });
+  }
+
+  /** `event/addon_notify` (E09-T3, `ha.notify` scope) -> HA notification,
+   *  gated by the SAME `notify.enabled` setting as every other notification
+   *  (an add-on can never switch HA notifications on by itself). */
+  private async onAddonNotify(payload: AddonNotifyPayload): Promise<void> {
+    const config = this.resolve();
+    if (!config || !config.notify.enabled) return;
+    if (!payload || typeof payload.message !== 'string' || payload.message.trim() === '') return;
+    const label = typeof payload.addon_name === 'string' && payload.addon_name !== '' ? payload.addon_name : payload.addon_id;
+    await this.call(config, config.notify.service, {
+      title: `Yapaja Go – ${label}`,
+      message: payload.title ? `${payload.title}: ${payload.message}` : payload.message,
     });
   }
 

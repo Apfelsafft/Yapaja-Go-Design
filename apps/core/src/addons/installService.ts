@@ -95,6 +95,20 @@ export function computeScopeWarnings(permissions: readonly string[]): string[] {
   return warnings;
 }
 
+/**
+ * E09-T3: the seam through which the add-on SERVICE RUNTIME
+ * (`service-host.ts`) is tied to the `enabled` flag. `InstallService` is the
+ * single entry point for enable/disable/uninstall, so hanging the process
+ * lifecycle here guarantees there is no path that flips `enabled` without the
+ * matching spawn/kill + token issue/revoke. Structural: the install pipeline
+ * knows nothing about child processes.
+ */
+export interface AddonLifecycleListener {
+  onEnabled(record: AddonRecord): void;
+  onDisabled(addonId: string): void;
+  onUninstalled(addonId: string): void;
+}
+
 export interface InstallServiceOptions {
   repository?: AddonRepository;
   pendingStore?: PendingInstallStore;
@@ -111,6 +125,8 @@ export interface InstallServiceOptions {
   addonsStorageRootDir?: string;
   maxCompressedBytes?: number;
   maxUncompressedBytes?: number;
+  /** E09-T3 service runtime; omit to run without any add-on processes. */
+  lifecycle?: AddonLifecycleListener;
 }
 
 export class InstallService {
@@ -121,6 +137,7 @@ export class InstallService {
   private readonly addonsStorageRootDir: string;
   private readonly maxCompressedBytes: number;
   private readonly maxUncompressedBytes: number;
+  private readonly lifecycle?: AddonLifecycleListener;
 
   constructor(opts: InstallServiceOptions) {
     this.repository = opts.repository ?? new AddonRepository();
@@ -130,6 +147,20 @@ export class InstallService {
     this.addonsStorageRootDir = opts.addonsStorageRootDir ?? resolveAddonStorageRootDir();
     this.maxCompressedBytes = opts.maxCompressedBytes ?? MAX_TARBALL_COMPRESSED_BYTES;
     this.maxUncompressedBytes = opts.maxUncompressedBytes ?? MAX_TARBALL_UNCOMPRESSED_BYTES;
+    this.lifecycle = opts.lifecycle;
+  }
+
+  /** A lifecycle listener must never be able to break the lifecycle itself:
+   *  a throwing service host is logged-and-swallowed, the DB row stays
+   *  authoritative. */
+  private notify(fn: (listener: AddonLifecycleListener) => void): void {
+    if (!this.lifecycle) return;
+    try {
+      fn(this.lifecycle);
+    } catch {
+      /* the `enabled` flag is the source of truth; a host failure never
+         rolls back the operator's decision */
+    }
   }
 
   listAddons(): AddonRecord[] {
@@ -361,12 +392,16 @@ export class InstallService {
   enable(id: string): AddonRecord {
     const record = this.repository.setEnabled(id, true);
     if (!record) throw new AddonError('NOT_FOUND', `No add-on installed with id "${id}"`);
+    // E09-T3: issue the scoped token + spawn the service process (if any).
+    this.notify((l) => l.onEnabled(record));
     return record;
   }
 
   disable(id: string): AddonRecord {
     const record = this.repository.setEnabled(id, false);
     if (!record) throw new AddonError('NOT_FOUND', `No add-on installed with id "${id}"`);
+    // E09-T3: kill the process AND revoke the token -- immediately.
+    this.notify((l) => l.onDisabled(id));
     return record;
   }
 
@@ -375,6 +410,10 @@ export class InstallService {
   async uninstall(id: string): Promise<void> {
     const record = this.repository.getById(id);
     if (!record) throw new AddonError('NOT_FOUND', `No add-on installed with id "${id}"`);
+
+    // E09-T3: stop the process + revoke the token BEFORE anything is deleted,
+    // so a running service can never observe a half-removed installation.
+    this.notify((l) => l.onUninstalled(id));
 
     const codeDir = resolveAddonDir(this.addonsRootDir, id);
     if (codeDir) {
