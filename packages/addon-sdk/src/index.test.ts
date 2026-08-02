@@ -1,10 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
-import { connect, ADDON_MESSAGE_NS, ADDON_PROTOCOL_VERSION, METHOD_SCOPES, BRIDGE_METHODS } from './index.js';
+import { describe, expect, it, vi } from 'vitest';
+import { connectAddon } from './index.js';
+import { AddonTransportError } from './errors.js';
+import { detectTransport } from './detect.js';
+import { ADDON_MESSAGE_NS, ADDON_PROTOCOL_VERSION } from './protocol.js';
 
 /**
- * The SDK is add-on-side convenience only, but it still has to speak the wire
- * protocol correctly. These tests drive it with a mock host window (no jsdom
- * needed) and assert the handshake + call/result + event-stream plumbing.
+ * `connectAddon()` dispatch: auto-detects the transport (`detectTransport()`)
+ * unless overridden, then delegates. The transports themselves are covered
+ * end-to-end in `postMessageTransport.test.ts` / `serviceTransport.test.ts`;
+ * these tests only check the DISPATCH decision + the explicit-override escape
+ * hatch.
  */
 
 interface MockWindow {
@@ -12,13 +17,11 @@ interface MockWindow {
   removeEventListener: (type: string, cb: (e: MessageEvent) => void) => void;
   postMessage: ReturnType<typeof vi.fn>;
   _deliver: (data: unknown) => void;
-  _listeners: Set<(e: MessageEvent) => void>;
 }
 
 function makeWindow(): MockWindow {
   const listeners = new Set<(e: MessageEvent) => void>();
   return {
-    _listeners: listeners,
     addEventListener: (_type, cb) => listeners.add(cb),
     removeEventListener: (_type, cb) => listeners.delete(cb),
     postMessage: vi.fn(),
@@ -26,92 +29,52 @@ function makeWindow(): MockWindow {
   };
 }
 
-function lastPosted(win: MockWindow): Record<string, unknown> {
-  const calls = win.postMessage.mock.calls;
-  return calls[calls.length - 1][0] as Record<string, unknown>;
-}
-
-async function connectHandshaken(): Promise<{
-  host: MockWindow;
-  addon: MockWindow;
-  client: Awaited<ReturnType<typeof connect>>;
-}> {
-  const host = makeWindow();
-  const addon = makeWindow();
-  const promise = connect({
-    target: host as unknown as Window,
-    self: addon as unknown as Window,
-    timeoutMs: 1000,
-  });
-  // The SDK announces readiness immediately.
-  expect(lastPosted(host)).toMatchObject({ ns: ADDON_MESSAGE_NS, type: 'ready' });
-  // Host answers the handshake.
-  addon._deliver({
-    ns: ADDON_MESSAGE_NS,
-    v: ADDON_PROTOCOL_VERSION,
-    type: 'init',
-    addonId: 'com.example.demo',
-    scopes: ['pos.read', 'map.layer.write'],
-  });
-  const client = await promise;
-  return { host, addon, client };
-}
-
-describe('addon-sdk connect()', () => {
-  it('completes the handshake and exposes the pinned id + scopes', async () => {
-    const { client } = await connectHandshaken();
-    expect(client.addonId).toBe('com.example.demo');
-    expect(client.hasScope('pos.read')).toBe(true);
-    expect(client.hasScope('nav.control')).toBe(false);
-  });
-
-  it('rejects when the host never answers within the timeout', async () => {
+describe('connectAddon() transport dispatch', () => {
+  it('honours an explicit { transport: "postMessage" } override and drives the postMessage handshake', async () => {
     const host = makeWindow();
     const addon = makeWindow();
-    await expect(
-      connect({ target: host as unknown as Window, self: addon as unknown as Window, timeoutMs: 10 }),
-    ).rejects.toMatchObject({ code: 'HANDSHAKE_TIMEOUT' });
-  });
-
-  it('sends a typed call and resolves on the matching result', async () => {
-    const { host, addon, client } = await connectHandshaken();
-    const p = client.map.addLayer({ id: 'poi', data: { type: 'FeatureCollection', features: [] } });
-    const posted = lastPosted(host);
-    expect(posted).toMatchObject({ type: 'call', method: 'map.addLayer' });
-    addon._deliver({ ns: ADDON_MESSAGE_NS, v: 1, type: 'result', callId: posted.callId, ok: true });
-    await expect(p).resolves.toBeUndefined();
-  });
-
-  it('rejects a call when the host returns an error result', async () => {
-    const { host, addon, client } = await connectHandshaken();
-    const p = client.route.propose({ waypoints: [{ lat: 1, lng: 2 }], reason: 'x' });
-    const posted = lastPosted(host);
+    const connectPromise = connectAddon({
+      transport: 'postMessage',
+      postMessage: { target: host as unknown as Window, self: addon as unknown as Window, timeoutMs: 1000 },
+    });
+    expect(host.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ ns: ADDON_MESSAGE_NS, type: 'ready' }),
+      '*',
+    );
     addon._deliver({
       ns: ADDON_MESSAGE_NS,
-      v: 1,
-      type: 'result',
-      callId: posted.callId,
-      ok: false,
-      error: { code: 'SCOPE_DENIED', message: 'nope' },
+      v: ADDON_PROTOCOL_VERSION,
+      type: 'init',
+      addonId: 'com.example.ui',
+      scopes: ['pos.read'],
     });
-    await expect(p).rejects.toMatchObject({ code: 'SCOPE_DENIED' });
+    const client = await connectPromise;
+    expect(client.transport).toBe('postMessage');
+    expect(client.addonId).toBe('com.example.ui');
+    client.dispose();
   });
 
-  it('delivers pos/update events to position subscribers', async () => {
-    const { addon, client } = await connectHandshaken();
-    const cb = vi.fn();
-    const unsub = client.position.subscribe(cb);
-    addon._deliver({ ns: ADDON_MESSAGE_NS, v: 1, type: 'event', channel: 'pos/update', payload: { lat: 5, lng: 6 } });
-    expect(cb).toHaveBeenCalledWith({ lat: 5, lng: 6 });
-    unsub();
-    addon._deliver({ ns: ADDON_MESSAGE_NS, v: 1, type: 'event', channel: 'pos/update', payload: { lat: 7, lng: 8 } });
-    expect(cb).toHaveBeenCalledTimes(1);
+  it('honours an explicit { transport: "service" } override and drives the REST+WS connect', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ status: 'ok', version: '0.1.0' }), { status: 200 }));
+    const client = await connectAddon({
+      transport: 'service',
+      service: {
+        apiUrl: 'http://127.0.0.1:8080',
+        token: 'tok',
+        addonId: 'com.example.svc',
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      },
+    });
+    expect(client.transport).toBe('service');
+    expect(client.addonId).toBe('com.example.svc');
+    client.dispose();
   });
 
-  it('exposes a complete method->scope map for every bridge method', () => {
-    for (const method of BRIDGE_METHODS) {
-      expect(METHOD_SCOPES[method]).toBeTruthy();
-    }
-    expect(BRIDGE_METHODS).toHaveLength(11);
+  it('detectTransport() throws a clear AddonTransportError when neither signal is present', () => {
+    expect(() => detectTransport()).toThrow(AddonTransportError);
+  });
+
+  it('connectAddon() with no override propagates detectTransport()\'s failure when neither signal is present', async () => {
+    await expect(connectAddon()).rejects.toThrow(AddonTransportError);
   });
 });

@@ -5,8 +5,31 @@
     "rootDir": "./src",
     "declaration": true,
     "composite": true,
-    "lib": ["ES2020", "DOM"]
+    "lib": ["ES2020", "DOM"],
+    // Overrides (clears) the root tsconfig's `@yapaja/*` -> SOURCE path
+    // mapping for THIS package only. addon-sdk is the one workspace package
+    // with a real runtime dependency (`@yapaja/shared`, for the re-exported
+    // domain types) AND an explicit `rootDir`/`composite` build (`tsc`,
+    // unlike the app packages, which bundle with tsup/vite and only ever
+    // typecheck with `--noEmit`) -- resolving `@yapaja/shared` to its SOURCE
+    // would pull every one of its files into THIS program, violating
+    // `rootDir` and, on `build` (which emits), writing copies of shared's
+    // compiled output into this package's own `dist/`. Clearing `paths` here
+    // falls back to plain node_modules resolution, i.e. `@yapaja/shared`'s
+    // OWN `package.json#exports` (`dist/index.d.ts`/`dist/index.js`) -- the
+    // same way a real npm consumer would resolve it. This means
+    // `@yapaja/shared` must be BUILT before this package's `typecheck`/
+    // `build` (ordinary monorepo dependency order; `pnpm -r` respects it).
+    "paths": {}
   },
+  // Project reference to `@yapaja/shared` (which is already `composite`).
+  // This is what makes the node_modules-style resolution above WORK in a
+  // clean checkout: `tsc --build` builds `shared`'s declarations first, in
+  // dependency order, without anyone having to remember a manual build step.
+  // (CI runs `pnpm typecheck` BEFORE `pnpm build`, and the root `build`
+  // script only covers `./apps/**` -- so without this reference a clean CI
+  // clone fails with "Cannot find module '@yapaja/shared'".)
+  "references": [{ "path": "../shared" }],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }
