@@ -111,6 +111,42 @@ export class AuthGuard {
   }
 }
 
+/**
+ * Splits a request path into PERCENT-DECODED segments -- the form the router
+ * actually matches on.
+ *
+ * WHY THIS EXISTS (security, E09-T3): fastify's router (find-my-way) decodes
+ * percent-escapes before matching, so `GET /%61pi/v1/settings` reaches the
+ * `/api/v1/settings` handler -- while `request.url` in an `onRequest` hook is
+ * still the RAW `/%61pi/v1/settings`. A guard that tests the raw string
+ * (`url.startsWith('/api/')`) therefore waves the request straight through,
+ * unauthenticated. Every path-based decision in the auth layer and in the
+ * add-on scope matrix (`addons/scopeMatrix.ts`) goes through this function so
+ * the guard and the router always look at the SAME path.
+ *
+ * Decoding is per SEGMENT, never over the whole string: a `%2F` inside a
+ * segment stays inside that segment (it is a value, e.g. a storage key, not a
+ * path separator) -- exactly how the router treats it too.
+ */
+export function decodePathSegments(rawPath: string): string[] {
+  return rawPath.split('/').map((segment) => {
+    try {
+      return decodeURIComponent(segment);
+    } catch {
+      // Malformed escape (`%zz`): keep it verbatim. The router will not match
+      // it either, and a guarded path stays guarded.
+      return segment;
+    }
+  });
+}
+
+/** Query-stripped, percent-decoded request path. See {@link decodePathSegments}. */
+export function normalizeRequestPath(url: string): string {
+  const qIndex = url.indexOf('?');
+  const raw = qIndex === -1 ? url : url.slice(0, qIndex);
+  return decodePathSegments(raw).join('/');
+}
+
 /** Extracts the token from an `Authorization: Bearer <token>` header. */
 export function parseBearerToken(header: string | string[] | undefined): string | null {
   if (typeof header !== 'string') return null;

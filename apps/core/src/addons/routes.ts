@@ -28,7 +28,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { Buffer } from 'node:buffer';
 import type { ApiError } from '@yapaja/shared';
-import { InstallService, MAX_TARBALL_COMPRESSED_BYTES } from './installService.js';
+import { InstallService, MAX_TARBALL_COMPRESSED_BYTES, type AddonLifecycleListener } from './installService.js';
 import { AddonError } from './errors.js';
 import { downloadTarball } from './download.js';
 import type { AddonRecord } from './repository.js';
@@ -112,13 +112,16 @@ export interface AddonsPluginOptions {
    *  checked against each manifest's `core_api` range. Required unless
    *  `service` is injected directly. */
   coreVersion?: string;
+  /** E09-T3: the service runtime, tied to enable/disable/uninstall. */
+  lifecycle?: AddonLifecycleListener;
 }
 
 export const addonsPlugin: FastifyPluginAsync<AddonsPluginOptions> = async (fastify, opts) => {
   if (!opts.service && !opts.coreVersion) {
     throw new Error('addonsPlugin: either `service` or `coreVersion` must be provided');
   }
-  const service = opts.service ?? new InstallService({ coreVersion: opts.coreVersion as string });
+  const service =
+    opts.service ?? new InstallService({ coreVersion: opts.coreVersion as string, lifecycle: opts.lifecycle });
 
   fastify.get<{ Reply: AddonListReply }>('/addons', async (_request, reply) => {
     reply.code(200).send({ data: service.listAddons() });

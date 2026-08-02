@@ -241,6 +241,13 @@ export interface AddonManifestUi {
 export interface AddonManifestService {
   runtime: 'node18' | 'node20' | 'external';
   entry: string;
+  /**
+   * E09-T3 / W-14: RSS ceiling for a Core-spawned service process, in MB.
+   * The watchdog kills + restarts the process when it exceeds this. Optional;
+   * the Core applies a 256 MB default (`DEFAULT_RSS_LIMIT_BYTES`) when it is
+   * absent. Capped Core-side too -- an add-on cannot raise it arbitrarily.
+   */
+  max_rss_mb?: number;
 }
 
 export interface AddonManifest {

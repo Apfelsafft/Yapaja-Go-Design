@@ -22,7 +22,12 @@ import type { FastifyPluginAsync } from 'fastify';
 import fp from 'fastify-plugin';
 import { randomBytes } from 'node:crypto';
 import type { ApiError } from '@yapaja/shared';
-import { AuthGuard, AUTH_TOKEN_SETTINGS_KEY, parseBearerToken } from './authGuard.js';
+import {
+  AuthGuard,
+  AUTH_TOKEN_SETTINGS_KEY,
+  normalizeRequestPath,
+  parseBearerToken,
+} from './authGuard.js';
 
 /** Paths under `/api/` that never require a token. */
 export const OPEN_API_PATHS: readonly string[] = ['/api/v1/health', '/api/v1/auth/status'];
@@ -33,25 +38,58 @@ export interface AuthSettingsStore {
   patch(values: Record<string, unknown>): Record<string, unknown>;
 }
 
+/**
+ * E09-T3: the SECOND principal type. A bearer token may also be a scoped
+ * ADD-ON token; such a request authenticates as that add-on and is then
+ * authorized against the server-side route->scope table
+ * (`addons/scopeMatrix.ts`), default-deny. Structural on purpose -- the auth
+ * module has no import edge into the add-on module.
+ */
+export interface AddonAuthHook {
+  authenticate(token: string | null | undefined): AddonPrincipalLike | null;
+  authorizeRequest(
+    principal: AddonPrincipalLike,
+    method: string,
+    path: string,
+  ): { allowed: true } | { allowed: false; code: string; message: string; requiredScope?: string };
+}
+
+export interface AddonPrincipalLike {
+  addonId: string;
+  scopes: ReadonlySet<string>;
+  netFetchDeclarations: readonly string[];
+}
+
 export interface AuthPluginOptions {
   guard: AuthGuard;
   /** Settings store used by `POST /auth/token` to persist a rotated token. */
   settings: AuthSettingsStore;
   /** Overridable open-list; defaults to {@link OPEN_API_PATHS}. */
   openPaths?: readonly string[];
+  /** E09-T3 add-on-token principal; omit to disable add-on auth entirely. */
+  addonAuth?: AddonAuthHook;
 }
 
 function unauthorized(message: string): ApiError {
   return { error: { code: 'UNAUTHORIZED', message } };
 }
 
+function forbidden(code: string, message: string): ApiError {
+  return { error: { code, message } };
+}
+
+/**
+ * The path this hook makes its decisions on. PERCENT-DECODED per segment
+ * (`normalizeRequestPath`) so it is the same path fastify's router matches --
+ * see the doc there: comparing the RAW url would let `GET /%61pi/v1/settings`
+ * skip the guard entirely while still reaching the `/api/v1/settings` handler.
+ */
 function pathOf(url: string): string {
-  const qIndex = url.indexOf('?');
-  return qIndex === -1 ? url : url.slice(0, qIndex);
+  return normalizeRequestPath(url);
 }
 
 const authPluginImpl: FastifyPluginAsync<AuthPluginOptions> = async (fastify, opts) => {
-  const { guard, settings } = opts;
+  const { guard, settings, addonAuth } = opts;
   const openPaths = new Set(opts.openPaths ?? OPEN_API_PATHS);
 
   // The enforcement hook. Runs for EVERY request; short-circuits everything
@@ -61,6 +99,41 @@ const authPluginImpl: FastifyPluginAsync<AuthPluginOptions> = async (fastify, op
     // Only API routes are guarded; static assets / SPA fallback / `/ws/v1`
     // (authenticated in its own plugin) are intentionally out of scope.
     if (!path.startsWith('/api/')) return;
+
+    // E09-T3: the ADD-ON principal is resolved FIRST and independently of
+    // `guard.isEnforced()`. That matters: on a token-less (open-posture)
+    // install the Core API is open to LAN clients, but an add-on presenting
+    // its scoped token must STILL be confined to its scope matrix -- an
+    // add-on token must never be a wider credential than no token at all.
+    // It is also checked before the open-list, so an add-on hitting
+    // `/api/v1/auth/status` is judged by the matrix like everything else.
+    if (addonAuth) {
+      const bearer = parseBearerToken(request.headers['authorization']);
+      const principal = bearer ? addonAuth.authenticate(bearer) : null;
+      if (principal) {
+        request.addonPrincipal = principal;
+        const decision = addonAuth.authorizeRequest(principal, request.method, path);
+        if (!decision.allowed) {
+          // LOGGED (W-14): every refused add-on call is visible to the
+          // operator. The token itself is never part of the log line.
+          request.log.warn(
+            {
+              addon_id: principal.addonId,
+              method: request.method,
+              path,
+              code: decision.code,
+              required_scope: decision.requiredScope,
+            },
+            'add-on request refused by the scope matrix',
+          );
+          return reply.code(403).send(forbidden(decision.code, decision.message));
+        }
+        // Authenticated + authorized as an add-on -- the Core-token check
+        // below does not apply (an add-on never holds the Core token).
+        return;
+      }
+    }
+
     if (openPaths.has(path)) return;
     // Open posture (no token configured) or ingress mode -> allow.
     if (!guard.isEnforced()) return;

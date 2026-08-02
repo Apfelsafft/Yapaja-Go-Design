@@ -36,6 +36,10 @@ import { readPackageVersion } from './version.js';
 import { addonsPlugin } from './addons/routes.js';
 import { addonUiHostPlugin } from './addons/ui-host.js';
 import { addonStoragePlugin } from './addons/storageRoutes.js';
+import { AddonAuthService, AddonTokenService } from './addons/tokens.js';
+import { AddonServiceHost } from './addons/service-host.js';
+import { addonServicePlugin } from './addons/serviceRoutes.js';
+import { addonProxyPlugin } from './addons/proxy.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -95,9 +99,20 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // rationale + trade-off). Registered BEFORE every API route plugin so its
   // root `onRequest` hook applies to all of them.
   const authGuard = new AuthGuard({ settings: settingsService });
+
+  // E09-T3 (docs/05 §1B/§2, W-14): the SECOND principal type. A bearer token
+  // may also be a per-add-on SCOPED token; such a request authenticates as
+  // that add-on and is then authorized against the server-side route->scope
+  // table (`addons/scopeMatrix.ts`), DEFAULT-DENY. This is additive -- the
+  // ordinary Core token and the token-less open posture behave exactly as
+  // before (E08-T3). The SAME instance is handed to the WS plugin below so
+  // REST and WebSocket enforce one identical scope matrix.
+  const addonTokenService = new AddonTokenService();
+  const addonAuth = new AddonAuthService(addonTokenService);
   await fastify.register(authPlugin, {
     guard: authGuard,
     settings: settingsService,
+    addonAuth,
   });
 
   // E06-T1/T3: `onProfileChanged` (fired by `ProfileService#activate`) is
@@ -156,6 +171,10 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     // E08-T3: the `/ws/v1` upgrade authenticates via `?token=`/cookie, same
     // "enforced only when a token is configured (and not in ingress)" rule.
     authGuard,
+    // E09-T3: an add-on token is accepted here too, but every `subscribe`
+    // pattern is then checked against that add-on's scopes (same matrix as
+    // REST) -- e.g. `pos/*` needs `pos.read`, a bare `*` is never granted.
+    addonAuth,
   });
   await fastify.register(positionPlugin, { prefix: '/api/v1', service: positionService });
   await fastify.register(simulatorPlugin, {
@@ -312,7 +331,43 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // `addons/installService.ts`. This task only covers manifest validation +
   // install/lifecycle + DB + tarball-extraction hardening; it does not start
   // any add-on service process or serve add-on UIs (E09-T2/T3).
-  await fastify.register(addonsPlugin, { prefix: '/api/v1', coreVersion: version });
+  //
+  // E09-T3: `lifecycle: addonServiceHost` ties the add-on SERVICE RUNTIME to
+  // the `enabled` flag -- enable spawns the child process + issues its scoped
+  // token, disable kills it + revokes the token, uninstall does both and then
+  // wipes the files. `InstallService` is the only place `enabled` is ever
+  // flipped, so there is no path that starts/stops an add-on without the
+  // matching token operation.
+  const addonServiceHost = new AddonServiceHost({
+    tokens: addonTokenService,
+    bus: eventBus,
+    logger: {
+      info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+      warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+      error: (msg, meta) => fastify.log.error(meta ?? {}, msg),
+    },
+    // Resolved lazily at SPAWN time -- the server is listening by then, so an
+    // add-on always gets the real bound port (0 => ephemeral in tests).
+    apiUrlProvider: () => {
+      const address = fastify.server.address();
+      if (address && typeof address === 'object') {
+        const host = address.address === '::' || address.address === '0.0.0.0' ? '127.0.0.1' : address.address;
+        return `http://${host.includes(':') ? `[${host}]` : host}:${address.port}`;
+      }
+      return process.env.YAPAJA_API_URL ?? `http://127.0.0.1:${process.env.PORT ?? '8080'}`;
+    },
+  });
+  fastify.decorate('addonServiceHost', addonServiceHost);
+  fastify.addHook('onClose', async () => {
+    // No add-on child process may ever outlive the Core.
+    addonServiceHost.stopAll();
+  });
+
+  await fastify.register(addonsPlugin, {
+    prefix: '/api/v1',
+    coreVersion: version,
+    lifecycle: addonServiceHost,
+  });
 
   // E09-T2 (docs/05 §1A, Wargame W-10): serve an ENABLED add-on's UI assets
   // under `/addons/{id}/ui/**` behind a strict CSP (no external hosts,
@@ -326,6 +381,18 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // processes are E09-T3.
   await fastify.register(addonUiHostPlugin);
   await fastify.register(addonStoragePlugin, { prefix: '/api/v1' });
+
+  // E09-T3 (docs/05 §1B/§2, W-14): the service-add-on surfaces --
+  // token issue/rotate (the `runtime: external` path), process + watchdog
+  // status, the namespace-forced `events.publish` endpoint, and `ha.notify`.
+  await fastify.register(addonServicePlugin, {
+    prefix: '/api/v1',
+    host: addonServiceHost,
+    bus: eventBus,
+  });
+  // Egress proxy: outbound HTTP only to hosts the add-on declared via
+  // `net.fetch:<host>`, exact-hostname matched, redirects re-validated.
+  await fastify.register(addonProxyPlugin, { prefix: '/api/v1' });
 
   // System resources (E08-T5, W-12/W-18): real measured free/total disk (of
   // the map-tiles data dir) + free/total RAM, for the onboarding wizard's
@@ -493,6 +560,9 @@ async function main(): Promise<void> {
   try {
     await fastify.listen({ port, host });
     logger.info(`Server running at http://${host}:${port}`);
+    // E09-T3: start every ENABLED add-on service AFTER the server is
+    // listening, so each child gets a `YAPAJA_API_URL` that already works.
+    (fastify as unknown as { addonServiceHost: { startAll(): void } }).addonServiceHost.startAll();
   } catch (err) {
     logger.error(err);
     process.exit(1);

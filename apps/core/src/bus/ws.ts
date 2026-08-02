@@ -42,6 +42,24 @@ export class WsClientRegistry {
   }
 }
 
+/**
+ * E09-T3: the add-on-token principal on the WS side. Structural (no import
+ * edge from `bus/` into `addons/`); `AddonAuthService` satisfies it.
+ */
+export interface WsAddonAuthHook {
+  authenticate(token: string | null | undefined): WsAddonPrincipal | null;
+  authorizeTopic(
+    principal: WsAddonPrincipal,
+    pattern: string,
+  ): { allowed: true } | { allowed: false; code: string; message: string; requiredScope?: string };
+}
+
+export interface WsAddonPrincipal {
+  addonId: string;
+  scopes: ReadonlySet<string>;
+  netFetchDeclarations: readonly string[];
+}
+
 export interface BusWebsocketPluginOptions {
   bus: EventBus;
   path?: string;
@@ -54,6 +72,15 @@ export interface BusWebsocketPluginOptions {
    * (policy violation). Omit to skip WS auth entirely (e.g. isolated tests).
    */
   authGuard?: AuthGuard;
+  /**
+   * E09-T3: scoped add-on tokens. Checked BEFORE `authGuard` (and regardless
+   * of whether the guard is enforced): a connection presenting an add-on
+   * token is accepted, but every `subscribe` topic pattern is then checked
+   * against that add-on's granted scopes -- a pattern outside them is
+   * refused, logged, and NOT subscribed, while the rest of the batch still
+   * applies. Omit to disable add-on WS auth.
+   */
+  addonAuth?: WsAddonAuthHook;
 }
 
 /** WS close code for a policy violation (RFC 6455) -- used for auth rejection. */
@@ -83,16 +110,22 @@ const busWebsocketPluginImpl: FastifyPluginAsync<BusWebsocketPluginOptions> = as
   await fastify.register(fastifyWebsocket);
 
   const path = opts.path ?? '/ws/v1';
-  const { bus, registry, authGuard } = opts;
+  const { bus, registry, authGuard, addonAuth } = opts;
 
   fastify.get(path, { websocket: true }, (socket: WebSocket, request: FastifyRequest) => {
+    const presentedToken = extractWsToken(request.query, request.headers.cookie);
+
+    // E09-T3: is this an ADD-ON token? Resolved first and unconditionally --
+    // an add-on connection is scope-restricted even on a token-less (open
+    // posture) install, exactly like the REST side.
+    const addonPrincipal = addonAuth ? addonAuth.authenticate(presentedToken) : null;
+
     // E08-T3: authenticate the upgrade. A browser can't send an
     // `Authorization` header on a WS handshake, so the token arrives via the
     // `?token=` query param or a `token` cookie. Same "enforced only when a
     // token is configured (and not in ingress mode)" rule as the REST guard.
-    if (authGuard?.isEnforced()) {
-      const token = extractWsToken(request.query, request.headers.cookie);
-      if (!authGuard.verify(token)) {
+    if (!addonPrincipal && authGuard?.isEnforced()) {
+      if (!authGuard.verify(presentedToken)) {
         // Reject the upgrade: close immediately, before any subscription is
         // set up and before the registry is incremented.
         socket.close(WS_POLICY_VIOLATION, 'unauthorized');
@@ -112,7 +145,37 @@ const busWebsocketPluginImpl: FastifyPluginAsync<BusWebsocketPluginOptions> = as
 
     const applySubscriptions = (topics: string[]): void => {
       for (const unsub of unsubscribers) unsub();
-      unsubscribers = topics.map((topic) =>
+      // E09-T3: an add-on connection may only subscribe to patterns its
+      // granted scopes cover (`addons/scopeMatrix.ts#authorizeAddonTopic`).
+      // Refused patterns are reported back + logged and simply never
+      // subscribed -- the socket stays open so a partially-scoped add-on
+      // keeps working for the topics it IS allowed.
+      const permitted = addonPrincipal
+        ? topics.filter((topic) => {
+            const decision = addonAuth?.authorizeTopic(addonPrincipal, topic);
+            if (decision && !decision.allowed) {
+              fastify.log.warn(
+                {
+                  addon_id: addonPrincipal.addonId,
+                  topic,
+                  code: decision.code,
+                  required_scope: decision.requiredScope,
+                },
+                'add-on WS subscription refused by the scope matrix',
+              );
+              send({
+                type: 'error',
+                code: decision.code,
+                topic,
+                required_scope: decision.requiredScope,
+                message: decision.message,
+              });
+              return false;
+            }
+            return true;
+          })
+        : topics;
+      unsubscribers = permitted.map((topic) =>
         bus.subscribe(topic, (payload, actualTopic) => {
           send({ topic: actualTopic, payload, ts: new Date().toISOString() });
         }),

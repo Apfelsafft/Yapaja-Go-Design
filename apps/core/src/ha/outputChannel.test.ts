@@ -180,6 +180,56 @@ describe('HaOutputChannel', () => {
     channel.dispose();
   });
 
+  it('event/addon_notify (E09-T3 `ha.notify` scope) -> notify service, labelled with the add-on', async () => {
+    const { fetch, calls } = recordingFetch();
+    const channel = new HaOutputChannel({
+      bus,
+      settings: settings({ notify_enabled: true, notify_service: 'notify.mobile_app_phone' }),
+      logger: silentLogger,
+      env: {},
+      fetch,
+    });
+
+    bus.publish('event/addon_notify', {
+      addon_id: 'com.example.traffic',
+      addon_name: 'Stauwarner',
+      title: 'Stau A8',
+      message: '12 km Stau voraus',
+    });
+    await flush();
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('http://ha.local:8123/api/services/notify/mobile_app_phone');
+    // The add-on NAME is always in the title -- an add-on can never make a
+    // notification look like it came from the Core.
+    expect(calls[0].body).toEqual({
+      title: 'Yapaja Go – Stauwarner',
+      message: 'Stau A8: 12 km Stau voraus',
+    });
+    channel.dispose();
+  });
+
+  it('event/addon_notify obeys the SAME notify.enabled gate (an add-on cannot turn HA notifications on)', async () => {
+    const { fetch, calls } = recordingFetch();
+    const channel = new HaOutputChannel({
+      bus,
+      settings: settings({ notify_enabled: false, notify_service: 'notify.x' }),
+      logger: silentLogger,
+      env: {},
+      fetch,
+    });
+
+    bus.publish('event/addon_notify', {
+      addon_id: 'com.example.traffic',
+      addon_name: 'Stauwarner',
+      message: 'ignored',
+    });
+    await flush();
+
+    expect(calls).toHaveLength(0);
+    channel.dispose();
+  });
+
   it('notifications gated OFF: no HA call for arrived/gps_lost_paused', async () => {
     const { fetch, calls } = recordingFetch();
     const channel = new HaOutputChannel({
