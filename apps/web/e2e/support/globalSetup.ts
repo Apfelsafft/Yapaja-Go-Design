@@ -57,6 +57,11 @@ import {
   ADDON_EXAMPLES_CORE_BASE_URL,
   ADDON_EXAMPLES_ADDONS_DIR,
   ADDON_EXAMPLES_STORAGE_DIR,
+  STORE_CORE_PORT,
+  STORE_CORE_BASE_URL,
+  STORE_REGISTRY_PORT,
+  STORE_ADDONS_DIR,
+  STORE_STORAGE_DIR,
   CORE_BASE_URL,
   EMPTY_CORE_BASE_URL,
   SIMULATOR_CORE_BASE_URL,
@@ -249,6 +254,18 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     ADDONS_DIR: ADDON_EXAMPLES_ADDONS_DIR,
     ADDON_STORAGE_DIR: ADDON_EXAMPLES_STORAGE_DIR,
   });
+  // Dedicated core for store.spec.ts (E09-T7) -- `ADDONS_REGISTRY_URL`
+  // points at the fixed port `support/registryStub.ts` listens on; the SPEC
+  // itself starts/stops that stub (`test.beforeAll`/`afterAll`), same
+  // pattern `PROFILE_REROUTE_CORE_PORT`/`valhallaStub.ts` already established
+  // -- nothing needs to be listening there yet for THIS core to boot.
+  rmSync(STORE_ADDONS_DIR, { recursive: true, force: true });
+  rmSync(STORE_STORAGE_DIR, { recursive: true, force: true });
+  const storeCore = startCore(STORE_CORE_PORT, FIXTURE_TILES_DIR, {
+    ADDONS_DIR: STORE_ADDONS_DIR,
+    ADDON_STORAGE_DIR: STORE_STORAGE_DIR,
+    ADDONS_REGISTRY_URL: `http://127.0.0.1:${STORE_REGISTRY_PORT}/index.json`,
+  });
 
   const allCores = [
     fixtureCore,
@@ -268,6 +285,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     onboardingCore,
     addonUiCore,
     addonExamplesCore,
+    storeCore,
   ];
 
   try {
@@ -289,6 +307,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       waitForHealth(ONBOARDING_CORE_BASE_URL, 20_000),
       waitForHealth(ADDON_UI_CORE_BASE_URL, 20_000),
       waitForHealth(ADDON_EXAMPLES_CORE_BASE_URL, 20_000),
+      waitForHealth(STORE_CORE_BASE_URL, 20_000),
     ]);
   } catch (err) {
     for (const core of allCores) core.kill();
@@ -318,6 +337,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       PWA_CORE_BASE_URL,
       ADDON_UI_CORE_BASE_URL,
       ADDON_EXAMPLES_CORE_BASE_URL,
+      STORE_CORE_BASE_URL,
     ].map((baseUrl) => seedOnboardingCompleted(baseUrl)),
   );
 

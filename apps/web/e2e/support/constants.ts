@@ -157,6 +157,19 @@ export const ADDON_UI_STORAGE_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addon-storage
 export const ADDON_EXAMPLES_CORE_PORT = 4329;
 export const ADDON_EXAMPLES_ADDONS_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addons-examples');
 export const ADDON_EXAMPLES_STORAGE_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addon-storage-examples');
+// Dedicated core for store.spec.ts (E09-T7, docs/05 §5, W-11/W-13): its
+// `ADDONS_REGISTRY_URL` points at a local registry STUB this spec starts/
+// stops itself (`support/registryStub.ts`, same "spec owns the stub server,
+// core is pre-pointed at its fixed port" pattern as
+// `profile-reroute.spec.ts`'s Valhalla stub) -- lets the spec flip the
+// registry between reachable/unreachable within a single test run to prove
+// both the online AND offline (W-13) Store flows. Own add-ons/add-on-storage
+// dirs (same convention as ADDON_UI_*/ADDON_EXAMPLES_*) so installs never
+// collide with another spec's core.
+export const STORE_CORE_PORT = 4330;
+export const STORE_REGISTRY_PORT = 4331;
+export const STORE_ADDONS_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addons-store');
+export const STORE_STORAGE_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addon-storage-store');
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
@@ -177,3 +190,5 @@ export const PWA_CORE_BASE_URL = `http://127.0.0.1:${PWA_CORE_PORT}`;
 export const ONBOARDING_CORE_BASE_URL = `http://127.0.0.1:${ONBOARDING_CORE_PORT}`;
 export const ADDON_UI_CORE_BASE_URL = `http://127.0.0.1:${ADDON_UI_CORE_PORT}`;
 export const ADDON_EXAMPLES_CORE_BASE_URL = `http://127.0.0.1:${ADDON_EXAMPLES_CORE_PORT}`;
+export const STORE_CORE_BASE_URL = `http://127.0.0.1:${STORE_CORE_PORT}`;
+export const STORE_REGISTRY_BASE_URL = `http://127.0.0.1:${STORE_REGISTRY_PORT}`;

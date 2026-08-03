@@ -22,6 +22,7 @@ import ViewModeButton from './ViewModeButton';
 import ReCenterButton from './ReCenterButton';
 import StylePanel from './StylePanel';
 import RegionsPanel from '../settings/regions/RegionsPanel';
+import StorePanel from '../store/StorePanel';
 import PerfOverlay from '../perf/PerfOverlay';
 import { startPerfWatchdog } from '../perf/perfWatchdog';
 
@@ -304,6 +305,9 @@ export default function MapView(): React.ReactElement {
         {/* E01-T5: reachable even with no map installed yet -- this is
             exactly the state where downloading a first region matters most. */}
         <RegionsPanel />
+        {/* E09-T7: the add-on Store is independent of any map region being
+            installed -- reachable here too. */}
+        <StorePanel />
       </div>
     );
   }
@@ -318,6 +322,7 @@ export default function MapView(): React.ReactElement {
           <ReCenterButton />
           <StylePanel />
           <RegionsPanel />
+          <StorePanel />
           <PerfOverlay />
         </>
       )}

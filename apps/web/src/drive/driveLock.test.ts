@@ -83,8 +83,8 @@ describe('isControlLocked -- Pause/Resume (documented decision: never locked eit
   });
 });
 
-describe('isControlLocked -- configuration surfaces (settings/editor/store/profile-editor/search-full)', () => {
-  const surfaces = ['settings', 'editor', 'store', 'profile-editor', 'search-full'] as const;
+describe('isControlLocked -- configuration surfaces (settings/editor/store/addon-store/profile-editor/search-full)', () => {
+  const surfaces = ['settings', 'editor', 'store', 'addon-store', 'profile-editor', 'search-full'] as const;
 
   it('are unlocked below/at the threshold', () => {
     for (const controlId of surfaces) {
