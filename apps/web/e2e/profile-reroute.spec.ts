@@ -1,7 +1,12 @@
 /**
- * E06-T3: profile change during navigation -> reroute coupling.
- * docs/07-testing-qa.md §5, E2E-Pflicht-Flow 5: "Profilwechsel während
- * Navigation ⇒ Reroute + Warnbanner".
+ * docs/07 §5 — FLOW 5: "Profilwechsel während Navigation ⇒ Reroute +
+ * Warnbanner." (E06-T3.)
+ *
+ * Canonical proof for flow 5. See `e2e/FLOWS.md` for the full flow→spec table.
+ *
+ * E10-T1 additions: the end state is now also read back from the Core's own
+ * REST API (`GET /api/v1/navigation/state`, `GET /api/v1/profiles`), not only
+ * from the browser stores -- the task's plausibility requirement.
  *
  * `nav-control.spec.ts` shipped a "Flow 5 (prepared)" smoke test (E04-T5) that
  * only proved a mid-navigation profile change didn't crash the app -- the
@@ -161,7 +166,7 @@ test.describe('E06-T3 Flow 5: profile change during navigation -> reroute coupli
       });
   });
 
-  test('Ja: shows the confirmation banner, reroutes onto a NEW route, and shows the >15% warning banner', async ({
+  test('[Flow 5] Ja: shows the confirmation banner, reroutes onto a NEW route, and shows the >15% warning banner', async ({
     page,
   }) => {
     test.setTimeout(30_000);
@@ -228,12 +233,29 @@ test.describe('E06-T3 Flow 5: profile change during navigation -> reroute coupli
     await expect(page.getByTestId('profile-change-warning-banner')).toHaveCount(0);
 
     expect(await activeProfileId(page)).toBe(profileB.id);
+
+    // --- API side of the end state (E10-T1 plausibility requirement) --------
+    // The CORE -- not just the browser store -- is navigating a genuinely new
+    // route, and the newly activated profile is the active one server-side.
+    const apiNav = (await (
+      await page.request.get(`${PROFILE_REROUTE_CORE_BASE_URL}/api/v1/navigation/state`)
+    ).json()) as { data: { status: string; route_id: string | null } };
+    expect(apiNav.data.status).toBe('navigating');
+    expect(apiNav.data.route_id).not.toBe(ROUTE.id);
+    expect(apiNav.data.route_id).toBe(await navRouteId(page)); // API and UI agree
+
+    const apiProfiles = (await (
+      await page.request.get(`${PROFILE_REROUTE_CORE_BASE_URL}/api/v1/profiles`)
+    ).json()) as { data: Array<{ id: string; is_active: boolean }> };
+    const apiActive = apiProfiles.data.find((p) => p.is_active);
+    expect(apiActive?.id).toBe(profileB.id);
+
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
     expect(tracker.getForeignUrls()).toEqual([]);
   });
 
-  test('Abbrechen: reactivates the previous profile, no reroute, navigation untouched', async ({ page }) => {
+  test('[Flow 5] Abbrechen: reactivates the previous profile, no reroute, navigation untouched', async ({ page }) => {
     test.setTimeout(30_000);
     const pageErrors = collectPageErrors(page);
 
@@ -273,6 +295,20 @@ test.describe('E06-T3 Flow 5: profile change during navigation -> reroute coupli
     expect(await navStatus(page)).toBe('navigating');
     expect(valhallaStub.callCount()).toBe(callsBefore);
     await expect(page.getByTestId('profile-change-warning-banner')).toHaveCount(0);
+
+    // --- API side of the end state (E10-T1) ---------------------------------
+    // Server-side the session is untouched (same route, still navigating) and
+    // the PREVIOUS profile is active again.
+    const apiNav = (await (
+      await page.request.get(`${PROFILE_REROUTE_CORE_BASE_URL}/api/v1/navigation/state`)
+    ).json()) as { data: { status: string; route_id: string | null } };
+    expect(apiNav.data.status).toBe('navigating');
+    expect(apiNav.data.route_id).toBe(ROUTE.id);
+
+    const apiProfiles = (await (
+      await page.request.get(`${PROFILE_REROUTE_CORE_BASE_URL}/api/v1/profiles`)
+    ).json()) as { data: Array<{ id: string; is_active: boolean }> };
+    expect(apiProfiles.data.find((p) => p.is_active)?.id).toBe(profileA.id);
 
     expect(pageErrors).toEqual([]);
   });

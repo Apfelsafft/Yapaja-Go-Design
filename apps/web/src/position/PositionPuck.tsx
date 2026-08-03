@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { usePosition, usePositionConnected, usePositionExtrapolated, usePositionStore } from './positionStore';
 import { useGpsSignalState } from './gpsSignal';
 import { useMapStore } from '../state/mapStore';
+import { runWhenStyleReady } from '../map/styleReady';
 
 const STALE_POSITION_MS = 5000; // 5 seconds
 const INACCURACY_THRESHOLD_M = 100; // 100 meters
@@ -66,6 +67,9 @@ export default function PositionPuck(): null {
   // E01-T3 map-ready trap called out in E02-T5's task notes.
   const map = useMapStore((state) => state.map);
   const [tick, setTick] = useState(0);
+  // Incremented whenever the puck source/layers are (re)created, so the
+  // geometry effect below repaints the current position right away.
+  const [styleEpoch, setStyleEpoch] = useState(0);
 
   useEffect(() => {
     const interval = window.setInterval(() => setTick((t) => t + 1), RERENDER_TICK_MS);
@@ -81,8 +85,14 @@ export default function PositionPuck(): null {
     // this reactive `[map]` effect can fire while the style is still loading,
     // and calling `addSource`/`addLayer` then throws "Style is not done
     // loading" (which, uncaught in render-effect scope, crashes the whole
-    // React tree -> blank page). Guard on style readiness and defer to the
-    // map's `load` event when it isn't ready yet.
+    // React tree -> blank page).
+    //
+    // E10-T1: readiness is delegated to `runWhenStyleReady` -- the previous
+    // `isStyleLoaded() ? setup() : map.once('load', setup)` guard silently
+    // lost the race when this passive effect first ran AFTER `load` had
+    // already fired, leaving the puck permanently absent. See
+    // `map/styleReady.ts` for the full root-cause write-up. `setup` is
+    // idempotent (the `getSource` early-return below), as that helper requires.
     const setup = (): void => {
       if (map.getSource(PUCK_STATE.sourceId)) return;
 
@@ -146,25 +156,25 @@ export default function PositionPuck(): null {
           'line-color-transition': PAINT_TRANSITION,
         },
       });
+
+      // The layers were just (re)created empty. Bump the epoch so the
+      // geometry effect below re-runs and paints the CURRENT position
+      // immediately, instead of waiting for the next incoming fix.
+      setStyleEpoch((epoch) => epoch + 1);
     };
 
-    if (map.isStyleLoaded()) {
-      setup();
-      return;
-    }
-    map.once('load', setup);
-    return () => {
-      map.off('load', setup);
-    };
+    return runWhenStyleReady(map, setup);
   }, [map]);
 
   // Update puck geometry and appearance when position or signal state changes.
   useEffect(() => {
     if (!map || !position) return;
-    // `tick` is intentionally unused in the body -- it's a dependency-only
-    // trigger so this effect recomputes staleness/ring-growth on the
-    // periodic tick above, not just when `position` changes.
+    // `tick`/`styleEpoch` are intentionally unused in the body -- they're
+    // dependency-only triggers so this effect recomputes staleness/ring-growth
+    // on the periodic tick above (not just when `position` changes), and
+    // repaints immediately after the layers are (re)created.
     void tick;
+    void styleEpoch;
 
     const now = Date.now();
     const isStale = now - (position.ts ? new Date(position.ts).getTime() : 0) > STALE_POSITION_MS;
@@ -240,7 +250,7 @@ export default function PositionPuck(): null {
       type: 'FeatureCollection',
       features,
     });
-  }, [map, position, isConnected, extrapolated, signalState, lastRealUpdateTime, tick]);
+  }, [map, position, isConnected, extrapolated, signalState, lastRealUpdateTime, tick, styleEpoch]);
 
   return null;
 }

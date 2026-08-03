@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { Buffer } from 'node:buffer';
-import { setImmediate } from 'node:timers';
+import { readdirSync, readlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import { buildServer } from '../index.js';
 import { closeDb } from '../db/index.js';
 import {
@@ -202,6 +203,51 @@ describe('Map / tiles routes integration', () => {
   });
 
   describe('GET /tiles/:region.pmtiles - concurrent load', () => {
+    /**
+     * Counts ONLY the file descriptors of THIS test's own fixture tile file.
+     *
+     * E10-T1 de-flake. The previous version of this check compared the TOTAL
+     * `/proc/self/fd` entry count before/after a wave of requests, with a
+     * `+10` slack. Both halves of that were unsound:
+     *
+     *  1. `/proc/self/fd` is PROCESS-global, and Vitest 1.x's default pool is
+     *     `threads` -- many test FILES run concurrently as worker_threads of
+     *     the SAME process. Every SQLite handle, temp fixture dir, socket and
+     *     module file another test file opens or closes between the two
+     *     samples lands in this test's delta. Nothing about the tiles route
+     *     is being measured there.
+     *  2. The wave was not quiesced. `createReadStream(...).destroy()` closes
+     *     its fd through libuv's threadpool (4 threads by default), which the
+     *     other worker threads in the same process are also queued on. One
+     *     `setImmediate` is nowhere near enough for 50 closes to complete, so
+     *     the "after" sample routinely counts still-closing descriptors.
+     *
+     *     Measured on this repo (temporary probe, 6 full `npx vitest run`s):
+     *     delta was 0, 9, 0, 0, 0, -1 -- i.e. one run in six came within a
+     *     single descriptor of tripping the `+10` threshold, purely from
+     *     unrelated parallel activity. That is the flake.
+     *
+     * Scoping the count to fds that `readlink()` to this test's own fixture
+     * path (a per-`beforeEach` `mkdtemp` dir, so no other test file can ever
+     * hold one) makes the measurement independent of everything else in the
+     * process -- and lets the assertion be the STRICTER, exact one it always
+     * meant to be: zero descriptors left open on the tile file, rather than a
+     * fuzzy global +/-10.
+     */
+    function openFixtureFdCount(): number {
+      const filePath = join(fixture.dir, 'germany.pmtiles');
+      let count = 0;
+      for (const entry of readdirSync('/proc/self/fd')) {
+        try {
+          if (readlinkSync(`/proc/self/fd/${entry}`) === filePath) count += 1;
+        } catch {
+          // The fd vanished between readdir and readlink (it was closing) --
+          // that is precisely the "not leaked" case, so skip it.
+        }
+      }
+      return count;
+    }
+
     it('serves 50 concurrent range requests without errors or FD leaks', async () => {
       const requests = Array.from({ length: 50 }, (_, i) => {
         const start = (i * 300) % (FIXTURE_SIZE - 1000);
@@ -220,14 +266,8 @@ describe('Map / tiles routes integration', () => {
         expect(response.rawPayload.length).toBe(1000);
       }
 
-      // Give any close/destroy handlers a tick to run, then check we're not
-      // accumulating open file descriptors (Linux-only best-effort check).
-      await new Promise((resolveFn) => setImmediate(resolveFn));
-
       if (process.platform === 'linux') {
-        const { readdirSync } = await import('fs');
-        const fdCountBefore = readdirSync('/proc/self/fd').length;
-        // Run a second wave to make sure counts stay stable (no accumulation).
+        // Run a second wave to make sure descriptors do not accumulate.
         const secondWave = Array.from({ length: 50 }, (_, i) => {
           const start = (i * 137) % (FIXTURE_SIZE - 1000);
           return server.inject({
@@ -237,10 +277,19 @@ describe('Map / tiles routes integration', () => {
           });
         });
         await Promise.all(secondWave);
-        await new Promise((resolveFn) => setImmediate(resolveFn));
-        const fdCountAfter = readdirSync('/proc/self/fd').length;
-        // Allow small slack for unrelated fds opened by the test runner itself.
-        expect(fdCountAfter).toBeLessThanOrEqual(fdCountBefore + 10);
+
+        // Event-loop-driven wait for quiescence (NOT a fixed sleep): poll
+        // until every descriptor this route opened on the fixture file has
+        // actually been closed. `vi.waitFor` re-runs the callback on the
+        // event loop and fails with the last error if the condition never
+        // holds -- so a REAL leak still fails the test, it just no longer
+        // fails on unrelated threadpool latency.
+        await vi.waitFor(
+          () => {
+            expect(openFixtureFdCount()).toBe(0);
+          },
+          { timeout: 5_000, interval: 20 },
+        );
       }
     });
   });

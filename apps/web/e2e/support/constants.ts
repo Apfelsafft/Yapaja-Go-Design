@@ -27,7 +27,10 @@ export const EMPTY_TILES_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'tiles-empty');
 export const CORE_PORT = 4310;
 export const EMPTY_CORE_PORT = 4311;
 export const SUBPATH_PORT = 4312;
-export const SUBPATH_PREFIX = '/rv-demo';
+// docs/07 §5 flow 9 names this shape explicitly ("App unter
+// `/hassio_ingress/xyz/` Sub-Pfad"), so the ingress simulation uses a real
+// Home-Assistant-style ingress path rather than a generic prefix.
+export const SUBPATH_PREFIX = '/hassio_ingress/e2e0token0xyz';
 // Dedicated core for gps-loss.spec.ts (E02-T5): the GPS-simulator control
 // plane (`POST /api/v1/simulator/play`) force-pins the active position
 // source for the whole core process it targets. Sharing CORE_PORT with the
@@ -170,6 +173,28 @@ export const STORE_CORE_PORT = 4330;
 export const STORE_REGISTRY_PORT = 4331;
 export const STORE_ADDONS_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addons-store');
 export const STORE_STORAGE_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addon-storage-store');
+// Dedicated core for search.spec.ts's SPEED-LOCK test only (E10-T1 de-flake).
+//
+// `SEARCH_CORE_PORT` above already isolates search.spec.ts from OTHER specs,
+// but `fullyParallel: true` also parallelises the tests WITHIN a file, and
+// search.spec.ts's speed-lock test POSTs `speed: 5` to
+// `/api/v1/position/browser`. A position fix is not test-scoped state: the
+// Core broadcasts it over `/ws/v1` to EVERY page connected to that core --
+// i.e. straight into the sibling search tests running at the same moment.
+// Their `SearchBar` then speed-locks, which calls `resetSearch()` (cancelling
+// the pending debounced request) and swaps the whole input for the
+// favourites quick-select. That is the real cause of the long-standing
+// search.spec.ts flake: the sibling test would either never issue its search
+// request at all, or have its results wiped right after they arrived.
+//
+// Controlled proof: 10x8-parallel repeats of search.spec.ts failed 5/50 with
+// the speed-lock test included and 0/50 with `--grep-invert "speed-lock"`,
+// everything else identical.
+//
+// Giving the speed-lock test its own core is the same remedy every other
+// position-driving spec here already uses (DRIVE_LOCK_CORE_PORT,
+// DRIVE_CORE_PORT, ...), and keeps the rest of search.spec.ts parallel.
+export const SEARCH_SPEEDLOCK_CORE_PORT = 4332;
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
@@ -192,3 +217,52 @@ export const ADDON_UI_CORE_BASE_URL = `http://127.0.0.1:${ADDON_UI_CORE_PORT}`;
 export const ADDON_EXAMPLES_CORE_BASE_URL = `http://127.0.0.1:${ADDON_EXAMPLES_CORE_PORT}`;
 export const STORE_CORE_BASE_URL = `http://127.0.0.1:${STORE_CORE_PORT}`;
 export const STORE_REGISTRY_BASE_URL = `http://127.0.0.1:${STORE_REGISTRY_PORT}`;
+export const SEARCH_SPEEDLOCK_CORE_BASE_URL = `http://127.0.0.1:${SEARCH_SPEEDLOCK_CORE_PORT}`;
+
+// ---------------------------------------------------------------------------
+// E10-T1: dedicated cores for the canonical docs/07 §5 flow specs
+// (`flow-NN-*.spec.ts`). Same "one core per scenario" rationale every comment
+// above documents -- these specs drive positions, navigation sessions,
+// add-on installs and MQTT commands, none of which is test-scoped state on a
+// shared Core.
+// ---------------------------------------------------------------------------
+
+/** flow-02 (search -> route -> navigate -> arrive): runs a full navigation
+ *  session driven by the REAL GPS simulator, which force-pins the position
+ *  source process-wide. */
+export const FLOW2_CORE_PORT = 4333;
+/** flow-03 (wrong turn -> reroute): the deviation reroute is triggered
+ *  SERVER-side (`NavigationService` -> `RoutingService.createRoutes`), so
+ *  like `profile-reroute.spec.ts` this core needs `VALHALLA_URL` pointed at a
+ *  stub HTTP server the spec itself owns. */
+export const FLOW3_CORE_PORT = 4334;
+export const FLOW3_VALHALLA_PORT = 4335;
+/** flow-08 (MQTT `cmd/destination`): core is pointed at an in-process `aedes`
+ *  broker the spec starts (the repo's established Docker-free MQTT pattern,
+ *  see `apps/core/src/mqtt/bridge.integration.test.ts`), plus a Valhalla stub
+ *  because `cmd/destination` computes a route server-side before autostarting. */
+export const FLOW8_CORE_PORT = 4336;
+export const FLOW8_MQTT_PORT = 4337;
+export const FLOW8_VALHALLA_PORT = 4338;
+export const FLOW8_MQTT_PREFIX = 'yapaja';
+/** flow-10 (add-on install from registry -> uninstall residue-free): own
+ *  registry stub + own add-ons/storage dirs, so the residue assertions can
+ *  look at the real directories on disk. */
+export const FLOW10_CORE_PORT = 4339;
+export const FLOW10_REGISTRY_PORT = 4340;
+export const FLOW10_ADDONS_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addons-flow10');
+export const FLOW10_STORAGE_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addon-storage-flow10');
+/** flow-11 (geolocation denied): must observe a Core that NEVER receives a
+ *  browser position fix, so it cannot share a core with any spec that POSTs
+ *  `/api/v1/position/browser` (position.spec.ts does, on CORE_PORT). */
+export const FLOW11_CORE_PORT = 4341;
+
+export const FLOW2_CORE_BASE_URL = `http://127.0.0.1:${FLOW2_CORE_PORT}`;
+export const FLOW3_CORE_BASE_URL = `http://127.0.0.1:${FLOW3_CORE_PORT}`;
+export const FLOW3_VALHALLA_BASE_URL = `http://127.0.0.1:${FLOW3_VALHALLA_PORT}`;
+export const FLOW8_CORE_BASE_URL = `http://127.0.0.1:${FLOW8_CORE_PORT}`;
+export const FLOW8_VALHALLA_BASE_URL = `http://127.0.0.1:${FLOW8_VALHALLA_PORT}`;
+export const FLOW8_MQTT_BROKER_URL = `mqtt://127.0.0.1:${FLOW8_MQTT_PORT}`;
+export const FLOW10_CORE_BASE_URL = `http://127.0.0.1:${FLOW10_CORE_PORT}`;
+export const FLOW10_REGISTRY_BASE_URL = `http://127.0.0.1:${FLOW10_REGISTRY_PORT}`;
+export const FLOW11_CORE_BASE_URL = `http://127.0.0.1:${FLOW11_CORE_PORT}`;

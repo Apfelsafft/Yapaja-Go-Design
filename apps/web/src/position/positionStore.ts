@@ -14,6 +14,7 @@
 
 import { create } from 'zustand';
 import type { Position } from '@yapaja/shared';
+import { buildWebSocketUrl, currentWsUrlLocation } from '../net/wsUrl.js';
 
 interface PositionStoreState {
   position: Position | null;
@@ -230,16 +231,9 @@ class PositionWSManager {
   }
 
   private getWebSocketUrl(): string {
-    if (typeof window === 'undefined') {
-      throw new Error('WebSocket is not available in this environment');
-    }
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    const wsPath = new URL(this.basePath, window.location.origin).pathname;
-    const fullPath = wsPath.endsWith('/') ? `${wsPath}ws/v1` : `${wsPath}/ws/v1`;
-
-    return `${protocol}//${host}${fullPath}`;
+    // Shared with the other two WS managers -- see `net/wsUrl.ts` for the
+    // ingress sub-path bug that lived in three copy-pasted versions of this.
+    return buildWebSocketUrl(this.basePath, currentWsUrlLocation());
   }
 
   /**

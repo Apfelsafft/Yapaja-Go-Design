@@ -153,7 +153,7 @@ test.describe('Widget shell edit mode (E07-T2)', () => {
     expect(response.ok()).toBe(true);
   });
 
-  test('Flow 7: drag a widget to another slot, Save, reload -> placement persisted', async ({ page }) => {
+  test('[Flow 7] drag a widget to another slot, Save, reload -> placement persisted', async ({ page }) => {
     test.setTimeout(30_000);
     const pageErrors = collectPageErrors(page);
 
@@ -187,6 +187,23 @@ test.describe('Widget shell edit mode (E07-T2)', () => {
     await waitForShellReady(page, 'drive');
     await expect(page.getByTestId('slot-side-panel').getByTestId('widget-altitude')).toBeVisible();
     await expect(page.getByTestId('slot-bottom-bar').getByTestId('widget-altitude')).toHaveCount(0);
+
+    // API side of the end state (E10-T1 plausibility requirement): the layout
+    // lives in the CORE's settings store, not only in this browser's
+    // localStorage -- so the same layout would follow the user to another
+    // device/tab. `waitForSavedSlotToContain` above only inspects
+    // localStorage; this asserts the server-side half.
+    const settings = (await (
+      await page.request.get(`${SHELL_EDIT_CORE_BASE_URL}/api/v1/settings`)
+    ).json()) as {
+      data?: { layouts?: { drive?: { slots?: Record<string, Array<{ widgetId: string }>> } } };
+      layouts?: { drive?: { slots?: Record<string, Array<{ widgetId: string }>> } };
+    };
+    const layouts = settings.data?.layouts ?? settings.layouts;
+    const driveSlots = layouts?.drive?.slots;
+    expect(driveSlots).toBeDefined();
+    expect((driveSlots?.['side-panel'] ?? []).map((w) => w.widgetId)).toContain('altitude');
+    expect((driveSlots?.['bottom-bar'] ?? []).map((w) => w.widgetId)).not.toContain('altitude');
 
     expect(pageErrors).toEqual([]);
   });
