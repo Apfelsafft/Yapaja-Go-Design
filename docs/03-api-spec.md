@@ -201,6 +201,7 @@ Alle Payloads JSON. HA-Auto-Discovery unter `homeassistant/...` (siehe docs/04).
 | `yapaja/nav/destination` | `{lat, lon, name}` oder `null` | ✔ |
 | `yapaja/route/summary` | `{distance_m, duration_s, via: string[]}` bei neuer Route | ✔ |
 | `yapaja/event/#` | flüchtige Events (deviation, arrived, gps_lost, reroute) | ✘ |
+| `yapaja/addon/{id}/*` | Add-on-Events (E09-T8): 1:1-Republish von `events.publish` (`addon/{id}/*` auf dem internen Bus, docs/05 §2) unter demselben, um `{id}` erweiterten Namensraum. Rate-Limit 5 msg/s pro Add-on (Drossel-Log bei Überschreitung), Payload ≤ 16 KB, pro Add-on abschaltbar ("In Home Assistant verfügbar", Store-Detailseite). Details/Sicherheitsbetrachtung: `apps/core/src/mqtt/addonTopic.ts`. | ✘ |
 
 ### Kommandos an Yapaja Go (HA → App)
 | Topic | Payload | Wirkung |

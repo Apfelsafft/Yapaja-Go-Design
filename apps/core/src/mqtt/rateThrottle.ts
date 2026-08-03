@@ -46,3 +46,54 @@ export class PositionPublishThrottle {
     this.lastPublishAtMs = null;
   }
 }
+
+/**
+ * Add-on `events.publish` -> MQTT rate limit (E09-T8, docs/05 §2 "5 msg/s
+ * pro Add-on"): a FIXED-WINDOW counter, independently keyed per add-on id --
+ * one chatty/amok add-on can never consume another add-on's budget (each id
+ * gets its own window in {@link windows}), the same isolation principle
+ * `watchdog.ts` applies per-PROCESS for CPU/RSS (W-14), just for MQTT
+ * publish volume instead.
+ *
+ * Fixed-window (not a token bucket/leaky bucket) ON PURPOSE: it is the
+ * simplest rule that still satisfies "5 msg/s demonstrably bites" -- exactly
+ * 5 publishes are let through in any given 1000ms window keyed to the FIRST
+ * call that opens it, the 6th+ in that window are refused. A token bucket
+ * would allow bursting above 5 by borrowing from idle time; a fixed window
+ * does not, which is the more conservative (harder-to-flood) choice for a
+ * shared MQTT broker/HA integration. Pure and timer-free like
+ * {@link PositionPublishThrottle} above -- the caller supplies `nowMs`, so
+ * this is trivially unit-testable without fake timers.
+ */
+export const ADDON_EVENT_RATE_LIMIT_PER_SECOND = 5;
+const ADDON_EVENT_WINDOW_MS = 1000;
+
+interface RateWindow {
+  windowStartMs: number;
+  count: number;
+}
+
+export class AddonEventRateLimiter {
+  private readonly windows = new Map<string, RateWindow>();
+
+  /**
+   * Returns true iff a publish for `addonId` should happen NOW -- and, when
+   * it does (allowed OR refused), records the attempt so later calls in the
+   * same window are counted. The very first call for a fresh window always
+   * publishes.
+   */
+  allow(addonId: string, nowMs: number): boolean {
+    let w = this.windows.get(addonId);
+    if (!w || nowMs - w.windowStartMs >= ADDON_EVENT_WINDOW_MS) {
+      w = { windowStartMs: nowMs, count: 0 };
+      this.windows.set(addonId, w);
+    }
+    w.count += 1;
+    return w.count <= ADDON_EVENT_RATE_LIMIT_PER_SECOND;
+  }
+
+  /** Test/maintenance helper: drops every add-on's window state. */
+  reset(): void {
+    this.windows.clear();
+  }
+}

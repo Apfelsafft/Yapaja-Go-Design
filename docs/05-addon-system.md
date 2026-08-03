@@ -60,7 +60,7 @@ Ein Add-on-Paket darf beide Teile enthalten (z. B. Stauwarner: Service + Overlay
 | `route.read` / `route.propose` | Routen lesen / alternative Route vorschlagen (Nutzer bestätigt in UI!) |
 | `map.layer.write` | GeoJSON-/Vektor-Layer + Marker in die Karte pushen |
 | `widget.register` | UI-Widgets in Slots anbieten |
-| `events.publish` | Events unter `addon/{id}/*` publizieren (auch → MQTT `yapaja/addon/{id}/*`) |
+| `events.publish` | Events unter `addon/{id}/*` publizieren (auch → MQTT `yapaja/addon/{id}/*`, E09-T8: Rate-Limit 5 msg/s pro Add-on, Payload ≤ 16 KB, pro Add-on abschaltbar) |
 | `storage.own` | Key-Value + Dateien im eigenen Datenverzeichnis |
 | `net.fetch:<host>` | Outbound-HTTP nur zu deklarierten Hosts (Service-Typ; Core erzwingt via Proxy) |
 | `ha.notify` | Notification über HA senden |

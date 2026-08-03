@@ -98,6 +98,23 @@ describe('Add-on install/lifecycle routes (E09-T1)', () => {
       expect(enableRes.statusCode).toBe(200);
       expect(JSON.parse(enableRes.body).data.enabled).toBe(true);
 
+      // E09-T8: "In Home Assistant verfügbar" -- default true, toggles
+      // independently of `enabled`, never a 404 for an id that DOES exist.
+      expect(JSON.parse(enableRes.body).data.mqtt_enabled).toBe(true);
+      const mqttDisableRes = await server.inject({
+        method: 'POST',
+        url: `/api/v1/addons/${manifest.id}/mqtt/disable`,
+      });
+      expect(mqttDisableRes.statusCode).toBe(200);
+      expect(JSON.parse(mqttDisableRes.body).data.mqtt_enabled).toBe(false);
+      expect(JSON.parse(mqttDisableRes.body).data.enabled).toBe(true); // untouched
+      const mqttEnableRes = await server.inject({
+        method: 'POST',
+        url: `/api/v1/addons/${manifest.id}/mqtt/enable`,
+      });
+      expect(mqttEnableRes.statusCode).toBe(200);
+      expect(JSON.parse(mqttEnableRes.body).data.mqtt_enabled).toBe(true);
+
       const disableRes = await server.inject({ method: 'POST', url: `/api/v1/addons/${manifest.id}/disable` });
       expect(disableRes.statusCode).toBe(200);
       expect(JSON.parse(disableRes.body).data.enabled).toBe(false);
@@ -120,6 +137,8 @@ describe('Add-on install/lifecycle routes (E09-T1)', () => {
       for (const req of [
         { method: 'POST' as const, url: '/api/v1/addons/nope/enable' },
         { method: 'POST' as const, url: '/api/v1/addons/nope/disable' },
+        { method: 'POST' as const, url: '/api/v1/addons/nope/mqtt/enable' },
+        { method: 'POST' as const, url: '/api/v1/addons/nope/mqtt/disable' },
         { method: 'DELETE' as const, url: '/api/v1/addons/nope' },
       ]) {
         const res = await server.inject(req);

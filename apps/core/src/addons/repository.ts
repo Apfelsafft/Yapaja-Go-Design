@@ -20,9 +20,13 @@ export interface AddonRow {
   install_path: string;
   created_at: string;
   updated_at: string;
+  /** E09-T8, migration `004_addon_mqtt_enabled` -- "In Home Assistant
+   *  verfügbar". */
+  mqtt_enabled: number;
 }
 
-/** API/service-facing shape -- `manifest` parsed, `enabled` a real boolean. */
+/** API/service-facing shape -- `manifest` parsed, `enabled`/`mqtt_enabled`
+ *  real booleans. */
 export interface AddonRecord {
   id: string;
   name: string;
@@ -32,6 +36,11 @@ export interface AddonRecord {
   install_path: string;
   created_at: string;
   updated_at: string;
+  /** E09-T8: whether this add-on's `events.publish` output is ALSO
+   *  republished to MQTT (`yapaja/addon/{id}/*`). Independent of `enabled`
+   *  -- a disabled add-on has no running effects regardless (E09-T1's
+   *  plausibility rule) and publishes nothing either way. */
+  mqtt_enabled: boolean;
 }
 
 export function rowToAddonRecord(row: AddonRow): AddonRecord {
@@ -44,6 +53,7 @@ export function rowToAddonRecord(row: AddonRow): AddonRecord {
     install_path: row.install_path,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    mqtt_enabled: row.mqtt_enabled === 1,
   };
 }
 
@@ -113,6 +123,30 @@ export class AddonRepository {
       .run(enabled ? 1 : 0, now, id);
     if (result.changes === 0) return null;
     return this.getById(id);
+  }
+
+  /** E09-T8: the "In Home Assistant verfügbar" Store-detail toggle. Never
+   *  touches `enabled`/the service process/its token -- purely whether
+   *  `MqttBridge` republishes this add-on's `events.publish` output. */
+  setMqttEnabled(id: string, enabled: boolean): AddonRecord | null {
+    const now = new Date().toISOString();
+    const result = this.db
+      .prepare(`UPDATE addons SET mqtt_enabled = ?, updated_at = ? WHERE id = ?`)
+      .run(enabled ? 1 : 0, now, id);
+    if (result.changes === 0) return null;
+    return this.getById(id);
+  }
+
+  /**
+   * Structurally satisfies `AddonMqttToggleLookup` (`mqtt/bridge.ts`) --
+   * `MqttBridge` calls this fresh on EVERY `addon/*` bus event (never
+   * caches it), which is what makes the toggle take effect immediately
+   * (E09-T8 acceptance criterion 3). Fails CLOSED (`false`) for an
+   * unknown/uninstalled id rather than throwing -- there is nothing sane to
+   * republish for an add-on that no longer exists.
+   */
+  isMqttEnabled(id: string): boolean {
+    return this.getById(id)?.mqtt_enabled ?? false;
   }
 
   /** Deletes the DB row. Filesystem cleanup (code dir + storage dir) is the

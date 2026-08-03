@@ -90,7 +90,72 @@ Kernpunkte:
 MQTT-Zugang manuell in Settings. Reverse-Proxy-Hinweise (optional TLS via Caddy).
 Diese Variante ist die **Referenz für Entwicklung und CI**.
 
-## 5. Wargame-Bezüge (Details docs/08)
+## 6. Add-on-Events (E09-T8)
+
+Jedes Add-on mit dem Scope `events.publish` (docs/05 §2) landet automatisch
+auch in MQTT: ein Bus-Event `addon/{id}/*` wird 1:1 unter
+`yapaja/addon/{id}/*` republiziert -- **kein YAML, keine Auto-Discovery
+nötig**, einfach das Topic in einer Automation abonnieren. Rate-Limit
+5 msg/s pro Add-on (unabhängig je Add-on -- ein "lautes" Add-on kann keinem
+anderen das Budget wegnehmen), Payload ≤ 16 KB, nicht retained (jedes Event
+ist ein Zeitpunkt-Ereignis, keine dauerhafte Zustandsgröße) und pro Add-on
+über die Store-Detailseite ("In Home Assistant verfügbar") ab-/anschaltbar --
+wirkt sofort, ohne Core-Neustart.
+
+### Worked Example: Track-Recorder Start/Stop
+
+Das Referenz-Add-on **Track-Recorder** (`com.yapaja.track-recorder`, docs/05
+§6.2) publiziert beim Start/Ende einer Aufzeichnung:
+
+| MQTT-Topic | Payload |
+|---|---|
+| `yapaja/addon/com.yapaja.track-recorder/started` | `{"trackId": "track-1738500000000", "startedAt": "2026-08-02T09:00:00.000Z"}` |
+| `yapaja/addon/com.yapaja.track-recorder/stopped` | `{"id": "track-1738500000000", "name": "track-1738500000000", "startedAt": "…", "endedAt": "…", "distanceMeters": 12345.6, "pointCount": 812, "segmentCount": 2}` |
+
+Eine HA-Automation, die bei Aufnahme-Ende eine Notification mit der
+gefahrenen Distanz sendet (`configuration.yaml` / UI-Automation-YAML):
+
+```yaml
+automation:
+  - alias: "Yapaja Go: Aufzeichnung beendet -> Benachrichtigung"
+    trigger:
+      - platform: mqtt
+        topic: "yapaja/addon/com.yapaja.track-recorder/stopped"
+    action:
+      - service: notify.mobile_app_dein_handy
+        data:
+          title: "Track aufgezeichnet"
+          message: >
+            {{ (trigger.payload_json.distanceMeters / 1000) | round(1) }} km
+            aufgezeichnet ({{ trigger.payload_json.pointCount }} Punkte,
+            {{ trigger.payload_json.segmentCount }} Segment(e)).
+```
+
+Und ein `input_boolean`/Statuslicht, das anzeigt, ob gerade aufgezeichnet wird:
+
+```yaml
+automation:
+  - alias: "Yapaja Go: Recorder-Status-Helper setzen"
+    trigger:
+      - platform: mqtt
+        topic: "yapaja/addon/com.yapaja.track-recorder/started"
+        id: "start"
+      - platform: mqtt
+        topic: "yapaja/addon/com.yapaja.track-recorder/stopped"
+        id: "stop"
+    action:
+      - service: >
+          {{ 'input_boolean.turn_on' if trigger.id == 'start' else 'input_boolean.turn_off' }}
+        target:
+          entity_id: input_boolean.yapaja_recording
+```
+
+Jedes Add-on mit `events.publish` funktioniert nach demselben Muster --
+Topic-Name und Payload-Schema legt das jeweilige Add-on selbst fest (siehe
+dessen README/Doku); der Namensraum `yapaja/addon/{id}/*` und die
+Rate-/Größenlimits oben gelten für alle gleich.
+
+## 7. Wargame-Bezüge (Details docs/08)
 
 - W-06 MQTT-Broker down ⇒ Queue + Reconnect, App voll funktionsfähig ohne HA.
 - W-07 HA-Neustart ⇒ Discovery-Replay via `homeassistant/status`.

@@ -219,6 +219,20 @@ export async function disableAddon(id: string): Promise<InstalledAddon> {
   return body.data;
 }
 
+/** E09-T8: "In Home Assistant verfügbar" toggle -- MQTT republish only,
+ *  never touches `enabled`/the service process/its token. Takes effect
+ *  immediately server-side (`MqttBridge` re-reads the flag on every
+ *  add-on event); the caller still needs to `refresh()` to see the new
+ *  value reflected in the UI. */
+export async function setAddonMqttEnabled(id: string, enabled: boolean): Promise<InstalledAddon> {
+  const res = await fetch(apiUrl(`api/v1/addons/${encodeURIComponent(id)}/mqtt/${enabled ? 'enable' : 'disable'}`), {
+    method: 'POST',
+  });
+  if (!res.ok) throw await toApiError(res);
+  const body = (await res.json()) as { data: InstalledAddon };
+  return body.data;
+}
+
 export async function uninstallAddonById(id: string): Promise<void> {
   const res = await fetch(apiUrl(`api/v1/addons/${encodeURIComponent(id)}`), { method: 'DELETE' });
   if (!res.ok) throw await toApiError(res);

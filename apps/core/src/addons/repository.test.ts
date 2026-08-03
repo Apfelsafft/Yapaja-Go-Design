@@ -124,4 +124,60 @@ describe('AddonRepository', () => {
     expect(repo.getById(manifest.id)).toBeNull();
     expect(repo.delete(manifest.id)).toBe(false);
   });
+
+  // E09-T8: "In Home Assistant verfügbar" toggle (migration `004_addon_mqtt_enabled`).
+  describe('mqtt_enabled (E09-T8)', () => {
+    it('defaults to true (enabled) on a fresh insert -- "opt out", not "opt in"', () => {
+      const manifest = testManifest();
+      const created = repo.insert({
+        id: manifest.id,
+        name: manifest.name,
+        version: manifest.version,
+        manifest,
+        enabled: false,
+        installPath: '/x',
+      });
+      expect(created.mqtt_enabled).toBe(true);
+      expect(repo.isMqttEnabled(manifest.id)).toBe(true);
+    });
+
+    it('setMqttEnabled toggles the flag and returns null for an unknown id', () => {
+      const manifest = testManifest();
+      repo.insert({
+        id: manifest.id,
+        name: manifest.name,
+        version: manifest.version,
+        manifest,
+        enabled: true,
+        installPath: '/x',
+      });
+      const disabled = repo.setMqttEnabled(manifest.id, false);
+      expect(disabled?.mqtt_enabled).toBe(false);
+      expect(repo.isMqttEnabled(manifest.id)).toBe(false);
+
+      const reEnabled = repo.setMqttEnabled(manifest.id, true);
+      expect(reEnabled?.mqtt_enabled).toBe(true);
+      expect(repo.isMqttEnabled(manifest.id)).toBe(true);
+
+      expect(repo.setMqttEnabled('nope', true)).toBeNull();
+    });
+
+    it('setMqttEnabled never touches `enabled` (independent flags)', () => {
+      const manifest = testManifest();
+      repo.insert({
+        id: manifest.id,
+        name: manifest.name,
+        version: manifest.version,
+        manifest,
+        enabled: true,
+        installPath: '/x',
+      });
+      repo.setMqttEnabled(manifest.id, false);
+      expect(repo.getById(manifest.id)?.enabled).toBe(true);
+    });
+
+    it('isMqttEnabled fails closed (false) for an unknown/uninstalled id', () => {
+      expect(repo.isMqttEnabled('nope')).toBe(false);
+    });
+  });
 });

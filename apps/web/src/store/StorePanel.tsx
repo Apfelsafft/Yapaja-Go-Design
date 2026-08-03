@@ -20,7 +20,10 @@
  *    entry, installed-version vs. registry-version, with the SAME
  *    compatibility gate as the catalog. Also the only place this app
  *    currently offers enable/disable/uninstall for an installed add-on (no
- *    other surface exists yet -- see `apps/web/src/addons/` header docs).
+ *    other surface exists yet -- see `apps/web/src/addons/` header docs) --
+ *    and, for an `events.publish` add-on, the E09-T8 "In Home Assistant
+ *    verfügbar" MQTT-republish toggle, which takes effect immediately
+ *    server-side (no restart/reconnect).
  *  - Offline banner (W-13): the cache's age ("Stand: ..."), a manual sync
  *    button, and an ALWAYS-VISIBLE, upload-install section that is called
  *    out more prominently the moment a sync fails or nothing has ever been
@@ -41,6 +44,7 @@ import {
   confirmPendingInstall,
   enableAddon,
   disableAddon,
+  setAddonMqttEnabled,
   uninstallAddonById,
   arrayBufferToBase64,
   StoreApiError,
@@ -254,6 +258,23 @@ export default function StorePanel(): React.ReactElement {
       try {
         if (addon.enabled) await disableAddon(addon.id);
         else await enableAddon(addon.id);
+        await refresh();
+      } catch (err) {
+        setLifecycleError(err instanceof StoreApiError ? err.message : 'Aktion fehlgeschlagen.');
+      }
+    },
+    [refresh],
+  );
+
+  // E09-T8: "In Home Assistant verfügbar" -- MQTT-republish toggle, only
+  // rendered for add-ons that actually declare `events.publish` (see the
+  // installed-add-ons list below). Purely a REST call + refresh; the Core
+  // applies it immediately (no restart/reconnect involved on either side).
+  const handleToggleMqtt = useCallback(
+    async (addon: InstalledAddon) => {
+      setLifecycleError(null);
+      try {
+        await setAddonMqttEnabled(addon.id, !addon.mqtt_enabled);
         await refresh();
       } catch (err) {
         setLifecycleError(err instanceof StoreApiError ? err.message : 'Aktion fehlgeschlagen.');
@@ -513,7 +534,24 @@ export default function StorePanel(): React.ReactElement {
                                   v{addon.version} · {addon.enabled ? 'aktiv' : 'deaktiviert'}
                                 </span>
                               </span>
-                              <span className="flex gap-1 shrink-0">
+                              <span className="flex gap-1 shrink-0 flex-wrap justify-end">
+                                {/* E09-T8: only meaningful for an add-on that
+                                    actually declares `events.publish` -- no
+                                    events, nothing for this toggle to affect. */}
+                                {addon.manifest.permissions.includes('events.publish') && (
+                                  <button
+                                    onClick={() => void handleToggleMqtt(addon)}
+                                    aria-pressed={addon.mqtt_enabled}
+                                    className={`px-2 py-1 rounded-md border text-xs ${
+                                      addon.mqtt_enabled
+                                        ? 'border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400'
+                                        : 'border-slate-300 dark:border-slate-600'
+                                    }`}
+                                    data-testid={`toggle-mqtt-${addon.id}`}
+                                  >
+                                    {addon.mqtt_enabled ? 'In Home Assistant verfügbar ✓' : 'In Home Assistant verfügbar'}
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => void handleToggleEnabled(addon)}
                                   className="px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 text-xs"

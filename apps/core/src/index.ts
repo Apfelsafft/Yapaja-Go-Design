@@ -41,6 +41,7 @@ import { AddonAuthService, AddonTokenService } from './addons/tokens.js';
 import { AddonServiceHost } from './addons/service-host.js';
 import { addonServicePlugin } from './addons/serviceRoutes.js';
 import { addonProxyPlugin } from './addons/proxy.js';
+import { AddonRepository } from './addons/repository.js';
 import { securityPlugin } from './security/routes.js';
 import { securityEventLog } from './security/securityEvents.js';
 
@@ -467,6 +468,12 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
         rerouteProvider: routingService,
         profileProvider: profileService,
         searchProvider: searchService,
+        // E09-T8: the "In Home Assistant verfügbar" toggle -- `AddonRepository`
+        // is stateless (re-reads the shared DB singleton on every call, same
+        // as `favoriteService` above), so a fresh instance here is
+        // behaviourally identical to the one `addonsPlugin`/`addonServicePlugin`
+        // use internally; no shared-instance requirement.
+        addonMqttToggle: new AddonRepository(),
         logger: mqttLogger,
         discovery: {
           enabled: discoveryConfig.enabled,
