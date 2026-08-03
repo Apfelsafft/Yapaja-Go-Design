@@ -5,6 +5,11 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+# addons-examples/*/build.mjs's esbuild output (E09-T5) -- generated, not
+# checked in; `dist/` above already covers the tarball, this covers the
+# intermediate ui/bundle.js esbuild writes alongside the checked-in ui/index.html.
+addons-examples/*/ui/bundle.js
+addons-examples/*/.tsc-out/
 
 # Development
 .turbo/

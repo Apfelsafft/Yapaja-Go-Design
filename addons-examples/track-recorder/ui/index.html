@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>Track-Recorder</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: system-ui, sans-serif; font-size: 11px; color: #e2e8f0; background: #0f172a; }
+      #app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+      header { padding: 4px 6px; background: #1e293b; flex: none; }
+      header h1 { font-size: 12px; margin: 0; }
+      #controls { display: flex; align-items: center; gap: 8px; padding: 4px 6px; flex: none; }
+      #recorder-toggle {
+        padding: 4px 8px; background: #16a34a; color: white; border: none; border-radius: 4px; cursor: pointer;
+        font-size: 11px;
+      }
+      #recorder-toggle[data-recording="true"] { background: #dc2626; }
+      #stats { display: flex; gap: 10px; padding: 2px 6px; opacity: 0.85; flex: none; }
+      #track-list { flex: 1 1 40%; overflow-y: auto; padding: 4px 6px; border-top: 1px solid #334155; }
+      .track-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 3px; }
+      .track-row button {
+        padding: 2px 6px; font-size: 10px; background: #334155; color: #e2e8f0; border: 1px solid #475569;
+        border-radius: 4px; cursor: pointer;
+      }
+      #track-gpx-view {
+        flex: 1 1 60%; overflow: auto; margin: 0; padding: 4px 6px; font-size: 9px; white-space: pre-wrap;
+        word-break: break-all; border-top: 1px solid #334155; background: #111827;
+      }
+      #track-download-link { display: block; padding: 2px 6px; font-size: 10px; color: #60a5fa; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header><h1>Track-Recorder</h1></header>
+      <div id="controls">
+        <button id="recorder-toggle" data-testid="recorder-toggle" data-recording="false">Aufnahme starten</button>
+      </div>
+      <div id="stats">
+        <span>⏱ <span id="recorder-elapsed" data-testid="recorder-elapsed">00:00</span></span>
+        <span>📏 <span id="recorder-distance" data-testid="recorder-distance">0 m</span></span>
+        <span>📍 <span id="recorder-points" data-testid="recorder-points">0</span></span>
+      </div>
+      <div id="track-list" data-testid="track-list"></div>
+      <pre id="track-gpx-view" data-testid="track-gpx-view"></pre>
+    </div>
+    <!-- Classic script, not type="module" -- see build.mjs's `format: 'iife'`
+         comment: a module script load is always CORS-checked, and this
+         iframe's opaque sandbox origin can never pass that check. -->
+    <script src="./bundle.js"></script>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "id": "com.yapaja.track-recorder",
+  "name": "Track-Recorder",
+  "version": "1.0.0",
+  "core_api": "*",
+  "author": "Yapaja Go",
+  "license": "MIT",
+  "description": "Zeichnet die gefahrene Strecke als GPX auf (mit Segment-Split bei GPS-Verlust) -- Start/Stop, Distanz, Export.",
+  "requires_online": false,
+  "ui": {
+    "entry": "ui/index.html",
+    "widgets": [
+      { "id": "recorder-status", "name": "Track-Recorder", "slots": ["side-panel"] }
+    ],
+    "settings_page": false
+  },
+  "service": { "runtime": "node20", "entry": "service/main.mjs" },
+  "permissions": ["pos.read", "storage.own", "widget.register"]
+}

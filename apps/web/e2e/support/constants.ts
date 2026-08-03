@@ -146,6 +146,17 @@ export const ONBOARDING_REGION_HTTP_PORT = 4327;
 export const ADDON_UI_CORE_PORT = 4328;
 export const ADDON_UI_ADDONS_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addons-ui');
 export const ADDON_UI_STORAGE_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addon-storage-ui');
+// Dedicated core for addon-examples-poi.spec.ts / addon-examples-recorder.spec.ts
+// (E09-T5, docs/05 §6): installs the two REAL, esbuild-built reference add-on
+// tarballs from `addons-examples/*` (not a hand-rolled fixture) and, for the
+// recorder spec, drives a real GPS-simulator run (`POST /api/v1/simulator/play`)
+// with an `outage` mutation. Own add-ons/add-on-storage dirs (cleaned in
+// globalSetup, same as ADDON_UI_*) so installs never collide with another
+// spec's core; own port so the simulator-forced position source and the two
+// add-ons' installs never race any other parallel spec's core.
+export const ADDON_EXAMPLES_CORE_PORT = 4329;
+export const ADDON_EXAMPLES_ADDONS_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addons-examples');
+export const ADDON_EXAMPLES_STORAGE_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addon-storage-examples');
 
 export const CORE_BASE_URL = `http://127.0.0.1:${CORE_PORT}`;
 export const EMPTY_CORE_BASE_URL = `http://127.0.0.1:${EMPTY_CORE_PORT}`;
@@ -165,3 +176,4 @@ export const A11Y_CORE_BASE_URL = `http://127.0.0.1:${A11Y_CORE_PORT}`;
 export const PWA_CORE_BASE_URL = `http://127.0.0.1:${PWA_CORE_PORT}`;
 export const ONBOARDING_CORE_BASE_URL = `http://127.0.0.1:${ONBOARDING_CORE_PORT}`;
 export const ADDON_UI_CORE_BASE_URL = `http://127.0.0.1:${ADDON_UI_CORE_PORT}`;
+export const ADDON_EXAMPLES_CORE_BASE_URL = `http://127.0.0.1:${ADDON_EXAMPLES_CORE_PORT}`;

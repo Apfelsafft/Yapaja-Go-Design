@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>Stellplätze-Overlay</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        font-size: 11px;
+        color: #e2e8f0;
+        background: #0f172a;
+      }
+      #app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+      header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 4px 6px; background: #1e293b; flex: none;
+      }
+      header h1 { font-size: 12px; margin: 0; }
+      #poi-settings-toggle {
+        font-size: 10px; padding: 2px 6px; cursor: pointer;
+        background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px;
+      }
+      #poi-settings-panel {
+        display: none; flex-direction: column; gap: 2px;
+        padding: 4px 6px; background: #1e293b; border-bottom: 1px solid #334155; flex: none;
+      }
+      #poi-settings-panel.open { display: flex; }
+      .poi-category-row { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+      #poi-count-row { padding: 2px 6px; opacity: 0.7; flex: none; }
+      #poi-list { flex: 1 1 40%; overflow-y: auto; padding: 2px 4px; }
+      .poi-list-item {
+        display: block; width: 100%; text-align: left; margin-bottom: 2px;
+        padding: 3px 5px; background: #1e293b; color: #e2e8f0; border: 1px solid #334155;
+        border-radius: 4px; cursor: pointer; font-size: 10px;
+      }
+      .poi-list-item:hover { background: #334155; }
+      #poi-detail {
+        flex: 1 1 60%; overflow-y: auto; padding: 6px; border-top: 1px solid #334155; background: #111827;
+      }
+      #poi-detail h3 { margin: 0 0 4px 0; font-size: 12px; }
+      #poi-detail p { margin: 2px 0; }
+      .poi-detail-empty { opacity: 0.6; }
+      .poi-amenities { margin: 4px 0; padding-left: 14px; }
+      #poi-detail button {
+        margin-top: 6px; padding: 4px 8px; background: #16a34a; color: white;
+        border: none; border-radius: 4px; cursor: pointer; font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>Stellplätze</h1>
+        <button id="poi-settings-toggle" data-testid="poi-settings-toggle">Filter</button>
+      </header>
+      <div id="poi-settings-panel" data-testid="poi-settings-panel"></div>
+      <div id="poi-count-row">Angezeigt: <span id="poi-count" data-testid="poi-count">0</span></div>
+      <div id="poi-list" data-testid="poi-list"></div>
+      <div id="poi-detail" data-testid="poi-detail"></div>
+    </div>
+    <!-- Classic script, not type="module" -- see build.mjs's `format: 'iife'`
+         comment: a module script load is always CORS-checked, and this
+         iframe's opaque sandbox origin can never pass that check. -->
+    <script src="./bundle.js"></script>
+  </body>
+</html>

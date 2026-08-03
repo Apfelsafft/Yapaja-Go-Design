@@ -62,5 +62,19 @@ export default [
     rules: {
       'no-undef': 'off'
     }
+  },
+  {
+    // Same rationale as the block above, extended to the two E09-T5
+    // reference add-ons (docs/05 §6): their `src/*.ts` is browser/DOM code
+    // (they run inside a sandboxed iframe) and their `.test.ts` files run
+    // under Node (Vitest, see `no-undef` needing `process`/`setInterval`
+    // etc. there too). These packages are deliberately NOT pnpm workspace
+    // members (`addons-examples/README.md`) so they aren't touched by
+    // `pnpm -r lint`; this config only matters when this root config is
+    // pointed at them directly (`npx eslint addons-examples/... --ext .ts`).
+    files: ['addons-examples/**/*.ts'],
+    rules: {
+      'no-undef': 'off'
+    }
   }
 ];
