@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "baseUrl": "../..",
+    "paths": {
+      "@yapaja/shared": ["packages/shared/src"],
+      "@yapaja/ui": ["packages/ui/src"],
+      "@yapaja/addon-sdk": ["packages/addon-sdk/src"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.d.ts"],
+  "exclude": ["node_modules", ".tmp"]
+}

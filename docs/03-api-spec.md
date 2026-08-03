@@ -149,6 +149,17 @@ interface NavState {
 | `GET /api/v1/addons/registry` | Store-Katalog (lokaler Cache der Registry) |
 | `POST /api/v1/addons/registry/sync` | Katalog aktualisieren (braucht Internet) |
 
+### Sicherheit / Sandbox-Audit (E09-T6, W-10; Details in `e2e/security/README.md`)
+| Methode & Pfad | Zweck |
+|---|---|
+| `GET /api/v1/security/events` | aufgezeichnete, GEBLOCKTE Sandbox-Escape-Versuche (`{vector, addonId, detail, at}`) + die Liste aller bekannten `vector`-Ids. Filter: `?vector=&addon_id=&limit=` |
+| `POST /api/v1/security/events` | die vertrauenswuerdige Web-UI meldet einen browserseitig erkannten Verstoss (`{vector, addon_id, detail}`) |
+
+Beide Routen sind **Core-Token-geschuetzt und fuer Add-on-Principals
+default-denied** (sie stehen nicht in `ADDON_ROUTE_RULES`) -- ein Add-on kann
+das Audit-Log weder lesen noch beschreiben. `detail` enthaelt nie ein Token
+oder ein anderes Geheimnis.
+
 Fehlerformat einheitlich: `{error: {code: string, message: string, details?: object}}`,
 HTTP-Statuscodes semantisch korrekt (400 Validierung, 404, 409 Konflikt, 503 Service down).
 
@@ -168,6 +179,7 @@ Server → Client: `{topic, payload, ts}`. Topics == interne Event-Bus-Topics:
 | `route/deviation` | `{distance_from_route_m}` | bei Erkennung |
 | `system/health` | wie REST-health | bei Änderung + alle 30 s |
 | `addon/{addon_id}/*` | Add-on-eigene Events | Add-on-definiert |
+| `event/security_violation` | `{vector, addonId, detail, at}` -- ein GEBLOCKTER Add-on-Sandbox-Escape-Versuch (E09-T6, W-10) | bei jedem Refusal |
 
 ---
 

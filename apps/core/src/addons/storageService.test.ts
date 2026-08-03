@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AddonStorageService, type AddonStorageSettings } from './storageService.js';
+import { AddonStorageService, isSafeStorageKey, type AddonStorageSettings } from './storageService.js';
 
 /** In-memory settings fake -- exercises the namespace enforcement without a DB. */
 function makeSettings(): AddonStorageSettings & { store: Record<string, unknown> } {
@@ -50,5 +50,62 @@ describe('AddonStorageService (namespace-enforced storage.own)', () => {
     const svc = new AddonStorageService(makeSettings());
     expect(() => svc.set('../etc', 'k', 1)).toThrow(/valid add-on id/);
     expect(() => svc.get('..', 'k')).toThrow(/valid add-on id/);
+  });
+
+  // --- E09-T6 (W-10): path-shaped keys are REFUSED, not silently stored ----
+
+  it.each([
+    ['traversal', '../other/secret'],
+    ['percent-decoded traversal', '../../etc/passwd'],
+    ['absolute', '/etc/passwd'],
+    ['windows separator', '..\\other'],
+    ['bare dot-dot', '..'],
+    ['empty', ''],
+    ['whitespace only', '   '],
+  ])('refuses a %s storage key (%s)', (_label, key) => {
+    const settings = makeSettings();
+    const svc = new AddonStorageService(settings);
+    expect(() => svc.set('com.example.a', key, 'x')).toThrow(/storage key/);
+    expect(() => svc.get('com.example.a', key)).toThrow(/storage key/);
+    expect(() => svc.delete('com.example.a', key)).toThrow(/storage key/);
+    // Nothing was written anywhere.
+    expect(settings.store).toEqual({});
+  });
+
+  it('still accepts the key shapes the reference add-ons use', () => {
+    const svc = new AddonStorageService(makeSettings());
+    for (const key of ['state', 'index', 'command', 'track:2026-01-01T00:00:00Z', 'a.b-c_d']) {
+      expect(() => svc.set('com.example.a', key, 1)).not.toThrow();
+      expect(svc.get('com.example.a', key)).toBe(1);
+    }
+  });
+
+  it('refuses an over-long key', () => {
+    const svc = new AddonStorageService(makeSettings());
+    expect(() => svc.set('com.example.a', 'k'.repeat(257), 1)).toThrow(/storage key/);
+    expect(() => svc.set('com.example.a', 'k'.repeat(256), 1)).not.toThrow();
+  });
+});
+
+describe('isSafeStorageKey', () => {
+  it.each([
+    ['plain', 'state', true],
+    ['colon', 'track:1', true],
+    ['dot', 'a.b', true],
+    ['single dot segment-ish', '.hidden', true],
+    ['traversal', '../x', false],
+    ['slash', 'a/b', false],
+    ['backslash', 'a\\b', false],
+    ['dot-dot inside', 'a..b', false],
+    ['empty', '', false],
+    ['non-string', 42, false],
+  ])('%s -> %s', (_label, key, expected) => {
+    expect(isSafeStorageKey(key)).toBe(expected);
+  });
+
+  it('rejects control characters', () => {
+    expect(isSafeStorageKey('a\u0000b')).toBe(false);
+    expect(isSafeStorageKey('a\nb')).toBe(false);
+    expect(isSafeStorageKey('a\u007fb')).toBe(false);
   });
 });

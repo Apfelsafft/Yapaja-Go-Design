@@ -44,6 +44,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { getDb } from '../db/index.js';
 import { AddonRepository } from './repository.js';
+import { securityEventLog } from '../security/securityEvents.js';
 import {
   authorizeAddonRequest,
   authorizeAddonTopic,
@@ -81,6 +82,58 @@ export function hashAddonToken(raw: string): string {
   return createHash('sha256').update(Buffer.from(raw, 'utf8')).digest('hex');
 }
 
+/**
+ * How many revoked token DIGESTS are remembered for replay DETECTION
+ * (E09-T6). See {@link RevocationTombstones}.
+ */
+export const MAX_REVOCATION_TOMBSTONES = 200;
+
+/**
+ * E09-T6 (W-10) -- REPLAY DETECTION, NOT enforcement.
+ *
+ * `revoke()` DELETES the token row, so a replayed token afterwards looks
+ * exactly like a random string to `authenticate()`: correctly refused, but
+ * indistinguishable from noise and therefore impossible to report as the
+ * specific "an add-on kept its token past disable and tried to reuse it"
+ * attack the E09-T6 suite must prove is caught.
+ *
+ * This bounded, in-memory, process-local FIFO of the last
+ * {@link MAX_REVOCATION_TOMBSTONES} revoked digests closes exactly that
+ * observability gap. It changes NO decision: `authenticate()` returns `null`
+ * for such a token with or without it. It stores only the sha256 DIGEST that
+ * was already in the database column -- never a usable credential -- and it
+ * is deliberately not persisted (a restart losing tombstones only loses
+ * reporting fidelity, never containment).
+ */
+export class RevocationTombstones {
+  private readonly order: string[] = [];
+  private readonly byHash = new Map<string, string>();
+
+  constructor(private readonly max: number = MAX_REVOCATION_TOMBSTONES) {}
+
+  remember(tokenHash: string, addonId: string): void {
+    if (this.byHash.has(tokenHash)) return;
+    this.byHash.set(tokenHash, addonId);
+    this.order.push(tokenHash);
+    while (this.order.length > this.max) {
+      const evicted = this.order.shift();
+      if (evicted !== undefined) this.byHash.delete(evicted);
+    }
+  }
+
+  /** The add-on a revoked digest belonged to, or `null` if unknown. */
+  lookup(tokenHash: string): string | null {
+    return this.byHash.get(tokenHash) ?? null;
+  }
+
+  get size(): number {
+    return this.order.length;
+  }
+}
+
+/** Process-wide tombstone set (see {@link RevocationTombstones}). */
+export const revokedAddonTokens = new RevocationTombstones();
+
 export class AddonTokenService {
   private readonly db: Database.Database;
   private readonly repository: AddonRepository;
@@ -99,6 +152,12 @@ export class AddonTokenService {
   issue(addonId: string, scopes: readonly string[]): string {
     const raw = randomBytes(TOKEN_BYTES).toString('base64url');
     const now = new Date().toISOString();
+    // Rotation kills the previous token; remember its digest so a replay of
+    // the OLD one is reportable too (detection only -- see revoke()).
+    const previous = this.db
+      .prepare(`SELECT token_hash FROM addon_tokens WHERE addon_id = ?`)
+      .get(addonId) as { token_hash: string } | undefined;
+    if (previous) revokedAddonTokens.remember(previous.token_hash, addonId);
     this.db
       .prepare(
         `INSERT INTO addon_tokens (addon_id, token_hash, scopes, created_at)
@@ -112,9 +171,17 @@ export class AddonTokenService {
     return raw;
   }
 
-  /** Drops the add-on's token. Idempotent; returns true if one existed. */
+  /** Drops the add-on's token. Idempotent; returns true if one existed.
+   *  The dropped DIGEST is remembered (bounded, in-memory) purely so a later
+   *  replay of that exact token can be REPORTED as such -- see
+   *  {@link RevocationTombstones}. */
   revoke(addonId: string): boolean {
-    return this.db.prepare(`DELETE FROM addon_tokens WHERE addon_id = ?`).run(addonId).changes > 0;
+    const row = this.db
+      .prepare(`SELECT token_hash FROM addon_tokens WHERE addon_id = ?`)
+      .get(addonId) as { token_hash: string } | undefined;
+    const deleted = this.db.prepare(`DELETE FROM addon_tokens WHERE addon_id = ?`).run(addonId).changes > 0;
+    if (row) revokedAddonTokens.remember(row.token_hash, addonId);
+    return deleted;
   }
 
   /** Token metadata for the UI ("this add-on has a token, issued at ..."). */
@@ -138,14 +205,39 @@ export class AddonTokenService {
    */
   authenticate(raw: string | null | undefined): AddonPrincipal | null {
     if (typeof raw !== 'string' || raw.length === 0) return null;
+    const presentedHash = hashAddonToken(raw);
     const row = this.db
       .prepare(`SELECT * FROM addon_tokens WHERE token_hash = ?`)
-      .get(hashAddonToken(raw)) as AddonTokenRow | undefined;
-    if (!row) return null;
+      .get(presentedHash) as AddonTokenRow | undefined;
+    if (!row) {
+      // E09-T6: a token that WAS valid and has since been revoked (disable /
+      // uninstall / rotation) is a replay attempt, not random noise -- report
+      // it. The refusal itself is unchanged (`null` either way).
+      const revokedFor = revokedAddonTokens.lookup(presentedHash);
+      if (revokedFor !== null) {
+        securityEventLog.record(
+          'token.replay_after_disable',
+          revokedFor,
+          'a revoked add-on token was presented again (add-on disabled/uninstalled or token rotated)',
+        );
+      }
+      return null;
+    }
 
     const record = this.repository.getById(row.addon_id);
     // Uninstalled, or DISABLED -> the token is dead this instant.
-    if (!record || !record.enabled) return null;
+    if (!record || !record.enabled) {
+      // The row survived (e.g. a crash between the DB write and revoke), but
+      // the live `enabled` flag is the source of truth -- still a replay.
+      securityEventLog.record(
+        'token.replay_after_disable',
+        row.addon_id,
+        record
+          ? 'an add-on token was presented while the add-on is disabled'
+          : 'an add-on token was presented after the add-on was uninstalled',
+      );
+      return null;
+    }
 
     const manifestPermissions = new Set(record.manifest.permissions ?? []);
     const granted = parseScopes(row.scopes).filter((s) => manifestPermissions.has(s));

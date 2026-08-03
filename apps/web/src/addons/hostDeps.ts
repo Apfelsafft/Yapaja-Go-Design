@@ -21,7 +21,7 @@ import { addonMapLayers } from './mapLayers.js';
 import { useAddonWidgetStore, namespacedWidgetId } from './addonWidgetStore.js';
 import { useRouteProposalStore, nextProposalId } from './routeProposalStore.js';
 import { publishAddonEvent } from './addonEvents.js';
-import { getAddonStorage, setAddonStorage } from './client.js';
+import { getAddonStorage, setAddonStorage, reportSecurityViolation } from './client.js';
 import AddonWidgetView from './AddonWidgetView.js';
 
 function toPositionUpdate(pos: Position): { lat: number; lng: number; speed: number | null; heading: number | null } {
@@ -110,6 +110,12 @@ export function buildHostBridgeDeps(): HostBridgeDeps {
     },
     logger: {
       warn: (message, meta) => console.warn(message, meta ?? {}),
+    },
+    // E09-T6 (W-10): every host-detected sandbox violation is forwarded to
+    // the Core's `security` event channel, where `GET /api/v1/security/events`
+    // makes it visible to the operator (and assertable by the E09-T6 suite).
+    security: {
+      report: (vector, addonId, detail) => reportSecurityViolation(vector, addonId, detail),
     },
   };
 }

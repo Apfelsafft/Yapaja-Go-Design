@@ -11,6 +11,19 @@ abdecken (docs/05 §6) und als Vorlage für Dritt-Add-ons dienen:
 Jedes Verzeichnis hat sein eigenes `README.md` mit Manifest/Scope-Begründung,
 Build- und Testanleitung.
 
+## Kein Beispiel: `evil-fixture/` (E09-T6)
+
+Das Verzeichnis `evil-fixture/` ist **kein** Referenz-Add-on, sondern das
+Angriffs-Fixture der Sandbox-Escape-Suite (E09-T6, Wargame W-10). Es versucht
+systematisch jede verbotene Aktion und darf deshalb **niemals in die Registry
+oder in den Store** — nicht als Beispiel, nicht als Vorlage, nicht auf ein
+echtes Gerät. Der Guard-Test `evil-fixture/not-in-store.test.ts` bricht die CI,
+sobald seine Add-on-Id in einem Registry-/Store-Index oder im
+Produktions-Quellcode auftaucht.
+
+Details: `evil-fixture/README.md`, Nachweistabelle in
+`../e2e/security/README.md`.
+
 ## Warum diese Verzeichnisse KEIN pnpm-Workspace-Package sind
 
 `pnpm-workspace.yaml` listet nur `apps/*`, `packages/*`, `services/*` --

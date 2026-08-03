@@ -120,7 +120,32 @@ export interface EventMessage extends BaseMessage {
   payload: unknown;
 }
 
-export type AddonToHostMessage = ReadyMessage | CallMessage;
+/**
+ * The vectors an add-on may SELF-REPORT to the host (E09-T6, W-10). Both are
+ * violations that ONLY the add-on's own code can observe, because the browser
+ * blocks them inside the sandbox: reading the parent DOM/cookies/localStorage
+ * throws a `SecurityError` in the opaque origin, and a `fetch()` to a foreign
+ * host is killed by the add-on CSP's `connect-src 'none'`.
+ *
+ * Reporting is entirely voluntary and buys AUDITABILITY, never containment --
+ * the block happens with or without it, and a malicious add-on will simply
+ * stay quiet. Well-behaved add-ons (and the E09-T6 evil fixture) report so
+ * the operator can see attempts in `GET /api/v1/security/events`.
+ */
+export type SelfReportableSecurityVector = 'ui.parent_dom_access' | 'ui.foreign_host_fetch';
+
+/** iframe -> host: "the sandbox stopped me doing X". See
+ *  {@link SelfReportableSecurityVector}. The host IGNORES any `addonId` a
+ *  message might carry and always attributes the report to the iframe it
+ *  owns, so one add-on can never blame another. */
+export interface SecurityViolationMessage extends BaseMessage {
+  type: 'security-violation';
+  vector: SelfReportableSecurityVector;
+  /** Short, non-secret context (truncated by the host and redacted by the Core). */
+  detail?: string;
+}
+
+export type AddonToHostMessage = ReadyMessage | CallMessage | SecurityViolationMessage;
 export type HostToAddonMessage = InitMessage | ResultMessage | EventMessage;
 export type AddonMessage = AddonToHostMessage | HostToAddonMessage;
 

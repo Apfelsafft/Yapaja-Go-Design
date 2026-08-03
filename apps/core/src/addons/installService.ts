@@ -42,7 +42,8 @@ import { Buffer } from 'node:buffer';
 import type { AddonManifest } from '@yapaja/shared';
 import { validateAddonManifest, getValidationErrorsAddonManifest, satisfies } from '@yapaja/shared';
 import { extractAddonTarball } from './extract.js';
-import { AddonError } from './errors.js';
+import { AddonError, TarballSecurityError } from './errors.js';
+import { securityEventLog, type SecurityVector } from '../security/securityEvents.js';
 import {
   resolveAddonsRootDir,
   resolveAddonStorageRootDir,
@@ -67,6 +68,55 @@ export interface BeginInstallResult {
   isUpdate: boolean;
   sha256: string;
   expiresAt: string;
+}
+
+/**
+ * E09-T6 (W-10): maps ONE `TarballSecurityError.reason` (raised by the
+ * hardened extractor, `extract.ts`) onto its `security` vector. The REJECTION
+ * already happened in `extract.ts`; this only classifies it for the audit log,
+ * so that the E09-T6 suite can drive the tarball attacks through the REAL
+ * install API and assert the matching event, not just the HTTP 400.
+ */
+export function tarballVectorFor(reason: string): SecurityVector {
+  switch (reason) {
+    case 'PATH_TRAVERSAL':
+    case 'ABSOLUTE_PATH':
+      return 'tarball.path_traversal';
+    case 'SYMLINK':
+    case 'HARDLINK':
+    case 'UNSUPPORTED_ENTRY_TYPE':
+      return 'tarball.symlink';
+    case 'UNCOMPRESSED_SIZE_EXCEEDED':
+      return 'tarball.zip_bomb';
+    default:
+      // MANIFEST_NOT_FOUND / EMPTY_NAME / MALFORMED_TARBALL: still a refused
+      // untrusted package, filed under the traversal vector rather than being
+      // dropped on the floor.
+      return 'tarball.path_traversal';
+  }
+}
+
+/**
+ * Runs the hardened extractor and records a `security` event for every
+ * security rejection. The DECISION is entirely `extract.ts`'s -- this wrapper
+ * only observes it and re-throws untouched.
+ */
+async function extractRecordingViolations(
+  opts: Parameters<typeof extractAddonTarball>[0],
+  addonId: string | null,
+): Promise<Awaited<ReturnType<typeof extractAddonTarball>>> {
+  try {
+    return await extractAddonTarball(opts);
+  } catch (err) {
+    if (err instanceof TarballSecurityError) {
+      securityEventLog.record(
+        tarballVectorFor(err.reason),
+        addonId,
+        `tarball rejected (${err.reason}): ${err.message}`,
+      );
+    }
+    throw err;
+  }
 }
 
 function sha256Hex(bytes: Buffer): string {
@@ -188,6 +238,13 @@ export class InstallService {
     sha256Required: boolean,
   ): Promise<BeginInstallResult> {
     if (tarballBytes.length > this.maxCompressedBytes) {
+      // A compressed payload over the cap is the same class of attack as the
+      // uncompressed zip bomb -- recorded under the same vector.
+      securityEventLog.record(
+        'tarball.zip_bomb',
+        null,
+        `tarball of ${tarballBytes.length} bytes exceeds the ${this.maxCompressedBytes}-byte compressed cap`,
+      );
       throw new AddonError(
         'TARBALL_TOO_LARGE',
         `Add-on tarball is ${tarballBytes.length} bytes, exceeding the ${this.maxCompressedBytes}-byte compressed-size cap`,
@@ -209,11 +266,14 @@ export class InstallService {
     // traversal / absolute path / symlink+hardlink / disallowed entry type /
     // uncompressed zip-bomb cap), but destDir is null so NOTHING is written
     // to disk yet -- a malicious tarball is rejected right here, at step 1.
-    const { manifestRaw } = await extractAddonTarball({
-      tarballBytes,
-      destDir: null,
-      maxUncompressedBytes: this.maxUncompressedBytes,
-    });
+    const { manifestRaw } = await extractRecordingViolations(
+      {
+        tarballBytes,
+        destDir: null,
+        maxUncompressedBytes: this.maxUncompressedBytes,
+      },
+      null, // step 1: the manifest has not been parsed yet, so no id to attribute to
+    );
 
     let manifestJson: unknown;
     try {
@@ -300,11 +360,14 @@ export class InstallService {
     // Re-run the FULL hardened extraction for real (defense in depth: never
     // trust the step-1 dry run alone). Writes into the throwaway tempDir,
     // never `finalDir` directly.
-    await extractAddonTarball({
-      tarballBytes: pending.tarballBytes,
-      destDir: tempDir,
-      maxUncompressedBytes: this.maxUncompressedBytes,
-    });
+    await extractRecordingViolations(
+      {
+        tarballBytes: pending.tarballBytes,
+        destDir: tempDir,
+        maxUncompressedBytes: this.maxUncompressedBytes,
+      },
+      manifest.id,
+    );
 
     // "Does this version look startable" check -- this task doesn't launch
     // add-on processes yet (E09-T2/T3), so this is a proxy for it: the

@@ -52,6 +52,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { ApiError } from '@yapaja/shared';
 import type { AddonPrincipal } from './scopeMatrix.js';
+import { securityEventLog } from '../security/securityEvents.js';
 
 /** Minimal structural `fetch`, injectable so tests never touch the network. */
 export type ProxyFetchLike = (
@@ -267,6 +268,12 @@ export const addonProxyPlugin: FastifyPluginAsync<AddonProxyPluginOptions> = asy
     const allowed = parseAllowedHosts(principal.netFetchDeclarations);
     if (allowed.length === 0) {
       request.log.warn({ addon_id: principal.addonId }, 'add-on egress refused: no net.fetch:<host> declared');
+      // E09-T6: same refusal, recorded as a `security` event.
+      securityEventLog.record(
+        'egress.host_not_declared',
+        principal.addonId,
+        `no net.fetch:<host> declared; refused url=${String(request.query.url ?? '')}`,
+      );
       reply
         .code(403)
         .send(err('HOST_NOT_ALLOWED', 'This add-on declares no net.fetch:<host> permission'));
@@ -278,6 +285,11 @@ export const addonProxyPlugin: FastifyPluginAsync<AddonProxyPluginOptions> = asy
       request.log.warn(
         { addon_id: principal.addonId, code: current.code, url: request.query.url },
         'add-on egress refused by the host allow-list',
+      );
+      securityEventLog.record(
+        'egress.host_not_declared',
+        principal.addonId,
+        `${current.code}: refused url=${String(request.query.url ?? '')}`,
       );
       reply.code(current.code === 'INVALID_URL' ? 400 : 403).send(err(current.code, current.message));
       return;
@@ -346,6 +358,11 @@ export const addonProxyPlugin: FastifyPluginAsync<AddonProxyPluginOptions> = asy
         request.log.warn(
           { addon_id: principal.addonId, code: current.code, location: next },
           'add-on egress refused: redirect target not declared',
+        );
+        securityEventLog.record(
+          'egress.host_not_declared',
+          principal.addonId,
+          `${current.code}: refused redirect to ${next}`,
         );
         reply.code(403).send(err(current.code, `Redirect refused: ${current.message}`));
         return;

@@ -78,6 +78,15 @@ Akzeptanzkriterien · Pflicht-Tests · Plausibilitäts-Checks**.
 - [ ] Fehlerpfade implementiert (Timeout, Service down, ungültige Eingabe) — im
       Zweifel einen Fehlerfall manuell provozieren.
 - [ ] Plausibilitäts-Checks des Tasks stichprobenartig nachvollzogen.
+- [ ] **Add-on-Sicherheit (E09-T6, W-10): jeder neue Scope erweitert die Suite.**
+      Wurde ein Permission-Scope, eine Bridge-Methode oder eine
+      add-on-erreichbare Route hinzugefügt/geändert? Dann ist die
+      Sandbox-Escape-Suite `e2e/security/` mit einem Vektor dafür zu
+      erweitern (Block **und** `security`-Event), das Evil-Fixture
+      `addons-examples/evil-fixture/` mit einem Versuch dafür, und die
+      Nachweistabelle in `e2e/security/README.md` mit einer Zeile.
+      Die vollständige Unter-Checkliste steht dort unter
+      „Checkliste: jeder neue Scope erweitert die Suite".
 - [ ] Keine Konsolen-Errors im Browser (bei Frontend-Tasks Playwright-Log prüfen).
 - [ ] Bei sicherheitsrelevanten Tasks (🔴-Wargame-Bezug): Negativ-Tests vorhanden
       (das Verbotene passiert nachweislich NICHT).

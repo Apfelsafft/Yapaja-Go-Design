@@ -8,7 +8,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { AddonManifest } from '@yapaja/shared';
 import { getDb, closeDb } from '../db/index.js';
 import { AddonRepository } from './repository.js';
-import { AddonTokenService, hashAddonToken } from './tokens.js';
+import { AddonTokenService, RevocationTombstones, hashAddonToken } from './tokens.js';
+import { securityEventLog } from '../security/securityEvents.js';
 
 const ADDON_ID = 'com.example.service';
 
@@ -163,5 +164,79 @@ describe('AddonTokenService (E09-T3)', () => {
     repository.setEnabled(ADDON_ID, false);
     expect(tokens.authenticate(a)).toBeNull();
     expect(tokens.authenticate(b)).not.toBeNull();
+  });
+
+  // --- E09-T6 (W-10): revoked-token REPLAY DETECTION ---------------------
+  // The refusal itself is unchanged (null either way); what is new is that a
+  // replay is now REPORTABLE instead of indistinguishable from random noise.
+
+  it('records `token.replay_after_disable` when a REVOKED token is presented again', () => {
+    install(true);
+    const token = tokens.issue(ADDON_ID, ['pos.read']);
+    expect(tokens.authenticate(token)).not.toBeNull();
+
+    tokens.revoke(ADDON_ID);
+    securityEventLog.clear();
+
+    expect(tokens.authenticate(token)).toBeNull(); // still refused
+    const events = securityEventLog.list({ vector: 'token.replay_after_disable' });
+    expect(events).toHaveLength(1);
+    expect(events[0].addonId).toBe(ADDON_ID);
+    // The audit entry never carries the token itself.
+    expect(events[0].detail).not.toContain(token);
+  });
+
+  it('records `token.replay_after_disable` when the add-on is merely DISABLED (row still present)', () => {
+    install(true);
+    const token = tokens.issue(ADDON_ID, ['pos.read']);
+    repository.setEnabled(ADDON_ID, false); // no revoke -- e.g. a crash in between
+    securityEventLog.clear();
+
+    expect(tokens.authenticate(token)).toBeNull();
+    expect(securityEventLog.list({ vector: 'token.replay_after_disable' })).toHaveLength(1);
+  });
+
+  it('records a replay of a ROTATED-away token', () => {
+    install(true);
+    const first = tokens.issue(ADDON_ID, ['pos.read']);
+    tokens.issue(ADDON_ID, ['pos.read']); // rotation kills `first`
+    securityEventLog.clear();
+
+    expect(tokens.authenticate(first)).toBeNull();
+    expect(securityEventLog.list({ vector: 'token.replay_after_disable' })).toHaveLength(1);
+  });
+
+  it('does NOT record anything for a plain unknown/garbage token', () => {
+    install(true);
+    securityEventLog.clear();
+    expect(tokens.authenticate('not-a-token-at-all')).toBeNull();
+    expect(securityEventLog.list({ vector: 'token.replay_after_disable' })).toHaveLength(0);
+  });
+});
+
+describe('RevocationTombstones', () => {
+  it('remembers a digest -> add-on id mapping', () => {
+    const t = new RevocationTombstones(3);
+    t.remember(hashAddonToken('a'), 'com.example.a');
+    expect(t.lookup(hashAddonToken('a'))).toBe('com.example.a');
+    expect(t.lookup(hashAddonToken('b'))).toBeNull();
+  });
+
+  it('is bounded and evicts oldest-first', () => {
+    const t = new RevocationTombstones(2);
+    t.remember('h1', 'a');
+    t.remember('h2', 'b');
+    t.remember('h3', 'c');
+    expect(t.size).toBe(2);
+    expect(t.lookup('h1')).toBeNull();
+    expect(t.lookup('h2')).toBe('b');
+    expect(t.lookup('h3')).toBe('c');
+  });
+
+  it('is idempotent for the same digest', () => {
+    const t = new RevocationTombstones(5);
+    t.remember('h1', 'a');
+    t.remember('h1', 'a');
+    expect(t.size).toBe(1);
   });
 });

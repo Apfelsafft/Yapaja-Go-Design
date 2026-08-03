@@ -47,7 +47,11 @@ export type KnownBusTopic =
   // distinct from `event/profile_changed`, which only fires on activate).
   // `select.yapaja_profile`'s HA discovery config subscribes to this to
   // re-publish its `options` with the live profile-name list.
-  | 'event/profile_list_changed';
+  | 'event/profile_list_changed'
+  // E09-T6 (W-10): a BLOCKED add-on sandbox-escape attempt. Published by
+  // `security/securityEvents.ts` for every refusal at every enforcement
+  // point; see `SecurityViolationPayload` below.
+  | 'event/security_violation';
 
 export interface GpsLostPayload {
   /** Source that was active immediately before the fix was lost, if any. */
@@ -216,6 +220,28 @@ export interface RerouteFailedPayload {
   retry_in_ms: number;
 }
 
+/**
+ * `event/security_violation` (E09-T6, W-10): ONE blocked add-on sandbox-escape
+ * attempt. Published the moment an enforcement point REFUSES -- the refusal
+ * itself is never conditional on this publish succeeding.
+ *
+ * `vector` is a stable machine-readable id from
+ * `security/securityEvents.ts#SECURITY_VECTORS` (kept as a plain `string`
+ * here so the bus module stays dependency-free; the producer side is typed
+ * against the union). `detail` is a short human-readable context string and
+ * NEVER contains a token or any other secret.
+ */
+export interface SecurityViolationPayload {
+  /** Stable vector id, e.g. `'core.scope_denied'`, `'tarball.symlink'`. */
+  vector: string;
+  /** The add-on the attempt is attributed to, or `null` if unattributable. */
+  addonId: string | null;
+  /** Human-readable context. Never a secret. */
+  detail: string;
+  /** ISO 8601 UTC timestamp of the refusal. */
+  at: string;
+}
+
 /** Maps each known topic to its payload type. */
 export interface BusPayloadMap {
   'pos/update': Position;
@@ -235,6 +261,7 @@ export interface BusPayloadMap {
   'event/profile_changed': ProfileChangedPayload;
   'event/profile_change_pending': ProfileChangePendingPayload;
   'event/profile_list_changed': ProfileListChangedPayload;
+  'event/security_violation': SecurityViolationPayload;
 }
 
 /**

@@ -15,8 +15,13 @@ import { ADDON_MESSAGE_NS } from '@yapaja/addon-sdk';
 
 const ADDON_ID = 'com.example.demo';
 
-function makeDeps(): { deps: HostBridgeDeps; warn: ReturnType<typeof vi.fn> } {
+function makeDeps(): {
+  deps: HostBridgeDeps;
+  warn: ReturnType<typeof vi.fn>;
+  report: ReturnType<typeof vi.fn>;
+} {
   const warn = vi.fn();
+  const report = vi.fn();
   const deps: HostBridgeDeps = {
     position: { subscribe: vi.fn(() => () => {}) },
     nav: { getState: vi.fn(() => ({ navigating: 'idle' })) },
@@ -26,8 +31,9 @@ function makeDeps(): { deps: HostBridgeDeps; warn: ReturnType<typeof vi.fn> } {
     storage: { get: vi.fn(async () => 'v'), set: vi.fn(async () => undefined) },
     routes: { propose: vi.fn(), clearForAddon: vi.fn() },
     logger: { warn, info: vi.fn() },
+    security: { report },
   };
-  return { deps, warn };
+  return { deps, warn, report };
 }
 
 interface FakeWindow {
