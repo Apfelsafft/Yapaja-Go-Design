@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2020", "DOM"],
+    "types": [],
+    // Resolve `@yapaja/addon-sdk`/`@yapaja/shared` to SOURCE (inherited from
+    // tsconfig.base.json's `paths`) -- this package is deliberately NOT a
+    // pnpm workspace member (see ../README.md), so there is no
+    // node_modules-linked package to resolve to. `noEmit: true` means this
+    // is a pure type-check (never a build), so pulling the dependency's
+    // TypeScript SOURCE straight in -- the same thing esbuild's `alias` in
+    // build.mjs does for the actual bundle -- is exactly right here too, not
+    // just a workaround.
+    "composite": false
+  },
+  "include": ["src/**/*", "*.d.ts"],
+  "exclude": ["node_modules", ".tsc-out", "**/*.test.ts"]
+}

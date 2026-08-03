@@ -1,0 +1,21 @@
+{
+  "id": "com.yapaja.poi-campsites",
+  "name": "Stellplätze-Overlay",
+  "version": "1.0.0",
+  "core_api": "*",
+  "author": "Yapaja Go",
+  "license": "MIT",
+  "description": "Zeigt ~200 gebündelte Stellplatz-POIs als Kartenlayer, mit Detail-Ansicht und \"Route hierhin\".",
+  "requires_online": false,
+  "ui": {
+    "entry": "ui/index.html",
+    "widgets": [
+      { "id": "poi-detail", "name": "Stellplatz-Detail", "slots": ["side-panel"] }
+    ],
+    "map_layers": [
+      { "id": "campsites", "name": "Stellplätze", "source": "bundled" }
+    ],
+    "settings_page": true
+  },
+  "permissions": ["map.layer.write", "widget.register", "route.propose"]
+}

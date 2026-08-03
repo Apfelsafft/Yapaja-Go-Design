@@ -97,6 +97,36 @@ In der Praxis wird `ui/index.html` von einem Bundler (Vite/esbuild) erzeugt, der
 `@yapaja/addon-sdk` aus `node_modules` bündelt – der Import oben ist nur zur
 Illustration ohne Build-Schritt.
 
+> ⚠️ **Bundle-Format: IIFE, nicht ESM** (entdeckt beim Bau von
+> `addons-examples/poi-campsites`/`track-recorder`, E09-T5). Der Bundle darf
+> **nicht** als `<script type="module" src="...">` eingebunden werden: das
+> Add-on-Iframe ist `sandbox="allow-scripts"` **ohne** `allow-same-origin` und
+> läuft damit mit einer OPAQUEN Origin (`"null"`). Ein Modul-Script-Load
+> unterliegt IMMER einer CORS-Prüfung (anders als ein klassisches Script) –
+> eine opaque Origin kann diese Prüfung nie bestehen, selbst bei einer
+> Same-Path-Ressource. Ergebnis: `Access to script at '...' from origin
+> 'null' has been blocked by CORS policy`, das Add-on lädt nie. Bündelt den
+> Bundler-Output stattdessen als **IIFE** (esbuild: `format: 'iife'`) und
+> bindet ihn als klassisches Script ein: `<script src="./bundle.js"></script>`
+> (kein `type="module"`). Ein IIFE-Bundle hat ohnehin keine offenen
+> `import`/`export`-Statements mehr (alles ist bereits zusammengebündelt),
+> unterliegt also keiner Modul-Auflösung, die ein `type="module"` bräuchte.
+
+> ⚠️ **`@yapaja/shared` NICHT zur Laufzeit importieren.** Ein direkter
+> `import { ... } from '@yapaja/shared'`-Aufruf zieht dessen gesamten
+> Paket-Entry-Point (`src/index.ts`) mit hinein – inklusive
+> `validators.ts`, das beim Modul-Laden `ajv.compile(...)` aufruft (AJVs
+> Standard-Strategie generiert Validator-Funktionen per `new Function(...)`).
+> Das Add-on-Iframe hat **kein** `'unsafe-eval'` in seiner CSP
+> (`apps/core/src/addons/ui-host.ts#buildAddonCsp`), also schlägt das mit
+> genau derselben `blocked by CSP`-Fehlermeldung fehl, unabhängig davon, ob der
+> eigene Code die AJV-Validatoren je aufruft. `@yapaja/addon-sdk` selbst hatte
+> dieses Problem bis E09-T5 (`version.ts` importierte `isValidSemver` von
+> dort) – seitdem hält es, wie `protocol.ts`s `AddonScope` es schon vormacht,
+> keine Laufzeit-Abhängigkeit zu `@yapaja/shared` mehr. Braucht ein Add-on
+> `@yapaja/shared`-Typen, sind `import type { ... }`-Importe (typ-only, kein
+> Laufzeit-Code) unproblematisch – nur ein WERT-Import ist die Falle.
+
 ### 1.4 Paketieren
 
 ```sh
@@ -105,6 +135,10 @@ tar czf poi-overlay.tar.gz yapaja-addon.json ui/
 
 `yapaja-addon.json` **muss** auf oberster Ebene im Tarball liegen (kein
 Unterverzeichnis) – siehe `apps/core/src/addons/extract.ts#MANIFEST_FILENAME`.
+**Wichtig für Build-Skripte:** listet die Top-Level-Einträge explizit auf (wie
+oben), statt `tar czf out.tgz -C stage/ .` zu verwenden – GNU tars `-C dir .`
+erzeugt einen führenden `./`-Verzeichniseintrag, den die Tarball-Sicherheitsprüfung
+als leeren/`"."`-Namen ablehnt (`TARBALL_REJECTED`, `extract.ts`).
 
 ### 1.5 Installieren + aktivieren (siehe [§8 Testrezept](#8-testrezept))
 
@@ -328,6 +362,23 @@ Aufruf unabhängig noch einmal (§0).
    `API_AUTH_TOKEN` gesetzt ist, läuft der Core im offenen Modus (kein Bearer-Token
    für die `curl`-Aufrufe unten nötig).
 
+   > ⚠️ **`core_api`-Range gegen einen LOKAL gebauten Core** (entdeckt bei
+   > E09-T5): `GET /api/v1/health` meldet gegen einen aus dem Quellcode
+   > gebauten Core (`node apps/core/dist/index.js` direkt aus dem Repo-Checkout,
+   > nicht aus dem Docker-Image) `"version": "0.0.0"` statt der echten
+   > `apps/core/package.json`-Version – `readPackageVersion()`
+   > (`apps/core/src/version.ts`) löst `../../package.json` relativ zu
+   > `apps/core/dist` auf, was lokal `apps/package.json` wäre (existiert
+   > nicht → Fallback `"0.0.0"`). Im Docker-Image stimmt der Pfad (`WORKDIR
+   > /app` kopiert das ROOT-`package.json` nach `/app/package.json`), dort ist
+   > die gemeldete Version korrekt. Ein Manifest mit einer engen Range wie
+   > `"core_api": "^0.1"` scheitert deshalb beim lokalen Testen mit
+   > `INCOMPATIBLE_CORE_API`, obwohl es gegen einen echten/produktiven Core
+   > passen würde. Zum lokalen Testen entweder `"core_api": "*"` verwenden
+   > (siehe `addons-examples/*/yapaja-addon.json`) oder die tatsächlich lokal
+   > gemeldete Version (`curl localhost:8080/api/v1/health`) explizit in der
+   > Range berücksichtigen.
+
 2. **Tarball bauen** (siehe §1.4/§2.4):
    ```sh
    tar czf my-addon.tar.gz yapaja-addon.json ui/ service/  # je nach Add-on-Typ
@@ -391,3 +442,38 @@ Aufruf unabhängig noch einmal (§0).
   ihm über die Core-Settings zugänglich gemacht, nicht über dieses SDK).
 - `fetch()` unterstützt ausschließlich `GET` – der Core-Egress-Proxy
   (`apps/core/src/addons/proxy.ts`) leitet grundsätzlich nur GET-Requests weiter.
+- **`ui.settings_page` hat KEINE eigene Route/Mechanik.** Das Manifest-Feld
+  ist rein informativ (Store-Anzeige "hat Einstellungen"); es gibt keinen
+  `/addons/:id/ui/settings.html`-Sondermechanismus oder Ähnliches, den der
+  Host bereitstellt. Eine Add-on-eigene Einstellungsseite ist schlicht Teil
+  des normalen `ui.entry`-Iframes (z. B. ein umschaltbares Panel innerhalb
+  derselben `index.html`) – siehe `addons-examples/poi-campsites/src/main.ts`s
+  Kategorie-Filter-Panel als Beispiel.
+- **Kein Klick-Callback für Karten-Marker** (entdeckt bei E09-T5, dem
+  POI-Overlay-Referenz-Add-on): §3s SDK-Illustration oben deutet
+  `addon.map.addMarkers('campsites', markers); // inkl. Klick-Callbacks` an,
+  aber der tatsächliche Host-Code (`apps/web/src/addons/mapLayers.ts`) rendert
+  `addMarkers()`/`addLayer()`-Output als reine, NICHT-interaktive
+  MapLibre-Circle-Layer – es gibt keinen Event-Kanal, der einen Klick auf
+  einen echten Karten-Marker zurück ins Add-on-Iframe meldet. Ein Add-on, das
+  auf POI-Klicks reagieren soll, braucht aktuell eine EIGENE, klickbare
+  Repräsentation innerhalb seines eigenen Iframes (siehe
+  `addons-examples/poi-campsites/src/main.ts`, das den echten Karten-Layer
+  weiter per SDK pusht, aber die Klick-Interaktion über eine zusätzliche Liste
+  im eigenen Iframe löst).
+- **`position.subscribe()`-Payload-Form unterscheidet sich je Transport**
+  (entdeckt bei E09-T5, dem Track-Recorder-Referenz-Add-on): Auf dem
+  SERVICE-Transport ist das an den Callback übergebene Objekt tatsächlich die
+  VOLLE `Position`-Form aus `@yapaja/shared` (`lat`, **`lon`** – nicht
+  `lng` –, `alt`, `speed`, `heading`, `accuracy`, `source`, `fix`, `ts`), weil
+  `serviceTransport.ts` den rohen `pos/update`-Bus-Payload unverändert
+  durchreicht (`apps/core/src/position/service.ts#pushFix` publiziert die
+  ganze `Position`). Auf dem UI/postMessage-Transport konvertiert die Host-Bridge
+  (`apps/web/src/addons/hostDeps.ts#toPositionUpdate`) das dagegen explizit auf
+  die schmalere `{lat, lng, speed, heading}`-Form – ohne `ts`. Der SDK-Typ
+  `PositionUpdate` deklariert nur die schmale Form (mit einer
+  Index-Signatur, die `.lon`/`.ts`-Zugriff nicht verhindert, aber auch nicht
+  typisiert) – ein Service-Add-on, das die reale Position braucht, sollte
+  `.lon` (nicht `.lng`) lesen und `.ts` für den echten Fix-Zeitstempel nutzen,
+  siehe `addons-examples/track-recorder/src/service.ts`s
+  `ServiceTransportPositionFix`-Typ für ein dokumentiertes Beispiel.

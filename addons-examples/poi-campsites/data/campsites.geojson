@@ -1,0 +1,4702 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.12187,
+          47.34038
+        ]
+      },
+      "properties": {
+        "id": "poi-001",
+        "name": "Sternenhimmel im Grünen",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 15.4,
+        "amenities": [
+          "Wanderwege",
+          "Entsorgung",
+          "WLAN",
+          "Frischwasser"
+        ],
+        "description": "Campingplatz „Sternenhimmel im Grünen“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.60254,
+          47.6287
+        ]
+      },
+      "properties": {
+        "id": "poi-002",
+        "name": "Birkenweg am See",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 16.6,
+        "amenities": [
+          "Seezugang",
+          "Strom"
+        ],
+        "description": "Campingplatz „Birkenweg am See“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.79501,
+          47.62992
+        ]
+      },
+      "properties": {
+        "id": "poi-003",
+        "name": "Rosengarten im Tal",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 15.1,
+        "amenities": [
+          "Frischwasser",
+          "Entsorgung"
+        ],
+        "description": "Campingplatz „Rosengarten im Tal“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.6111,
+          47.17387
+        ]
+      },
+      "properties": {
+        "id": "poi-004",
+        "name": "Birkenweg am Fluss",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 24.7,
+        "amenities": [
+          "Strom",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Birkenweg am Fluss“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.84593,
+          47.39117
+        ]
+      },
+      "properties": {
+        "id": "poi-005",
+        "name": "Obstgarten am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 20.3,
+        "amenities": [
+          "Wanderwege",
+          "Strom",
+          "Frischwasser"
+        ],
+        "description": "Stellplatz „Obstgarten am Wald“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.09478,
+          47.4514
+        ]
+      },
+      "properties": {
+        "id": "poi-006",
+        "name": "Bachufer an der Grenze",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 12,
+        "amenities": [
+          "Entsorgung",
+          "Frischwasser"
+        ],
+        "description": "Stellplatz „Bachufer an der Grenze“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.07329,
+          47.55169
+        ]
+      },
+      "properties": {
+        "id": "poi-007",
+        "name": "Auwiese im Grünen",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 17.9,
+        "amenities": [
+          "Kinderspielplatz",
+          "Entsorgung",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Campingplatz „Auwiese im Grünen“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.17027,
+          47.37655
+        ]
+      },
+      "properties": {
+        "id": "poi-008",
+        "name": "Bachufer im Naturpark",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 16.6,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Strom",
+          "Kinderspielplatz"
+        ],
+        "description": "Stellplatz „Bachufer im Naturpark“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.77093,
+          47.68295
+        ]
+      },
+      "properties": {
+        "id": "poi-009",
+        "name": "Sternenhimmel am Ortsrand",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 14.1,
+        "amenities": [
+          "Wanderwege",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Campingplatz „Sternenhimmel am Ortsrand“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.62993,
+          47.51516
+        ]
+      },
+      "properties": {
+        "id": "poi-010",
+        "name": "Obstgarten bei den Reben",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Strom",
+          "Entsorgung",
+          "Kinderspielplatz"
+        ],
+        "description": "Wildcamping-Spot „Obstgarten bei den Reben“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.73137,
+          47.3541
+        ]
+      },
+      "properties": {
+        "id": "poi-011",
+        "name": "Obstgarten an der Alten Landstraße",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 18,
+        "amenities": [
+          "Entsorgung",
+          "Strom",
+          "Frischwasser",
+          "Wanderwege"
+        ],
+        "description": "Campingplatz „Obstgarten an der Alten Landstraße“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.31842,
+          47.52088
+        ]
+      },
+      "properties": {
+        "id": "poi-012",
+        "name": "Mühlenwiese im Naturpark",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 12,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Frischwasser",
+          "Hund erlaubt",
+          "Seezugang"
+        ],
+        "description": "Stellplatz „Mühlenwiese im Naturpark“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.92278,
+          47.48123
+        ]
+      },
+      "properties": {
+        "id": "poi-013",
+        "name": "Kastanienhof am Fluss",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 24,
+        "amenities": [
+          "Kinderspielplatz",
+          "Strom",
+          "Frischwasser",
+          "Seezugang",
+          "Hund erlaubt"
+        ],
+        "description": "Stellplatz „Kastanienhof am Fluss“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.06911,
+          47.4566
+        ]
+      },
+      "properties": {
+        "id": "poi-014",
+        "name": "Uferwiese an der Alten Landstraße",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Sanitäranlagen",
+          "Kinderspielplatz",
+          "Hund erlaubt"
+        ],
+        "description": "Wildcamping-Spot „Uferwiese an der Alten Landstraße“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.19993,
+          47.60367
+        ]
+      },
+      "properties": {
+        "id": "poi-015",
+        "name": "Birkenweg am Fluss",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 9,
+        "amenities": [
+          "Frischwasser",
+          "Sanitäranlagen",
+          "WLAN",
+          "Seezugang"
+        ],
+        "description": "Stellplatz „Birkenweg am Fluss“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.80817,
+          47.18813
+        ]
+      },
+      "properties": {
+        "id": "poi-016",
+        "name": "Mühlenwiese bei den Reben",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 22.7,
+        "amenities": [
+          "Hund erlaubt",
+          "Entsorgung",
+          "Frischwasser",
+          "Strom",
+          "Wanderwege"
+        ],
+        "description": "Stellplatz „Mühlenwiese bei den Reben“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.88824,
+          47.56867
+        ]
+      },
+      "properties": {
+        "id": "poi-017",
+        "name": "Seeblick an der Grenze",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 26.9,
+        "amenities": [
+          "WLAN",
+          "Seezugang",
+          "Einkauf in Gehweite",
+          "Hund erlaubt"
+        ],
+        "description": "Campingplatz „Seeblick an der Grenze“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.10839,
+          47.54633
+        ]
+      },
+      "properties": {
+        "id": "poi-018",
+        "name": "Lindenhof bei den Reben",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 26.2,
+        "amenities": [
+          "Entsorgung",
+          "Kinderspielplatz",
+          "WLAN",
+          "Frischwasser"
+        ],
+        "description": "Campingplatz „Lindenhof bei den Reben“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.77506,
+          47.69239
+        ]
+      },
+      "properties": {
+        "id": "poi-019",
+        "name": "Lindenhof an der Grenze",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 8.7,
+        "amenities": [
+          "Strom",
+          "Seezugang",
+          "Frischwasser"
+        ],
+        "description": "Campingplatz „Lindenhof an der Grenze“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.21691,
+          47.51449
+        ]
+      },
+      "properties": {
+        "id": "poi-020",
+        "name": "Waldrand an der Alten Landstraße",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 25.4,
+        "amenities": [
+          "Kinderspielplatz",
+          "Entsorgung",
+          "Sanitäranlagen",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Waldrand an der Alten Landstraße“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.94446,
+          47.32556
+        ]
+      },
+      "properties": {
+        "id": "poi-021",
+        "name": "Sternenhimmel bei den Reben",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 17.1,
+        "amenities": [
+          "Entsorgung",
+          "Kinderspielplatz"
+        ],
+        "description": "Campingplatz „Sternenhimmel bei den Reben“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.76957,
+          47.67938
+        ]
+      },
+      "properties": {
+        "id": "poi-022",
+        "name": "Seeblick im Naturpark",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 28.8,
+        "amenities": [
+          "Wanderwege",
+          "Kinderspielplatz"
+        ],
+        "description": "Campingplatz „Seeblick im Naturpark“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.90572,
+          47.30438
+        ]
+      },
+      "properties": {
+        "id": "poi-023",
+        "name": "Talgrund am Fluss",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 8.1,
+        "amenities": [
+          "Hund erlaubt",
+          "WLAN",
+          "Seezugang",
+          "Einkauf in Gehweite",
+          "Kinderspielplatz"
+        ],
+        "description": "Campingplatz „Talgrund am Fluss“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.79478,
+          47.64825
+        ]
+      },
+      "properties": {
+        "id": "poi-024",
+        "name": "Rosengarten im Grünen",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 25.9,
+        "amenities": [
+          "Frischwasser",
+          "WLAN",
+          "Strom",
+          "Seezugang",
+          "Entsorgung"
+        ],
+        "description": "Stellplatz „Rosengarten im Grünen“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.14909,
+          47.54102
+        ]
+      },
+      "properties": {
+        "id": "poi-025",
+        "name": "Talgrund im Grünen",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 12,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Frischwasser",
+          "Sanitäranlagen"
+        ],
+        "description": "Campingplatz „Talgrund im Grünen“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.19877,
+          47.41329
+        ]
+      },
+      "properties": {
+        "id": "poi-026",
+        "name": "Lindenhof am See",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 11.2,
+        "amenities": [
+          "Wanderwege",
+          "WLAN",
+          "Hund erlaubt",
+          "Einkauf in Gehweite",
+          "Strom"
+        ],
+        "description": "Stellplatz „Lindenhof am See“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.38328,
+          47.40076
+        ]
+      },
+      "properties": {
+        "id": "poi-027",
+        "name": "Rosengarten bei den Reben",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 9.5,
+        "amenities": [
+          "Seezugang",
+          "Einkauf in Gehweite",
+          "Wanderwege",
+          "Frischwasser",
+          "Hund erlaubt"
+        ],
+        "description": "Stellplatz „Rosengarten bei den Reben“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.33076,
+          47.24027
+        ]
+      },
+      "properties": {
+        "id": "poi-028",
+        "name": "Birkenweg an der Grenze",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 26.6,
+        "amenities": [
+          "Sanitäranlagen",
+          "Entsorgung",
+          "Strom",
+          "Wanderwege"
+        ],
+        "description": "Stellplatz „Birkenweg an der Grenze“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.03145,
+          47.58468
+        ]
+      },
+      "properties": {
+        "id": "poi-029",
+        "name": "Feldrain an der Grenze",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 18.8,
+        "amenities": [
+          "Frischwasser",
+          "Einkauf in Gehweite",
+          "Seezugang",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Feldrain an der Grenze“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.55496,
+          47.23694
+        ]
+      },
+      "properties": {
+        "id": "poi-030",
+        "name": "Rebenhof am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 8.9,
+        "amenities": [
+          "Wanderwege",
+          "Seezugang"
+        ],
+        "description": "Stellplatz „Rebenhof am Wald“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.28045,
+          47.34962
+        ]
+      },
+      "properties": {
+        "id": "poi-031",
+        "name": "Sonnenhof im Grünen",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Entsorgung",
+          "WLAN"
+        ],
+        "description": "Wildcamping-Spot „Sonnenhof im Grünen“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.46208,
+          47.63363
+        ]
+      },
+      "properties": {
+        "id": "poi-032",
+        "name": "Auwiese im Tal",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Kinderspielplatz",
+          "Sanitäranlagen",
+          "Wanderwege",
+          "WLAN",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Wildcamping-Spot „Auwiese im Tal“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.70871,
+          47.52967
+        ]
+      },
+      "properties": {
+        "id": "poi-033",
+        "name": "Kastanienhof am See",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Hund erlaubt",
+          "Wanderwege",
+          "Entsorgung",
+          "Einkauf in Gehweite",
+          "Strom"
+        ],
+        "description": "Wildcamping-Spot „Kastanienhof am See“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.27056,
+          47.19567
+        ]
+      },
+      "properties": {
+        "id": "poi-034",
+        "name": "Klosterwiese am Ortsrand",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 23.6,
+        "amenities": [
+          "WLAN",
+          "Kinderspielplatz",
+          "Frischwasser",
+          "Seezugang",
+          "Strom"
+        ],
+        "description": "Campingplatz „Klosterwiese am Ortsrand“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.90521,
+          47.41582
+        ]
+      },
+      "properties": {
+        "id": "poi-035",
+        "name": "Kastanienhof bei den Reben",
+        "category": "raststaette",
+        "categoryLabel": "Raststätte mit Stellplatz",
+        "pricePerNightEur": 9.9,
+        "amenities": [
+          "Hund erlaubt",
+          "Strom",
+          "Kinderspielplatz"
+        ],
+        "description": "Raststätte mit Stellplatz „Kastanienhof bei den Reben“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.16364,
+          47.57693
+        ]
+      },
+      "properties": {
+        "id": "poi-036",
+        "name": "Talgrund am Fluss",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Kinderspielplatz",
+          "Wanderwege"
+        ],
+        "description": "Wildcamping-Spot „Talgrund am Fluss“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.91938,
+          47.41266
+        ]
+      },
+      "properties": {
+        "id": "poi-037",
+        "name": "Alpenpanorama am Wald",
+        "category": "raststaette",
+        "categoryLabel": "Raststätte mit Stellplatz",
+        "pricePerNightEur": 28.2,
+        "amenities": [
+          "Kinderspielplatz",
+          "Einkauf in Gehweite",
+          "Sanitäranlagen",
+          "Frischwasser",
+          "WLAN"
+        ],
+        "description": "Raststätte mit Stellplatz „Alpenpanorama am Wald“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.85871,
+          47.19944
+        ]
+      },
+      "properties": {
+        "id": "poi-038",
+        "name": "Rosengarten im Tal",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Kinderspielplatz",
+          "Entsorgung"
+        ],
+        "description": "Wildcamping-Spot „Rosengarten im Tal“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.07438,
+          47.66909
+        ]
+      },
+      "properties": {
+        "id": "poi-039",
+        "name": "Uferwiese im Tal",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 8.6,
+        "amenities": [
+          "Frischwasser",
+          "Strom",
+          "Hund erlaubt"
+        ],
+        "description": "Campingplatz „Uferwiese im Tal“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.82616,
+          47.63443
+        ]
+      },
+      "properties": {
+        "id": "poi-040",
+        "name": "Feldrain an der Alten Landstraße",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 21.3,
+        "amenities": [
+          "Frischwasser",
+          "Wanderwege",
+          "Entsorgung",
+          "WLAN"
+        ],
+        "description": "Campingplatz „Feldrain an der Alten Landstraße“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.80718,
+          47.61402
+        ]
+      },
+      "properties": {
+        "id": "poi-041",
+        "name": "Talgrund an der Alten Landstraße",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 19.1,
+        "amenities": [
+          "Sanitäranlagen",
+          "Frischwasser"
+        ],
+        "description": "Campingplatz „Talgrund an der Alten Landstraße“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.68538,
+          47.53131
+        ]
+      },
+      "properties": {
+        "id": "poi-042",
+        "name": "Bergblick im Tal",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 16.2,
+        "amenities": [
+          "Seezugang",
+          "WLAN",
+          "Kinderspielplatz",
+          "Entsorgung",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Stellplatz „Bergblick im Tal“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.87429,
+          47.73476
+        ]
+      },
+      "properties": {
+        "id": "poi-043",
+        "name": "Bachufer am See",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Seezugang",
+          "Strom",
+          "WLAN",
+          "Sanitäranlagen"
+        ],
+        "description": "Wildcamping-Spot „Bachufer am See“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.5176,
+          47.27245
+        ]
+      },
+      "properties": {
+        "id": "poi-044",
+        "name": "Waldrand am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 19.9,
+        "amenities": [
+          "Kinderspielplatz",
+          "Sanitäranlagen",
+          "Einkauf in Gehweite",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Waldrand am Wald“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.80529,
+          47.65169
+        ]
+      },
+      "properties": {
+        "id": "poi-045",
+        "name": "Seeblick im Tal",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 13.1,
+        "amenities": [
+          "Strom",
+          "Sanitäranlagen"
+        ],
+        "description": "Campingplatz „Seeblick im Tal“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.51151,
+          47.63003
+        ]
+      },
+      "properties": {
+        "id": "poi-046",
+        "name": "Obstgarten am Wald",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 16,
+        "amenities": [
+          "Wanderwege",
+          "Frischwasser"
+        ],
+        "description": "Campingplatz „Obstgarten am Wald“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.2816,
+          47.40985
+        ]
+      },
+      "properties": {
+        "id": "poi-047",
+        "name": "Sternenhimmel am Wald",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Seezugang"
+        ],
+        "description": "Wildcamping-Spot „Sternenhimmel am Wald“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.50443,
+          47.46378
+        ]
+      },
+      "properties": {
+        "id": "poi-048",
+        "name": "Rosengarten im Tal",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 10,
+        "amenities": [
+          "Frischwasser",
+          "Hund erlaubt"
+        ],
+        "description": "Campingplatz „Rosengarten im Tal“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.26568,
+          47.53017
+        ]
+      },
+      "properties": {
+        "id": "poi-049",
+        "name": "Obstgarten am Fluss",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 29.7,
+        "amenities": [
+          "WLAN",
+          "Seezugang",
+          "Wanderwege",
+          "Kinderspielplatz"
+        ],
+        "description": "Campingplatz „Obstgarten am Fluss“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.76292,
+          47.52228
+        ]
+      },
+      "properties": {
+        "id": "poi-050",
+        "name": "Obstgarten am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 18.2,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Strom"
+        ],
+        "description": "Stellplatz „Obstgarten am Wald“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.11987,
+          47.30662
+        ]
+      },
+      "properties": {
+        "id": "poi-051",
+        "name": "Klosterwiese im Grünen",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 9.7,
+        "amenities": [
+          "Frischwasser",
+          "Hund erlaubt"
+        ],
+        "description": "Stellplatz „Klosterwiese im Grünen“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.22121,
+          47.70971
+        ]
+      },
+      "properties": {
+        "id": "poi-052",
+        "name": "Sonnenhof am Ortsrand",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 11.7,
+        "amenities": [
+          "Entsorgung",
+          "Sanitäranlagen",
+          "Frischwasser",
+          "Seezugang"
+        ],
+        "description": "Stellplatz „Sonnenhof am Ortsrand“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.04151,
+          47.57223
+        ]
+      },
+      "properties": {
+        "id": "poi-053",
+        "name": "Bergblick an der Alten Landstraße",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 24,
+        "amenities": [
+          "Frischwasser",
+          "Einkauf in Gehweite",
+          "Entsorgung"
+        ],
+        "description": "Campingplatz „Bergblick an der Alten Landstraße“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.11662,
+          47.40674
+        ]
+      },
+      "properties": {
+        "id": "poi-054",
+        "name": "Talgrund am Ortsrand",
+        "category": "raststaette",
+        "categoryLabel": "Raststätte mit Stellplatz",
+        "pricePerNightEur": 24.9,
+        "amenities": [
+          "Frischwasser",
+          "Seezugang",
+          "WLAN"
+        ],
+        "description": "Raststätte mit Stellplatz „Talgrund am Ortsrand“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.53453,
+          47.44434
+        ]
+      },
+      "properties": {
+        "id": "poi-055",
+        "name": "Lindenhof im Grünen",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 21.2,
+        "amenities": [
+          "Seezugang",
+          "Strom",
+          "Frischwasser",
+          "Hund erlaubt"
+        ],
+        "description": "Stellplatz „Lindenhof im Grünen“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.0818,
+          47.50624
+        ]
+      },
+      "properties": {
+        "id": "poi-056",
+        "name": "Obstgarten im Tal",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 15.7,
+        "amenities": [
+          "Entsorgung",
+          "Frischwasser"
+        ],
+        "description": "Campingplatz „Obstgarten im Tal“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.20103,
+          47.43793
+        ]
+      },
+      "properties": {
+        "id": "poi-057",
+        "name": "Mühlenwiese im Naturpark",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Strom",
+          "Entsorgung",
+          "Frischwasser",
+          "Einkauf in Gehweite",
+          "Seezugang"
+        ],
+        "description": "Wildcamping-Spot „Mühlenwiese im Naturpark“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.68754,
+          47.19692
+        ]
+      },
+      "properties": {
+        "id": "poi-058",
+        "name": "Alpenpanorama im Naturpark",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 13.3,
+        "amenities": [
+          "Sanitäranlagen",
+          "Strom",
+          "WLAN",
+          "Hund erlaubt"
+        ],
+        "description": "Campingplatz „Alpenpanorama im Naturpark“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.37541,
+          47.1752
+        ]
+      },
+      "properties": {
+        "id": "poi-059",
+        "name": "Kastanienhof am Fluss",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 9.7,
+        "amenities": [
+          "Wanderwege",
+          "Hund erlaubt",
+          "Entsorgung"
+        ],
+        "description": "Stellplatz „Kastanienhof am Fluss“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.49038,
+          47.22384
+        ]
+      },
+      "properties": {
+        "id": "poi-060",
+        "name": "Feldrain an der Alten Landstraße",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 17.5,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Sanitäranlagen",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Feldrain an der Alten Landstraße“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.73722,
+          47.63381
+        ]
+      },
+      "properties": {
+        "id": "poi-061",
+        "name": "Rosengarten am Ortsrand",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 26.9,
+        "amenities": [
+          "Kinderspielplatz",
+          "Frischwasser",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Stellplatz „Rosengarten am Ortsrand“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.57253,
+          47.43308
+        ]
+      },
+      "properties": {
+        "id": "poi-062",
+        "name": "Feldrain am Ortsrand",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Wanderwege",
+          "Entsorgung"
+        ],
+        "description": "Wildcamping-Spot „Feldrain am Ortsrand“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.37678,
+          47.21553
+        ]
+      },
+      "properties": {
+        "id": "poi-063",
+        "name": "Alpenpanorama bei den Reben",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Hund erlaubt",
+          "Entsorgung"
+        ],
+        "description": "Wildcamping-Spot „Alpenpanorama bei den Reben“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.12698,
+          47.72849
+        ]
+      },
+      "properties": {
+        "id": "poi-064",
+        "name": "Seeblick an der Grenze",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 29.3,
+        "amenities": [
+          "WLAN",
+          "Strom",
+          "Seezugang"
+        ],
+        "description": "Stellplatz „Seeblick an der Grenze“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.75945,
+          47.42944
+        ]
+      },
+      "properties": {
+        "id": "poi-065",
+        "name": "Auwiese im Grünen",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Entsorgung",
+          "Einkauf in Gehweite",
+          "Frischwasser"
+        ],
+        "description": "Wildcamping-Spot „Auwiese im Grünen“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.33184,
+          47.54399
+        ]
+      },
+      "properties": {
+        "id": "poi-066",
+        "name": "Bachufer am Ortsrand",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 24,
+        "amenities": [
+          "Entsorgung",
+          "Sanitäranlagen",
+          "Seezugang"
+        ],
+        "description": "Stellplatz „Bachufer am Ortsrand“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.70288,
+          47.7363
+        ]
+      },
+      "properties": {
+        "id": "poi-067",
+        "name": "Sternenhimmel an der Alten Landstraße",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 23.2,
+        "amenities": [
+          "Entsorgung",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Sternenhimmel an der Alten Landstraße“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.44104,
+          47.21383
+        ]
+      },
+      "properties": {
+        "id": "poi-068",
+        "name": "Sternenhimmel am See",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 17.2,
+        "amenities": [
+          "Wanderwege",
+          "Frischwasser",
+          "Entsorgung"
+        ],
+        "description": "Stellplatz „Sternenhimmel am See“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.36655,
+          47.36596
+        ]
+      },
+      "properties": {
+        "id": "poi-069",
+        "name": "Kastanienhof am Ortsrand",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Strom",
+          "Wanderwege"
+        ],
+        "description": "Wildcamping-Spot „Kastanienhof am Ortsrand“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.78781,
+          47.36742
+        ]
+      },
+      "properties": {
+        "id": "poi-070",
+        "name": "Sonnenhof an der Alten Landstraße",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 27.4,
+        "amenities": [
+          "WLAN",
+          "Sanitäranlagen",
+          "Frischwasser"
+        ],
+        "description": "Campingplatz „Sonnenhof an der Alten Landstraße“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.54796,
+          47.37379
+        ]
+      },
+      "properties": {
+        "id": "poi-071",
+        "name": "Feldrain im Tal",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 29.2,
+        "amenities": [
+          "WLAN",
+          "Seezugang",
+          "Hund erlaubt",
+          "Frischwasser",
+          "Strom"
+        ],
+        "description": "Campingplatz „Feldrain im Tal“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.80097,
+          47.19163
+        ]
+      },
+      "properties": {
+        "id": "poi-072",
+        "name": "Rebenhof am Ortsrand",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Entsorgung",
+          "WLAN"
+        ],
+        "description": "Wildcamping-Spot „Rebenhof am Ortsrand“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.04437,
+          47.4756
+        ]
+      },
+      "properties": {
+        "id": "poi-073",
+        "name": "Lindenhof im Grünen",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 15,
+        "amenities": [
+          "Seezugang",
+          "Entsorgung",
+          "Strom"
+        ],
+        "description": "Campingplatz „Lindenhof im Grünen“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.06996,
+          47.53282
+        ]
+      },
+      "properties": {
+        "id": "poi-074",
+        "name": "Auwiese am See",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 25.5,
+        "amenities": [
+          "Kinderspielplatz",
+          "Einkauf in Gehweite",
+          "Wanderwege",
+          "Strom",
+          "Seezugang"
+        ],
+        "description": "Stellplatz „Auwiese am See“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.30541,
+          47.45052
+        ]
+      },
+      "properties": {
+        "id": "poi-075",
+        "name": "Kastanienhof an der Grenze",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 25.7,
+        "amenities": [
+          "Hund erlaubt",
+          "Seezugang",
+          "WLAN",
+          "Kinderspielplatz",
+          "Entsorgung"
+        ],
+        "description": "Stellplatz „Kastanienhof an der Grenze“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.09988,
+          47.2815
+        ]
+      },
+      "properties": {
+        "id": "poi-076",
+        "name": "Alpenpanorama bei den Reben",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 18.2,
+        "amenities": [
+          "WLAN",
+          "Strom",
+          "Frischwasser",
+          "Seezugang",
+          "Sanitäranlagen"
+        ],
+        "description": "Campingplatz „Alpenpanorama bei den Reben“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.78227,
+          47.60645
+        ]
+      },
+      "properties": {
+        "id": "poi-077",
+        "name": "Lindenhof am Fluss",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 28,
+        "amenities": [
+          "Sanitäranlagen",
+          "Frischwasser"
+        ],
+        "description": "Campingplatz „Lindenhof am Fluss“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.17891,
+          47.32191
+        ]
+      },
+      "properties": {
+        "id": "poi-078",
+        "name": "Feldrain an der Alten Landstraße",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 24,
+        "amenities": [
+          "Hund erlaubt",
+          "WLAN",
+          "Seezugang",
+          "Einkauf in Gehweite",
+          "Kinderspielplatz"
+        ],
+        "description": "Stellplatz „Feldrain an der Alten Landstraße“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.6404,
+          47.30903
+        ]
+      },
+      "properties": {
+        "id": "poi-079",
+        "name": "Birkenweg am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 20,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Strom",
+          "Frischwasser"
+        ],
+        "description": "Stellplatz „Birkenweg am Wald“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.82569,
+          47.48319
+        ]
+      },
+      "properties": {
+        "id": "poi-080",
+        "name": "Bergblick an der Grenze",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 14.1,
+        "amenities": [
+          "Seezugang",
+          "Strom",
+          "WLAN"
+        ],
+        "description": "Campingplatz „Bergblick an der Grenze“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.59166,
+          47.7039
+        ]
+      },
+      "properties": {
+        "id": "poi-081",
+        "name": "Bachufer am Ortsrand",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 22,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Strom",
+          "Sanitäranlagen",
+          "Wanderwege"
+        ],
+        "description": "Stellplatz „Bachufer am Ortsrand“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.19031,
+          47.5291
+        ]
+      },
+      "properties": {
+        "id": "poi-082",
+        "name": "Obstgarten an der Alten Landstraße",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 17,
+        "amenities": [
+          "Kinderspielplatz",
+          "Hund erlaubt",
+          "Seezugang",
+          "Entsorgung"
+        ],
+        "description": "Campingplatz „Obstgarten an der Alten Landstraße“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.82894,
+          47.48331
+        ]
+      },
+      "properties": {
+        "id": "poi-083",
+        "name": "Alpenpanorama an der Alten Landstraße",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 24.9,
+        "amenities": [
+          "Entsorgung",
+          "WLAN",
+          "Einkauf in Gehweite",
+          "Kinderspielplatz"
+        ],
+        "description": "Stellplatz „Alpenpanorama an der Alten Landstraße“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.12646,
+          47.23031
+        ]
+      },
+      "properties": {
+        "id": "poi-084",
+        "name": "Fischerhafen am Wald",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 13.1,
+        "amenities": [
+          "Wanderwege",
+          "Strom",
+          "Sanitäranlagen"
+        ],
+        "description": "Campingplatz „Fischerhafen am Wald“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.3173,
+          47.70498
+        ]
+      },
+      "properties": {
+        "id": "poi-085",
+        "name": "Seeblick am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 10.2,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Strom"
+        ],
+        "description": "Stellplatz „Seeblick am Wald“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.13208,
+          47.49789
+        ]
+      },
+      "properties": {
+        "id": "poi-086",
+        "name": "Alpenpanorama am Ortsrand",
+        "category": "raststaette",
+        "categoryLabel": "Raststätte mit Stellplatz",
+        "pricePerNightEur": 9.7,
+        "amenities": [
+          "Frischwasser",
+          "Kinderspielplatz",
+          "Sanitäranlagen",
+          "Einkauf in Gehweite",
+          "WLAN"
+        ],
+        "description": "Raststätte mit Stellplatz „Alpenpanorama am Ortsrand“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.9234,
+          47.23552
+        ]
+      },
+      "properties": {
+        "id": "poi-087",
+        "name": "Klosterwiese am Ortsrand",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 25.2,
+        "amenities": [
+          "Wanderwege",
+          "Entsorgung"
+        ],
+        "description": "Stellplatz „Klosterwiese am Ortsrand“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.87592,
+          47.43991
+        ]
+      },
+      "properties": {
+        "id": "poi-088",
+        "name": "Feldrain am Fluss",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 26,
+        "amenities": [
+          "Wanderwege",
+          "Sanitäranlagen",
+          "WLAN",
+          "Entsorgung",
+          "Hund erlaubt"
+        ],
+        "description": "Campingplatz „Feldrain am Fluss“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.94268,
+          47.45601
+        ]
+      },
+      "properties": {
+        "id": "poi-089",
+        "name": "Klosterwiese bei den Reben",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 17.4,
+        "amenities": [
+          "Seezugang",
+          "Kinderspielplatz",
+          "Sanitäranlagen",
+          "Entsorgung",
+          "Wanderwege"
+        ],
+        "description": "Stellplatz „Klosterwiese bei den Reben“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.88072,
+          47.54849
+        ]
+      },
+      "properties": {
+        "id": "poi-090",
+        "name": "Kastanienhof am Ortsrand",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 23.3,
+        "amenities": [
+          "Seezugang",
+          "Frischwasser",
+          "WLAN",
+          "Strom",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Campingplatz „Kastanienhof am Ortsrand“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.88416,
+          47.54474
+        ]
+      },
+      "properties": {
+        "id": "poi-091",
+        "name": "Talgrund im Grünen",
+        "category": "raststaette",
+        "categoryLabel": "Raststätte mit Stellplatz",
+        "pricePerNightEur": 11.8,
+        "amenities": [
+          "Seezugang",
+          "Hund erlaubt",
+          "Frischwasser",
+          "Sanitäranlagen"
+        ],
+        "description": "Raststätte mit Stellplatz „Talgrund im Grünen“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.48984,
+          47.34114
+        ]
+      },
+      "properties": {
+        "id": "poi-092",
+        "name": "Bachufer im Grünen",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 15.8,
+        "amenities": [
+          "Hund erlaubt",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Bachufer im Grünen“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.58082,
+          47.2822
+        ]
+      },
+      "properties": {
+        "id": "poi-093",
+        "name": "Feldrain an der Grenze",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 29.7,
+        "amenities": [
+          "Strom",
+          "Kinderspielplatz",
+          "Entsorgung",
+          "Einkauf in Gehweite",
+          "Frischwasser"
+        ],
+        "description": "Stellplatz „Feldrain an der Grenze“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.08985,
+          47.54657
+        ]
+      },
+      "properties": {
+        "id": "poi-094",
+        "name": "Alpenpanorama im Tal",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Hund erlaubt",
+          "Kinderspielplatz"
+        ],
+        "description": "Wildcamping-Spot „Alpenpanorama im Tal“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.07385,
+          47.46306
+        ]
+      },
+      "properties": {
+        "id": "poi-095",
+        "name": "Talgrund im Tal",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 10.2,
+        "amenities": [
+          "Kinderspielplatz",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Stellplatz „Talgrund im Tal“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.9166,
+          47.59281
+        ]
+      },
+      "properties": {
+        "id": "poi-096",
+        "name": "Sonnenhof am Wald",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "WLAN",
+          "Sanitäranlagen",
+          "Hund erlaubt",
+          "Frischwasser",
+          "Strom"
+        ],
+        "description": "Wildcamping-Spot „Sonnenhof am Wald“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.33863,
+          47.383
+        ]
+      },
+      "properties": {
+        "id": "poi-097",
+        "name": "Rosengarten an der Alten Landstraße",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 22.6,
+        "amenities": [
+          "Hund erlaubt",
+          "Strom",
+          "Sanitäranlagen"
+        ],
+        "description": "Stellplatz „Rosengarten an der Alten Landstraße“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.07115,
+          47.59993
+        ]
+      },
+      "properties": {
+        "id": "poi-098",
+        "name": "Sternenhimmel an der Grenze",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 29.6,
+        "amenities": [
+          "Seezugang",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Sternenhimmel an der Grenze“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.01598,
+          47.33795
+        ]
+      },
+      "properties": {
+        "id": "poi-099",
+        "name": "Sternenhimmel am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 8.1,
+        "amenities": [
+          "Seezugang",
+          "Strom",
+          "Kinderspielplatz",
+          "Hund erlaubt",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Stellplatz „Sternenhimmel am Wald“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.5402,
+          47.25582
+        ]
+      },
+      "properties": {
+        "id": "poi-100",
+        "name": "Feldrain am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 8.9,
+        "amenities": [
+          "Seezugang",
+          "Hund erlaubt",
+          "Frischwasser",
+          "Wanderwege",
+          "Strom"
+        ],
+        "description": "Stellplatz „Feldrain am Wald“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.66302,
+          47.22049
+        ]
+      },
+      "properties": {
+        "id": "poi-101",
+        "name": "Lindenhof im Naturpark",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 27.6,
+        "amenities": [
+          "Seezugang",
+          "Strom",
+          "Hund erlaubt"
+        ],
+        "description": "Stellplatz „Lindenhof im Naturpark“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.82816,
+          47.74882
+        ]
+      },
+      "properties": {
+        "id": "poi-102",
+        "name": "Uferwiese am See",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 12.9,
+        "amenities": [
+          "Hund erlaubt",
+          "Frischwasser",
+          "Entsorgung",
+          "Seezugang",
+          "WLAN"
+        ],
+        "description": "Campingplatz „Uferwiese am See“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.28264,
+          47.68241
+        ]
+      },
+      "properties": {
+        "id": "poi-103",
+        "name": "Feldrain an der Alten Landstraße",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 11.3,
+        "amenities": [
+          "Strom",
+          "Wanderwege"
+        ],
+        "description": "Campingplatz „Feldrain an der Alten Landstraße“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.08976,
+          47.70839
+        ]
+      },
+      "properties": {
+        "id": "poi-104",
+        "name": "Sternenhimmel am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 19.5,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Hund erlaubt",
+          "WLAN",
+          "Wanderwege"
+        ],
+        "description": "Stellplatz „Sternenhimmel am Wald“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.82993,
+          47.18344
+        ]
+      },
+      "properties": {
+        "id": "poi-105",
+        "name": "Seeblick am Wald",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 8.1,
+        "amenities": [
+          "Entsorgung",
+          "Frischwasser",
+          "Strom"
+        ],
+        "description": "Campingplatz „Seeblick am Wald“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.32914,
+          47.65654
+        ]
+      },
+      "properties": {
+        "id": "poi-106",
+        "name": "Mühlenwiese am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 10.2,
+        "amenities": [
+          "Hund erlaubt",
+          "WLAN",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Stellplatz „Mühlenwiese am Wald“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.60569,
+          47.36985
+        ]
+      },
+      "properties": {
+        "id": "poi-107",
+        "name": "Auwiese am Fluss",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 9.9,
+        "amenities": [
+          "Entsorgung",
+          "Hund erlaubt",
+          "Wanderwege"
+        ],
+        "description": "Campingplatz „Auwiese am Fluss“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.69606,
+          47.63864
+        ]
+      },
+      "properties": {
+        "id": "poi-108",
+        "name": "Feldrain im Tal",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 14.8,
+        "amenities": [
+          "Seezugang",
+          "Strom",
+          "Kinderspielplatz",
+          "WLAN"
+        ],
+        "description": "Campingplatz „Feldrain im Tal“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.81294,
+          47.58753
+        ]
+      },
+      "properties": {
+        "id": "poi-109",
+        "name": "Bergblick an der Grenze",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 22.3,
+        "amenities": [
+          "Kinderspielplatz",
+          "WLAN",
+          "Wanderwege",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Stellplatz „Bergblick an der Grenze“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.5103,
+          47.56263
+        ]
+      },
+      "properties": {
+        "id": "poi-110",
+        "name": "Rosengarten an der Alten Landstraße",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 13.9,
+        "amenities": [
+          "Strom",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Campingplatz „Rosengarten an der Alten Landstraße“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.24627,
+          47.60469
+        ]
+      },
+      "properties": {
+        "id": "poi-111",
+        "name": "Birkenweg an der Grenze",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 8.3,
+        "amenities": [
+          "WLAN",
+          "Frischwasser",
+          "Entsorgung",
+          "Einkauf in Gehweite",
+          "Seezugang"
+        ],
+        "description": "Campingplatz „Birkenweg an der Grenze“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.52816,
+          47.45406
+        ]
+      },
+      "properties": {
+        "id": "poi-112",
+        "name": "Rosengarten am See",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 13,
+        "amenities": [
+          "Wanderwege",
+          "Seezugang",
+          "Sanitäranlagen"
+        ],
+        "description": "Stellplatz „Rosengarten am See“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.20428,
+          47.50888
+        ]
+      },
+      "properties": {
+        "id": "poi-113",
+        "name": "Waldrand am Wald",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 13.9,
+        "amenities": [
+          "Entsorgung",
+          "Hund erlaubt"
+        ],
+        "description": "Campingplatz „Waldrand am Wald“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.05608,
+          47.68268
+        ]
+      },
+      "properties": {
+        "id": "poi-114",
+        "name": "Rebenhof an der Alten Landstraße",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 17.2,
+        "amenities": [
+          "Seezugang",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Rebenhof an der Alten Landstraße“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.87839,
+          47.36663
+        ]
+      },
+      "properties": {
+        "id": "poi-115",
+        "name": "Mühlenwiese im Tal",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 23.3,
+        "amenities": [
+          "Kinderspielplatz",
+          "Seezugang",
+          "Frischwasser",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Mühlenwiese im Tal“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.03721,
+          47.16096
+        ]
+      },
+      "properties": {
+        "id": "poi-116",
+        "name": "Rebenhof an der Alten Landstraße",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 16.7,
+        "amenities": [
+          "Frischwasser",
+          "Kinderspielplatz",
+          "Sanitäranlagen",
+          "Hund erlaubt"
+        ],
+        "description": "Stellplatz „Rebenhof an der Alten Landstraße“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.27484,
+          47.64986
+        ]
+      },
+      "properties": {
+        "id": "poi-117",
+        "name": "Sternenhimmel im Grünen",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 16.3,
+        "amenities": [
+          "Kinderspielplatz",
+          "Strom"
+        ],
+        "description": "Stellplatz „Sternenhimmel im Grünen“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.5797,
+          47.19386
+        ]
+      },
+      "properties": {
+        "id": "poi-118",
+        "name": "Waldrand am Fluss",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 25.6,
+        "amenities": [
+          "Wanderwege",
+          "Strom",
+          "Kinderspielplatz",
+          "Entsorgung",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Stellplatz „Waldrand am Fluss“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.40399,
+          47.25752
+        ]
+      },
+      "properties": {
+        "id": "poi-119",
+        "name": "Kastanienhof am Fluss",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 15.5,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "WLAN"
+        ],
+        "description": "Campingplatz „Kastanienhof am Fluss“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.87964,
+          47.49692
+        ]
+      },
+      "properties": {
+        "id": "poi-120",
+        "name": "Obstgarten am Fluss",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 26.1,
+        "amenities": [
+          "Frischwasser",
+          "WLAN",
+          "Kinderspielplatz",
+          "Einkauf in Gehweite",
+          "Hund erlaubt"
+        ],
+        "description": "Stellplatz „Obstgarten am Fluss“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.48259,
+          47.65987
+        ]
+      },
+      "properties": {
+        "id": "poi-121",
+        "name": "Rebenhof am Ortsrand",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Strom",
+          "Hund erlaubt"
+        ],
+        "description": "Wildcamping-Spot „Rebenhof am Ortsrand“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.56015,
+          47.32278
+        ]
+      },
+      "properties": {
+        "id": "poi-122",
+        "name": "Klosterwiese am Ortsrand",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 14.4,
+        "amenities": [
+          "Strom",
+          "Sanitäranlagen",
+          "Frischwasser",
+          "Wanderwege"
+        ],
+        "description": "Stellplatz „Klosterwiese am Ortsrand“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.74261,
+          47.63169
+        ]
+      },
+      "properties": {
+        "id": "poi-123",
+        "name": "Rebenhof am Ortsrand",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 18.3,
+        "amenities": [
+          "Frischwasser",
+          "Wanderwege",
+          "Sanitäranlagen",
+          "Einkauf in Gehweite",
+          "Strom"
+        ],
+        "description": "Campingplatz „Rebenhof am Ortsrand“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.56015,
+          47.33942
+        ]
+      },
+      "properties": {
+        "id": "poi-124",
+        "name": "Birkenweg im Grünen",
+        "category": "raststaette",
+        "categoryLabel": "Raststätte mit Stellplatz",
+        "pricePerNightEur": 18.1,
+        "amenities": [
+          "Kinderspielplatz",
+          "Entsorgung"
+        ],
+        "description": "Raststätte mit Stellplatz „Birkenweg im Grünen“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.32076,
+          47.61342
+        ]
+      },
+      "properties": {
+        "id": "poi-125",
+        "name": "Rosengarten am Fluss",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 23.6,
+        "amenities": [
+          "WLAN",
+          "Strom",
+          "Kinderspielplatz",
+          "Wanderwege"
+        ],
+        "description": "Stellplatz „Rosengarten am Fluss“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.68633,
+          47.71956
+        ]
+      },
+      "properties": {
+        "id": "poi-126",
+        "name": "Auwiese am Ortsrand",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 29.9,
+        "amenities": [
+          "Sanitäranlagen",
+          "Einkauf in Gehweite",
+          "Entsorgung"
+        ],
+        "description": "Campingplatz „Auwiese am Ortsrand“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.81624,
+          47.47861
+        ]
+      },
+      "properties": {
+        "id": "poi-127",
+        "name": "Bergblick im Naturpark",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 17.4,
+        "amenities": [
+          "Kinderspielplatz",
+          "Seezugang"
+        ],
+        "description": "Campingplatz „Bergblick im Naturpark“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.61937,
+          47.60282
+        ]
+      },
+      "properties": {
+        "id": "poi-128",
+        "name": "Obstgarten am Fluss",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Strom",
+          "Entsorgung",
+          "WLAN"
+        ],
+        "description": "Wildcamping-Spot „Obstgarten am Fluss“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.58201,
+          47.7312
+        ]
+      },
+      "properties": {
+        "id": "poi-129",
+        "name": "Sternenhimmel im Grünen",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Strom",
+          "Seezugang",
+          "Frischwasser"
+        ],
+        "description": "Wildcamping-Spot „Sternenhimmel im Grünen“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.22049,
+          47.32678
+        ]
+      },
+      "properties": {
+        "id": "poi-130",
+        "name": "Seeblick an der Alten Landstraße",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 28.3,
+        "amenities": [
+          "Sanitäranlagen",
+          "WLAN",
+          "Einkauf in Gehweite",
+          "Wanderwege",
+          "Frischwasser"
+        ],
+        "description": "Stellplatz „Seeblick an der Alten Landstraße“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.05729,
+          47.20153
+        ]
+      },
+      "properties": {
+        "id": "poi-131",
+        "name": "Mühlenwiese am Fluss",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 20.7,
+        "amenities": [
+          "Wanderwege",
+          "WLAN",
+          "Hund erlaubt",
+          "Strom",
+          "Seezugang"
+        ],
+        "description": "Stellplatz „Mühlenwiese am Fluss“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.64559,
+          47.45355
+        ]
+      },
+      "properties": {
+        "id": "poi-132",
+        "name": "Alpenpanorama am Fluss",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Seezugang",
+          "Kinderspielplatz",
+          "Hund erlaubt"
+        ],
+        "description": "Wildcamping-Spot „Alpenpanorama am Fluss“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.69559,
+          47.19165
+        ]
+      },
+      "properties": {
+        "id": "poi-133",
+        "name": "Alpenpanorama am Fluss",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Frischwasser",
+          "Seezugang",
+          "Hund erlaubt"
+        ],
+        "description": "Wildcamping-Spot „Alpenpanorama am Fluss“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.34258,
+          47.16396
+        ]
+      },
+      "properties": {
+        "id": "poi-134",
+        "name": "Sonnenhof am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 10.9,
+        "amenities": [
+          "Seezugang",
+          "Sanitäranlagen",
+          "Hund erlaubt"
+        ],
+        "description": "Stellplatz „Sonnenhof am Wald“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.94005,
+          47.59361
+        ]
+      },
+      "properties": {
+        "id": "poi-135",
+        "name": "Kastanienhof an der Alten Landstraße",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 11,
+        "amenities": [
+          "Entsorgung",
+          "Wanderwege",
+          "Strom"
+        ],
+        "description": "Stellplatz „Kastanienhof an der Alten Landstraße“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.58763,
+          47.50755
+        ]
+      },
+      "properties": {
+        "id": "poi-136",
+        "name": "Talgrund am Fluss",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Seezugang",
+          "Kinderspielplatz",
+          "Sanitäranlagen",
+          "Entsorgung"
+        ],
+        "description": "Wildcamping-Spot „Talgrund am Fluss“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.78269,
+          47.4881
+        ]
+      },
+      "properties": {
+        "id": "poi-137",
+        "name": "Uferwiese am See",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Kinderspielplatz",
+          "Seezugang",
+          "Frischwasser",
+          "Strom"
+        ],
+        "description": "Wildcamping-Spot „Uferwiese am See“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.69992,
+          47.16631
+        ]
+      },
+      "properties": {
+        "id": "poi-138",
+        "name": "Uferwiese am Fluss",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 21.8,
+        "amenities": [
+          "Entsorgung",
+          "Seezugang",
+          "WLAN",
+          "Einkauf in Gehweite",
+          "Hund erlaubt"
+        ],
+        "description": "Stellplatz „Uferwiese am Fluss“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.12124,
+          47.70593
+        ]
+      },
+      "properties": {
+        "id": "poi-139",
+        "name": "Obstgarten am Ortsrand",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 16.8,
+        "amenities": [
+          "Entsorgung",
+          "Kinderspielplatz",
+          "Strom",
+          "Hund erlaubt"
+        ],
+        "description": "Stellplatz „Obstgarten am Ortsrand“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.41143,
+          47.40764
+        ]
+      },
+      "properties": {
+        "id": "poi-140",
+        "name": "Bachufer am Fluss",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 28.4,
+        "amenities": [
+          "Frischwasser",
+          "Sanitäranlagen",
+          "Wanderwege"
+        ],
+        "description": "Stellplatz „Bachufer am Fluss“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.71246,
+          47.50923
+        ]
+      },
+      "properties": {
+        "id": "poi-141",
+        "name": "Kastanienhof am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 19.6,
+        "amenities": [
+          "Hund erlaubt",
+          "Kinderspielplatz",
+          "Einkauf in Gehweite",
+          "Strom",
+          "Entsorgung"
+        ],
+        "description": "Stellplatz „Kastanienhof am Wald“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.70483,
+          47.15759
+        ]
+      },
+      "properties": {
+        "id": "poi-142",
+        "name": "Seeblick am Wald",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Hund erlaubt",
+          "Seezugang"
+        ],
+        "description": "Wildcamping-Spot „Seeblick am Wald“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.5994,
+          47.23259
+        ]
+      },
+      "properties": {
+        "id": "poi-143",
+        "name": "Mühlenwiese im Grünen",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 17.8,
+        "amenities": [
+          "Hund erlaubt",
+          "WLAN",
+          "Strom",
+          "Kinderspielplatz",
+          "Wanderwege"
+        ],
+        "description": "Campingplatz „Mühlenwiese im Grünen“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.62042,
+          47.1682
+        ]
+      },
+      "properties": {
+        "id": "poi-144",
+        "name": "Klosterwiese an der Grenze",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 26.5,
+        "amenities": [
+          "WLAN",
+          "Sanitäranlagen"
+        ],
+        "description": "Stellplatz „Klosterwiese an der Grenze“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.00741,
+          47.27257
+        ]
+      },
+      "properties": {
+        "id": "poi-145",
+        "name": "Rebenhof im Grünen",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 29.6,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "WLAN",
+          "Frischwasser"
+        ],
+        "description": "Campingplatz „Rebenhof im Grünen“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.56997,
+          47.28991
+        ]
+      },
+      "properties": {
+        "id": "poi-146",
+        "name": "Talgrund bei den Reben",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 16.4,
+        "amenities": [
+          "Entsorgung",
+          "Kinderspielplatz",
+          "Hund erlaubt",
+          "Einkauf in Gehweite",
+          "Frischwasser"
+        ],
+        "description": "Campingplatz „Talgrund bei den Reben“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.85573,
+          47.33307
+        ]
+      },
+      "properties": {
+        "id": "poi-147",
+        "name": "Rosengarten im Naturpark",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Wanderwege",
+          "Strom"
+        ],
+        "description": "Wildcamping-Spot „Rosengarten im Naturpark“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.83638,
+          47.22273
+        ]
+      },
+      "properties": {
+        "id": "poi-148",
+        "name": "Birkenweg am Ortsrand",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 8.6,
+        "amenities": [
+          "Entsorgung",
+          "Sanitäranlagen",
+          "Seezugang"
+        ],
+        "description": "Stellplatz „Birkenweg am Ortsrand“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.4991,
+          47.72028
+        ]
+      },
+      "properties": {
+        "id": "poi-149",
+        "name": "Kastanienhof am Fluss",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 25.8,
+        "amenities": [
+          "Kinderspielplatz",
+          "Entsorgung",
+          "Strom",
+          "Seezugang",
+          "Wanderwege"
+        ],
+        "description": "Campingplatz „Kastanienhof am Fluss“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.27376,
+          47.72407
+        ]
+      },
+      "properties": {
+        "id": "poi-150",
+        "name": "Klosterwiese am Ortsrand",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Hund erlaubt",
+          "Wanderwege",
+          "Seezugang"
+        ],
+        "description": "Wildcamping-Spot „Klosterwiese am Ortsrand“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.08483,
+          47.32974
+        ]
+      },
+      "properties": {
+        "id": "poi-151",
+        "name": "Alpenpanorama am Wald",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Seezugang",
+          "Einkauf in Gehweite",
+          "WLAN"
+        ],
+        "description": "Wildcamping-Spot „Alpenpanorama am Wald“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.92655,
+          47.69784
+        ]
+      },
+      "properties": {
+        "id": "poi-152",
+        "name": "Klosterwiese im Naturpark",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 27.2,
+        "amenities": [
+          "Strom",
+          "Kinderspielplatz",
+          "Sanitäranlagen",
+          "Hund erlaubt"
+        ],
+        "description": "Stellplatz „Klosterwiese im Naturpark“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.24339,
+          47.26288
+        ]
+      },
+      "properties": {
+        "id": "poi-153",
+        "name": "Auwiese am Fluss",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 28.7,
+        "amenities": [
+          "Seezugang",
+          "Einkauf in Gehweite",
+          "WLAN",
+          "Strom",
+          "Hund erlaubt"
+        ],
+        "description": "Stellplatz „Auwiese am Fluss“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.75979,
+          47.2872
+        ]
+      },
+      "properties": {
+        "id": "poi-154",
+        "name": "Obstgarten an der Alten Landstraße",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 24.4,
+        "amenities": [
+          "Hund erlaubt",
+          "Frischwasser",
+          "Sanitäranlagen",
+          "Seezugang",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Campingplatz „Obstgarten an der Alten Landstraße“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.45062,
+          47.54778
+        ]
+      },
+      "properties": {
+        "id": "poi-155",
+        "name": "Feldrain im Grünen",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 23.8,
+        "amenities": [
+          "Entsorgung",
+          "WLAN",
+          "Sanitäranlagen"
+        ],
+        "description": "Campingplatz „Feldrain im Grünen“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.06978,
+          47.40045
+        ]
+      },
+      "properties": {
+        "id": "poi-156",
+        "name": "Uferwiese im Grünen",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 14.3,
+        "amenities": [
+          "Kinderspielplatz",
+          "Einkauf in Gehweite",
+          "Sanitäranlagen",
+          "WLAN"
+        ],
+        "description": "Campingplatz „Uferwiese im Grünen“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.21391,
+          47.73185
+        ]
+      },
+      "properties": {
+        "id": "poi-157",
+        "name": "Birkenweg am Ortsrand",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Seezugang",
+          "Hund erlaubt",
+          "Sanitäranlagen"
+        ],
+        "description": "Wildcamping-Spot „Birkenweg am Ortsrand“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.4976,
+          47.7309
+        ]
+      },
+      "properties": {
+        "id": "poi-158",
+        "name": "Obstgarten am Fluss",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 17.4,
+        "amenities": [
+          "Wanderwege",
+          "Kinderspielplatz",
+          "Frischwasser",
+          "Seezugang"
+        ],
+        "description": "Stellplatz „Obstgarten am Fluss“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.69026,
+          47.74328
+        ]
+      },
+      "properties": {
+        "id": "poi-159",
+        "name": "Birkenweg am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 23.8,
+        "amenities": [
+          "Sanitäranlagen",
+          "Strom",
+          "Entsorgung",
+          "Wanderwege"
+        ],
+        "description": "Stellplatz „Birkenweg am Wald“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.71171,
+          47.46957
+        ]
+      },
+      "properties": {
+        "id": "poi-160",
+        "name": "Mühlenwiese am Ortsrand",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 14.9,
+        "amenities": [
+          "Entsorgung",
+          "Seezugang",
+          "Wanderwege",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Mühlenwiese am Ortsrand“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.70085,
+          47.64276
+        ]
+      },
+      "properties": {
+        "id": "poi-161",
+        "name": "Bachufer an der Alten Landstraße",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 25.8,
+        "amenities": [
+          "Hund erlaubt",
+          "Seezugang",
+          "Entsorgung",
+          "Frischwasser",
+          "Kinderspielplatz"
+        ],
+        "description": "Campingplatz „Bachufer an der Alten Landstraße“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.89605,
+          47.17914
+        ]
+      },
+      "properties": {
+        "id": "poi-162",
+        "name": "Rosengarten am Fluss",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 18.9,
+        "amenities": [
+          "Sanitäranlagen",
+          "Strom",
+          "Frischwasser",
+          "Einkauf in Gehweite",
+          "Wanderwege"
+        ],
+        "description": "Campingplatz „Rosengarten am Fluss“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.69137,
+          47.23997
+        ]
+      },
+      "properties": {
+        "id": "poi-163",
+        "name": "Waldrand am Fluss",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 23.7,
+        "amenities": [
+          "WLAN",
+          "Frischwasser",
+          "Wanderwege",
+          "Hund erlaubt",
+          "Sanitäranlagen"
+        ],
+        "description": "Campingplatz „Waldrand am Fluss“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.28867,
+          47.38922
+        ]
+      },
+      "properties": {
+        "id": "poi-164",
+        "name": "Seeblick am Wald",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "WLAN",
+          "Seezugang"
+        ],
+        "description": "Wildcamping-Spot „Seeblick am Wald“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.60961,
+          47.69732
+        ]
+      },
+      "properties": {
+        "id": "poi-165",
+        "name": "Obstgarten am See",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 15.6,
+        "amenities": [
+          "WLAN",
+          "Einkauf in Gehweite",
+          "Wanderwege",
+          "Frischwasser"
+        ],
+        "description": "Stellplatz „Obstgarten am See“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.75954,
+          47.45641
+        ]
+      },
+      "properties": {
+        "id": "poi-166",
+        "name": "Talgrund am Fluss",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Strom",
+          "Einkauf in Gehweite",
+          "Sanitäranlagen",
+          "Wanderwege"
+        ],
+        "description": "Wildcamping-Spot „Talgrund am Fluss“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.20217,
+          47.72798
+        ]
+      },
+      "properties": {
+        "id": "poi-167",
+        "name": "Sternenhimmel am Fluss",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Seezugang",
+          "Hund erlaubt",
+          "Entsorgung",
+          "WLAN",
+          "Frischwasser"
+        ],
+        "description": "Wildcamping-Spot „Sternenhimmel am Fluss“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.41661,
+          47.44662
+        ]
+      },
+      "properties": {
+        "id": "poi-168",
+        "name": "Feldrain im Grünen",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 25.4,
+        "amenities": [
+          "Kinderspielplatz",
+          "Frischwasser",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Feldrain im Grünen“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.004,
+          47.54947
+        ]
+      },
+      "properties": {
+        "id": "poi-169",
+        "name": "Mühlenwiese am Fluss",
+        "category": "raststaette",
+        "categoryLabel": "Raststätte mit Stellplatz",
+        "pricePerNightEur": 16.3,
+        "amenities": [
+          "Strom",
+          "Wanderwege"
+        ],
+        "description": "Raststätte mit Stellplatz „Mühlenwiese am Fluss“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.41972,
+          47.20078
+        ]
+      },
+      "properties": {
+        "id": "poi-170",
+        "name": "Kastanienhof am Fluss",
+        "category": "raststaette",
+        "categoryLabel": "Raststätte mit Stellplatz",
+        "pricePerNightEur": 19,
+        "amenities": [
+          "WLAN",
+          "Entsorgung",
+          "Seezugang"
+        ],
+        "description": "Raststätte mit Stellplatz „Kastanienhof am Fluss“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.54915,
+          47.42158
+        ]
+      },
+      "properties": {
+        "id": "poi-171",
+        "name": "Birkenweg im Naturpark",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 29.7,
+        "amenities": [
+          "WLAN",
+          "Kinderspielplatz",
+          "Wanderwege"
+        ],
+        "description": "Stellplatz „Birkenweg im Naturpark“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.83983,
+          47.18724
+        ]
+      },
+      "properties": {
+        "id": "poi-172",
+        "name": "Sonnenhof am See",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 21.6,
+        "amenities": [
+          "Hund erlaubt",
+          "Strom",
+          "Entsorgung",
+          "Seezugang"
+        ],
+        "description": "Stellplatz „Sonnenhof am See“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.83549,
+          47.52745
+        ]
+      },
+      "properties": {
+        "id": "poi-173",
+        "name": "Rosengarten im Naturpark",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "WLAN",
+          "Wanderwege"
+        ],
+        "description": "Wildcamping-Spot „Rosengarten im Naturpark“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.05038,
+          47.21289
+        ]
+      },
+      "properties": {
+        "id": "poi-174",
+        "name": "Talgrund im Naturpark",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Hund erlaubt",
+          "Sanitäranlagen",
+          "Seezugang"
+        ],
+        "description": "Wildcamping-Spot „Talgrund im Naturpark“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.17602,
+          47.43158
+        ]
+      },
+      "properties": {
+        "id": "poi-175",
+        "name": "Birkenweg an der Grenze",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Wanderwege",
+          "Hund erlaubt"
+        ],
+        "description": "Wildcamping-Spot „Birkenweg an der Grenze“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.56753,
+          47.67857
+        ]
+      },
+      "properties": {
+        "id": "poi-176",
+        "name": "Talgrund an der Grenze",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 27.5,
+        "amenities": [
+          "Entsorgung",
+          "Seezugang",
+          "Einkauf in Gehweite"
+        ],
+        "description": "Campingplatz „Talgrund an der Grenze“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.39263,
+          47.47177
+        ]
+      },
+      "properties": {
+        "id": "poi-177",
+        "name": "Talgrund am Wald",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 19.4,
+        "amenities": [
+          "Strom",
+          "Sanitäranlagen",
+          "Kinderspielplatz",
+          "Frischwasser"
+        ],
+        "description": "Campingplatz „Talgrund am Wald“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.07005,
+          47.1834
+        ]
+      },
+      "properties": {
+        "id": "poi-178",
+        "name": "Lindenhof bei den Reben",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 22.5,
+        "amenities": [
+          "Hund erlaubt",
+          "Einkauf in Gehweite",
+          "Frischwasser"
+        ],
+        "description": "Stellplatz „Lindenhof bei den Reben“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.39797,
+          47.52631
+        ]
+      },
+      "properties": {
+        "id": "poi-179",
+        "name": "Obstgarten am Ortsrand",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 21.8,
+        "amenities": [
+          "Frischwasser",
+          "Hund erlaubt"
+        ],
+        "description": "Stellplatz „Obstgarten am Ortsrand“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.00689,
+          47.2265
+        ]
+      },
+      "properties": {
+        "id": "poi-180",
+        "name": "Uferwiese am See",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 15.4,
+        "amenities": [
+          "Seezugang",
+          "Sanitäranlagen"
+        ],
+        "description": "Campingplatz „Uferwiese am See“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.47307,
+          47.32785
+        ]
+      },
+      "properties": {
+        "id": "poi-181",
+        "name": "Feldrain im Tal",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Entsorgung",
+          "Kinderspielplatz",
+          "Frischwasser"
+        ],
+        "description": "Wildcamping-Spot „Feldrain im Tal“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.2022,
+          47.71488
+        ]
+      },
+      "properties": {
+        "id": "poi-182",
+        "name": "Rosengarten bei den Reben",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 20,
+        "amenities": [
+          "Entsorgung",
+          "Hund erlaubt",
+          "Wanderwege"
+        ],
+        "description": "Stellplatz „Rosengarten bei den Reben“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.1673,
+          47.28461
+        ]
+      },
+      "properties": {
+        "id": "poi-183",
+        "name": "Seeblick an der Grenze",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 13.6,
+        "amenities": [
+          "Wanderwege",
+          "Hund erlaubt",
+          "Einkauf in Gehweite",
+          "Strom",
+          "Seezugang"
+        ],
+        "description": "Stellplatz „Seeblick an der Grenze“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.13299,
+          47.34532
+        ]
+      },
+      "properties": {
+        "id": "poi-184",
+        "name": "Waldrand an der Grenze",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Wanderwege",
+          "Hund erlaubt",
+          "Frischwasser",
+          "Sanitäranlagen",
+          "Seezugang"
+        ],
+        "description": "Wildcamping-Spot „Waldrand an der Grenze“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.93745,
+          47.26605
+        ]
+      },
+      "properties": {
+        "id": "poi-185",
+        "name": "Rebenhof an der Alten Landstraße",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 18.5,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "WLAN",
+          "Sanitäranlagen",
+          "Kinderspielplatz",
+          "Seezugang"
+        ],
+        "description": "Stellplatz „Rebenhof an der Alten Landstraße“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.57091,
+          47.63458
+        ]
+      },
+      "properties": {
+        "id": "poi-186",
+        "name": "Lindenhof bei den Reben",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 26.1,
+        "amenities": [
+          "Frischwasser",
+          "Wanderwege",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Lindenhof bei den Reben“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.03699,
+          47.3477
+        ]
+      },
+      "properties": {
+        "id": "poi-187",
+        "name": "Alpenpanorama im Grünen",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 9.8,
+        "amenities": [
+          "Strom",
+          "Entsorgung",
+          "Frischwasser"
+        ],
+        "description": "Stellplatz „Alpenpanorama im Grünen“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.39634,
+          47.39122
+        ]
+      },
+      "properties": {
+        "id": "poi-188",
+        "name": "Kastanienhof am Ortsrand",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 28.5,
+        "amenities": [
+          "Frischwasser",
+          "Wanderwege",
+          "Sanitäranlagen",
+          "Strom",
+          "Entsorgung"
+        ],
+        "description": "Campingplatz „Kastanienhof am Ortsrand“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.24639,
+          47.42906
+        ]
+      },
+      "properties": {
+        "id": "poi-189",
+        "name": "Obstgarten am Wald",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Strom",
+          "Sanitäranlagen",
+          "Wanderwege",
+          "Frischwasser",
+          "Kinderspielplatz"
+        ],
+        "description": "Wildcamping-Spot „Obstgarten am Wald“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.2828,
+          47.64346
+        ]
+      },
+      "properties": {
+        "id": "poi-190",
+        "name": "Rosengarten am See",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Strom",
+          "Seezugang",
+          "Kinderspielplatz",
+          "Entsorgung",
+          "WLAN"
+        ],
+        "description": "Wildcamping-Spot „Rosengarten am See“ mit 5 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.59524,
+          47.31057
+        ]
+      },
+      "properties": {
+        "id": "poi-191",
+        "name": "Bergblick bei den Reben",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 27.6,
+        "amenities": [
+          "Entsorgung",
+          "Seezugang",
+          "Strom",
+          "Frischwasser"
+        ],
+        "description": "Stellplatz „Bergblick bei den Reben“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.03399,
+          47.45839
+        ]
+      },
+      "properties": {
+        "id": "poi-192",
+        "name": "Lindenhof an der Alten Landstraße",
+        "category": "raststaette",
+        "categoryLabel": "Raststätte mit Stellplatz",
+        "pricePerNightEur": 22.4,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "WLAN"
+        ],
+        "description": "Raststätte mit Stellplatz „Lindenhof an der Alten Landstraße“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.54521,
+          47.51645
+        ]
+      },
+      "properties": {
+        "id": "poi-193",
+        "name": "Birkenweg an der Grenze",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 29,
+        "amenities": [
+          "Kinderspielplatz",
+          "Seezugang"
+        ],
+        "description": "Campingplatz „Birkenweg an der Grenze“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.29825,
+          47.68944
+        ]
+      },
+      "properties": {
+        "id": "poi-194",
+        "name": "Bergblick im Grünen",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 12.6,
+        "amenities": [
+          "Frischwasser",
+          "Strom",
+          "Kinderspielplatz",
+          "Wanderwege"
+        ],
+        "description": "Stellplatz „Bergblick im Grünen“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.77832,
+          47.59538
+        ]
+      },
+      "properties": {
+        "id": "poi-195",
+        "name": "Fischerhafen am Wald",
+        "category": "stellplatz",
+        "categoryLabel": "Stellplatz",
+        "pricePerNightEur": 18.1,
+        "amenities": [
+          "Kinderspielplatz",
+          "Sanitäranlagen",
+          "Entsorgung",
+          "Strom",
+          "WLAN"
+        ],
+        "description": "Stellplatz „Fischerhafen am Wald“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.91908,
+          47.58826
+        ]
+      },
+      "properties": {
+        "id": "poi-196",
+        "name": "Alpenpanorama im Naturpark",
+        "category": "raststaette",
+        "categoryLabel": "Raststätte mit Stellplatz",
+        "pricePerNightEur": 12,
+        "amenities": [
+          "Hund erlaubt",
+          "Einkauf in Gehweite",
+          "Strom",
+          "Wanderwege",
+          "Seezugang"
+        ],
+        "description": "Raststätte mit Stellplatz „Alpenpanorama im Naturpark“ mit 3 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.0492,
+          47.34749
+        ]
+      },
+      "properties": {
+        "id": "poi-197",
+        "name": "Klosterwiese am Fluss",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Sanitäranlagen",
+          "Hund erlaubt"
+        ],
+        "description": "Wildcamping-Spot „Klosterwiese am Fluss“ mit 4 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.91536,
+          47.59574
+        ]
+      },
+      "properties": {
+        "id": "poi-198",
+        "name": "Feldrain am Ortsrand",
+        "category": "campingplatz",
+        "categoryLabel": "Campingplatz",
+        "pricePerNightEur": 17.6,
+        "amenities": [
+          "Einkauf in Gehweite",
+          "Hund erlaubt",
+          "Sanitäranlagen",
+          "Strom",
+          "Kinderspielplatz"
+        ],
+        "description": "Campingplatz „Feldrain am Ortsrand“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.46963,
+          47.50608
+        ]
+      },
+      "properties": {
+        "id": "poi-199",
+        "name": "Sonnenhof am Wald",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "WLAN",
+          "Strom"
+        ],
+        "description": "Wildcamping-Spot „Sonnenhof am Wald“ mit 2 Ausstattungsmerkmalen."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.12586,
+          47.62202
+        ]
+      },
+      "properties": {
+        "id": "poi-200",
+        "name": "Seeblick am Wald",
+        "category": "wildcamping",
+        "categoryLabel": "Wildcamping-Spot",
+        "pricePerNightEur": 0,
+        "amenities": [
+          "Entsorgung",
+          "Hund erlaubt",
+          "Strom"
+        ],
+        "description": "Wildcamping-Spot „Seeblick am Wald“ mit 5 Ausstattungsmerkmalen."
+      }
+    }
+  ]
+}

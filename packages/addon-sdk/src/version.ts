@@ -17,10 +17,36 @@
  * side without the other, so the SDK refuses to guess and throws
  * {@link IncompatibleCoreError} up front instead of silently misbehaving
  * against an API surface it was never built against.
+ *
+ * DELIBERATELY NOT `import { isValidSemver } from '@yapaja/shared'` (found
+ * while building the E09-T5 reference add-ons): `@yapaja/shared`'s package
+ * entry point (`src/index.ts`) also re-exports `validators.ts`, which runs
+ * `ajv.compile(...)` -- AJV's default strategy generates and evaluates
+ * validator functions via `new Function(...)` -- as a MODULE-LOAD-TIME side
+ * effect. ES module semantics evaluate a whole imported module's top-level
+ * code the moment ANY of its exports is imported, so merely importing
+ * `isValidSemver` transitively ran that `new Function(...)` call too. A UI
+ * add-on's sandboxed iframe CSP (`script-src ... `, deliberately NO
+ * `'unsafe-eval'`, see `apps/core/src/addons/ui-host.ts#buildAddonCsp`)
+ * refuses that outright -- so EVERY UI add-on calling `connectAddon()` (the
+ * SDK's own entry point, which this module is reachable from) would hard-
+ * fail at load with a CSP violation, regardless of whether
+ * `assertCoreCompatible`/`isCoreCompatible` are ever actually called.
+ * `protocol.ts`'s `AddonScope` already keeps its own local copy instead of a
+ * runtime `@yapaja/shared` dependency for the same class of reason ("the
+ * public SDK has no dependency on the Core's shared package") -- this is
+ * that same rule applied here. The two-line regex below is the exact subset
+ * `@yapaja/shared/src/semver.ts#isValidSemver` implements (full, valid
+ * `major.minor.patch[-prerelease]`, no `v` prefix, no partial versions).
  */
 
-import { isValidSemver } from '@yapaja/shared';
 import { IncompatibleCoreError } from './errors.js';
+
+const SEMVER_RE = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-][0-9A-Za-z.-]*)?$/;
+
+function isValidSemver(version: string): boolean {
+  return typeof version === 'string' && SEMVER_RE.test(version.trim());
+}
 
 /**
  * This SDK build's own version. MUST be kept in sync with `package.json`'s

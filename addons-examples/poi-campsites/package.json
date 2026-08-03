@@ -1,0 +1,12 @@
+{
+  "name": "poi-campsites-example",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Reference UI add-on (E09-T5, docs/05 §6.1) -- deliberately NOT a pnpm workspace member, see ../README.md.",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint src --ext .ts"
+  }
+}

@@ -59,6 +59,10 @@ import {
   ADDON_UI_CORE_BASE_URL,
   ADDON_UI_ADDONS_DIR,
   ADDON_UI_STORAGE_DIR,
+  ADDON_EXAMPLES_CORE_PORT,
+  ADDON_EXAMPLES_CORE_BASE_URL,
+  ADDON_EXAMPLES_ADDONS_DIR,
+  ADDON_EXAMPLES_STORAGE_DIR,
   CORE_BASE_URL,
   EMPTY_CORE_BASE_URL,
   SIMULATOR_CORE_BASE_URL,
@@ -308,6 +312,14 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     ADDONS_DIR: ADDON_UI_ADDONS_DIR,
     ADDON_STORAGE_DIR: ADDON_UI_STORAGE_DIR,
   });
+  // Dedicated core for addon-examples-poi.spec.ts / addon-examples-recorder.spec.ts
+  // (E09-T5) -- see the ADDON_EXAMPLES_CORE_PORT comment in constants.ts.
+  rmSync(ADDON_EXAMPLES_ADDONS_DIR, { recursive: true, force: true });
+  rmSync(ADDON_EXAMPLES_STORAGE_DIR, { recursive: true, force: true });
+  const addonExamplesCore = startCore(ADDON_EXAMPLES_CORE_PORT, FIXTURE_TILES_DIR, {
+    ADDONS_DIR: ADDON_EXAMPLES_ADDONS_DIR,
+    ADDON_STORAGE_DIR: ADDON_EXAMPLES_STORAGE_DIR,
+  });
 
   const allCores = [
     fixtureCore,
@@ -326,6 +338,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     pwaCore,
     onboardingCore,
     addonUiCore,
+    addonExamplesCore,
   ];
 
   try {
@@ -346,6 +359,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       waitForHealth(PWA_CORE_BASE_URL, 20_000),
       waitForHealth(ONBOARDING_CORE_BASE_URL, 20_000),
       waitForHealth(ADDON_UI_CORE_BASE_URL, 20_000),
+      waitForHealth(ADDON_EXAMPLES_CORE_BASE_URL, 20_000),
     ]);
   } catch (err) {
     for (const core of allCores) core.kill();
@@ -374,6 +388,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       A11Y_CORE_BASE_URL,
       PWA_CORE_BASE_URL,
       ADDON_UI_CORE_BASE_URL,
+      ADDON_EXAMPLES_CORE_BASE_URL,
     ].map((baseUrl) => seedOnboardingCompleted(baseUrl)),
   );
 
