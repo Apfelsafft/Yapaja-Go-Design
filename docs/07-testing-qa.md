@@ -67,6 +67,13 @@ Fixture-Datei `e2e/golden-routes.json` mit Fällen gegen den CI-Kartenextrakt
 
 ## 5. E2E-Pflicht-Flows (Playwright, ab jeweiligem Epic aktiv)
 
+> **Umsetzung & Nachweis:** `apps/web/e2e/FLOWS.md` ordnet jeden der elf Flows
+> seinem kanonischen Test zu (Titel-Präfix `[Flow N]`, alle zusammen laufbar mit
+> `npx playwright test --grep "\[Flow "`) und listet je Flow, wie der Endzustand
+> über **API** und über **UI** geprüft wird. Dort stehen auch die bewusst
+> gewählten Abweichungen von der wörtlichen Formulierung unten (Compose,
+> mosquitto-Testcontainer, Reverse-Proxy) mit Begründung.
+
 1. Kaltstart offline (Netzwerk-Block via Playwright-Route) ⇒ Karte interaktiv < 5 s.
 2. Suche „Vaduz" ⇒ Ergebnis wählen ⇒ Route mit Profil „Camper 3,2 m" ⇒ Navigation
    starten ⇒ Simulator fährt ⇒ Manöver-Anzeigen wechseln korrekt ⇒ Ankunft.

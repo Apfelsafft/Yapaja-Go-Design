@@ -146,7 +146,7 @@ test.beforeEach(async ({ page }) => {
   }
 });
 
-test('Flow 6: create favorite via destination sheet -> reload -> route via the favorite chip', async ({
+test('[Flow 6] create favorite via destination sheet -> reload -> route via the favorite chip', async ({
   page,
 }) => {
   const pageErrors = collectPageErrors(page);
@@ -208,6 +208,30 @@ test('Flow 6: create favorite via destination sheet -> reload -> route via the f
   expect(await page.evaluate(() => window.__yapajaRoutingStore?.getState().activeRouteId)).toBe(
     MAIN_ROUTE.id,
   );
+
+  // 4. API side of the end state (E10-T1 plausibility requirement): the
+  // favorite is real server-side state, not just something React redrew after
+  // the reload. `GET /api/v1/favorites` is what the reload actually read from,
+  // so asserting it here ties the UI proof to the Core's own persistence.
+  const favoritesApi = (await (
+    await page.request.get(`${FAVORITES_CORE_BASE_URL}/api/v1/favorites`)
+  ).json()) as {
+    data: Array<{ id: string; name: string; category: string; latlng: { lat: number; lon: number } }>;
+  };
+  const persisted = favoritesApi.data.find((f) => f.name === 'Mein Lieblingsplatz');
+  expect(persisted).toBeDefined();
+  expect(persisted?.category).toBe('campsite');
+  // ...and it is the SAME record the UI just routed to: the routing store's
+  // destination carries the persisted favorite's name and coordinates.
+  const routed = await page.evaluate(() => {
+    const state = window.__yapajaRoutingStore?.getState();
+    return state
+      ? { name: state.destinationName, latlng: state.destination }
+      : null;
+  });
+  expect(routed?.name).toBe(persisted?.name);
+  expect(routed?.latlng?.lat).toBeCloseTo(persisted?.latlng.lat as number, 5);
+  expect(routed?.latlng?.lon).toBeCloseTo(persisted?.latlng.lon as number, 5);
 
   // 5. Fully offline + no errors.
   expect(tracker.getForeignUrls()).toEqual([]);

@@ -58,7 +58,23 @@ test('browser geolocation: puck appears and follows position updates via WS', as
   expect(tracker.getForeignUrls()).toEqual([]);
 });
 
-test('browser geolocation: permission denied shows W-03 hint', async ({ page, context }) => {
+/**
+ * Smoke check ONLY: with geolocation denied, the app still comes up cleanly.
+ *
+ * The W-03 hint itself (banner text + the gpsd recommendation) is proven by
+ * `flow-11-permission-denied.spec.ts`, which asserts it unconditionally and
+ * also checks the Core side (`/position` 204, no `POST /position/browser`).
+ *
+ * This test used to *look* like it covered that too, with:
+ *
+ *     if (hintVisible) { expect(gpsdMentioned || hintVisible).toBe(true); }
+ *
+ * -- a tautology (`hintVisible` is already true inside that branch) nested in
+ * a guard that skipped itself whenever the hint was missing. It could not fail
+ * for any input, so it asserted nothing while reading as coverage. Removed
+ * with flow 11 in place rather than left as a decoy (E10-T1).
+ */
+test('browser geolocation: permission denied leaves the app functional', async ({ page, context }) => {
   // Deny geolocation permission
   await context.setExtraHTTPHeaders({});
   await context.grantPermissions([]);
@@ -67,29 +83,11 @@ test('browser geolocation: permission denied shows W-03 hint', async ({ page, co
 
   await page.goto(CORE_BASE_URL + '/');
 
-  // Wait for map
+  // Wait for map -- reaching an interactive map with the permission denied IS
+  // the assertion here (no sleep needed: the locator wait is the state wait).
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
 
-  // Wait for permission to be requested and denied
-  await page.waitForTimeout(2000);
-
-  // Check for the W-03 hint banner about permission denied
-  // The banner contains text about geolocation being denied and gpsd recommendation
-  const hintVisible = await page
-    .locator('text=/Standortzugriff verweigert|permission denied/i')
-    .isVisible()
-    .catch(() => false);
-
-  if (hintVisible) {
-    // If hint is shown, verify it mentions gpsd
-    const gpsdMentioned = await page
-      .locator('text=/gpsd|GPS-Quelle/i')
-      .isVisible()
-      .catch(() => false);
-    expect(gpsdMentioned || hintVisible).toBe(true);
-  }
-
-  // App should still be functional
+  // App should still be functional -- no uncaught errors from the denial path.
   expect(pageErrors).toEqual([]);
 });
 

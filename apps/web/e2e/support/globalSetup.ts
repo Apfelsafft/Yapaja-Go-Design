@@ -59,6 +59,26 @@ import {
   ADDON_EXAMPLES_STORAGE_DIR,
   STORE_CORE_PORT,
   STORE_CORE_BASE_URL,
+  SEARCH_SPEEDLOCK_CORE_PORT,
+  SEARCH_SPEEDLOCK_CORE_BASE_URL,
+  FLOW2_CORE_PORT,
+  FLOW2_CORE_BASE_URL,
+  FLOW3_CORE_PORT,
+  FLOW3_CORE_BASE_URL,
+  FLOW3_VALHALLA_BASE_URL,
+  FLOW8_CORE_PORT,
+  FLOW8_CORE_BASE_URL,
+  FLOW8_VALHALLA_BASE_URL,
+  FLOW8_MQTT_BROKER_URL,
+  FLOW8_MQTT_PORT,
+  FLOW8_MQTT_PREFIX,
+  FLOW10_CORE_PORT,
+  FLOW10_CORE_BASE_URL,
+  FLOW10_REGISTRY_PORT,
+  FLOW10_ADDONS_DIR,
+  FLOW10_STORAGE_DIR,
+  FLOW11_CORE_PORT,
+  FLOW11_CORE_BASE_URL,
   STORE_REGISTRY_PORT,
   STORE_ADDONS_DIR,
   STORE_STORAGE_DIR,
@@ -82,6 +102,11 @@ import {
 // the dedicated security-suite global setup (`e2e/security/support/`) can
 // reuse the EXACT same mechanics rather than growing a parallel harness.
 import { buildApps, preparePublicDir, startCore, waitForHealth } from './coreProcess.js';
+// E10-T1 (flow 8): a REAL in-process aedes broker, started BEFORE the flow-8
+// core so its MqttBridge connects on the first attempt rather than sitting in
+// backoff. See `mqttBroker.ts` for the documented deviation from the spec's
+// "mosquitto-Testcontainer" wording.
+import { startTestBroker, type TestBroker } from './mqttBroker.js';
 // Reuse E01-T1's fixture generator directly (read-only import, apps/core is
 // not modified) instead of hand-rolling another PMTiles binary writer.
 import { buildPMTilesFixtureBuffer } from '../../../core/src/map/__fixtures__/pmtiles-fixture.js';
@@ -267,6 +292,41 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     ADDONS_REGISTRY_URL: `http://127.0.0.1:${STORE_REGISTRY_PORT}/index.json`,
   });
 
+  // Dedicated core for search.spec.ts's speed-lock test (E10-T1 de-flake) --
+  // see the SEARCH_SPEEDLOCK_CORE_PORT comment in constants.ts for why that
+  // one test may not share a core with its own parallel siblings.
+  const searchSpeedLockCore = startCore(SEARCH_SPEEDLOCK_CORE_PORT, FIXTURE_TILES_DIR);
+
+  // --- E10-T1: the canonical docs/07 §5 flow specs' dedicated cores --------
+  // See the FLOW*_CORE_PORT comments in constants.ts for the per-flow
+  // isolation rationale. Flows 1, 4, 5, 6, 7 and 9 are proven by existing
+  // specs against their existing cores and need nothing new here.
+  const flow2Core = startCore(FLOW2_CORE_PORT, FIXTURE_TILES_DIR);
+  // Deviation-triggered reroute is server-side -> real (stub) Valhalla, same
+  // arrangement as PROFILE_REROUTE_CORE_PORT. The stub is started by the spec.
+  const flow3Core = startCore(FLOW3_CORE_PORT, FIXTURE_TILES_DIR, {
+    VALHALLA_URL: FLOW3_VALHALLA_BASE_URL,
+  });
+  // `cmd/destination` computes a route server-side, so this core needs both a
+  // broker URL and a Valhalla URL. The BROKER is started here (before the
+  // core) so the bridge connects immediately; the Valhalla stub is owned by
+  // the spec, same "core is pre-pointed at a fixed port" pattern as
+  // valhallaStub/registryStub.
+  const flow8Broker: TestBroker = await startTestBroker(FLOW8_MQTT_PORT);
+  const flow8Core = startCore(FLOW8_CORE_PORT, FIXTURE_TILES_DIR, {
+    VALHALLA_URL: FLOW8_VALHALLA_BASE_URL,
+    MQTT_BROKER_URL: FLOW8_MQTT_BROKER_URL,
+    MQTT_PREFIX: FLOW8_MQTT_PREFIX,
+  });
+  rmSync(FLOW10_ADDONS_DIR, { recursive: true, force: true });
+  rmSync(FLOW10_STORAGE_DIR, { recursive: true, force: true });
+  const flow10Core = startCore(FLOW10_CORE_PORT, FIXTURE_TILES_DIR, {
+    ADDONS_DIR: FLOW10_ADDONS_DIR,
+    ADDON_STORAGE_DIR: FLOW10_STORAGE_DIR,
+    ADDONS_REGISTRY_URL: `http://127.0.0.1:${FLOW10_REGISTRY_PORT}/index.json`,
+  });
+  const flow11Core = startCore(FLOW11_CORE_PORT, FIXTURE_TILES_DIR);
+
   const allCores = [
     fixtureCore,
     emptyCore,
@@ -286,6 +346,12 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     addonUiCore,
     addonExamplesCore,
     storeCore,
+    searchSpeedLockCore,
+    flow2Core,
+    flow3Core,
+    flow8Core,
+    flow10Core,
+    flow11Core,
   ];
 
   try {
@@ -308,10 +374,17 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       waitForHealth(ADDON_UI_CORE_BASE_URL, 20_000),
       waitForHealth(ADDON_EXAMPLES_CORE_BASE_URL, 20_000),
       waitForHealth(STORE_CORE_BASE_URL, 20_000),
+      waitForHealth(SEARCH_SPEEDLOCK_CORE_BASE_URL, 20_000),
+      waitForHealth(FLOW2_CORE_BASE_URL, 20_000),
+      waitForHealth(FLOW3_CORE_BASE_URL, 20_000),
+      waitForHealth(FLOW8_CORE_BASE_URL, 20_000),
+      waitForHealth(FLOW10_CORE_BASE_URL, 20_000),
+      waitForHealth(FLOW11_CORE_BASE_URL, 20_000),
     ]);
   } catch (err) {
     for (const core of allCores) core.kill();
     onboardingRegionServer.close();
+    await flow8Broker.close();
     throw err;
   }
 
@@ -338,11 +411,18 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       ADDON_UI_CORE_BASE_URL,
       ADDON_EXAMPLES_CORE_BASE_URL,
       STORE_CORE_BASE_URL,
+      SEARCH_SPEEDLOCK_CORE_BASE_URL,
+      FLOW2_CORE_BASE_URL,
+      FLOW3_CORE_BASE_URL,
+      FLOW8_CORE_BASE_URL,
+      FLOW10_CORE_BASE_URL,
+      FLOW11_CORE_BASE_URL,
     ].map((baseUrl) => seedOnboardingCompleted(baseUrl)),
   );
 
   return async () => {
     for (const core of allCores) core.kill();
     onboardingRegionServer.close();
+    await flow8Broker.close();
   };
 }

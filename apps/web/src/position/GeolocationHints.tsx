@@ -100,7 +100,15 @@ export default function GeolocationHints({ sourceState }: GeolocationHintsProps)
   return (
     <div className="fixed inset-0 pointer-events-none">
       <div className="absolute top-4 left-4 right-4 pointer-events-auto">
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 shadow-lg">
+        {/* `data-testid` added in E10-T1 so docs/07 §5 flow 11
+            (`e2e/flow-11-permission-denied.spec.ts`) can assert this banner
+            directly instead of text-matching a loose `page.locator('text=...')`.
+            Purely additive: no styling or behaviour change. */}
+        <div
+          data-testid="geolocation-hint"
+          data-geolocation-error={sourceState.error}
+          className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 shadow-lg"
+        >
           <div className="flex gap-3">
             <div className="flex-shrink-0 text-lg">⚠️</div>
             <div className="flex-1">

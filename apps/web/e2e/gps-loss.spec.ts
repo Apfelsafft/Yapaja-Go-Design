@@ -1,5 +1,15 @@
 /**
- * GPS-loss E2E flow (E02-T5, W-01, docs/07-testing-qa.md §5 Flow 4).
+ * docs/07 §5 — FLOW 4: "GPS-Verlust 45 s ⇒ UI-Zustand 'Signal verloren' ⇒
+ * Wiederaufnahme nahtlos." (E02-T5, W-01.)
+ *
+ * Canonical proof for flow 4. See `e2e/FLOWS.md` for the full flow→spec table.
+ *
+ * E10-T1 changes: the outage is now the SPEC'S 45 seconds (previously 6),
+ * expressed in SIMULATED time and compressed onto the wall clock with
+ * `speed_factor` so the test stays fast and deterministic; the
+ * `waitForTimeout(1500)` sleep that used to stand in for "not yet" is gone,
+ * replaced by an atomic store+DOM snapshot; and the end state is now also
+ * asserted through the Core's REST API, not the browser store alone.
  *
  * Drives the GPS simulator with an `outage` mutation and asserts:
  * 1. No premature "GPS-Signal verloren" banner while fixes are still fresh.
@@ -25,22 +35,39 @@ import { collectPageErrors } from './support/network.js';
 
 const BANNER_TEXT = /GPS-Signal verloren/;
 
+/** The flow's own number: 45 SIMULATED seconds without a fix. */
+const OUTAGE_DURATION_S = 45;
+/**
+ * Wall-clock compression. `speed_factor: 5` turns the 45 simulated seconds of
+ * outage into 9 s of real time -- still 3x the product's 3 s
+ * `GPS_SIGNAL_LOST_THRESHOLD_MS`, so the banner genuinely has to appear, but
+ * without spending 45 s of CI wall clock on a sleep. This is exactly the
+ * "Simulator statt Echtzeit (speed_factor)" determinism the task requires.
+ */
+const SPEED_FACTOR = 5;
+const OUTAGE_AT_S = 5;
+
 async function startSimulatorOutage(page: Page): Promise<void> {
-  const status = await page.evaluate(async (baseUrl: string) => {
-    const response = await fetch(`${baseUrl}/api/v1/simulator/play`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        track: { gpxId: 'city' },
-        speed_factor: 1,
-        // Outage starts 1 simulated second in and lasts 6s -- comfortably
-        // longer than the 3s "signal lost" threshold, short enough to keep
-        // the test fast.
-        mutations: { outage: { at_s: 1, duration_s: 6 } },
-      }),
-    });
-    return response.status;
-  }, SIMULATOR_CORE_BASE_URL);
+  const status = await page.evaluate(
+    async ({ baseUrl, atS, durationS, speedFactor }) => {
+      const response = await fetch(`${baseUrl}/api/v1/simulator/play`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          track: { gpxId: 'city' },
+          speed_factor: speedFactor,
+          mutations: { outage: { at_s: atS, duration_s: durationS } },
+        }),
+      });
+      return response.status;
+    },
+    {
+      baseUrl: SIMULATOR_CORE_BASE_URL,
+      atS: OUTAGE_AT_S,
+      durationS: OUTAGE_DURATION_S,
+      speedFactor: SPEED_FACTOR,
+    },
+  );
   expect(status).toBe(200);
 }
 
@@ -68,21 +95,45 @@ test.describe('GPS loss (W-01)', () => {
       });
   });
 
-  test('banner appears ~3s after signal loss, disappears on recovery, puck never extrapolates without a route', async ({
+  test('[Flow 4] 45 s GPS outage: no premature banner, "Signal verloren" while lost, seamless resumption', async ({
     page,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(90_000);
     const pageErrors = collectPageErrors(page);
 
     await startSimulatorOutage(page);
 
-    // Before the 3s-without-a-real-fix threshold is reached, no banner yet.
-    await page.waitForTimeout(1500);
-    await expect(page.getByText(BANNER_TEXT)).toHaveCount(0);
+    // Fixes are genuinely flowing first (otherwise "no premature banner"
+    // below would be vacuously true on a simulator that never started).
+    await expect
+      .poll(
+        () => page.evaluate(() => window.__yapajaPositionStore?.getState().position !== null),
+        { timeout: 20_000 },
+      )
+      .toBe(true);
 
-    // Banner shows once the signal has been lost for >3s (the outage starts
-    // at t=1s and lasts until t=7s, so this lands comfortably inside it).
-    await expect(page.getByText(BANNER_TEXT)).toBeVisible({ timeout: 10_000 });
+    // NO PREMATURE BANNER -- asserted without a sleep. The store's
+    // `lastRealUpdateTime` and the banner's presence are read in ONE
+    // `page.evaluate`, so they cannot drift apart between the two reads: if
+    // the last real fix is younger than the product's own 3 s threshold, the
+    // banner must not be on screen. (The previous version slept 1.5 s and
+    // hoped, which is precisely the wall-clock coupling E10-T1 removes.)
+    const freshSnapshot = await page.evaluate(() => {
+      const lastRealUpdateTime = window.__yapajaPositionStore?.getState().lastRealUpdateTime ?? null;
+      return {
+        msSinceLastFix: lastRealUpdateTime === null ? null : Date.now() - lastRealUpdateTime,
+        bannerPresent: Boolean(document.querySelector('[data-testid="gps-loss-banner"]')),
+      };
+    });
+    expect(freshSnapshot.msSinceLastFix).not.toBeNull();
+    if ((freshSnapshot.msSinceLastFix as number) < 3_000) {
+      expect(freshSnapshot.bannerPresent).toBe(false);
+    }
+
+    // Banner shows once the signal has been lost for > 3 s. The outage runs
+    // for 45 simulated seconds (9 s wall at speed_factor 5), so this lands
+    // comfortably inside it.
+    await expect(page.getByText(BANNER_TEXT)).toBeVisible({ timeout: 20_000 });
 
     // While lost, the store must reflect a REAL signal loss, not a
     // dead-reckoned guess -- with no active route (noopDeadReckoningProvider,
@@ -102,10 +153,29 @@ test.describe('GPS loss (W-01)', () => {
     });
     expect(stateAfterRecovery).toEqual({ extrapolated: false, hasPosition: true });
 
+    // --- API side of the end state (plausibility requirement) ---------------
+    // "Wiederaufnahme nahtlos" must be true of the CORE too, not just of the
+    // browser store: the simulator is still the active source and still
+    // playing (it never had to be restarted), and the Core's last known
+    // position is a real, fresh simulator fix.
+    const simulatorStatus = (await (
+      await page.request.get(`${SIMULATOR_CORE_BASE_URL}/api/v1/simulator/status`)
+    ).json()) as { data: { state: string; tickS: number; speedFactor: number } };
+    expect(simulatorStatus.data.state).toBe('playing');
+    expect(simulatorStatus.data.speedFactor).toBe(SPEED_FACTOR);
+    // Playback continued straight through the outage rather than restarting.
+    expect(simulatorStatus.data.tickS).toBeGreaterThan(OUTAGE_AT_S + OUTAGE_DURATION_S);
+
+    const positionResponse = await page.request.get(`${SIMULATOR_CORE_BASE_URL}/api/v1/position`);
+    expect(positionResponse.status()).toBe(200);
+    const corePosition = (await positionResponse.json()) as { source: string; ts: string };
+    expect(corePosition.source).toBe('simulator');
+    expect(Number.isFinite(Date.parse(corePosition.ts))).toBe(true);
+
     expect(pageErrors).toEqual([]);
   });
 
-  test('puck layers configure MapLibre paint transitions (no hard color snap on recovery)', async ({ page }) => {
+  test('[Flow 4] puck layers configure MapLibre paint transitions (no hard color snap on recovery)', async ({ page }) => {
     // The puck source/layers are added on the map's `load` event (see
     // PositionPuck's style-readiness guard), which can land slightly after
     // the canvas is visible. Wait for the layer before querying its paint.

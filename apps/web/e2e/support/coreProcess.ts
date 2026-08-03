@@ -78,13 +78,25 @@ export function startCore(
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
+  // `E2E_CORE_LOGS=1` streams each Core's log lines straight through, prefixed
+  // with its port. Off by default (the buffered behaviour below is what CI
+  // wants), but indispensable when a spec fails because of something the Core
+  // decided internally -- e.g. a reroute the Core declined to launch, which is
+  // invisible from the browser side. Added in E10-T1 while diagnosing flow 3.
+  const streamLogs = process.env.E2E_CORE_LOGS === '1';
   let output = '';
-  child.stdout?.on('data', (chunk: Buffer) => {
-    output += chunk.toString();
-  });
-  child.stderr?.on('data', (chunk: Buffer) => {
-    output += chunk.toString();
-  });
+  const record = (chunk: Buffer): void => {
+    const text = chunk.toString();
+    output += text;
+    if (streamLogs) {
+      for (const line of text.split('\n')) {
+        // eslint-disable-next-line no-console -- opt-in debug passthrough (E2E_CORE_LOGS=1)
+        if (line.trim()) console.log(`[core:${port}] ${line}`);
+      }
+    }
+  };
+  child.stdout?.on('data', record);
+  child.stderr?.on('data', record);
   child.on('exit', (code) => {
     if (code !== null && code !== 0) {
       console.error(`[e2e] core process on port ${port} exited with code ${code}:\n${output}`);

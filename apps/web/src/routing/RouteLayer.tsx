@@ -13,8 +13,12 @@
  * Follows the E01-T3/ADR-013 map-ready + style-load pattern EXACTLY like
  * `apps/web/src/position/PositionPuck.tsx`: the map is read reactively from
  * `useMapStore` (never `mapController.getMap()` with `[]` deps), and
- * `addSource`/`addLayer` only run once the style has finished loading
- * (`map.isStyleLoaded()` / `map.once('load', ...)`), or they throw "Style is
+ * `addSource`/`addLayer` only run once the style will accept them (E10-T1:
+ * via `map/styleReady.ts#runWhenStyleReady` -- the previous
+ * `isStyleLoaded()` / `once('load', ...)` guard lost the race whenever this
+ * passive effect first ran after `load` had already fired, which left the
+ * route line permanently unrendered; see that module for the full
+ * root-cause write-up), or they throw "Style is
  * not done loading" and crash the whole React tree. The layers/sources are
  * plain custom additions on top of the core style, so `styleSwitch.ts`
  * (E01-T4) automatically preserves them across a style switch -- no special
@@ -28,10 +32,11 @@
  * not done loading" trap this file's pattern exists to avoid.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { LatLng } from '@yapaja/shared';
 import { useMapStore } from '../state/mapStore.js';
+import { runWhenStyleReady } from '../map/styleReady.js';
 import { useRoutingStore, selectActiveRoute, selectAlternativeRoutes } from './store.js';
 import { decodePolyline6 } from './polyline.js';
 import {
@@ -76,6 +81,10 @@ export default function RouteLayer(): null {
   const activeRouteId = useRoutingStore((state) => state.activeRouteId);
   const destination = useRoutingStore((state) => state.destination);
   const tempAvoidances = useRoutingStore((state) => state.tempAvoidances);
+  // Incremented whenever the route sources/layers are (re)created, so the
+  // geometry effect below immediately paints the CURRENT route into the
+  // freshly-added (empty) sources instead of waiting for the next store change.
+  const [styleEpoch, setStyleEpoch] = useState(0);
 
   // Setup: sources + layers, once the map (and its style) is ready.
   useEffect(() => {
@@ -156,21 +165,20 @@ export default function RouteLayer(): null {
           'circle-stroke-color': '#fff',
         },
       });
+
+      // Sources were just created empty -- trigger the geometry effect below
+      // so the current route is painted right away (E10-T1).
+      setStyleEpoch((epoch) => epoch + 1);
     };
 
-    if (map.isStyleLoaded()) {
-      setup();
-    } else {
-      map.once('load', setup);
-    }
-    return () => {
-      map.off('load', setup);
-    };
+    return runWhenStyleReady(map, setup);
   }, [map]);
 
   // Update route/marker geometry whenever the routing store changes.
   useEffect(() => {
     if (!map) return;
+    // Dependency-only trigger: re-run right after the sources are (re)created.
+    void styleEpoch;
     const mainSource = getGeoJSONSource(map, MAIN_ROUTE_SOURCE_ID);
     const altSource = getGeoJSONSource(map, ALT_ROUTE_SOURCE_ID);
     const markersSource = getGeoJSONSource(map, MARKERS_SOURCE_ID);
@@ -233,7 +241,7 @@ export default function RouteLayer(): null {
       });
     }
     markersSource.setData({ type: 'FeatureCollection', features: markerFeatures });
-  }, [map, routes, activeRouteId, destination, tempAvoidances]);
+  }, [map, routes, activeRouteId, destination, tempAvoidances, styleEpoch]);
 
   // Auto-fit the camera to the union of all currently displayed routes
   // (active + alternatives) whenever the route set changes.
