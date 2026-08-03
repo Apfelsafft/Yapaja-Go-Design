@@ -51,6 +51,26 @@ export async function setAddonStorage(addonId: string, key: string, value: unkno
   if (!res.ok) throw new Error(`storage.set failed: ${res.status}`);
 }
 
+/**
+ * Forwards ONE host-detected add-on sandbox violation to the Core's `security`
+ * event channel (E09-T6, W-10 -- `POST /api/v1/security/events`).
+ *
+ * FIRE AND FORGET BY DESIGN: the refusal has already happened in the bridge
+ * before this is called, and a failed report must never turn into a failed
+ * refusal (or an unhandled rejection in the host page), so every error is
+ * swallowed. The endpoint is host-trusted-only and denied to add-on
+ * principals -- see `apps/core/src/security/routes.ts` for the full rationale.
+ */
+export function reportSecurityViolation(vector: string, addonId: string, detail: string): void {
+  void fetch(apiUrl('api/v1/security/events'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ vector, addon_id: addonId, detail }),
+  }).catch(() => {
+    /* reporting is best-effort; the block itself never depends on it */
+  });
+}
+
 /** The iframe src for an add-on's UI entry. The Core serves the add-on's
  *  `ui/` subtree at `/addons/{id}/ui/`, so a manifest entry like `ui/index.html`
  *  maps to `/addons/{id}/ui/index.html` (leading `ui/` stripped). */

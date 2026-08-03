@@ -22,17 +22,11 @@
  * would race the public-dir staging above.
  */
 
-import { execSync, spawn, type ChildProcess } from 'child_process';
-import { existsSync, mkdirSync, rmSync, cpSync, writeFileSync } from 'fs';
+import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { createServer, type Server } from 'http';
 import {
   WEB_ROOT,
-  REPO_ROOT,
-  CORE_ROOT,
-  CORE_DIST_INDEX,
-  CORE_PUBLIC_DIR,
-  WEB_DIST_DIR,
   FIXTURE_REGION,
   FIXTURE_TILES_DIR,
   EMPTY_TILES_DIR,
@@ -79,6 +73,10 @@ import {
   PWA_CORE_BASE_URL,
   ONBOARDING_CORE_BASE_URL,
 } from './constants.js';
+// E09-T6: the build/stage/spawn/health plumbing lives in `coreProcess.ts` so
+// the dedicated security-suite global setup (`e2e/security/support/`) can
+// reuse the EXACT same mechanics rather than growing a parallel harness.
+import { buildApps, preparePublicDir, startCore, waitForHealth } from './coreProcess.js';
 // Reuse E01-T1's fixture generator directly (read-only import, apps/core is
 // not modified) instead of hand-rolling another PMTiles binary writer.
 import { buildPMTilesFixtureBuffer } from '../../../core/src/map/__fixtures__/pmtiles-fixture.js';
@@ -87,38 +85,6 @@ import { buildPMTilesFixtureBuffer } from '../../../core/src/map/__fixtures__/pm
 // NON-onboarding core below can never silently drift out of sync with what
 // `hasValidConsent()` actually checks client-side.
 import { DISCLAIMER_VERSION } from '../../src/onboarding/state.js';
-
-async function waitForHealth(baseUrl: string, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  let lastError: unknown;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${baseUrl}/api/v1/health`);
-      if (response.ok) {
-        return;
-      }
-    } catch (err) {
-      lastError = err;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
-  throw new Error(
-    `Core server at ${baseUrl} did not become healthy within ${timeoutMs}ms: ${String(lastError)}`,
-  );
-}
-
-function buildApps(): void {
-  execSync('pnpm --filter @yapaja/web build', { cwd: REPO_ROOT, stdio: 'inherit' });
-  execSync('pnpm --filter @yapaja/core build', { cwd: REPO_ROOT, stdio: 'inherit' });
-}
-
-function preparePublicDir(): void {
-  if (!existsSync(WEB_DIST_DIR)) {
-    throw new Error(`Expected web build output at ${WEB_DIST_DIR}, but it does not exist.`);
-  }
-  rmSync(CORE_PUBLIC_DIR, { recursive: true, force: true });
-  cpSync(WEB_DIST_DIR, CORE_PUBLIC_DIR, { recursive: true });
-}
 
 function prepareFixtureTilesDir(): void {
   rmSync(FIXTURE_TILES_DIR, { recursive: true, force: true });
@@ -197,43 +163,6 @@ async function seedOnboardingCompleted(baseUrl: string): Promise<void> {
       },
     }),
   });
-}
-
-function startCore(port: number, tilesDir: string, extraEnv: Record<string, string> = {}): ChildProcess {
-  const child = spawn('node', [CORE_DIST_INDEX], {
-    cwd: CORE_ROOT,
-    env: {
-      ...process.env,
-      PORT: String(port),
-      HOST: '127.0.0.1',
-      TILES_DIR: tilesDir,
-      // Each e2e core gets its own in-memory DB. The two cores (fixture-region
-      // and empty-tiles) would otherwise share the default on-disk SQLite file
-      // and race on it (SQLITE_BUSY: "database is locked") — flaky, and it hit
-      // the slower CI runner. :memory: is per-process, so no file, no lock, and
-      // no leftover state between runs.
-      DB_PATH: ':memory:',
-      ...extraEnv,
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-
-  // Buffer output; only surface it if the process fails to become healthy
-  // (keeps normal test runs quiet — see waitForHealth's catch in the caller).
-  let output = '';
-  child.stdout?.on('data', (chunk: Buffer) => {
-    output += chunk.toString();
-  });
-  child.stderr?.on('data', (chunk: Buffer) => {
-    output += chunk.toString();
-  });
-  child.on('exit', (code) => {
-    if (code !== null && code !== 0) {
-      console.error(`[e2e] core process on port ${port} exited with code ${code}:\n${output}`);
-    }
-  });
-
-  return child;
 }
 
 export default async function globalSetup(): Promise<() => Promise<void>> {

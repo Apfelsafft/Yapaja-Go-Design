@@ -26,6 +26,7 @@ import type { EventBus } from '../bus/index.js';
 import { AddonRepository } from './repository.js';
 import type { AddonServiceHost } from './service-host.js';
 import { normalizeAddonEventTopic } from './scopeMatrix.js';
+import { securityEventLog } from '../security/securityEvents.js';
 
 function err(code: string, message: string): ApiError {
   return { error: { code, message } };
@@ -100,6 +101,12 @@ export const addonServicePlugin: FastifyPluginAsync<AddonServicePluginOptions> =
       const topic = normalizeAddonEventTopic(id, body.topic);
       if (!topic) {
         request.log.warn({ addon_id: id, topic: body.topic }, 'add-on event publish refused: topic outside addon/{id}/*');
+        // E09-T6: same refusal, recorded as a `security` event.
+        securityEventLog.record(
+          'events.foreign_topic',
+          id,
+          `refused events.publish to "${String(body.topic).slice(0, 120)}" (outside addon/${id}/*)`,
+        );
         reply
           .code(403)
           .send(err('TOPIC_NOT_ALLOWED', `Topic "${body.topic}" is outside this add-on's addon/${id}/* namespace`));

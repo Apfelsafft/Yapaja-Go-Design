@@ -13,8 +13,13 @@ import { BRIDGE_METHODS, METHOD_SCOPES, type AddonScope, type BridgeMethod } fro
 
 const ADDON_ID = 'com.example.matrix';
 
-function makeDeps(): { deps: HostBridgeDeps; warn: ReturnType<typeof vi.fn> } {
+function makeDeps(): {
+  deps: HostBridgeDeps;
+  warn: ReturnType<typeof vi.fn>;
+  report: ReturnType<typeof vi.fn>;
+} {
   const warn = vi.fn();
+  const report = vi.fn();
   const deps: HostBridgeDeps = {
     position: { subscribe: vi.fn(() => () => {}) },
     nav: { getState: vi.fn(() => ({ navigating: 'idle' })) },
@@ -36,8 +41,11 @@ function makeDeps(): { deps: HostBridgeDeps; warn: ReturnType<typeof vi.fn> } {
     },
     routes: { propose: vi.fn(), clearForAddon: vi.fn() },
     logger: { warn, info: vi.fn() },
+    // E09-T6: the host's `security` event sink. Spied so the matrix test can
+    // also assert that every refusal is RECORDED, not merely returned.
+    security: { report },
   };
-  return { deps, warn };
+  return { deps, warn, report };
 }
 
 /** A fake window/iframe -- `handleCall` never touches either, so no jsdom. */

@@ -52,6 +52,35 @@ import {
   type WidgetUpdateParams,
 } from '@yapaja/addon-sdk';
 
+/**
+ * The security vectors the HOST can attribute to an add-on iframe (E09-T6).
+ * Mirrors the subset of `apps/core/src/security/securityEvents.ts`'s
+ * `SECURITY_VECTORS` that is detectable browser-side; the Core validates the
+ * id again on arrival, so a drift here fails loudly (400) rather than
+ * silently recording a bogus vector.
+ *
+ * The last two are SELF-REPORTED by the sandboxed add-on (the browser blocks
+ * the access inside the iframe; only the add-on's own code sees the throw).
+ * A malicious add-on can stay silent -- the report buys AUDITABILITY, never
+ * containment. See `apps/core/src/security/routes.ts` and
+ * `e2e/security/README.md` for how each block is proven independently.
+ */
+export type HostSecurityVector =
+  | 'bridge.unknown_method'
+  | 'bridge.scope_denied'
+  | 'bridge.source_spoofed'
+  | 'events.foreign_topic'
+  | 'ui.parent_dom_access'
+  | 'ui.foreign_host_fetch';
+
+/** The vectors an add-on may SELF-REPORT through the bridge. Anything else in
+ *  a `security-violation` message is dropped -- an add-on must not be able to
+ *  fabricate, say, a `tarball.symlink` or `core.scope_denied` entry. */
+const SELF_REPORTABLE_VECTORS: ReadonlySet<string> = new Set<HostSecurityVector>([
+  'ui.parent_dom_access',
+  'ui.foreign_host_fetch',
+]);
+
 /** Result of a dispatched bridge call. */
 export interface BridgeCallResult {
   ok: boolean;
@@ -92,6 +121,12 @@ export interface HostBridgeDeps {
     warn(message: string, meta?: Record<string, unknown>): void;
     info?(message: string, meta?: Record<string, unknown>): void;
   };
+  /** E09-T6 (W-10): forwards a HOST-DETECTED sandbox violation to the Core's
+   *  `security` event channel (`POST /api/v1/security/events`). The bridge
+   *  always supplies the add-on id it OWNS -- never one taken from a message
+   *  -- so one add-on can never attribute a violation to another. Fire and
+   *  forget: a failed report must never affect the refusal itself. */
+  security: { report(vector: HostSecurityVector, addonId: string, detail: string): void };
 }
 
 export interface AddonBridgeOptions {
@@ -152,10 +187,30 @@ export class AddonBridge {
     if (this.destroyed) return;
     // SOURCE PINNING: the only trust anchor. Origin (`"null"` for the opaque
     // sandbox) is deliberately NOT consulted.
-    if (event.source !== this.iframe.contentWindow) return;
+    if (event.source !== this.iframe.contentWindow) {
+      // E09-T6: only messages that LOOK like add-on traffic are worth
+      // recording -- the host window sees unrelated postMessages (devtools,
+      // extensions, MapLibre workers) constantly, and flooding the security
+      // log with those would make it useless.
+      if (isAddonMessage(event.data)) {
+        this.deps.logger.warn('[addon-bridge] message from a foreign window dropped', {
+          addonId: this.addonId,
+        });
+        this.deps.security.report(
+          'bridge.source_spoofed',
+          this.addonId,
+          'an add-on protocol message arrived from a window that is not this add-on\'s pinned iframe',
+        );
+      }
+      return;
+    }
     const data = event.data;
     if (!isAddonMessage(data)) return;
 
+    if (data.type === 'security-violation') {
+      this.receiveSelfReport(data as unknown as Record<string, unknown>);
+      return;
+    }
     if (data.type === 'ready') {
       this.sendInit();
       return;
@@ -182,6 +237,11 @@ export class AddonBridge {
     const required = (METHOD_SCOPES as Record<string, AddonScope>)[method];
     if (!required) {
       this.deps.logger.warn('[addon-bridge] unknown method rejected', { addonId: this.addonId, method });
+      this.deps.security.report(
+        'bridge.unknown_method',
+        this.addonId,
+        `rejected bridge call to the unknown method "${String(method).slice(0, 80)}"`,
+      );
       return { ok: false, error: { code: 'UNKNOWN_METHOD', message: `Unknown bridge method "${method}"` } };
     }
     if (!this.scopes.has(required)) {
@@ -192,6 +252,11 @@ export class AddonBridge {
         requiredScope: required,
         grantedScopes: [...this.scopes],
       });
+      this.deps.security.report(
+        'bridge.scope_denied',
+        this.addonId,
+        `rejected bridge call "${String(method).slice(0, 80)}": missing scope "${required}"`,
+      );
       return {
         ok: false,
         error: { code: 'SCOPE_DENIED', message: `Add-on "${this.addonId}" lacks scope "${required}" for "${method}"` },
@@ -273,6 +338,11 @@ export class AddonBridge {
             addonId: this.addonId,
             topic: ev.topic,
           });
+          this.deps.security.report(
+            'events.foreign_topic',
+            this.addonId,
+            `rejected events.publish to "${String(ev.topic).slice(0, 120)}" (outside addon/${this.addonId}/*)`,
+          );
           return {
             ok: false,
             error: { code: 'TOPIC_FORBIDDEN', message: `events.publish may only target addon/${this.addonId}/*` },
@@ -313,6 +383,31 @@ export class AddonBridge {
         return { ok: false, error: { code: 'UNKNOWN_METHOD', message: `Unhandled method ${String(_never)}` } };
       }
     }
+  }
+
+  /**
+   * Handles a `security-violation` message from the PINNED iframe (source
+   * already verified by `receiveMessage`). This is how a browser-side
+   * violation that only the add-on itself can observe -- a `SecurityError`
+   * from `window.parent.document`, a CSP-blocked `fetch()` -- reaches the
+   * Core's audit log.
+   *
+   * Everything attacker-controlled is discarded or clamped: the vector must
+   * be in {@link SELF_REPORTABLE_VECTORS}, the add-on id is the bridge's OWN
+   * (any id in the message is ignored), and the detail is truncated here and
+   * redacted again server-side.
+   */
+  private receiveSelfReport(data: Record<string, unknown>): void {
+    const vector = data.vector;
+    if (typeof vector !== 'string' || !SELF_REPORTABLE_VECTORS.has(vector)) {
+      this.deps.logger.warn('[addon-bridge] self-reported security vector rejected', {
+        addonId: this.addonId,
+        vector: typeof vector === 'string' ? vector.slice(0, 80) : null,
+      });
+      return;
+    }
+    const detail = typeof data.detail === 'string' ? data.detail.slice(0, 240) : '';
+    this.deps.security.report(vector as HostSecurityVector, this.addonId, detail);
   }
 
   /** Maps a caller-supplied topic to a fully-qualified `addon/{id}/…` topic,

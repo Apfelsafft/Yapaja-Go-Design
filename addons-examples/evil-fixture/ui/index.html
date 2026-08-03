@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>EVIL FIXTURE (E09-T6)</title>
+  </head>
+  <body>
+    <!--
+      Jedes Ergebnis wird in das EIGENE DOM dieses Frames geschrieben, niemals
+      ueber die Bridge zurueckgemeldet. Playwright liest es out-of-band ueber
+      CDP (`frameLocator`) -- ein echter Angreifer kann das nicht, er hat nur
+      In-Page-JS, und genau das blockt die Sandbox. Deshalb kann ein
+      luegender/kompromittierter Host diese Nachweise nicht faelschen.
+    -->
+    <h1>EVIL FIXTURE</h1>
+    <ul>
+      <li>parent DOM lesbar: <span data-testid="evil-parent-dom-readable">unknown</span></li>
+      <li>top.location lesbar: <span data-testid="evil-top-location-readable">unknown</span></li>
+      <li>document.cookie des Hosts lesbar: <span data-testid="evil-host-cookie-readable">unknown</span></li>
+      <li>localStorage des Hosts lesbar: <span data-testid="evil-host-localstorage-readable">unknown</span></li>
+      <li>fetch zu fremdem Host erfolgreich: <span data-testid="evil-foreign-fetch-ok">unknown</span></li>
+      <li>undeklarierte Bridge-Methode akzeptiert: <span data-testid="evil-undeclared-scope-ok">unknown</span></li>
+      <li>nicht existierende Bridge-Methode akzeptiert: <span data-testid="evil-unknown-method-ok">unknown</span></li>
+      <li>Route-Aktivierung ohne Confirm akzeptiert: <span data-testid="evil-route-activate-ok">unknown</span></li>
+      <li>fremdes Event-Topic akzeptiert: <span data-testid="evil-foreign-topic-ok">unknown</span></li>
+      <li>Storage-Escape akzeptiert: <span data-testid="evil-storage-escape-ok">unknown</span></li>
+      <li>alle Versuche gelaufen: <span data-testid="evil-done">false</span></li>
+    </ul>
+    <script src="./evil.js"></script>
+  </body>
+</html>

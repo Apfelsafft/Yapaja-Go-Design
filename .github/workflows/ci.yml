@@ -125,6 +125,68 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  security-suite:
+    name: Security Suite (Sandbox-Escape, E09-T6, W-10)
+    runs-on: ubuntu-latest
+    needs: quality
+    # Bewusst ein EIGENER Job neben `e2e`: die Suite (e2e/security/) startet
+    # genau EINEN dedizierten Core (Port 4340) statt der ~17 der Haupt-Harness,
+    # laeuft mit `workers: 1` und `retries: 0` (eine Sicherheitsaussage wird
+    # NIE gruen retried, gleiche Regel wie beim Golden-Route-Gate, docs/07 §3b)
+    # und muss von einem flakenden UI-Spec unabhaengig sein. Laufzeit lokal
+    # gemessen: Build ~50 s + Suite ~40 s; der Mutations-Nachweis (Akzeptanz-
+    # kriterium 2) sind drei weitere gefilterte Laeufe, zusammen ~5 min --
+    # deutlich unter dem `e2e`-Job und daher per Push/PR tragbar statt nightly.
+    timeout-minutes: 25
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # GitHub-Runner haben die vorinstallierte Chromium-Revision unter
+      # PLAYWRIGHT_BROWSERS_PATH nicht; die Config faellt dann auf Playwrights
+      # eigene Aufloesung zurueck, also hier installieren (wie im e2e-Job).
+      - name: Install Playwright Chromium
+        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+
+      # e2e/ ist KEIN Workspace-Paket, `pnpm typecheck` (= `pnpm -r`) deckt es
+      # nicht ab -- gleiche Begruendung wie beim golden-routes-Job.
+      - name: Typecheck security suite
+        run: pnpm exec tsc --noEmit -p e2e/security/tsconfig.json
+
+      # Akzeptanzkriterien 1 + 3: alle Angriffsvektoren geblockt UND als
+      # `security`-Event geloggt, verdrahtet in der Pipeline.
+      - name: Run security suite (all vectors blocked + logged)
+        run: pnpm e2e:security
+
+      # Akzeptanzkriterium 2: die Suite bricht nachweislich, wenn man eine
+      # Schutzmassnahme deaktiviert (echter Patch auf echtem Quellcode,
+      # kein Feature-Flag). Siehe e2e/security/README.md.
+      - name: Mutation proof (the suite really detects a removed protection)
+        run: pnpm security:mutation-proof
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-suite-traces
+          path: e2e/security/.tmp/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
   docker:
     name: Docker Build & Health Check
     runs-on: ubuntu-latest

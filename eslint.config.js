@@ -64,6 +64,21 @@ export default [
     }
   },
   {
+    // Same rationale as the blocks around it, for the out-of-workspace e2e
+    // suites (`e2e/golden-routes`, `e2e/security`). They run under Node
+    // (Playwright/Vitest) and legitimately use standard Node/DOM globals
+    // (`fetch`, `Buffer`, `setTimeout`, `URLSearchParams`, and inside
+    // `page.evaluate` callbacks the whole browser DOM) that the small manual
+    // `globals` list above does not cover; TypeScript (with `lib: ES2022,DOM`
+    // and `types: node`, see `e2e/security/tsconfig.json`) already flags
+    // genuinely undefined identifiers there at compile time -- and the CI
+    // security job runs exactly that typecheck.
+    files: ['e2e/**/*.ts'],
+    rules: {
+      'no-undef': 'off'
+    }
+  },
+  {
     // Same rationale as the block above, extended to the two E09-T5
     // reference add-ons (docs/05 §6): their `src/*.ts` is browser/DOM code
     // (they run inside a sandboxed iframe) and their `.test.ts` files run

@@ -68,6 +68,7 @@ import type { EventBus } from '../bus/index.js';
 import { resolveAddonDir, resolveAddonsRootDir, resolveAddonStorageRootDir, resolveEntryPath } from './paths.js';
 import { AddonRepository, type AddonRecord } from './repository.js';
 import { AddonTokenService } from './tokens.js';
+import { securityEventLog } from '../security/securityEvents.js';
 import {
   AddonWatchdog,
   DEFAULT_RSS_LIMIT_BYTES,
@@ -105,6 +106,36 @@ const noopLogger: ServiceHostLogger = { info: () => {}, warn: () => {}, error: (
 
 /** Node runtimes this host can start itself. `external` never spawns. */
 const SPAWNABLE_RUNTIMES = new Set(['node18', 'node20']);
+
+/**
+ * E09-T6 (W-10): how the Core NOTICES that the permission model denied an
+ * add-on child a filesystem access outside its granted roots.
+ *
+ * The denial itself happens inside the child (Node throws `ERR_ACCESS_DENIED`
+ * / `ERR_INVALID_ARG_VALUE` from the permission model) -- the Core is not in
+ * that call path and cannot be. What the Core DOES have is the child's
+ * stderr, which it already pipes and logs. Matching the permission model's own
+ * error identifiers there turns an otherwise invisible containment success
+ * into a recorded `fs.outside_datadir` security event.
+ *
+ * Deliberate properties:
+ *  - the `addon_id` is PINNED by the Core (it owns the child handle), so one
+ *    add-on can never attribute a violation to another,
+ *  - the detail is truncated and redacted by `SecurityEventLog#record`,
+ *  - a chatty/lying add-on can at worst add noise to a bounded ring buffer;
+ *    it can neither suppress the DENIAL (that is Node's, not ours) nor gain
+ *    anything by faking the line.
+ */
+const FS_PERMISSION_DENIED_RE = /ERR_ACCESS_DENIED|Access to this API has been restricted/;
+
+/** Extracts a short, non-secret excerpt of the offending stderr line. */
+export function fsDenialDetail(chunk: string): string | null {
+  if (!FS_PERMISSION_DENIED_RE.test(chunk)) return null;
+  const line = chunk
+    .split('\n')
+    .find((l) => FS_PERMISSION_DENIED_RE.test(l));
+  return (line ?? chunk).trim().slice(0, 240);
+}
 
 /**
  * The permission-model flags. Node >= 20.0 exposes `--permission`; 18.x and
@@ -405,7 +436,12 @@ export class AddonServiceHost {
       this.logger.info(`[addon ${record.id}] ${String(chunk).trimEnd()}`, { addon_id: record.id });
     });
     child.stderr?.on('data', (chunk) => {
-      this.logger.warn(`[addon ${record.id}] ${String(chunk).trimEnd()}`, { addon_id: record.id });
+      const text = String(chunk);
+      this.logger.warn(`[addon ${record.id}] ${text.trimEnd()}`, { addon_id: record.id });
+      // E09-T6: the permission model denied this child a filesystem access
+      // outside its granted roots -- record it (see `fsDenialDetail`).
+      const denial = fsDenialDetail(text);
+      if (denial) securityEventLog.record('fs.outside_datadir', record.id, denial);
     });
     child.on('error', (err: Error) => {
       this.lastErrors.set(record.id, err.message);

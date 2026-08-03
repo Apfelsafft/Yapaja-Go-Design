@@ -13,22 +13,27 @@
     "build": "pnpm -r --filter='./apps/**' build",
     "dev": "pnpm -r --parallel dev",
     "e2e": "pnpm --filter @yapaja/web e2e",
-    "golden-routes": "vitest run --config vitest.golden.config.ts"
+    "golden-routes": "vitest run --config vitest.golden.config.ts",
+    "e2e:security": "playwright test -c e2e/security/playwright.config.ts",
+    "security:mutation-proof": "bash scripts/security-mutation-proof.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.6.0",
+    "@playwright/test": "^1.61.1",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.12.12",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^7.12.0",
     "@typescript-eslint/parser": "^7.12.0",
-    "eslint": "^9.6.0",
     "esbuild": "^0.21.5",
+    "eslint": "^9.6.0",
     "js-yaml": "^5.2.1",
     "prettier": "^3.3.2",
     "typescript": "^5.4.5",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "ws": "^8.18.3"
   },
   "pnpm": {
     "overrides": {},

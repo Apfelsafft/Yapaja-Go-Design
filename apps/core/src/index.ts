@@ -40,6 +40,8 @@ import { AddonAuthService, AddonTokenService } from './addons/tokens.js';
 import { AddonServiceHost } from './addons/service-host.js';
 import { addonServicePlugin } from './addons/serviceRoutes.js';
 import { addonProxyPlugin } from './addons/proxy.js';
+import { securityPlugin } from './security/routes.js';
+import { securityEventLog } from './security/securityEvents.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -82,6 +84,18 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // can publish straight onto the bus.
   const eventBus = new EventBus();
   const wsClientRegistry = new WsClientRegistry();
+
+  // E09-T6 (W-10, docs/07 §7): wire the process-wide `security` event
+  // recorder to THIS server's bus + logger. Every enforcement point
+  // (scope matrix, egress proxy, storage namespace, tarball extractor,
+  // scoped tokens, service-process FS confinement, the frontend bridge via
+  // `POST /api/v1/security/events`) records into it the moment it refuses --
+  // see `security/securityEvents.ts`. Recording works even before this call,
+  // so nothing fired during startup is lost.
+  securityEventLog.configure({
+    bus: eventBus,
+    logger: { warn: (meta, msg) => fastify.log.warn(meta, msg) },
+  });
 
   // E08-T3: settings store is created HERE (earlier than E07-T1 originally
   // placed it) so the auth guard below can read the live `auth.token` and the
@@ -393,6 +407,13 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // Egress proxy: outbound HTTP only to hosts the add-on declared via
   // `net.fetch:<host>`, exact-hostname matched, redirects re-validated.
   await fastify.register(addonProxyPlugin, { prefix: '/api/v1' });
+
+  // E09-T6 (W-10): the `security` event channel -- `GET /api/v1/security/events`
+  // (operator/UI read of every BLOCKED sandbox-escape attempt) and
+  // `POST /api/v1/security/events` (the trusted web host forwarding its
+  // browser-side detections). BOTH are default-denied to add-on principals by
+  // the scope matrix; see `security/routes.ts` for the full rationale.
+  await fastify.register(securityPlugin, { prefix: '/api/v1' });
 
   // System resources (E08-T5, W-12/W-18): real measured free/total disk (of
   // the map-tiles data dir) + free/total RAM, for the onboarding wizard's

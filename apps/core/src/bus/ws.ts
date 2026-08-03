@@ -12,6 +12,7 @@ import fastifyWebsocket from '@fastify/websocket';
 import type { WebSocket, RawData } from 'ws';
 import type { EventBus } from './index.js';
 import { AuthGuard, extractWsToken } from '../auth/authGuard.js';
+import { securityEventLog } from '../security/securityEvents.js';
 
 /**
  * Tracks how many `/ws/v1` clients are currently connected (E06-T3): the
@@ -162,6 +163,16 @@ const busWebsocketPluginImpl: FastifyPluginAsync<BusWebsocketPluginOptions> = as
                   required_scope: decision.requiredScope,
                 },
                 'add-on WS subscription refused by the scope matrix',
+              );
+              // E09-T6: same refusal, recorded as a `security` event. A
+              // pattern reaching into another add-on's (or the root) `addon/`
+              // namespace is a foreign-topic attempt; anything else is the
+              // generic default-deny.
+              securityEventLog.record(
+                topic.startsWith('addon/') ? 'events.foreign_topic' : 'core.scope_denied',
+                addonPrincipal.addonId,
+                `${decision.code}: WS subscribe "${topic}"` +
+                  (decision.requiredScope ? ` (requires scope "${decision.requiredScope}")` : ''),
               );
               send({
                 type: 'error',

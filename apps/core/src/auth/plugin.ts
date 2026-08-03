@@ -28,6 +28,7 @@ import {
   normalizeRequestPath,
   parseBearerToken,
 } from './authGuard.js';
+import { securityEventLog, type SecurityVector } from '../security/securityEvents.js';
 
 /** Paths under `/api/` that never require a token. */
 export const OPEN_API_PATHS: readonly string[] = ['/api/v1/health', '/api/v1/auth/status'];
@@ -88,6 +89,30 @@ function pathOf(url: string): string {
   return normalizeRequestPath(url);
 }
 
+/**
+ * E09-T6: maps ONE scope-matrix refusal onto the security vector that best
+ * describes what the add-on actually attempted. The refusal DECISION is not
+ * touched here -- this only classifies an already-made "no" for the audit log.
+ *
+ *  - a `/navigation/*` attempt is the W-10 headline case ("an add-on may
+ *    propose, never activate"), so it gets its own vector,
+ *  - an `ownAddonOnly` violation on a storage path is a namespace escape,
+ *  - everything else is the generic default-deny.
+ */
+export function classifyAddonRefusal(code: string, path: string): SecurityVector {
+  if (path.startsWith('/api/v1/navigation/')) return 'route.activate_without_confirm';
+  if (code === 'FOREIGN_ADDON' && /^\/api\/v1\/addons\/[^/]+\/storage\//.test(path)) {
+    return 'storage.foreign_namespace';
+  }
+  // ONLY the add-on event-publish endpoint -- deliberately anchored, so an
+  // unrelated path that merely contains the word "events" (e.g. this task's
+  // own `/api/v1/security/events`) is never mis-filed as a topic escape.
+  if (code === 'FOREIGN_ADDON' && /^\/api\/v1\/addons\/[^/]+\/events$/.test(path)) {
+    return 'events.foreign_topic';
+  }
+  return 'core.scope_denied';
+}
+
 const authPluginImpl: FastifyPluginAsync<AuthPluginOptions> = async (fastify, opts) => {
   const { guard, settings, addonAuth } = opts;
   const openPaths = new Set(opts.openPaths ?? OPEN_API_PATHS);
@@ -112,7 +137,24 @@ const authPluginImpl: FastifyPluginAsync<AuthPluginOptions> = async (fastify, op
       const principal = bearer ? addonAuth.authenticate(bearer) : null;
       if (principal) {
         request.addonPrincipal = principal;
-        const decision = addonAuth.authorizeRequest(principal, request.method, path);
+        // BUGFIX (found by the E09-T6 security suite): pass the RAW url here,
+        // NOT the already-percent-decoded `path`. `authorizeAddonRequest` ->
+        // `matchAddonRoute` decodes each segment ITSELF (that is the whole
+        // point -- it must see exactly what fastify's router sees). Handing it
+        // `path` decoded a SECOND time: a storage key like `..%2Fother`
+        // (legitimately one segment, and one the storage layer then refuses on
+        // its own terms) became `../other`, i.e. two extra path segments, so
+        // NO rule matched and the request was refused as ROUTE_NOT_ALLOWED
+        // instead of reaching the handler.
+        //
+        // The old behaviour was fail-CLOSED (a 403 too many, never a 403 too
+        // few -- an extra decode can only ADD separators, and a rule can never
+        // be matched by a path with more segments than it has), so this was a
+        // correctness/observability defect rather than a bypass: the refusal
+        // was filed under the wrong vector and a legitimate percent-encoded
+        // key could not be used. Decoding exactly once, here, is what keeps
+        // the guard and the router looking at the same path.
+        const decision = addonAuth.authorizeRequest(principal, request.method, request.url);
         if (!decision.allowed) {
           // LOGGED (W-14): every refused add-on call is visible to the
           // operator. The token itself is never part of the log line.
@@ -125,6 +167,14 @@ const authPluginImpl: FastifyPluginAsync<AuthPluginOptions> = async (fastify, op
               required_scope: decision.requiredScope,
             },
             'add-on request refused by the scope matrix',
+          );
+          // E09-T6 (W-10): the SAME refusal, additionally recorded as a
+          // first-class `security` event. Never carries the token.
+          securityEventLog.record(
+            classifyAddonRefusal(decision.code, path),
+            principal.addonId,
+            `${decision.code}: ${request.method} ${path}` +
+              (decision.requiredScope ? ` (requires scope "${decision.requiredScope}")` : ''),
           );
           return reply.code(403).send(forbidden(decision.code, decision.message));
         }
