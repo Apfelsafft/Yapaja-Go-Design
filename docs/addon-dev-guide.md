@@ -267,7 +267,7 @@ serverseitige Quelle der Wahrheit: `protocol.ts#METHOD_SCOPES` (UI) und
 | `route.propose` | `route.propose()` – schlägt eine Route vor, **aktiviert nie** etwas ohne Nutzerbestätigung (Wargame W-10) | **nur UI** |
 | `map.layer.write` | `map.addLayer/addMarkers/removeLayer()` | **nur UI** – es gibt keine Karte in einem Headless-Prozess |
 | `widget.register` | `widgets.register/update()` | **nur UI** |
-| `events.publish` | `events.publish()` unter dem eigenen `addon/{id}/*`-Namensraum | UI + Service |
+| `events.publish` | `events.publish()` unter dem eigenen `addon/{id}/*`-Namensraum -- zusätzlich als `yapaja/addon/{id}/*` via MQTT (Rate-Limit 5 msg/s pro Add-on, Payload ≤ 16 KB, pro Add-on über die Store-Detailseite abschaltbar; E09-T8) | UI + Service |
 | `storage.own` | `storage.get/set()` (beide), `storage.delete()` (**nur Service** – die UI-Bridge kennt kein Delete) | UI + Service |
 | `net.fetch:<host>` | `fetch(url)` gegen genau diesen Host über den Core-Egress-Proxy | **nur Service** |
 | `ha.notify` | `notify.send(message, title?)` – Benachrichtigung über den HA-Kanal | **nur Service** |

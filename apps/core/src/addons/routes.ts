@@ -12,6 +12,8 @@
  *    with rollback-on-failure if `:id` is already installed).
  *  - GET    /addons                         -> installed add-ons + status.
  *  - POST   /addons/:id/enable|disable       -> lifecycle.
+ *  - POST   /addons/:id/mqtt/enable|disable  -> E09-T8 "In Home Assistant
+ *    verfügbar" toggle -- MQTT republish only, no process/token effect.
  *  - DELETE /addons/:id                      -> uninstall (code + storage +
  *    DB row, residue-free).
  *
@@ -219,6 +221,32 @@ export const addonsPlugin: FastifyPluginAsync<AddonsPluginOptions> = async (fast
     async (request, reply) => {
       try {
         reply.code(200).send({ data: service.disable(request.params.id) });
+      } catch (err) {
+        sendAddonError(reply, err);
+      }
+    },
+  );
+
+  // E09-T8: "In Home Assistant verfügbar" -- purely the MQTT-republish
+  // toggle, no service-process/token side effect (contrast enable/disable
+  // above). Takes effect immediately: `MqttBridge` re-reads the DB row live
+  // on every add-on event, see `AddonRepository#isMqttEnabled`.
+  fastify.post<{ Params: AddonIdParams; Reply: AddonRecordReply | ApiError }>(
+    '/addons/:id/mqtt/enable',
+    async (request, reply) => {
+      try {
+        reply.code(200).send({ data: service.setMqttEnabled(request.params.id, true) });
+      } catch (err) {
+        sendAddonError(reply, err);
+      }
+    },
+  );
+
+  fastify.post<{ Params: AddonIdParams; Reply: AddonRecordReply | ApiError }>(
+    '/addons/:id/mqtt/disable',
+    async (request, reply) => {
+      try {
+        reply.code(200).send({ data: service.setMqttEnabled(request.params.id, false) });
       } catch (err) {
         sendAddonError(reply, err);
       }

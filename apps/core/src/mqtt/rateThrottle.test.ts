@@ -4,7 +4,12 @@
  * fahrend / 0,1 Hz stehend").
  */
 import { describe, it, expect } from 'vitest';
-import { DRIVING_SPEED_MS, PositionPublishThrottle } from './rateThrottle.js';
+import {
+  DRIVING_SPEED_MS,
+  PositionPublishThrottle,
+  AddonEventRateLimiter,
+  ADDON_EVENT_RATE_LIMIT_PER_SECOND,
+} from './rateThrottle.js';
 
 describe('PositionPublishThrottle', () => {
   it('publishes the very first call regardless of speed', () => {
@@ -72,5 +77,50 @@ describe('PositionPublishThrottle', () => {
     expect(throttle.shouldPublish(0, 1)).toBe(false);
     throttle.reset();
     expect(throttle.shouldPublish(0, 2)).toBe(true);
+  });
+});
+
+/**
+ * `AddonEventRateLimiter` unit tests (E09-T8, mandatory "Limit-Unit" test,
+ * docs/05 §2 "5 msg/s pro Add-on"). The end-to-end "the rate limit
+ * demonstrably bites, wired through the real MqttBridge + a real broker" is
+ * separately proven in `addonEvents.integration.test.ts`; this file only
+ * exercises the pure counting logic in isolation.
+ */
+describe('AddonEventRateLimiter', () => {
+  it(`allows exactly ${ADDON_EVENT_RATE_LIMIT_PER_SECOND} publishes per second, refuses the rest`, () => {
+    const limiter = new AddonEventRateLimiter();
+    const results: boolean[] = [];
+    for (let i = 0; i < 8; i++) results.push(limiter.allow('addon-a', 0));
+    expect(results).toEqual([true, true, true, true, true, false, false, false]);
+  });
+
+  it('resets the budget once the 1000ms window elapses', () => {
+    const limiter = new AddonEventRateLimiter();
+    for (let i = 0; i < ADDON_EVENT_RATE_LIMIT_PER_SECOND; i++) {
+      expect(limiter.allow('addon-a', 100)).toBe(true);
+    }
+    expect(limiter.allow('addon-a', 200)).toBe(false); // still inside the same window
+    expect(limiter.allow('addon-a', 1099)).toBe(false); // 999ms after the window opened at 100
+    expect(limiter.allow('addon-a', 1100)).toBe(true); // a fresh window opens here
+  });
+
+  it('gives every add-on its OWN independent budget -- a flooding add-on cannot starve another', () => {
+    const limiter = new AddonEventRateLimiter();
+    for (let i = 0; i < ADDON_EVENT_RATE_LIMIT_PER_SECOND; i++) {
+      expect(limiter.allow('chatty-addon', 0)).toBe(true);
+    }
+    // `chatty-addon`'s budget is exhausted for this window...
+    expect(limiter.allow('chatty-addon', 10)).toBe(false);
+    // ...but `quiet-addon` is completely unaffected, same window, same instant.
+    expect(limiter.allow('quiet-addon', 10)).toBe(true);
+  });
+
+  it('reset() clears every add-on window', () => {
+    const limiter = new AddonEventRateLimiter();
+    for (let i = 0; i < ADDON_EVENT_RATE_LIMIT_PER_SECOND; i++) limiter.allow('addon-a', 0);
+    expect(limiter.allow('addon-a', 10)).toBe(false);
+    limiter.reset();
+    expect(limiter.allow('addon-a', 20)).toBe(true);
   });
 });

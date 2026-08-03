@@ -15,5 +15,5 @@
     "settings_page": false
   },
   "service": { "runtime": "node20", "entry": "service/main.mjs" },
-  "permissions": ["pos.read", "storage.own", "widget.register"]
+  "permissions": ["pos.read", "storage.own", "widget.register", "events.publish"]
 }

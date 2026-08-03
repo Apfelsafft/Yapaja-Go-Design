@@ -501,6 +501,17 @@ export class InstallService {
     return record;
   }
 
+  /** E09-T8: the "In Home Assistant verfügbar" Store-detail toggle --
+   *  purely a DB-column flip, no process/token side effect (unlike
+   *  enable/disable above). `MqttBridge` re-reads it live on every add-on
+   *  event (`AddonRepository#isMqttEnabled`), so this takes effect on the
+   *  very next event -- no restart, no reconnect. */
+  setMqttEnabled(id: string, enabled: boolean): AddonRecord {
+    const record = this.repository.setMqttEnabled(id, enabled);
+    if (!record) throw new AddonError('NOT_FOUND', `No add-on installed with id "${id}"`);
+    return record;
+  }
+
   /** Removes code + BOTH storages (the `storage.own` filesystem dir AND the
    *  settings-backed KV namespace, see {@link AddonStorageClearer}) + the DB
    *  row completely -- a test asserts nothing survives on the filesystem, in

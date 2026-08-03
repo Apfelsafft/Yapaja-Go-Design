@@ -16,13 +16,13 @@ in 10 Minuten). Dieses README beschreibt nur das Add-on-spezifische.
 | `pos.read` | Der Service abonniert `pos/update` (`addon.position.subscribe`), um jede Fixe der aktuellen Aufnahme hinzuzufügen. |
 | `storage.own` | Die EINZIGE Persistenz UND der EINZIGE Kanal zwischen Service- und UI-Hälfte (siehe unten) -- Track-GPX-Text, der Track-Index, der Live-Status und die Start/Stop-Kommandos leben alle unter `storage.own`. |
 | `widget.register` | Die UI aktualisiert ein kompaktes Side-Panel-Widget mit "Aufnahme läuft · Laufzeit · Distanz". |
+| `events.publish` | **Seit E09-T8.** Zwei schlanke, „fire-and-forget"-Benachrichtigungen (`started`/`stopped`) für externe (MQTT/HA-)Konsumenten -- **nicht** der UI<->Service-Kanal, siehe "`events.publish` (E09-T8)" unten für die Abgrenzung. |
 
-**Bewusst NICHT angefordert:** `events.publish` -- siehe "Warum `storage.own`
-und nicht Events" unten; `nav.control`/`route.*` -- der Recorder liest nur
-mit, greift nie in Navigation/Route ein; `net.fetch:*` -- keine
+**Bewusst NICHT angefordert:** `nav.control`/`route.*` -- der Recorder liest
+nur mit, greift nie in Navigation/Route ein; `net.fetch:*` -- keine
 Online-Abhängigkeit.
 
-## Warum `storage.own` (nicht `events.publish`) der UI<->Service-Kanal ist
+## Warum `storage.own` der UI<->Service-Kanal ist (nicht `events.publish`)
 
 Die zwei Hälften dieses Add-ons laufen auf VERSCHIEDENEN Transports
 (`packages/addon-sdk/src/types.ts`): die UI spricht postMessage mit dem
@@ -44,6 +44,31 @@ direkten Kanal zwischen beiden. Die SDK-Oberfläche bietet:
   jede Sekunde und `index` alle 1,5 s -- kein Push-Kanal existiert für UI-Add-ons
   (siehe `docs/addon-dev-guide.md` §9, "`nav.subscribe()` … existiert nur auf
   dem Service-Transport").
+
+Diese Begründung gilt weiterhin unverändert -- `events.publish` ist auch nach
+E09-T8 KEIN UI<->Service-Kanal (die UI empfängt es nach wie vor nicht, siehe
+oben). Was sich geändert hat: der Service nutzt `events.publish` seit E09-T8
+für einen **anderen, unabhängigen** Zweck, siehe unten.
+
+## `events.publish` (E09-T8): externe Statusmeldungen, kein UI-Kanal
+
+Seit E09-T8 (MQTT-Erweiterung für Add-ons) publiziert der Service ZWEI
+schlanke Events -- `started` beim Aufnahme-Start, `stopped` beim Ende (inkl.
+`TrackSummary`: Distanz, Punktzahl, Segmentzahl) -- unter `addon/{id}/*`
+(Scope `events.publish`). Der Core republiziert sie automatisch als
+`yapaja/addon/com.yapaja.track-recorder/started`/`.../stopped` (Rate-Limit
+5 msg/s, Payload ≤ 16 KB, siehe `apps/core/src/mqtt/bridge.ts`) -- damit kann
+z. B. eine Home-Assistant-Automation auf "Aufzeichnung gestartet/beendet"
+reagieren (Worked Example: [`docs/04-home-assistant.md`
+§6](../../docs/04-home-assistant.md#6-add-on-events-e09-t8)).
+
+Das ist bewusst NICHT dasselbe wie der UI<->Service-Kanal oben: die UI dieses
+Add-ons liest ihren Status weiterhin ausschließlich über `storage.own`
+(Polling, siehe oben) -- die `events.publish`-Aufrufe hier sind fire-and-forget
+Benachrichtigungen für EXTERNE (MQTT/HA-)Konsumenten, die die UI selbst nie
+verarbeitet. Ein fehlgeschlagener `events.publish`-Call (z. B. Scope entzogen)
+darf daher nie die eigentliche Aufnahme/GPX-Erstellung stören -- siehe
+`publishAddonEvent()` in `src/service.ts` (try/catch, nur geloggt).
 
 ## Segment-Split bei GPS-Verlust (das Kernstück)
 

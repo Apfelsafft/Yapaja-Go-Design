@@ -21,6 +21,17 @@
  *    count) to `storage.own` so the UI can poll+display it.
  *  - On stop, serialize the finished recording to GPX (`gpx.ts`) and persist
  *    both the GPX text and an updated track index, all under `storage.own`.
+ *  - E09-T8: ALSO publish lightweight `started`/`stopped` notification
+ *    events via `events.publish` (-> `addon/{id}/started|stopped` on the
+ *    bus, -> `yapaja/addon/{id}/started|stopped` over MQTT/HA). This is a
+ *    SEPARATE, narrower purpose from the `storage.own` channel above: see
+ *    the README's "`events.publish` (E09-T8): external status notifications,
+ *    not the UI<->service channel" section for why both coexist without
+ *    contradiction -- short version, `storage.own` is still the only
+ *    UI<->service channel (unchanged, still true, still the only viable one
+ *    for the reasons documented there); `events.publish` here is a
+ *    fire-and-forget, external (HA-facing) notification that the UI never
+ *    consumes at all.
  */
 
 import { connectAddon } from '@yapaja/addon-sdk';
@@ -90,8 +101,12 @@ async function main(): Promise<void> {
     });
   }
 
-  async function finalizeTrack(): Promise<void> {
-    if (!state.trackId) return;
+  /** Persists the GPX + index entry (`storage.own`, unchanged from before
+   *  E09-T8) and RETURNS the summary so the caller can also attach it to the
+   *  `events.publish` "stopped" notification -- one computation, two
+   *  consumers, never out of sync with each other. */
+  async function finalizeTrack(): Promise<TrackSummary | null> {
+    if (!state.trackId) return null;
     const gpx = buildGpx({ trackName: state.trackId, segments: state.segments });
     await addon.storage.set(`track:${state.trackId}`, gpx);
 
@@ -107,6 +122,7 @@ async function main(): Promise<void> {
       segmentCount: state.segments.filter((s) => s.length > 0).length,
     };
     await addon.storage.set('index', [...index, summary]);
+    return summary;
   }
 
   async function pollCommand(): Promise<void> {
@@ -124,10 +140,28 @@ async function main(): Promise<void> {
       const trackId = `track-${Date.now()}`;
       state = startRecording(state, trackId, new Date().toISOString());
       await publishState();
+      // E09-T8: HA-facing notification, e.g. an automation that announces
+      // "Aufzeichnung gestartet" or flips a helper on. See
+      // docs/04-home-assistant.md §6 for a worked automation using this
+      // exact event.
+      await publishAddonEvent('started', { trackId, startedAt: state.startedAt });
     } else if (command.action === 'stop' && state.recording) {
       state = stopRecording(state);
-      await finalizeTrack();
+      const summary = await finalizeTrack();
       await publishState();
+      if (summary) await publishAddonEvent('stopped', summary);
+    }
+  }
+
+  /** `events.publish` never throws out of this add-on's own control flow --
+   *  a missing/denied scope (`ScopeDeniedError`) or a transient network
+   *  hiccup must never crash the recorder itself, since the GPX/`storage.own`
+   *  side (the primary job) already succeeded by the time this runs. */
+  async function publishAddonEvent(topic: string, payload: unknown): Promise<void> {
+    try {
+      await addon.events.publish(topic, payload);
+    } catch (err) {
+      console.error(`[track-recorder] events.publish("${topic}") failed`, err instanceof Error ? err.message : err);
     }
   }
 

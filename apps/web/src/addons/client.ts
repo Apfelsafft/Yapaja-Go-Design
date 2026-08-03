@@ -13,6 +13,10 @@ export interface InstalledAddon {
   version: string;
   manifest: AddonManifest;
   enabled: boolean;
+  /** E09-T8: "In Home Assistant verfügbar" -- whether this add-on's
+   *  `events.publish` output is ALSO republished to MQTT. Only meaningful
+   *  for an add-on that declares the `events.publish` permission. */
+  mqtt_enabled: boolean;
 }
 
 function apiUrl(path: string): string {

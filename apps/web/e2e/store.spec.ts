@@ -70,7 +70,10 @@ test.describe.serial('Add-on Store (E09-T7)', () => {
           id: COMPATIBLE_ID,
           name: 'Store-Test kompatibel',
           core_api: coreVersion,
-          permissions: ['pos.read', 'map.layer.write'],
+          // `events.publish` included (E09-T8) so the "In Home Assistant
+          // verfügbar" toggle actually renders once this add-on is
+          // installed -- see the toggle assertions in the online test below.
+          permissions: ['pos.read', 'map.layer.write', 'events.publish'],
         },
       })
     ).bytes;
@@ -109,7 +112,7 @@ test.describe.serial('Add-on Store (E09-T7)', () => {
         description: 'E2E-Fixture, mit dieser Core-Version kompatibel',
         download_url: compatibleUrl,
         sha256: sha256(compatibleTarball),
-        scopes: ['pos.read', 'map.layer.write'],
+        scopes: ['pos.read', 'map.layer.write', 'events.publish'],
         core_api: coreVersion,
         screenshots: [],
       },
@@ -181,6 +184,27 @@ test.describe.serial('Add-on Store (E09-T7)', () => {
     await expect(page.getByTestId(`catalog-entry-${COMPATIBLE_ID}`)).toHaveCount(0);
     await page.getByTestId('store-tab-updates').click();
     await expect(page.getByTestId(`installed-addon-${COMPATIBLE_ID}`)).toBeVisible();
+
+    // E09-T8 acceptance 3: the "In Home Assistant verfügbar" toggle is
+    // offered (this add-on declares `events.publish`), defaults to ON, and
+    // flipping it round-trips through the real REST endpoint + refresh --
+    // the server-side "takes effect immediately, no restart" half of this
+    // acceptance criterion is proven separately, against a real broker, in
+    // `apps/core/src/mqtt/addonEvents.integration.test.ts` (this dedicated
+    // E2E core has no MQTT broker configured).
+    const mqttToggle = page.getByTestId(`toggle-mqtt-${COMPATIBLE_ID}`);
+    await expect(mqttToggle).toBeVisible();
+    await expect(mqttToggle).toHaveText('In Home Assistant verfügbar ✓');
+    await mqttToggle.click();
+    await expect(mqttToggle).toHaveText('In Home Assistant verfügbar');
+    await page.reload();
+    await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId('store-panel-toggle').click();
+    await page.getByTestId('store-tab-updates').click();
+    // Persisted server-side, still off after a full page reload.
+    await expect(page.getByTestId(`toggle-mqtt-${COMPATIBLE_ID}`)).toHaveText('In Home Assistant verfügbar');
+    await page.getByTestId(`toggle-mqtt-${COMPATIBLE_ID}`).click();
+    await expect(page.getByTestId(`toggle-mqtt-${COMPATIBLE_ID}`)).toHaveText('In Home Assistant verfügbar ✓');
 
     await page.waitForTimeout(300);
     for (const url of tracker.getAllUrls()) {

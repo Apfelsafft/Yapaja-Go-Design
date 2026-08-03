@@ -42,7 +42,8 @@ import {
 import { isNavigationError } from '../navigation/errors.js';
 import { isRoutingError } from '../routing/errors.js';
 import { isRealPosition } from './position.js';
-import { PositionPublishThrottle } from './rateThrottle.js';
+import { PositionPublishThrottle, AddonEventRateLimiter, ADDON_EVENT_RATE_LIMIT_PER_SECOND } from './rateThrottle.js';
+import { buildAddonMqttTopic, parseAddonBusTopic } from './addonTopic.js';
 import {
   buildAltitudePayload,
   buildDestinationPayload,
@@ -65,6 +66,38 @@ const DEFAULT_MIN_BACKOFF_MS = 1000;
 const DEFAULT_MAX_BACKOFF_MS = 60_000;
 const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
 const DEFAULT_DISCOVERY_PREFIX = 'homeassistant';
+
+/** E09-T8, docs/05 §2: add-on `events.publish` payload cap for the MQTT
+ *  republish specifically -- INDEPENDENT of (and smaller than)
+ *  `DEFAULT_MAX_EVENT_PAYLOAD_BYTES` (64 KB, `../addons/serviceRoutes.ts`),
+ *  which caps what an add-on may put on the internal BUS at all. A payload
+ *  between 16 KB and 64 KB is therefore accepted onto the bus (other bus
+ *  subscribers, e.g. a future WS fan-out, are unaffected) but never reaches
+ *  MQTT/HA -- a large payload is dropped here, logged, never truncated. */
+export const MAX_ADDON_EVENT_PAYLOAD_BYTES = 16 * 1024;
+
+/** Structural interface `AddonRepository` (`../addons/repository.ts`)
+ *  satisfies directly (`isMqttEnabled(id)`) -- kept as its own interface so
+ *  this module never imports the DB layer, matching `MqttProfileLookup`/
+ *  `MqttFavoriteLookup` above. */
+export interface AddonMqttToggleLookup {
+  /** Live-read (never cached) whether add-on `id`'s `events.publish` output
+   *  should ALSO go out over MQTT (the "In Home Assistant verfügbar"
+   *  Store-detail toggle, E09-T8 acceptance criterion 3). Read fresh on
+   *  EVERY `addon/*` bus event -- never memoized here -- so flipping the
+   *  toggle takes effect on the very next event, no restart/reconnect. */
+  isMqttEnabled(addonId: string): boolean;
+}
+
+/** Default when no lookup is wired (e.g. a bridge built without add-on
+ *  awareness, or most existing tests): republish everything, mirroring the
+ *  DB column's own `DEFAULT 1` (opt-OUT, not opt-in) -- see migration
+ *  `004_addon_mqtt_enabled.ts`. This default is not itself a security
+ *  boundary: whatever an add-on may publish here is ALREADY confined to its
+ *  own `yapaja/addon/{id}/*` namespace by `normalizeAddonEventTopic` +
+ *  `buildAddonMqttTopic`, so "publish by default" only affects HA
+ *  visibility, never namespace safety. */
+const alwaysMqttEnabled: AddonMqttToggleLookup = { isMqttEnabled: () => true };
 
 /** Just the profile operations the bridge needs; `ProfileService` satisfies
  *  it (it already exposes exactly this shape). */
@@ -136,6 +169,11 @@ export interface MqttBridgeOptions {
   /** HA auto-discovery (E08-T2). Omit entirely to disable (no device/sw_version to publish with). */
   discovery?: MqttBridgeDiscoveryOptions;
 
+  /** E09-T8: per-add-on "In Home Assistant verfügbar" toggle lookup
+   *  (`AddonRepository` satisfies this directly). Omit to republish every
+   *  add-on's events unconditionally (see {@link alwaysMqttEnabled}). */
+  addonMqttToggle?: AddonMqttToggleLookup;
+
   logger?: MqttBridgeLogger;
   reconnect?: MqttReconnectOptions;
   connectTimeoutMs?: number;
@@ -192,6 +230,13 @@ export class MqttBridge {
   private lastRouteId: string | null = null;
   private readonly unsubscribers: Array<() => void> = [];
 
+  /** E09-T8: add-on `events.publish` -> MQTT republish state -- the rate
+   *  limiter (own instance PER BRIDGE, independent windows per add-on id
+   *  inside it) and the toggle lookup (default: always on, see
+   *  {@link alwaysMqttEnabled}). */
+  private readonly addonEventLimiter = new AddonEventRateLimiter();
+  private readonly addonMqttToggle: AddonMqttToggleLookup;
+
   constructor(opts: MqttBridgeOptions) {
     this.bus = opts.bus;
     this.brokerUrl = opts.brokerUrl;
@@ -207,6 +252,7 @@ export class MqttBridge {
     this.discoveryEnabled = opts.discovery?.enabled ?? false;
     this.discoveryPrefix = opts.discovery?.discoveryPrefix ?? DEFAULT_DISCOVERY_PREFIX;
     this.discoveryDevice = opts.discovery?.device ?? null;
+    this.addonMqttToggle = opts.addonMqttToggle ?? alwaysMqttEnabled;
 
     this.navigationService = opts.navigationService;
     this.profileService = opts.profileService;
@@ -401,6 +447,13 @@ export class MqttBridge {
       // change starts mutating `name` as a side effect of activation.
       this.bus.subscribe('event/profile_list_changed', () => this.publishProfileSelectDiscovery()),
       this.bus.subscribe('event/profile_changed', () => this.publishProfileSelectDiscovery()),
+      // E09-T8: every add-on event (published under `addon/{id}/*` via the
+      // `events.publish` scope, docs/05 §2) additionally goes out as
+      // `yapaja/addon/{id}/*`. `'addon/*'` is a PREFIX pattern on the bus
+      // (`topicMatches()`, `../bus/index.ts`) -- it catches every add-on's
+      // events through one subscription, same shape as this bridge already
+      // uses for its own status topics.
+      this.bus.subscribe('addon/*', (payload, topic) => this.onAddonEvent(topic, payload)),
     );
   }
 
@@ -443,6 +496,85 @@ export class MqttBridge {
       retain: false,
       qos: 1,
     });
+  }
+
+  /**
+   * `yapaja/addon/{id}/*` (E09-T8, docs/05 §2) -- an add-on's own
+   * `events.publish` output, republished to MQTT. Four independent gates,
+   * in order (any one failing means "drop, log, never publish"):
+   *
+   *  1. the per-add-on "In Home Assistant verfügbar" toggle
+   *     ({@link addonMqttToggle}) -- an opt-out, not an error, so this is
+   *     the only gate that does NOT log (nothing went wrong).
+   *  2. {@link buildAddonMqttTopic} -- the MQTT-wire-safety check (see
+   *     `addonTopic.ts`'s doc comment for exactly what this defends against
+   *     and why `normalizeAddonEventTopic` alone is not enough). Should
+   *     never fail given the upstream guarantee that `addon/*` bus events
+   *     only ever come from `POST /addons/:id/events`; logged at `error`
+   *     because a failure here would mean that guarantee broke.
+   *  3. the 16 KB payload cap ({@link MAX_ADDON_EVENT_PAYLOAD_BYTES}).
+   *  4. the 5 msg/s rate limit ({@link addonEventLimiter}, docs/05 §2).
+   *
+   * Never retained (`retain: false`): like `yapaja/event/#` above, an
+   * add-on event is a point-in-time notification (e.g. "recording
+   * started"), not a durable state -- a client that subscribes later must
+   * never be handed a replay of something that already happened. Add-ons
+   * that DO want durable state expose it via `storage.own` (polled) or
+   * their own UI widget, not MQTT.
+   */
+  private onAddonEvent(busTopic: string, payload: unknown): void {
+    const parsed = parseAddonBusTopic(busTopic);
+    // Defense-in-depth: `addon/*` bus events are ONLY ever produced by
+    // `POST /addons/:id/events` after `normalizeAddonEventTopic`
+    // (`../addons/scopeMatrix.ts`) confines them to `addon/{id}/*` -- this
+    // should never fail to parse. If it ever does, something upstream
+    // changed or broke; log loudly and drop rather than publish something
+    // this bridge cannot even attribute to an add-on.
+    if (!parsed) {
+      this.logger.error('mqtt: addon bus event did not parse as addon/{id}/*, dropping', { topic: busTopic });
+      return;
+    }
+    const { addonId } = parsed;
+
+    // Opt-out toggle -- not an error, nothing to log.
+    if (!this.addonMqttToggle.isMqttEnabled(addonId)) return;
+
+    const mqttTopic = buildAddonMqttTopic(this.prefix, busTopic);
+    if (!mqttTopic) {
+      // Second, MQTT-specific layer of defense (see `addonTopic.ts`'s doc
+      // comment) -- should also never trigger given the upstream guarantee,
+      // but if it ever does, a malformed/wildcard MQTT topic must NEVER
+      // reach the broker (it could get THIS bridge's own connection
+      // disconnected by a spec-compliant broker -- see `addonTopic.ts`).
+      this.logger.error('mqtt: refused to publish addon event as an unsafe MQTT topic', {
+        addonId,
+        topic: busTopic,
+      });
+      return;
+    }
+
+    const text = JSON.stringify(payload ?? null);
+    const sizeBytes = Buffer.byteLength(text, 'utf8');
+    if (sizeBytes > MAX_ADDON_EVENT_PAYLOAD_BYTES) {
+      this.logger.warn('mqtt: dropped addon event, payload exceeds the cap', {
+        addonId,
+        topic: mqttTopic,
+        sizeBytes,
+        capBytes: MAX_ADDON_EVENT_PAYLOAD_BYTES,
+      });
+      return;
+    }
+
+    if (!this.addonEventLimiter.allow(addonId, Date.now())) {
+      this.logger.warn('mqtt: throttled addon event, rate limit exceeded', {
+        addonId,
+        topic: mqttTopic,
+        limitPerSecond: ADDON_EVENT_RATE_LIMIT_PER_SECOND,
+      });
+      return;
+    }
+
+    this.safePublish(mqttTopic, text, { retain: false, qos: 1 });
   }
 
   private publishRetained(topic: string, payload: unknown): void {
