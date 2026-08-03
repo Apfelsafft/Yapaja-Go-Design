@@ -53,6 +53,7 @@ import {
 } from './paths.js';
 import { AddonRepository, type AddonRecord } from './repository.js';
 import { PendingInstallStore, type PendingInstall } from './pendingStore.js';
+import { AddonStorageService } from './storageService.js';
 
 /** Compressed upload/download size cap (E09-T1 §2 step 2). */
 export const MAX_TARBALL_COMPRESSED_BYTES = 50 * 1024 * 1024;
@@ -159,6 +160,31 @@ export interface AddonLifecycleListener {
   onUninstalled(addonId: string): void;
 }
 
+/**
+ * The narrow slice of `AddonStorageService` uninstall needs -- wiping the
+ * add-on's settings-backed KV namespace (`addon.storage.{id}`, `storage.own`
+ * scope, see `storageService.ts`). Kept as a structural interface (rather
+ * than importing the concrete class everywhere `InstallService` is
+ * constructed) so a test can inject a throwaway fake instead of a real
+ * `AddonStorageService` wired to the process-global `SettingsService`/`getDb()`.
+ *
+ * BUGFIX (found while implementing E09-T7): `uninstall()` already wiped the
+ * add-on's CODE dir and its FILESYSTEM `storage.own` dir
+ * (`resolveAddonStorageRootDir()`), but never cleared this SECOND storage --
+ * the settings-table-backed KV namespace `addon.storage.{id}` that
+ * `storageRoutes.ts`/`AddonStorageService` actually serve `GET/PUT/DELETE
+ * /addons/:id/storage/:key` from. docs/05 §1 and E09-T1's own acceptance
+ * criteria call uninstall "restlos" (residue-free) for "Code+Storage" --
+ * that promise was only half kept. A reinstall of the same `id` would have
+ * silently resurrected the PREVIOUS install's KV data (settings persist by
+ * key, independent of the `addons` DB row), which is either a stale-data or
+ * a cross-tenant-looking surprise depending on who reinstalls. Fixed here so
+ * uninstall wipes BOTH storages, consistently.
+ */
+export interface AddonStorageClearer {
+  clear(addonId: string): void;
+}
+
 export interface InstallServiceOptions {
   repository?: AddonRepository;
   pendingStore?: PendingInstallStore;
@@ -177,6 +203,11 @@ export interface InstallServiceOptions {
   maxUncompressedBytes?: number;
   /** E09-T3 service runtime; omit to run without any add-on processes. */
   lifecycle?: AddonLifecycleListener;
+  /** The `storage.own` KV namespace clearer, consulted (only) on uninstall.
+   *  Defaults to a real `AddonStorageService` (the same one `storageRoutes.ts`
+   *  serves `GET/PUT/DELETE /addons/:id/storage/:key` from); injectable so a
+   *  test can use an in-memory fake instead of the process-global settings DB. */
+  addonStorage?: AddonStorageClearer;
 }
 
 export class InstallService {
@@ -188,6 +219,7 @@ export class InstallService {
   private readonly maxCompressedBytes: number;
   private readonly maxUncompressedBytes: number;
   private readonly lifecycle?: AddonLifecycleListener;
+  private readonly addonStorage: AddonStorageClearer;
 
   constructor(opts: InstallServiceOptions) {
     this.repository = opts.repository ?? new AddonRepository();
@@ -198,6 +230,7 @@ export class InstallService {
     this.maxCompressedBytes = opts.maxCompressedBytes ?? MAX_TARBALL_COMPRESSED_BYTES;
     this.maxUncompressedBytes = opts.maxUncompressedBytes ?? MAX_TARBALL_UNCOMPRESSED_BYTES;
     this.lifecycle = opts.lifecycle;
+    this.addonStorage = opts.addonStorage ?? new AddonStorageService();
   }
 
   /** A lifecycle listener must never be able to break the lifecycle itself:
@@ -468,8 +501,13 @@ export class InstallService {
     return record;
   }
 
-  /** Removes code + storage + the DB row completely -- a test asserts
-   *  nothing survives on either the filesystem or in the DB. */
+  /** Removes code + BOTH storages (the `storage.own` filesystem dir AND the
+   *  settings-backed KV namespace, see {@link AddonStorageClearer}) + the DB
+   *  row completely -- a test asserts nothing survives on the filesystem, in
+   *  the settings table, or in the `addons` DB row. An UPDATE never calls
+   *  this path (see `performConfirm`/`swapUpdatedVersion` above) -- only
+   *  uninstall wipes storage, exactly the "Update behält Nutzer-Settings,
+   *  nur bei Uninstall weg" plausibility rule (docs/05 §5, E09-T7). */
   async uninstall(id: string): Promise<void> {
     const record = this.repository.getById(id);
     if (!record) throw new AddonError('NOT_FOUND', `No add-on installed with id "${id}"`);
@@ -486,6 +524,11 @@ export class InstallService {
     if (storageDir) {
       await rm(storageDir, { recursive: true, force: true });
     }
+    // Second storage (BUGFIX, see `AddonStorageClearer`'s doc comment): the
+    // settings-table `addon.storage.{id}` KV namespace used to survive an
+    // uninstall indefinitely. `clear()` is idempotent/never-throws for a
+    // valid id (same guarantee `storageService.ts` already documents).
+    this.addonStorage.clear(id);
     this.repository.delete(id);
   }
 }

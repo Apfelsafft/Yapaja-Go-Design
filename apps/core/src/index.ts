@@ -34,6 +34,7 @@ import { serveIndexHtml } from './static/ingressHtml.js';
 import { systemPlugin } from './system/routes.js';
 import { readPackageVersion } from './version.js';
 import { addonsPlugin } from './addons/routes.js';
+import { addonRegistryPlugin } from './addons/registryRoutes.js';
 import { addonUiHostPlugin } from './addons/ui-host.js';
 import { addonStoragePlugin } from './addons/storageRoutes.js';
 import { AddonAuthService, AddonTokenService } from './addons/tokens.js';
@@ -382,6 +383,14 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     coreVersion: version,
     lifecycle: addonServiceHost,
   });
+
+  // Add-on REGISTRY plugin (E09-T7, docs/05 §5, W-11/W-13): `GET
+  // /addons/registry` (cached catalog + age, offline-safe) + `POST
+  // /addons/registry/sync` (fetch/validate/persist a fresh one). Additive --
+  // installing FROM a registry entry reuses `POST /addons/install
+  // {source:'url', ...}` above unchanged, so sha256/core_api enforcement
+  // stays in the ONE place it already lived (`installService.ts`).
+  await fastify.register(addonRegistryPlugin, { prefix: '/api/v1', coreVersion: version });
 
   // E09-T2 (docs/05 §1A, Wargame W-10): serve an ENABLED add-on's UI assets
   // under `/addons/{id}/ui/**` behind a strict CSP (no external hosts,

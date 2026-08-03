@@ -20,18 +20,39 @@ import { createDb } from '../db/index.js';
 import { AddonRepository } from './repository.js';
 import { InstallService } from './installService.js';
 import { AddonError } from './errors.js';
+import { AddonStorageService, type AddonStorageSettings } from './storageService.js';
 import { buildTarball, buildValidAddonTarball, buildZipBombTarball } from './__fixtures__/buildTarball.js';
+
+/** In-memory settings fake -- same shape `storageService.test.ts` uses.
+ *  Standing in for the settings-table-backed `addon.storage.{id}` KV
+ *  namespace so these tests never touch the process-global `getDb()`
+ *  singleton (the default `AddonStorageService()` would otherwise open a
+ *  real `data/db/yapaja.db` relative to the process cwd -- not this test's
+ *  isolated in-memory `db`). */
+function makeFakeStorageSettings(): AddonStorageSettings & { store: Record<string, unknown> } {
+  const store: Record<string, unknown> = {};
+  return {
+    store,
+    get: (key) => store[key],
+    patch: (values) => {
+      Object.assign(store, values);
+      return { ...store };
+    },
+  };
+}
 
 let addonsRootDir: string;
 let addonsStorageRootDir: string;
 let db: ReturnType<typeof createDb>;
 let service: InstallService;
+let fakeStorageSettings: ReturnType<typeof makeFakeStorageSettings>;
 
 beforeEach(() => {
   const parent = mkdtempSync(join(tmpdir(), 'addon-install-service-test-'));
   addonsRootDir = join(parent, 'addons');
   addonsStorageRootDir = join(parent, 'addon-storage');
   db = createDb(':memory:');
+  fakeStorageSettings = makeFakeStorageSettings();
   service = new InstallService({
     repository: new AddonRepository(db),
     coreVersion: '1.4.0',
@@ -39,6 +60,7 @@ beforeEach(() => {
     addonsStorageRootDir,
     maxCompressedBytes: 50 * 1024 * 1024,
     maxUncompressedBytes: 50 * 1024 * 1024,
+    addonStorage: new AddonStorageService(fakeStorageSettings),
   });
 });
 
@@ -290,8 +312,8 @@ describe('enable/disable lifecycle', () => {
   });
 });
 
-describe('uninstall -- residue-free (FS + DB)', () => {
-  it('removes the code dir, the storage dir, and the DB row completely', async () => {
+describe('uninstall -- residue-free (FS + settings-KV + DB) -- E09-T7 plausibility check', () => {
+  it('removes the code dir, the FS storage dir, the settings-backed KV namespace, and the DB row completely', async () => {
     const { bytes, manifest } = await buildValidAddonTarball();
     const pending = await service.beginInstallFromUpload(bytes);
     await service.confirmInstall(pending.pendingId);
@@ -303,14 +325,27 @@ describe('uninstall -- residue-free (FS + DB)', () => {
     mkdirSync(storageDir, { recursive: true });
     writeFileSync(join(storageDir, 'state.json'), '{"foo":1}');
 
+    // TWO storages exist for `storage.own` (docs/05 §2): the filesystem dir
+    // above, AND the settings-table-backed KV namespace `addon.storage.{id}`
+    // that `storageRoutes.ts`/`AddonStorageService` actually serve
+    // `GET/PUT/DELETE /addons/:id/storage/:key` from. Simulate the add-on
+    // having used THAT one too.
+    const kvService = new AddonStorageService(fakeStorageSettings);
+    kvService.set(manifest.id, 'lastSync', 42);
+
     expect(existsSync(join(addonsRootDir, manifest.id))).toBe(true);
     expect(existsSync(storageDir)).toBe(true);
+    expect(fakeStorageSettings.store[`addon.storage.${manifest.id}`]).toEqual({ lastSync: 42 });
     expect(service.listAddons()).toHaveLength(1);
 
     await service.uninstall(manifest.id);
 
     expect(existsSync(join(addonsRootDir, manifest.id))).toBe(false);
     expect(existsSync(storageDir)).toBe(false);
+    // BUGFIX under test: before E09-T7 this key survived an uninstall
+    // forever (see `installService.ts`'s `AddonStorageClearer` doc comment).
+    expect(kvService.get(manifest.id, 'lastSync')).toBeUndefined();
+    expect(fakeStorageSettings.store[`addon.storage.${manifest.id}`]).toEqual({});
     expect(service.listAddons()).toEqual([]);
     // Direct DB check too, not just the service-level view.
     expect(new AddonRepository(db).getById(manifest.id)).toBeNull();
@@ -318,6 +353,46 @@ describe('uninstall -- residue-free (FS + DB)', () => {
 
   it('uninstalling an unknown id is rejected', async () => {
     await expect(service.uninstall('nope')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+});
+
+describe('update preserves BOTH storages -- only uninstall wipes them (docs/05 §5, E09-T7 plausibility check)', () => {
+  it('an update (same id, new version) leaves the FS storage dir AND the settings-KV namespace untouched', async () => {
+    const { bytes: v1Bytes, manifest } = await buildValidAddonTarball({
+      manifest: { version: '1.0.0', core_api: '^1.0' },
+    });
+    const v1Pending = await service.beginInstallFromUpload(v1Bytes);
+    await service.confirmInstall(v1Pending.pendingId);
+    service.enable(manifest.id);
+
+    // The add-on writes to BOTH of its storages while running v1.
+    const storageDir = join(addonsStorageRootDir, manifest.id);
+    mkdirSync(storageDir, { recursive: true });
+    writeFileSync(join(storageDir, 'settings.json'), '{"unit":"metric"}');
+    const kvService = new AddonStorageService(fakeStorageSettings);
+    kvService.set(manifest.id, 'apiKey', 'user-configured-secret');
+
+    // Update to v2.
+    const { bytes: v2Bytes } = await buildValidAddonTarball({
+      manifest: { version: '2.0.0', core_api: '^1.0' },
+    });
+    const v2Pending = await service.beginInstallFromUpload(v2Bytes);
+    expect(v2Pending.isUpdate).toBe(true);
+    const record = await service.confirmInstall(v2Pending.pendingId);
+    expect(record.version).toBe('2.0.0');
+
+    // Both storages -- FS dir and settings-KV namespace -- survive an
+    // update byte-for-byte; `confirmInstall`'s swap only ever touches the
+    // CODE dir (`resolveAddonDir(addonsRootDir, id)`), never
+    // `addonsStorageRootDir` or the settings table.
+    expect(readFileSync(join(storageDir, 'settings.json'), 'utf-8')).toBe('{"unit":"metric"}');
+    expect(kvService.get(manifest.id, 'apiKey')).toBe('user-configured-secret');
+
+    // Only uninstall wipes them (cross-checked against the describe block
+    // above, repeated here to nail down the "only" half of the claim).
+    await service.uninstall(manifest.id);
+    expect(existsSync(storageDir)).toBe(false);
+    expect(kvService.get(manifest.id, 'apiKey')).toBeUndefined();
   });
 });
 

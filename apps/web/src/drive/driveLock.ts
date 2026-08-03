@@ -56,6 +56,7 @@ export type DriveControlId =
   | 'settings'
   | 'editor'
   | 'store'
+  | 'addon-store'
   | 'profile-editor'
   | 'search-full';
 
@@ -91,7 +92,10 @@ export interface DriveLockContext {
  * resuming it), not "complex dialogs" (docs/06 §4's own scoping language:
  * "komplexe Dialoge (Profil-Editor, Settings, Store) gesperrt"). Only the
  * genuine CONFIGURATION surfaces -- Settings, the layout Editor, the
- * region/map Store panel, the Profile editor, and the full search field --
+ * region/map Store panel (`'store'`), the ADD-ON Store panel
+ * (`'addon-store'`, E09-T7 -- a second, distinct "Store" from the region/map
+ * one above; docs/06 §4's "Store" language covers both, they just live in
+ * two separate panels), the Profile editor, and the full search field --
  * are gated behind the overlay.
  */
 export function isControlLocked(controlId: DriveControlId, ctx: DriveLockContext): boolean {
