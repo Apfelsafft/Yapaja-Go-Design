@@ -15,7 +15,10 @@
     "e2e": "pnpm --filter @yapaja/web e2e",
     "golden-routes": "vitest run --config vitest.golden.config.ts",
     "e2e:security": "playwright test -c e2e/security/playwright.config.ts",
-    "security:mutation-proof": "bash scripts/security-mutation-proof.sh"
+    "security:mutation-proof": "bash scripts/security-mutation-proof.sh",
+    "perf": "playwright test -c e2e/perf/playwright.config.ts",
+    "perf:soak": "PERF_SOAK=1 playwright test -c e2e/perf/playwright.config.ts -g \"Soak\"",
+    "perf:degradation-proof": "bash scripts/perf-degradation-proof.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.6.0",

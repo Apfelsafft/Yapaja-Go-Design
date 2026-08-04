@@ -3,7 +3,16 @@ name: Nightly
 on:
   schedule:
     - cron: '30 3 * * *'
+    # E10-T2: WOECHENTLICH, Sonntag 02:00 UTC -- der 24-h-Soak (Job
+    # `perf-soak-24h` unten). Die Aufgabenstellung verlangt ihn ausdruecklich
+    # "nightly-woechentlich, cron", nicht jede Nacht.
+    - cron: '0 2 * * 0'
   workflow_dispatch:
+    inputs:
+      soak_duration_s:
+        description: 'Soak-Laufzeit in Sekunden (Default 86400 = 24 h; fuer einen Rauchtest z. B. 600)'
+        required: false
+        default: '86400'
 
 jobs:
   quality:
@@ -77,6 +86,81 @@ jobs:
   # follow-up job here would mirror the `multiarch` job below, pointed at
   # `-f ha-addon/yapaja_go/Dockerfile --build-arg BUILD_FROM=...` per
   # `ha-addon/yapaja_go/build.yaml`'s per-arch base images.
+
+  perf-soak-24h:
+    name: Performance-Soak 24 h (E10-T2, woechentlich)
+    # Nur im WOECHENTLICHEN Slot (Sonntag 02:00 UTC) oder manuell -- nicht in
+    # jedem naechtlichen Lauf.
+    if: github.event.schedule == '0 2 * * 0' || github.event_name == 'workflow_dispatch'
+    #
+    # RUNNER: GitHub-gehostete Runner brechen einen Job nach 6 STUNDEN ab
+    # (dokumentiertes Limit). Ein echter 24-h-Soak ist dort also NICHT
+    # lauffaehig. Deshalb zeigt `runs-on` auf die Repo-Variable
+    # `PERF_SOAK_RUNNER` (z. B. ein self-hosted Runner oder das
+    # N100-Zielgeraet); ist sie nicht gesetzt, faellt der Job auf
+    # `ubuntu-latest` zurueck und wird nach 6 h abgeschnitten -- dann ist das
+    # Ergebnis ein 6-h-Soak, und der Report sagt das auch (er weist die
+    # TATSAECHLICHE Dauer neben der geplanten aus).
+    runs-on: ${{ vars.PERF_SOAK_RUNNER || 'ubuntu-latest' }}
+    #
+    # continue-on-error: true -- gleiche Begruendung wie bei
+    # `golden-routes-de` und `photon-li-nightly`: dieser Job konnte aus der
+    # Entwicklungsumgebung heraus NICHT in voller Laenge beobachtet werden.
+    # Ausgefuehrt und belegt sind dort nur Kurzlaeufe von Minuten (siehe
+    # e2e/perf/README.md §6). Ein unverifizierter Langlaufjob darf nichts
+    # blockieren; er soll seinen Report liefern, damit ein Mensch ihn einmal
+    # ansieht und diese Zeile danach entfernt.
+    continue-on-error: true
+    # 24 h + Aufbau/Abbau. Auf einem gehosteten Runner greift vorher das
+    # 6-h-Limit der Plattform (siehe oben).
+    timeout-minutes: 1500
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+
+      - name: Typecheck perf suite
+        run: pnpm exec tsc --noEmit -p e2e/perf/tsconfig.json
+
+      # Simulator-Dauerfahrt; Kriterien RSS-Drift < 5 % und keine
+      # FD-/Verbindungslecks werden von `e2e/perf/soak.ts` ausgewertet
+      # (unit-getestet in `soak.test.ts`).
+      - name: Soak-Lauf
+        env:
+          PERF_SOAK: '1'
+          PERF_SOAK_DURATION_S: ${{ github.event.inputs.soak_duration_s || '86400' }}
+        run: npx playwright test -c e2e/perf/playwright.config.ts -g "Soak"
+
+      - name: Soak-Report in die Job-Summary schreiben
+        if: always()
+        run: cat e2e/perf/.tmp/soak-report.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload Soak-Artefakte
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-soak
+          path: |
+            e2e/perf/.tmp/soak-results.json
+            e2e/perf/.tmp/soak-report.md
+          retention-days: 30
+          if-no-files-found: warn
 
   multiarch:
     name: Multi-Architecture Build

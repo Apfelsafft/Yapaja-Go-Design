@@ -29,6 +29,14 @@ export default defineConfig({
       // the `@yapaja/addon-sdk`/`@yapaja/shared` aliases below already
       // resolve for them exactly like for every other package.
       'addons-examples/**/*.test.ts',
+      // E10-T2: die Auswertungs-/Schwellenlogik der Performance-Pipeline
+      // (`e2e/perf/{budgets,evaluate,statistics,trend}.ts`). Anders als
+      // `e2e/golden-routes` (das bewusst draussen bleibt, weil es einen
+      // laufenden Core braucht) ist das hier REINE Logik ohne Prozess,
+      // Netzwerk oder Browser -- also genau das, was in den einen
+      // `npx vitest run`-Lauf gehoert. Die MESSUNGEN selbst sind Playwright
+      // und laufen ueber `e2e/perf/playwright.config.ts`.
+      'e2e/perf/**/*.test.ts',
     ],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.turbo/**'],
     coverage: {
