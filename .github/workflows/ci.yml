@@ -187,6 +187,120 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  perf-budgets:
+    name: Performance-Budgets (E10-T2, N100-Profil)
+    runs-on: ubuntu-latest
+    needs: quality
+    # Eigener Job neben `e2e`, aus demselben Grund wie `security-suite`: die
+    # Suite (e2e/perf/) startet genau EINEN dedizierten Core (Port 4350),
+    # laeuft mit `workers: 1` und `retries: 0` -- eine wiederholte Messung
+    # ist keine Messung -- und darf von einem flakenden UI-Spec nicht
+    # abhaengen. Laufzeit lokal gemessen: Build ~50 s + Suite ~2,7 min.
+    #
+    # WICHTIG fuer die Lesart der Ergebnisse (Details: e2e/perf/README.md):
+    #  * Messbar ist hier der RSS des Core-Prozesses. Valhalla/Photon/gpsd
+    #    laufen in dieser Pipeline NICHT als Dienste (die Jobs unten bauen
+    #    Fixtures und smoke-testen); ihr RSS wird als `not_measured` mit
+    #    Begruendung ausgewiesen und NICHT geschaetzt.
+    #  * Die fps-Metriken werden gemessen, aber auf GitHub-Runnern ohne GPU
+    #    (SwiftShader-Softwarerasterung) nicht als Merge-Gate gewertet. Die
+    #    30-fps-Schwelle bleibt unveraendert; die Einstufung leitet die Suite
+    #    zur Laufzeit aus dem GL-Renderer-String ab, auf einem Runner mit
+    #    echter GPU gatet sie automatisch hart.
+    timeout-minutes: 25
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+
+      # e2e/ ist KEIN Workspace-Paket, `pnpm typecheck` (= `pnpm -r`) deckt es
+      # nicht ab -- gleiche Begruendung wie bei golden-routes/security.
+      - name: Typecheck perf suite
+        run: pnpm exec tsc --noEmit -p e2e/perf/tsconfig.json
+
+      # Akzeptanzkriterium 1: alle in dieser Umgebung messbaren Budgets
+      # gemessen und gegen docs/00 + docs/01 §4 bewertet.
+      - name: Measure performance budgets
+        run: pnpm perf
+
+      - name: Trend-Kommentar in die Job-Summary schreiben
+        if: always()
+        run: cat e2e/perf/.tmp/perf-trend.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      # Das JSON-Artefakt (Aufgabenstellung: "Ergebnisse als JSON-Artefakt").
+      # Ein gruenes Artefakt von `main` ist zugleich die Referenz, gegen die
+      # ein spaeterer Lauf per `PERF_BASELINE` das Regressions-Gate fahren kann.
+      - name: Upload perf artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-budgets
+          path: |
+            e2e/perf/.tmp/perf-results.json
+            e2e/perf/.tmp/perf-trend.md
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-traces
+          path: e2e/perf/.tmp/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  perf-degradation-proof:
+    name: Perf-Degradations-Nachweis (E10-T2 Akzeptanz 2)
+    runs-on: ubuntu-latest
+    needs: quality
+    # Akzeptanzkriterium 2: "kuenstliche Verschlechterung (Test-Fixture mit
+    # 200 ms-Delay) macht Pipeline nachweislich rot". Bewusst ein EIGENER Job
+    # neben `perf-budgets` (analog zum Mutations-Nachweis der Sicherheits-
+    # Suite, der dort im selben Job laeuft, hier aber vier weitere
+    # Suite-Laeufe braucht und den Budget-Job sonst ueber sein Zeitbudget
+    # heben wuerde). Laufzeit lokal gemessen: ~9 min.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+
+      - name: Degradation proof (200 ms fixture must turn the pipeline red)
+        run: pnpm perf:degradation-proof
+
   docker:
     name: Docker Build & Health Check
     runs-on: ubuntu-latest

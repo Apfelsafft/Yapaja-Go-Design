@@ -44,6 +44,11 @@ apps/web/e2e/.tmp/
 # E09-T6 security suite: its dedicated core's tiles/add-ons/add-on-storage
 # dirs plus Playwright's per-run traces (see e2e/security/playwright.config.ts).
 e2e/security/.tmp/
+# E10-T2 perf suite: its dedicated core's PID/RSS scratch, the raw
+# per-metric measurement JSONs, the generated report/trend/soak artefacts
+# and Playwright's traces (see e2e/perf/playwright.config.ts). The COMMITTED
+# baseline for the trend comparison lives outside .tmp/ on purpose.
+e2e/perf/.tmp/
 # Playwright/Vitest also drop a root-level test-results/ when run from the
 # monorepo root (e.g. `npx vitest run`); ignore it anywhere in the tree.
 test-results/

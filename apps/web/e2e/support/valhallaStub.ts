@@ -48,6 +48,16 @@ export interface ValhallaStub {
   setNextTrip(trip: ValhallaStubTrip): void;
   /** Number of `/route` POSTs received so far (proves a reroute was -- or wasn't -- attempted). */
   callCount(): number;
+  /**
+   * E10-T2: same instant as {@link lastCallAt}, but on the high-resolution
+   * monotonic clock (`performance.now()`), in milliseconds with sub-microsecond
+   * resolution. `Date.now()`'s 1 ms granularity is unusable for the perf
+   * suite's reroute measurement, whose whole quantity is ~3 ms -- see
+   * `e2e/perf/20-reroute.spec.ts`. Only meaningful when compared against
+   * another `performance.now()` reading taken IN THE SAME PROCESS (the perf
+   * suite's bus observer is).
+   */
+  lastCallAtHrMs(): number | null;
   /** Wall-clock ms of the most recent `/route` POST, or null if none yet.
    *  E10-T1 (flow 3): lets a spec time the reroute itself -- from the moment
    *  the Core actually asks the router, to the moment the new route is live --
@@ -67,11 +77,28 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+export interface ValhallaStubOptions {
+  /**
+   * E10-T2: artificial delay (ms) before the `/route` reply is written.
+   *
+   * Used ONLY by the perf suite's degradation proof
+   * (`scripts/perf-degradation-proof.sh` / `PERF_DEGRADE_DELAY_MS`) to make a
+   * genuine server-side latency regression appear on the reroute path. Every
+   * existing caller omits it and gets exactly the previous behaviour.
+   */
+  delayMs?: number;
+}
+
 /** Starts the stub listening on `port`; resolves once it's actually listening. */
-export async function startValhallaStub(port: number): Promise<ValhallaStub> {
+export async function startValhallaStub(
+  port: number,
+  options: ValhallaStubOptions = {},
+): Promise<ValhallaStub> {
+  const delayMs = options.delayMs ?? 0;
   let trip: ValhallaStubTrip | null = null;
   let calls = 0;
   let lastCallAt: number | null = null;
+  let lastCallAtHr: number | null = null;
 
   const server: Server = createServer((req: IncomingMessage, res: ServerResponse) => {
     if (req.method === 'GET' && req.url === '/_calls') {
@@ -84,9 +111,16 @@ export async function startValhallaStub(port: number): Promise<ValhallaStub> {
       res.end();
       return;
     }
-    void readBody(req).then(() => {
+    void readBody(req).then(async () => {
+      // Counted/stamped the moment the request ARRIVES -- `lastCallAt` is what
+      // the reroute measurement uses as "the Core asked the router", so an
+      // artificial `delayMs` must land AFTER this, inside the measured window.
       calls += 1;
       lastCallAt = Date.now();
+      lastCallAtHr = performance.now();
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
       if (!trip) {
         res.writeHead(400, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: 'stub has no trip configured', error_code: 442 }));
@@ -120,6 +154,7 @@ export async function startValhallaStub(port: number): Promise<ValhallaStub> {
     },
     callCount: () => calls,
     lastCallAt: () => lastCallAt,
+    lastCallAtHrMs: () => lastCallAtHr,
     close: () =>
       new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
