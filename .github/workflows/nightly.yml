@@ -213,15 +213,46 @@ jobs:
     # than germany-latest on a standard GitHub runner) -- hence nightly, not
     # per-PR.
     #
-    # continue-on-error: the DE cases are still `unverified` in
-    # e2e/golden-routes.json (seeded distances not yet frozen; restriction
-    # OSM way-ids / forbidden_bbox not yet confirmed via Overpass, which is
-    # egress-blocked in the build sandbox). This job therefore runs but does
-    # NOT block: it exists to surface the observed distances/durations and the
-    # small-vs-large intersection results in the logs, so a human can freeze
-    # the values and flip `unverified:false`. Once verified, remove
-    # continue-on-error and the `--bail 0` override below so a failed
-    # safety/restriction case becomes a hard abort (like the LI gate).
+    # ─────────────────────────────────────────────────────────────────────
+    # WHY THIS JOB IS STILL NON-BLOCKING, AND EXACTLY WHAT MUST BE TRUE TO
+    # MAKE THE DE SET A HARD GATE (E10-T3)
+    # ─────────────────────────────────────────────────────────────────────
+    # Every DE case in e2e/golden-routes.json is `unverified: true`: the
+    # distances are seed estimates that were never routed, and every
+    # `restriction.osm_way_id` is null because no OSM tag has ever been read.
+    # Turning that into a merge gate today would only mean blocking merges on
+    # numbers nobody has checked.
+    #
+    # This job produces the evidence instead of asserting on it. The
+    # provenance step below reads the maxheight/maxweight/maxwidth tags out of
+    # THE SAME PBF this job just built the graph from, and the runner logs the
+    # observed distance/duration/intersection for every case.
+    #
+    # CHECKLIST — remove `continue-on-error: true` and the `--bail 0` override
+    # only when ALL of these hold, and record the run URL in the PR that does
+    # it:
+    #   1. The provenance step reports CONFIRMED for all 6 restriction cases
+    #      (no NO_CANDIDATES / VALUE_MISMATCH / NO_PARSABLE_VALUE left). Cases
+    #      it cannot confirm must be REPLACED using `discover`, not kept red.
+    #      The two E10-T3 candidate cases (duisburg-neuenkamp weight,
+    #      rothenburg width) are the most likely to need replacing — both are
+    #      explicitly flagged as unconfirmed in the fixture.
+    #   2. Each restriction case's `osm_way_id`/`value` has been frozen from
+    #      that report, and `unverified` dropped. NEVER hand-fill a way-id.
+    #   3. Every distance case's `expected_distance_m` has been frozen from an
+    #      observed run (the seeds are ±10 % bands around guesses today).
+    #   4. de-monotonic-nuernberg-fuerth routed for all three profiles.
+    #   5. de-no-route-langeoog actually returned NO_ROUTE.
+    #   6. Two consecutive nightlies were green with the frozen values — one
+    #      green run does not distinguish "correct" from "lucky".
+    # Until then a failure here is information, not a gate.
+    #
+    # Note that the DE set's SHAPE is already hard-gated even while this job
+    # is soft: `runner.test.ts` asserts >=15 DE cases with
+    # height×3/weight×2/width×1 on every single run of the suite, including
+    # the per-PR LI gate, and `provenance.test.ts` fails any case whose
+    # profiles do not straddle its limit or that carries an osm_way_id while
+    # still claiming to be unverified.
     continue-on-error: true
     timeout-minutes: 330
     steps:
@@ -253,6 +284,50 @@ jobs:
         run: |
           chmod +x services/valhalla/build-tiles.sh
           services/valhalla/build-tiles.sh https://download.geofabrik.de/europe/germany-latest.osm.pbf
+
+      # ── E10-T3: restriction provenance from the ROUTED dataset ───────────
+      # The gis-ops image downloads the PBF into the tiles directory, which
+      # build-tiles.sh then swaps into data/valhalla/tiles -- so the exact
+      # bytes the graph was built from are sitting right there. Reading the
+      # maxheight/maxweight/maxwidth tags out of THAT file is stronger
+      # evidence than an Overpass lookup: it proves the tag is in the data the
+      # router routes on, not merely in today's live OSM. (It is also the only
+      # way this can work at all from an environment without Overpass egress.)
+      #
+      # Non-blocking on purpose: this step REPORTS, it does not assert. When
+      # the checklist in this job's header is satisfied, add
+      # `--fail-on-unconfirmed` to the verify call and drop the `|| true`.
+      - name: Install osmium-tool
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends osmium-tool
+
+      - name: Restriction provenance from the same PBF (verify + discover)
+        run: |
+          chmod +x scripts/osm-restriction-provenance.sh
+          PBF="$(find data/valhalla/tiles -maxdepth 1 -name '*.osm.pbf' | head -1)"
+          if [ -z "$PBF" ]; then
+            echo "::warning::No .osm.pbf found next to the built tiles — downloading it separately for the provenance run."
+            mkdir -p data/pbf
+            curl -fL --retry 3 -o data/pbf/germany-latest.osm.pbf \
+              https://download.geofabrik.de/europe/germany-latest.osm.pbf
+            PBF=data/pbf/germany-latest.osm.pbf
+          fi
+          echo "Using PBF: $PBF"
+          scripts/osm-restriction-provenance.sh verify "$PBF" || true
+          # Real, currently-tagged alternatives for any case verify could not
+          # confirm — so an unusable case gets REPLACED with evidence instead
+          # of guessed into shape.
+          for kind in maxheight maxweight maxwidth; do
+            scripts/osm-restriction-provenance.sh discover "$PBF" "$kind" 40 || true
+          done
+
+      - name: Upload provenance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-routes-de-provenance
+          path: e2e/golden-routes/.tmp/*.json
+          retention-days: 30
+          if-no-files-found: warn
 
       - name: Start Valhalla serving the swapped tiles
         run: |
@@ -306,7 +381,12 @@ jobs:
           # --bail 0 (override the config's bail:1) so ALL DE cases report their
           # observations in one pass while still unverified. Restore the hard
           # bail once the DE set is verified and this job becomes a gate.
-          GOLDEN_LIVE=1 GOLDEN_REGION=de CORE_URL=http://localhost:8080 \
+          # GOLDEN_NIGHTLY=1 also admits `nightly_only` cases (the ETA type).
+          # The DE set has none today -- the ETA case runs on the LI graph in
+          # `golden-eta-li` below, because that is the graph CI actually
+          # builds reliably -- but setting it here keeps "the nightly runs
+          # everything" true when a DE ETA case is added.
+          GOLDEN_LIVE=1 GOLDEN_NIGHTLY=1 GOLDEN_REGION=de CORE_URL=http://localhost:8080 \
             pnpm exec vitest run --config vitest.golden.config.ts --bail 0
           RC=$?
           set -e
@@ -320,6 +400,182 @@ jobs:
       - name: Dump Valhalla logs on failure
         if: failure()
         run: docker logs valhalla 2>&1 | tail -150 || true
+
+  golden-eta-li:
+    name: ETA-Plausibilität LI (nightly, E10-T3, docs/07 §3b)
+    runs-on: ubuntu-latest
+    # docs/07 §3b: "ETA-Plausibilität: simulierte Fahrt mit Faktor 1.0 =>
+    # tatsächliche Ankunftszeit weicht < 5 % von initialer ETA ab." E10-T3
+    # requires it automated as a NIGHTLY test -- and nightly is also the only
+    # honest place for it: at speed_factor 1.0 one simulated second costs one
+    # real second, so the case burns minutes of wall clock and has no business
+    # in a per-PR merge gate. The `nightly_only` flag on the case plus
+    # GOLDEN_NIGHTLY=1 here is exactly that split; the per-PR
+    # `golden-routes-li` job leaves the flag unset and skips the case.
+    #
+    # It runs on the LIECHTENSTEIN graph, not the German one: LI is the
+    # extract CI demonstrably builds and routes (see `golden-routes-li` in
+    # ci.yml), so an ETA failure here means the ETA pipeline is wrong rather
+    # than "the DE graph did something unknown". A DE counterpart is worth
+    # adding once the DE set itself is verified.
+    #
+    # continue-on-error: the case has never been executed against a real
+    # Valhalla -- the authoring sandbox has no Docker daemon and no geofabrik
+    # egress. What IS proven there: the <5 % judgement and the wall-clock cap
+    # (e2e/golden-routes/eta.test.ts, pure unit tests) and the whole
+    # route -> navigation/start -> simulator/play -> nav/state -> arrival chain
+    # end-to-end against a real Core with a stub router
+    # (scripts/runbook-smoke.sh, case `smoke-eta-direct`). Drop this line and
+    # flip `unverified:false` on `li-eta-vaduz-schaan` after two consecutive
+    # green runs here -- one green run cannot distinguish a correct ETA from a
+    # lucky one.
+    continue-on-error: true
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck golden-routes runner
+        run: pnpm exec tsc --noEmit -p e2e/golden-routes/tsconfig.json
+
+      - name: Build Liechtenstein tileset via build-tiles.sh
+        run: |
+          chmod +x services/valhalla/build-tiles.sh
+          services/valhalla/build-tiles.sh https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+
+      - name: Start Valhalla serving the swapped tiles
+        run: |
+          docker run -d --name valhalla \
+            -p 8002:8002 \
+            -v "$PWD/data/valhalla/tiles:/custom_files" \
+            -e tile_urls= \
+            -e serve_tiles=True \
+            -e force_rebuild=False \
+            -e build_elevation=False \
+            -e build_admins=True \
+            -e build_time_zones=False \
+            ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+
+      - name: Wait for Valhalla /status
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8002/status >/dev/null 2>&1; then
+              echo "Valhalla /status ready after ~$((i*2))s"
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "::error::Valhalla did not come up in time"
+              docker logs valhalla 2>&1 | tail -150
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Build app
+        run: pnpm build
+
+      # GOLDEN_NIGHTLY=1 admits the `eta` case. The simulator endpoints the
+      # case drives are open here because NODE_ENV is not `production` (see
+      # apps/core/src/position/simulator/routes.ts) -- no extra flag needed.
+      - name: Run Golden-Routes with the ETA case (GOLDEN_REGION=li, GOLDEN_NIGHTLY=1)
+        run: |
+          DB_PATH=:memory: VALHALLA_URL=http://localhost:8002 PORT=8080 \
+            node apps/core/dist/index.js > core.log 2>&1 &
+          CORE_PID=$!
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/api/v1/health >/dev/null 2>&1; then
+              echo "Core healthy after ~${i}s"; break
+            fi
+            if ! kill -0 "$CORE_PID" 2>/dev/null; then
+              echo "::error::Core exited before healthy"; cat core.log; exit 1
+            fi
+            [ "$i" -eq 60 ] && { echo "::error::Core not healthy in time"; cat core.log; exit 1; }
+            sleep 1
+          done
+          set +e
+          GOLDEN_LIVE=1 GOLDEN_NIGHTLY=1 GOLDEN_REGION=li CORE_URL=http://localhost:8080 \
+            pnpm exec vitest run --config vitest.golden.config.ts
+          RC=$?
+          set -e
+          kill "$CORE_PID" 2>/dev/null || true
+          exit $RC
+
+      - name: Dump Core log on failure
+        if: failure()
+        run: tail -200 core.log || true
+
+      - name: Dump Valhalla logs on failure
+        if: failure()
+        run: docker logs valhalla 2>&1 | tail -150 || true
+
+  runbook-smoke:
+    name: Datenaktualisierungs-Runbook Rauchtest (E10-T3)
+    runs-on: ubuntu-latest
+    # Pflicht-Test aus E10-T3 ("Runbook-Smoke als Skript"). Läuft die Schritte
+    # aus docs/data-update-runbook.md in reduzierter Form ab, damit das Runbook
+    # nicht still verrottet, wenn ein Skript umbenannt oder ein Job entfernt
+    # wird.
+    #
+    # BLOCKIEREND (kein continue-on-error): anders als die Jobs oben wurde
+    # dieses Skript vollständig ausgeführt und beobachtet -- es braucht weder
+    # Docker noch Netzwerk noch Kartendaten. Sein Kernpunkt, S6, weist positiv
+    # nach, dass ein Datenupdate mit verlorener Höhenbeschränkung das
+    # Abnahme-Gate ROT macht (`🔴 SAFETY VIOLATION`). Wenn dieser Nachweis
+    # ausfällt, ist die zentrale Zusage des Runbooks unbelegt, und das soll
+    # sichtbar sein.
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck golden-routes runner (incl. stub router + provenance CLI)
+        run: pnpm exec tsc --noEmit -p e2e/golden-routes/tsconfig.json
+
+      # S5/S6 fahren den echten Core gegen den Stub-Router.
+      - name: Build app
+        run: pnpm build
+
+      - name: Runbook-Rauchtest
+        run: |
+          chmod +x scripts/runbook-smoke.sh
+          scripts/runbook-smoke.sh
+
+      - name: Upload Rauchtest-Artefakte
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runbook-smoke
+          path: e2e/golden-routes/.tmp/runbook-smoke/
+          retention-days: 14
+          if-no-files-found: warn
 
   photon-li-nightly:
     name: Photon CH+LI Live Search (nightly, unverified/experimental, E05-T4)

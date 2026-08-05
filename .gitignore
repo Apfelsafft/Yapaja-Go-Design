@@ -66,3 +66,7 @@ temp/
 
 # Runtime data (SQLite DB, tiles, valhalla/photon graphs) — never commit
 /data/
+
+# E10-T3 Golden-Routes provenance/runbook-smoke scratch (osmium extract,
+# machine-readable provenance report, stub-router logs).
+e2e/golden-routes/.tmp/

@@ -1,5 +1,5 @@
 {
-  "$schema_doc": "Golden-Route fixtures (E03-T5, docs/07-testing-qa.md §3b). Types: 'distance' (route length within ±tolerance), 'restriction' (🔴 safety: small profile MUST enter forbidden_bbox, large/heavy profile MUST NOT — both directions asserted; a maxweight case is a restriction with restriction.kind='maxweight'), 'monotonic' (route duration non-decreasing over an ascending profile list — catches swapped profile→costing mappings), 'no_route' (expects NO_ROUTE). Region selection: the runner (e2e/golden-routes/runner.test.ts) runs only cases whose 'region' equals GOLDEN_REGION (li|de, default li). LI cases run in the per-PR CI job 'golden-routes-li' (Merge-Blocker, retry:0, bail:1 — a failed safety/monotonic case HARD-ABORTS with no retry/tolerance). DE cases run only in the nightly 'golden-routes-de' job. 'unverified':true marks a case whose expected value or restriction has NOT been confirmed against a live Valhalla run in this sandbox (Overpass/geofabrik are egress-blocked here); the nightly DE job runs continue-on-error so unverified failures are logged, not blocking. Freeze the value / confirm the OSM way-id and flip unverified:false after the first green nightly run. SAFETY-DEMO (acceptance #3): LI has no map-restriction data, so the restriction assertion cannot be exercised on LI — see the note on the DE restriction cases for exactly how a swapped height/weight mapping makes them fail; on LI the monotonic case is the closest available guard (a swapped top_speed/avg_speed mapping that made a larger vehicle route faster would break its non-decreasing assertion).",
+  "$schema_doc": "Golden-Route fixtures (E03-T5, erweitert in E10-T3; docs/07-testing-qa.md §3b). Types: 'distance' (route length within ±tolerance), 'restriction' (🔴 safety: small profile MUST enter forbidden_bbox, large/heavy profile MUST NOT — both directions asserted; kind is maxheight|maxweight|maxwidth), 'monotonic' (route duration non-decreasing over an ascending profile list — catches swapped profile→costing mappings), 'no_route' (expects NO_ROUTE), 'eta' (ETA-Plausibilität: simulator drives the route's own geometry at the planned pace with speed_factor 1.0; |actual arrival − first published ETA| must stay < max_eta_error of the planned duration). Region selection: the runner (e2e/golden-routes/runner.test.ts) runs only cases whose 'region' equals GOLDEN_REGION (li|de, default li). LI cases run in the per-PR CI job 'golden-routes-li' (Merge-Blocker, retry:0, bail:1 — a failed safety/monotonic case HARD-ABORTS with no retry/tolerance). DE cases run only in the nightly 'golden-routes-de' job. 'nightly_only':true excludes a case unless GOLDEN_NIGHTLY=1 — used for the 'eta' case, which burns one second of WALL CLOCK per simulated second and must not sit in a per-PR gate; the nightly jobs set the flag. 'unverified':true marks a case whose expected value or restriction has NOT been confirmed against a live Valhalla run in this sandbox (Overpass/OSM-API/geofabrik are egress-blocked here); the nightly DE job runs continue-on-error so unverified failures are logged, not blocking. HOW A RESTRICTION CASE BECOMES VERIFIED (E10-T3): do NOT look the way up on overpass — run scripts/osm-restriction-provenance.sh against THE SAME PBF the nightly graph is built from. It extracts every maxheight/maxweight/maxwidth way inside each case's forbidden_bbox and emits a ready-to-paste 'restriction' block with the real osm_way_id + tag value. That is stronger evidence than Overpass: it proves the tag exists in the ROUTED dataset, not merely in today's live OSM. Its 'discover' mode lists the strongest real candidates in a region so a case built on an unconfirmed location can be REPLACED by a tagged one instead of being guessed into shape. Only after that run: fill osm_way_id/value/source, freeze expected_distance_m from the observed run, and flip unverified:false. NEVER hand-fill an osm_way_id or a maxheight value — a fabricated provenance entry makes an unverified case LOOK verified, which is worse than an admitted gap. SAFETY-DEMO (acceptance #3): LI has no map-restriction data, so the restriction assertion cannot be exercised on LI — see the note on the DE restriction cases for exactly how a swapped height/weight mapping makes them fail; on LI the monotonic case is the closest available guard (a swapped top_speed/avg_speed mapping that made a larger vehicle route faster would break its non-decreasing assertion), and scripts/runbook-smoke.sh proves the same property end-to-end against a stub router with NO map data at all.",
   "cases": [
     {
       "id": "li-dist-vaduz-schaan",
@@ -100,6 +100,30 @@
           "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
         }
       ]
+    },
+    {
+      "id": "li-eta-vaduz-schaan",
+      "type": "eta",
+      "region": "li",
+      "nightly_only": true,
+      "unverified": true,
+      "todo": "Freeze after the first green nightly 'golden-eta-li' run: confirm the observed |arrival − initial ETA| stays inside 5% of the planned duration on the real LI graph, then flip unverified:false and drop this job's continue-on-error. Nothing here can be confirmed in the authoring sandbox — it needs a live Valhalla (no Docker daemon, geofabrik egress-blocked).",
+      "provenance": "docs/07 §3b 'ETA-Plausibilität: simulierte Fahrt mit Faktor 1.0 ⇒ tatsächliche Ankunftszeit weicht < 5 % von initialer ETA ab'. OD pair is the ONE LI pair proven routable by CI (Vaduz->Schaan, ~3.17 km / ~4.2 min, same as li-dist-vaduz-schaan), chosen so the case costs ~250 s of wall clock at factor 1.0 instead of hours. It runs on the LI extract because that is the graph CI actually builds reliably today; a DE counterpart follows once the DE set itself is verified. The <5% budget and the wall-clock cap are pure logic and ARE proven here: e2e/golden-routes/eta.test.ts.",
+      "origin": { "lat": 47.141, "lon": 9.5209 },
+      "destination": { "lat": 47.1665, "lon": 9.5093 },
+      "profile": {
+        "name": "Camper 3.0m",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.5,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "speed_factor": 1.0,
+      "max_eta_error": 0.05,
+      "max_wall_clock_s": 900
     },
 
     {
@@ -212,13 +236,99 @@
       "expected_distance_m": 82000,
       "tolerance": 0.1
     },
+    {
+      "id": "de-dist-dresden-leipzig",
+      "type": "distance",
+      "region": "de",
+      "unverified": true,
+      "todo": "Freeze expected_distance_m from the first green nightly DE Valhalla run.",
+      "provenance": "SEED ESTIMATE (E10-T3): ~120 km road distance Dresden -> Leipzig (public map estimate, A14 corridor). Great-circle between the two seed points is ~100 km, so the seed implies a road/straight ratio of ~1.20 — normal for a motorway corridor with a city-exit detour at both ends; the ±10% band [108..132] km covers ratios ~[1.08..1.32]. NOT yet routed against the DE graph. Added to bring the DE set to the >=15 cases E10-T3 requires, and to cover a LONG (>100 km) motorway relation — the existing DE distance cases were all short/medium hops, so a systematic long-distance costing regression had no case that would see it.",
+      "origin": { "lat": 51.0504, "lon": 13.7373 },
+      "destination": { "lat": 51.3397, "lon": 12.3731 },
+      "profile": {
+        "name": "Camper 3.0m",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.5,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "expected_distance_m": 120000,
+      "tolerance": 0.1
+    },
+    {
+      "id": "de-dist-frankfurt-mainz",
+      "type": "distance",
+      "region": "de",
+      "unverified": true,
+      "todo": "Freeze expected_distance_m from the first green nightly DE Valhalla run.",
+      "provenance": "SEED ESTIMATE (E10-T3): ~40 km road distance Frankfurt am Main -> Mainz (public map estimate, A66/A671 corridor). Great-circle between the seed points is ~33 km => implied road/straight ratio ~1.21; ±10% band [36..44] km. NOT yet routed against the DE graph. Added for the >=15-case DE requirement; complements de-dist-dresden-leipzig at the SHORT end of the range.",
+      "origin": { "lat": 50.1109, "lon": 8.6821 },
+      "destination": { "lat": 49.9929, "lon": 8.2473 },
+      "profile": {
+        "name": "Camper 3.0m",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.5,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "expected_distance_m": 40000,
+      "tolerance": 0.1
+    },
+    {
+      "id": "de-monotonic-nuernberg-fuerth",
+      "type": "monotonic",
+      "region": "de",
+      "unverified": true,
+      "todo": "Confirm on the first nightly DE run that all three profiles route this OD pair at all (the LI counterpart is proven, this one is not) and that durations are non-decreasing; then flip unverified:false.",
+      "provenance": "E10-T3: the DE counterpart of li-monotonic-vaduz-schaan. Nuremberg -> Fuerth is a short, densely-connected urban pair, so all three profiles are expected to be routable. Profiles ascend in size/weight and DESCEND in avg_speed_kmh (Kastenwagen 110 -> Camper 95 -> Alkoven 7.5t 80), so duration must be non-decreasing even on identical geometry. Why a DE monotonic case at all when LI already has one: the profile->costing mapping is exercised against a REAL road network with motorway/urban mix and actual truck restrictions here, whereas the LI graph is a single valley road — a mapping bug that only manifests where truck costing has choices to make would be invisible on LI. Coordinates are the two city centres (public map estimate); NOT yet routed against the DE graph.",
+      "origin": { "lat": 49.4521, "lon": 11.0767 },
+      "destination": { "lat": 49.4783, "lon": 10.9903 },
+      "profiles": [
+        {
+          "name": "Kastenwagen 2.6m",
+          "height_m": 2.6,
+          "width_m": 2.0,
+          "length_m": 5.4,
+          "weight_t": 2.8,
+          "avg_speed_kmh": 110,
+          "hazmat": false,
+          "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+        },
+        {
+          "name": "Camper 3.0m",
+          "height_m": 3.0,
+          "width_m": 2.2,
+          "length_m": 6.5,
+          "weight_t": 3.5,
+          "avg_speed_kmh": 95,
+          "hazmat": false,
+          "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+        },
+        {
+          "name": "Alkoven 7.5t",
+          "height_m": 3.3,
+          "width_m": 2.35,
+          "length_m": 7.4,
+          "weight_t": 7.49,
+          "avg_speed_kmh": 80,
+          "hazmat": false,
+          "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+        }
+      ]
+    },
 
     {
       "id": "de-restrict-hamburg-sternbruecke-height",
       "type": "restriction",
       "region": "de",
       "unverified": true,
-      "todo": "Confirm via Overpass (overpass-api.de is egress-blocked in the build sandbox): exact OSM way-id of the road under the Sternbruecke, its signed maxheight tag, and adjust origin/destination + forbidden_bbox so the low profile's natural path runs under the bridge. SAFETY-DEMO: with the correct data, swapping height<->weight in apps/core/src/routing/profileMapping.ts makes the tall profile's height be read as its (small) weight, so Valhalla stops avoiding the low bridge -> the large-profile route enters forbidden_bbox -> this case FAILS (hard). That is the concrete proof the safety gate catches a broken mapping.",
+      "todo": "E10-T3 — confirm OFFLINE, from the same germany PBF the nightly graph is built from: `scripts/osm-restriction-provenance.sh verify <pbf>` prints every maxheight way inside this case's forbidden_bbox with its way-id and tag value, and emits the ready-to-paste 'restriction' block. (Overpass/OSM-API are egress-blocked in the build sandbox, and the PBF is the better source anyway: it proves the tag is in the ROUTED dataset.) Then adjust origin/destination + forbidden_bbox so the low profile's natural path runs under the bridge. SAFETY-DEMO: with the correct data, swapping height<->weight in apps/core/src/routing/profileMapping.ts makes the tall profile's height be read as its (small) weight, so Valhalla stops avoiding the low bridge -> the large-profile route enters forbidden_bbox -> this case FAILS (hard). That is the concrete proof the safety gate catches a broken mapping.",
       "provenance": "Hamburg Sternbruecke (Stresemannstr. / Max-Brauer-Allee), a notorious low railway bridge repeatedly struck by over-height vehicles. Coordinates approximate (~53.5588, 9.9503); signed clearance to be confirmed.",
       "origin": { "lat": 53.5605, "lon": 9.9535 },
       "destination": { "lat": 53.557, "lon": 9.9472 },
@@ -256,7 +366,7 @@
       "type": "restriction",
       "region": "de",
       "unverified": true,
-      "todo": "Confirm via Overpass: OSM way-id + maxheight of the Tumblingerstrasse railway underpass and tune OD/forbidden_bbox. Same swapped-mapping safety-demo applies as for the Sternbruecke case.",
+      "todo": "E10-T3 — confirm OFFLINE via `scripts/osm-restriction-provenance.sh verify <germany.pbf>`: it reports the OSM way-id + maxheight of the Tumblingerstrasse railway underpass out of the routed dataset; then tune OD/forbidden_bbox. Same swapped-mapping safety-demo applies as for the Sternbruecke case.",
       "provenance": "Munich, Tumblingerstrasse railway underpass (Ludwigsvorstadt/Schlachthofviertel), a known low underpass. Coordinates approximate (~48.1289, 11.5556); signed clearance to be confirmed.",
       "origin": { "lat": 48.1301, "lon": 11.5548 },
       "destination": { "lat": 48.1277, "lon": 11.5564 },
@@ -294,7 +404,7 @@
       "type": "restriction",
       "region": "de",
       "unverified": true,
-      "todo": "Confirm via Overpass: which of the Yorckbruecken spans carries the binding maxheight, its OSM way-id and value; tune OD/forbidden_bbox to the specific low span.",
+      "todo": "E10-T3 — confirm OFFLINE via `scripts/osm-restriction-provenance.sh verify <germany.pbf>`: it lists ALL maxheight ways inside the bbox, which is exactly what this case needs (the Yorckbruecken are a cluster — the report shows which span carries the binding value). Then tune OD/forbidden_bbox to that specific low span.",
       "provenance": "Berlin, Yorckbruecken (Yorckstrasse, Schoeneberg/Kreuzberg) — a cluster of historic railway bridges with low signed clearances. Coordinates approximate (~52.4917, 13.3667).",
       "origin": { "lat": 52.4917, "lon": 13.3648 },
       "destination": { "lat": 52.4917, "lon": 13.369 },
@@ -332,7 +442,7 @@
       "type": "restriction",
       "region": "de",
       "unverified": true,
-      "todo": "Confirm CURRENT status + OSM maxweight: the A1 Rheinbruecke Leverkusen banned vehicles > 3.5 t for years due to structural damage; the replacement bridge has since opened and the ban may be lifted. Confirm whether a binding maxweight is still tagged in OSM, its way-id and value, then tune OD/forbidden_bbox. This is the Gewichtsfall (restriction.kind=maxweight). SAFETY-DEMO: swapping weight<->height in profileMapping.ts makes the heavy profile's weight be read as its (small) height, so Valhalla stops avoiding the weak bridge -> heavy route enters forbidden_bbox -> case FAILS.",
+      "todo": "E10-T3 — confirm CURRENT status + maxweight OFFLINE via `scripts/osm-restriction-provenance.sh verify <germany.pbf>`: the A1 Rheinbruecke Leverkusen banned vehicles > 3.5 t for years due to structural damage; the replacement bridge has since opened and the ban may be lifted. The verify run answers exactly that — if it reports NO maxweight way in the bbox, the ban is gone from the routed data and this case must be REPLACED (use `discover maxweight` for real, currently-tagged alternatives) rather than kept as a permanently-red case. Then tune OD/forbidden_bbox. This is the first Gewichtsfall (restriction.kind=maxweight). SAFETY-DEMO: swapping weight<->height in profileMapping.ts makes the heavy profile's weight be read as its (small) height, so Valhalla stops avoiding the weak bridge -> heavy route enters forbidden_bbox -> case FAILS.",
       "provenance": "A1 Rheinbruecke Leverkusen — a nationally documented case of a truck weight ban (> 3.5 t) on a motorway bridge. Coordinates approximate (~51.033, 6.99).",
       "origin": { "lat": 51.028, "lon": 6.982 },
       "destination": { "lat": 51.04, "lon": 6.998 },
@@ -363,6 +473,82 @@
         "unit": "t",
         "osm_way_id": null,
         "source": "TODO confirm current OSM maxweight / status"
+      }
+    },
+    {
+      "id": "de-restrict-duisburg-neuenkamp-weight",
+      "type": "restriction",
+      "region": "de",
+      "unverified": true,
+      "todo": "E10-T3 — the SECOND Gewichtsfall required by the spec (Gewicht×2). NOTHING in this case is confirmed: the coordinates are an approximate placement of the A40 Rhine crossing at Duisburg-Neuenkamp from public knowledge, the 3.5 t value is the widely reported figure for the truck ban, and the OSM way-id is unknown. Run `scripts/osm-restriction-provenance.sh verify <germany.pbf>` to get the real way-id + tag value out of the routed dataset. IMPORTANT — like Leverkusen, this ban is tied to a bridge replacement that has since progressed, so it may no longer be tagged: if verify finds no maxweight way in the bbox, do NOT keep this case red — replace it from `discover maxweight`, which lists real currently-tagged weight restrictions in the extract. Then tune OD/forbidden_bbox so the light profile's natural path crosses here.",
+      "provenance": "CANDIDATE, UNCONFIRMED. Category: motorway Rhine bridge under a documented weight ban. The A40 Rheinbruecke Duisburg-Neuenkamp is, next to Leverkusen, the other nationally reported German case of a motorway bridge closed to vehicles over 3.5 t after structural damage was found. It was picked as a SECOND, independent weight case so the Gewicht×2 requirement is not carried by one structure whose ban may be lifted. Deliberately NOT presented as verified: coordinates ~ (51.434, 6.718) are approximate and the tag has not been read from any dataset — this sandbox has no Overpass/OSM-API egress and cannot build the DE graph. The nightly verify run is what turns it into evidence.",
+      "origin": { "lat": 51.4315, "lon": 6.7005 },
+      "destination": { "lat": 51.4372, "lon": 6.7395 },
+      "small_profile": {
+        "name": "Light camper 3.0t",
+        "height_m": 3.0,
+        "width_m": 2.2,
+        "length_m": 6.5,
+        "weight_t": 3.0,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "large_profile": {
+        "name": "Heavy motorhome 14t",
+        "height_m": 3.3,
+        "width_m": 2.4,
+        "length_m": 9.0,
+        "weight_t": 14.0,
+        "avg_speed_kmh": 80,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "forbidden_bbox": [6.708, 51.4305, 6.728, 51.4382],
+      "restriction": {
+        "kind": "maxweight",
+        "value": 3.5,
+        "unit": "t",
+        "osm_way_id": null,
+        "source": "TODO confirm current OSM maxweight / status via scripts/osm-restriction-provenance.sh"
+      }
+    },
+    {
+      "id": "de-restrict-rothenburg-roedertor-width",
+      "type": "restriction",
+      "region": "de",
+      "unverified": true,
+      "todo": "E10-T3 — the FIRST and currently only Breitenfall (Breite×1). NOTHING in this case is confirmed: coordinates are an approximate placement of the Roedertor gate passage, the 2.2 m value is a plausible signed width for a medieval gate but has NOT been read from any dataset, and the OSM way-id is unknown. Run `scripts/osm-restriction-provenance.sh verify <germany.pbf>` for the real way-id + maxwidth. TWO ways this case can turn out unusable, and both are fine outcomes of the verify run: (a) no maxwidth is tagged on the gate passage, or (b) the passage is not routable for motor vehicles at all, in which case the small profile cannot traverse the bbox and the runner fails the case as VACUOUS by design (that assertion exists precisely so a restriction case cannot pass for the wrong reason). In either case replace it from `discover maxwidth`, which lists the real narrow ways in the extract sorted by how binding they are. Do NOT hand-edit a way-id in.",
+      "provenance": "CANDIDATE, UNCONFIRMED. Category: medieval town-gate passage on a through road — the archetypal German maxwidth restriction and the reason a 2.35 m-wide motorhome needs width-aware routing at all. The Roedertor in Rothenburg ob der Tauber is a nationally known example of an old-town gate that ordinary traffic passes through. Chosen as a DIFFERENT physical category from the height (railway bridges) and weight (motorway river bridges) cases, so the width dimension is not just a re-skin of an existing case. Coordinates ~ (49.3772, 10.1830) are approximate. Deliberately NOT presented as verified — see 'todo'.",
+      "origin": { "lat": 49.3772, "lon": 10.1858 },
+      "destination": { "lat": 49.3771, "lon": 10.1805 },
+      "small_profile": {
+        "name": "Narrow camper 2.0m",
+        "height_m": 2.6,
+        "width_m": 2.0,
+        "length_m": 5.4,
+        "weight_t": 2.8,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "large_profile": {
+        "name": "Wide motorhome 2.55m",
+        "height_m": 3.0,
+        "width_m": 2.55,
+        "length_m": 7.4,
+        "weight_t": 5.0,
+        "avg_speed_kmh": 80,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "forbidden_bbox": [10.1824, 49.3767, 10.1837, 49.3778],
+      "restriction": {
+        "kind": "maxwidth",
+        "value": 2.2,
+        "unit": "m",
+        "osm_way_id": null,
+        "source": "TODO confirm OSM maxwidth via scripts/osm-restriction-provenance.sh"
       }
     },
     {
