@@ -58,3 +58,43 @@ export function decodePolyline6(encoded: string): LonLat[] {
 
   return points;
 }
+
+/**
+ * Encodes `[lon, lat]` pairs back into polyline6.
+ *
+ * Added in E10-T3 for the STUB ROUTER used by `scripts/runbook-smoke.sh`: the
+ * runbook's acceptance step has to prove that a data update which loses a
+ * height restriction turns the safety gate red, and that proof needs a router
+ * that emits real polyline6 geometry without a 4 GB map behind it.
+ *
+ * It is deliberately NOT used by any assertion — the safety path only ever
+ * DECODES what the Core produced. Round-tripped against
+ * {@link decodePolyline6} in `polyline.test.ts`, which is what keeps the two
+ * halves of this file honest with each other.
+ */
+export function encodePolyline6(coords: readonly LonLat[]): string {
+  let lastLat = 0;
+  let lastLon = 0;
+  let out = '';
+
+  for (const [lon, lat] of coords) {
+    const latE6 = Math.round(lat * POLYLINE6_FACTOR);
+    const lonE6 = Math.round(lon * POLYLINE6_FACTOR);
+    out += encodeSigned(latE6 - lastLat);
+    out += encodeSigned(lonE6 - lastLon);
+    lastLat = latE6;
+    lastLon = lonE6;
+  }
+  return out;
+}
+
+function encodeSigned(value: number): string {
+  let v = value < 0 ? ~(value << 1) : value << 1;
+  let out = '';
+  while (v >= 0x20) {
+    out += String.fromCharCode((0x20 | (v & 0x1f)) + 63);
+    v >>= 5;
+  }
+  out += String.fromCharCode(v + 63);
+  return out;
+}

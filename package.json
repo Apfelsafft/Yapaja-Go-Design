@@ -14,6 +14,8 @@
     "dev": "pnpm -r --parallel dev",
     "e2e": "pnpm --filter @yapaja/web e2e",
     "golden-routes": "vitest run --config vitest.golden.config.ts",
+    "golden-routes:provenance": "bash scripts/osm-restriction-provenance.sh",
+    "runbook:smoke": "bash scripts/runbook-smoke.sh",
     "e2e:security": "playwright test -c e2e/security/playwright.config.ts",
     "security:mutation-proof": "bash scripts/security-mutation-proof.sh",
     "perf": "playwright test -c e2e/perf/playwright.config.ts",

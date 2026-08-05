@@ -1,0 +1,83 @@
+{
+  "$schema_doc": "FIXTURE ONLY — NOT map data, NOT evidence about OSM (E10-T3). Drives the SAME runner (e2e/golden-routes/runner.test.ts) as the real curated set, but against the stub router e2e/golden-routes/stubValhalla.ts instead of a Valhalla graph, so that scripts/runbook-smoke.sh can prove the runbook's last step end-to-end: a data update that LOSES a height restriction must turn the Golden-Routes acceptance gate red. Coordinates are a fictional flat patch near 48°N/11°E that exists only inside the stub. The runner reads this file via GOLDEN_ROUTES_FILE, which no CI job sets; the structural gates in the runner always read the canonical e2e/golden-routes.json regardless, so this file can never make them pass vacuously. The stub models a through-road with a 3.2 m bridge at lon ~11.005 plus a northern bypass at lat ~48.004.",
+  "cases": [
+    {
+      "id": "smoke-dist-direct",
+      "type": "distance",
+      "region": "li",
+      "provenance": "FIXTURE: the stub's DIRECT path is a straight 0.01° lon segment at 48°N = ~745 m. Proves the runner's distance assertion runs end-to-end through the Core against the stub.",
+      "origin": { "lat": 48.0, "lon": 11.0 },
+      "destination": { "lat": 48.0, "lon": 11.01 },
+      "profile": {
+        "name": "Smoke low camper 2.2m",
+        "height_m": 2.2,
+        "width_m": 2.0,
+        "length_m": 5.4,
+        "weight_t": 2.8,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "expected_distance_m": 745,
+      "tolerance": 0.1
+    },
+    {
+      "id": "smoke-restrict-bridge-height",
+      "type": "restriction",
+      "region": "li",
+      "provenance": "FIXTURE: the stub honours a modelled maxheight of 3.2 m. The 2.2 m profile is sent DIRECT (through forbidden_bbox); the 4.0 m profile is sent over the northern bypass. In STUB_REGRESSION=1 the stub ignores the height — exactly what a PBF that lost the maxheight tag would cause (W-08/W-17) — and this case MUST then fail. That inversion is the whole point of the runbook smoke test.",
+      "origin": { "lat": 48.0, "lon": 11.0 },
+      "destination": { "lat": 48.0, "lon": 11.01 },
+      "small_profile": {
+        "name": "Smoke low camper 2.2m",
+        "height_m": 2.2,
+        "width_m": 2.0,
+        "length_m": 5.4,
+        "weight_t": 2.8,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "large_profile": {
+        "name": "Smoke tall motorhome 4.0m",
+        "height_m": 4.0,
+        "width_m": 2.4,
+        "length_m": 8.0,
+        "weight_t": 7.49,
+        "avg_speed_kmh": 80,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "forbidden_bbox": [11.004, 47.999, 11.006, 48.001],
+      "restriction": {
+        "kind": "maxheight",
+        "value": 3.2,
+        "unit": "m",
+        "osm_way_id": null,
+        "source": "FIXTURE — modelled by e2e/golden-routes/stubValhalla.ts, not read from OSM"
+      }
+    },
+    {
+      "id": "smoke-eta-direct",
+      "type": "eta",
+      "region": "li",
+      "nightly_only": true,
+      "provenance": "FIXTURE: the stub plans the DIRECT path at 16 m/s, so ~745 m take ~47 s. The simulator then drives exactly that pace at speed_factor 1.0, which is docs/07 §3b's scenario in miniature — it exercises the whole route -> navigation/start -> simulator/play -> nav/state ETA -> arrival chain against a real Core in ~1 minute of wall clock instead of the several minutes the LI route needs.",
+      "origin": { "lat": 48.0, "lon": 11.0 },
+      "destination": { "lat": 48.0, "lon": 11.01 },
+      "profile": {
+        "name": "Smoke low camper 2.2m",
+        "height_m": 2.2,
+        "width_m": 2.0,
+        "length_m": 5.4,
+        "weight_t": 2.8,
+        "avg_speed_kmh": 95,
+        "hazmat": false,
+        "avoid": { "motorway": false, "toll": false, "ferry": false, "unpaved": false }
+      },
+      "speed_factor": 1.0,
+      "max_eta_error": 0.05,
+      "max_wall_clock_s": 180
+    }
+  ]
+}

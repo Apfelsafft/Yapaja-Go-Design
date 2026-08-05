@@ -56,6 +56,17 @@ interface BaseCase {
   unverified?: boolean;
   /** Optional note explaining what still has to be done for `unverified` cases. */
   todo?: string;
+  /**
+   * When true the case is EXCLUDED from a run unless `GOLDEN_NIGHTLY=1` is
+   * set (E10-T3). Reserved for cases that need minutes of real wall clock and
+   * therefore must not sit in the per-PR merge gate — currently only the
+   * `eta` case, whose whole point is a simulator run at `speed_factor: 1.0`
+   * (docs/07 §3b: "simulierte Fahrt mit Faktor 1.0"), i.e. one second of
+   * wall clock per simulated second. The nightly workflow sets the flag; the
+   * per-PR `golden-routes-li` job does not, so that gate keeps its runtime
+   * and its `bail: 1` semantics unchanged.
+   */
+  nightly_only?: boolean;
 }
 
 /** Route distance must land within `±tolerance` of `expected_distance_m`. */
@@ -109,7 +120,39 @@ export interface NoRouteCase extends BaseCase {
   profile: ProfileSpec;
 }
 
-export type GoldenCase = DistanceCase | RestrictionCase | MonotonicCase | NoRouteCase;
+/**
+ * ETA-Plausibilität (docs/07 §3b, automated by E10-T3): route the OD pair,
+ * start navigation on that route, drive the route's own geometry with the GPS
+ * simulator at `speed_factor` (1.0 = "fährt genau wie geplant"), and compare
+ * the FIRST published ETA against the wall-clock moment navigation reports
+ * `arrived`. The deviation must stay below `max_eta_error` of the planned
+ * duration.
+ *
+ * This is the only case type that consumes real wall clock (a simulated
+ * second is a real second at factor 1.0), so every `eta` case is
+ * `nightly_only` — see {@link BaseCase.nightly_only}.
+ */
+export interface EtaCase extends BaseCase {
+  type: 'eta';
+  origin: LatLng;
+  destination: LatLng;
+  profile: ProfileSpec;
+  /** Simulator playback factor. docs/07 §3b prescribes 1.0. */
+  speed_factor: number;
+  /**
+   * Maximum tolerated |actual arrival − initial ETA| as a fraction of the
+   * planned route duration. docs/07 §3b: 0.05 (< 5 %).
+   */
+  max_eta_error: number;
+  /**
+   * Hard wall-clock cap for the whole case. A route whose planned duration
+   * (or whose simulator playback) exceeds this aborts the case with a clear
+   * error instead of hanging the nightly job until its timeout.
+   */
+  max_wall_clock_s: number;
+}
+
+export type GoldenCase = DistanceCase | RestrictionCase | MonotonicCase | NoRouteCase | EtaCase;
 
 export interface GoldenRoutesFile {
   $schema_doc: string;
