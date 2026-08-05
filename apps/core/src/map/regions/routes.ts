@@ -172,7 +172,7 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
       }
 
       await unlink(filePath);
-      return reply.code(204).send();
+      return reply.code(204).send(undefined);
     },
   );
 
@@ -206,7 +206,7 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
           .code(409)
           .send(createErrorResponse('JOB_NOT_CANCELLABLE', `Job '${request.params.id}' has already finished`));
       }
-      return reply.code(204).send();
+      return reply.code(204).send(undefined);
     },
   );
 };

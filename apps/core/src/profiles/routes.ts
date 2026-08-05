@@ -161,14 +161,16 @@ export const profilesPlugin: FastifyPluginAsync<ProfileRoutesOptions> = async (f
   );
 
   // DELETE /api/v1/profiles/:id - Delete profile
-  fastify.delete<{ Params: RouteParams; Reply: ApiError }>(
+  // Bodiless 204 on success; fastify 5 requires an explicit `send()` argument,
+  // so `undefined` is part of the reply type (see `favorites/routes.ts`).
+  fastify.delete<{ Params: RouteParams; Reply: ApiError | undefined }>(
     '/profiles/:id',
     async (request, reply) => {
       const { id } = request.params;
 
       try {
         service.delete(id);
-        reply.code(204).send();
+        reply.code(204).send(undefined);
       } catch (err) {
         const error = err as Error & { code?: string };
         if (error.code === 'ACTIVE_PROFILE_UNDELETABLE') {
