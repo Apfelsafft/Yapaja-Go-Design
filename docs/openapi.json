@@ -1,0 +1,3740 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Yapaja Go Core API",
+    "version": "0.0.0",
+    "description": "Automatisch generiert aus den tatsächlich registrierten Fastify-Routen (apps/core/src/index.ts, onRouteHook) und den @yapaja/shared-JSON-Schemas (packages/shared/src/schemas/). Quelle der Wahrheit ist der Code, nicht dieses Dokument -- bei Verdacht auf Abweichung: `pnpm openapi:check` (CI-Gate \"Spec aktuell\") bzw. docs/03-api-spec.md für den erzählenden Überblick. WebSocket (/ws/v1) und MQTT sind hier NICHT modelliert (OpenAPI eignet sich dafür nicht) -- siehe docs/03-api-spec.md §3/§4."
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Core-API (relative Pfade -- funktioniert unverändert hinter HA-Ingress, W-15)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Add-ons"
+    },
+    {
+      "name": "Auth"
+    },
+    {
+      "name": "Einstellungen"
+    },
+    {
+      "name": "Favoriten"
+    },
+    {
+      "name": "Karten"
+    },
+    {
+      "name": "Navigation"
+    },
+    {
+      "name": "Position"
+    },
+    {
+      "name": "Profile"
+    },
+    {
+      "name": "Routing"
+    },
+    {
+      "name": "Sicherheit"
+    },
+    {
+      "name": "Simulator"
+    },
+    {
+      "name": "Suche"
+    },
+    {
+      "name": "System"
+    },
+    {
+      "name": "Verlauf"
+    }
+  ],
+  "paths": {
+    "/api/v1/auth/status": {
+      "get": {
+        "summary": "Auth-Status (Token konfiguriert? Ingress-Modus?)",
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/token": {
+      "post": {
+        "summary": "API-Token setzen/ändern",
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "API-Token entfernen (App wird wieder offen)",
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles": {
+      "get": {
+        "summary": "Alle Fahrzeugprofile",
+        "tags": [
+          "Profile"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/VehicleProfile"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Profil anlegen",
+        "tags": [
+          "Profile"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleProfile"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/VehicleProfile"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}": {
+      "get": {
+        "summary": "Profil-Details",
+        "tags": [
+          "Profile"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/VehicleProfile"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Profil ändern",
+        "tags": [
+          "Profile"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleProfile"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/VehicleProfile"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Profil löschen (aktives Profil nicht löschbar)",
+        "tags": [
+          "Profile"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{id}/activate": {
+      "put": {
+        "summary": "Profil aktivieren (laufende Navigation ⇒ Reroute + Warnhinweis)",
+        "tags": [
+          "Profile"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/VehicleProfile"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/position": {
+      "get": {
+        "summary": "Letzte bekannte Position",
+        "tags": [
+          "Position"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Position"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/position/sources": {
+      "get": {
+        "summary": "Verfügbare Positionsquellen + aktive Quelle",
+        "tags": [
+          "Position"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/position/source": {
+      "put": {
+        "summary": "Positionsquelle erzwingen (gpsd|browser|auto|simulator)",
+        "tags": [
+          "Position"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/position/browser": {
+      "post": {
+        "summary": "Browser-Geolocation-Fix melden",
+        "tags": [
+          "Position"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Position"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/simulator/play": {
+      "post": {
+        "summary": "GPS-Simulator: Track abspielen (GPX/Route/Mutation)",
+        "tags": [
+          "Simulator"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/simulator/pause": {
+      "post": {
+        "summary": "GPS-Simulator pausieren",
+        "tags": [
+          "Simulator"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/simulator/stop": {
+      "post": {
+        "summary": "GPS-Simulator stoppen",
+        "tags": [
+          "Simulator"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/simulator/status": {
+      "get": {
+        "summary": "GPS-Simulator-Status",
+        "tags": [
+          "Simulator"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/map/regions/catalog": {
+      "get": {
+        "summary": "Herunterladbare Kartenregionen (Katalog)",
+        "tags": [
+          "Karten"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/map/regions": {
+      "post": {
+        "summary": "Region-Download starten (202 + job_id)",
+        "tags": [
+          "Karten"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Installierte Kartenregionen",
+        "tags": [
+          "Karten"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/map/regions/{id}": {
+      "delete": {
+        "summary": "Installierte Region entfernen",
+        "tags": [
+          "Karten"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{id}": {
+      "get": {
+        "summary": "Download-/Import-Job-Status (progress, eta, error)",
+        "tags": [
+          "Karten"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Job abbrechen",
+        "tags": [
+          "Karten"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tiles/{regionParam}": {
+      "get": {
+        "summary": "PMTiles-Kachel (HTTP-Range-Support)",
+        "tags": [
+          "Karten"
+        ],
+        "parameters": [
+          {
+            "name": "regionParam",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binärdaten (kein JSON-Schema veröffentlicht)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/map/styles": {
+      "get": {
+        "summary": "Verfügbare MapLibre-Styles",
+        "tags": [
+          "Karten"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/map/styles/{id}": {
+      "get": {
+        "summary": "MapLibre-Style-JSON (lokale Tile-URLs)",
+        "tags": [
+          "Karten"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/routes": {
+      "post": {
+        "summary": "Route(n) berechnen (erste = empfohlen)",
+        "tags": [
+          "Routing"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Route"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/routes/{id}": {
+      "get": {
+        "summary": "Route abrufen (Cache, TTL 1 h)",
+        "tags": [
+          "Routing"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Route"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/navigation/start": {
+      "post": {
+        "summary": "Navigation starten (`{route_id}`)",
+        "tags": [
+          "Navigation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/NavState"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/navigation/pause": {
+      "post": {
+        "summary": "Navigation pausieren",
+        "tags": [
+          "Navigation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/navigation/resume": {
+      "post": {
+        "summary": "Navigation fortsetzen",
+        "tags": [
+          "Navigation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/navigation/stop": {
+      "post": {
+        "summary": "Navigation beenden",
+        "tags": [
+          "Navigation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/navigation/profile_change/confirm": {
+      "post": {
+        "summary": "Profilwechsel während Navigation bestätigen (W-Reroute)",
+        "tags": [
+          "Navigation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/navigation/state": {
+      "get": {
+        "summary": "Aktueller Navigationszustand",
+        "tags": [
+          "Navigation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/NavState"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/navigation/destination": {
+      "post": {
+        "summary": "Convenience für HA/Add-ons: geocodet, routet, startet optional (`autostart`)",
+        "tags": [
+          "Navigation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/NavState"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/search": {
+      "get": {
+        "summary": "Geocoding (Photon → Fallback), bias auf Position",
+        "tags": [
+          "Suche"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SearchResult"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/search/reverse": {
+      "get": {
+        "summary": "Reverse-Geocoding",
+        "tags": [
+          "Suche"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SearchResult"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/favorites": {
+      "get": {
+        "summary": "Favoritenliste",
+        "tags": [
+          "Favoriten"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Favorite"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Favorit anlegen",
+        "tags": [
+          "Favoriten"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Favorite"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/favorites/reorder": {
+      "put": {
+        "summary": "Favoriten-Reihenfolge ändern",
+        "tags": [
+          "Favoriten"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Favorite"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/favorites/{id}": {
+      "put": {
+        "summary": "Favorit ändern",
+        "tags": [
+          "Favoriten"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Favorite"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Favorit löschen",
+        "tags": [
+          "Favoriten"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/history": {
+      "get": {
+        "summary": "Such-/Zielverlauf",
+        "tags": [
+          "Verlauf"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/HistoryEntry"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Verlaufseintrag anlegen",
+        "tags": [
+          "Verlauf"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/HistoryEntry"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Gesamten Verlauf löschen",
+        "tags": [
+          "Verlauf"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/history/{id}": {
+      "delete": {
+        "summary": "Einzelnen Verlaufseintrag löschen",
+        "tags": [
+          "Verlauf"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "summary": "Alle App-Einstellungen",
+        "tags": [
+          "Einstellungen"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Einstellungen ändern (Einheiten, Sprache, GPS-Priorität, MQTT …)",
+        "tags": [
+          "Einstellungen"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/{key}": {
+      "get": {
+        "summary": "Einzelne Einstellung",
+        "tags": [
+          "Einstellungen"
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons": {
+      "get": {
+        "summary": "Installierte Add-ons + Status",
+        "tags": [
+          "Add-ons"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AddonManifest"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/install": {
+      "post": {
+        "summary": "Installation starten (`{registry_id | url}`, Job)",
+        "tags": [
+          "Add-ons"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/install/{pendingId}/confirm": {
+      "post": {
+        "summary": "Berechtigungs-Bestätigung nach Prüfung abschließen",
+        "tags": [
+          "Add-ons"
+        ],
+        "parameters": [
+          {
+            "name": "pendingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/{id}/enable": {
+      "post": {
+        "summary": "Add-on aktivieren",
+        "tags": [
+          "Add-ons"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/{id}/disable": {
+      "post": {
+        "summary": "Add-on deaktivieren (Kill-Switch, W-10/W-11)",
+        "tags": [
+          "Add-ons"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/{id}/mqtt/enable": {
+      "post": {
+        "summary": "MQTT-Discovery für Add-on aktivieren",
+        "tags": [
+          "Add-ons"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/{id}/mqtt/disable": {
+      "post": {
+        "summary": "MQTT-Discovery für Add-on deaktivieren",
+        "tags": [
+          "Add-ons"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/{id}": {
+      "delete": {
+        "summary": "Add-on deinstallieren (rückstandsfrei)",
+        "tags": [
+          "Add-ons"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/registry": {
+      "get": {
+        "summary": "Store-Katalog (lokaler Registry-Cache)",
+        "tags": [
+          "Add-ons"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/registry/sync": {
+      "post": {
+        "summary": "Katalog aktualisieren (braucht Internet, W-13)",
+        "tags": [
+          "Add-ons"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/{id}/storage/{key}": {
+      "get": {
+        "summary": "Add-on-eigener Storage-Wert lesen (scoped)",
+        "tags": [
+          "Add-ons"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Add-on-eigener Storage-Wert schreiben (scoped)",
+        "tags": [
+          "Add-ons"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Add-on-eigener Storage-Wert löschen (scoped)",
+        "tags": [
+          "Add-ons"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/{id}/token": {
+      "post": {
+        "summary": "Scoped Bearer-Token für Service-Add-on ausstellen",
+        "tags": [
+          "Add-ons"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/{id}/service": {
+      "get": {
+        "summary": "Service-Add-on-Prozessstatus",
+        "tags": [
+          "Add-ons"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/{id}/events": {
+      "post": {
+        "summary": "Service-Add-on publiziert Event auf den Bus (scoped)",
+        "tags": [
+          "Add-ons"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/{id}/notifications": {
+      "post": {
+        "summary": "Service-Add-on löst Nutzer-Benachrichtigung aus (scoped)",
+        "tags": [
+          "Add-ons"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/addons/proxy": {
+      "get": {
+        "summary": "Egress-Proxy: `net.fetch` nur zu deklarierten Hosts (W-10)",
+        "tags": [
+          "Add-ons"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/security/events": {
+      "get": {
+        "summary": "Security-Event-Log (Sandbox-Verstöße, Scope-Denials)",
+        "tags": [
+          "Sicherheit"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Frontend meldet einen Sicherheits-Event (z. B. Bridge-Verstoß)",
+        "tags": [
+          "Sicherheit"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/system/resources": {
+      "get": {
+        "summary": "RAM/Disk frei-vs-gesamt (W-12/W-18)",
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "summary": "Liveness: Version + Status je Subsystem (valhalla, photon, gpsd, mqtt)",
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LatLng": {
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90,
+            "description": "Latitude in degrees (-90 to 90)"
+          },
+          "lon": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180,
+            "description": "Longitude in degrees (-180 to 180)"
+          }
+        },
+        "required": [
+          "lat",
+          "lon"
+        ],
+        "additionalProperties": false
+      },
+      "Position": {
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90,
+            "description": "Latitude in degrees (-90 to 90)"
+          },
+          "lon": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180,
+            "description": "Longitude in degrees (-180 to 180)"
+          },
+          "alt": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Altitude in meters above mean sea level"
+          },
+          "speed": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "Speed in m/s over ground"
+          },
+          "heading": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 360,
+            "description": "Heading in degrees (0 = North)"
+          },
+          "accuracy": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "Horizontal accuracy in meters (HDOP-based)"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "gpsd",
+              "browser",
+              "simulator"
+            ],
+            "description": "Source of position data"
+          },
+          "fix": {
+            "type": "string",
+            "enum": [
+              "none",
+              "2d",
+              "3d"
+            ],
+            "description": "GPS fix type"
+          },
+          "ts": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp in ISO 8601 UTC"
+          }
+        },
+        "required": [
+          "lat",
+          "lon",
+          "alt",
+          "speed",
+          "heading",
+          "accuracy",
+          "source",
+          "fix",
+          "ts"
+        ],
+        "additionalProperties": false
+      },
+      "VehicleProfile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "UUID identifier"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable profile name (e.g. \"Kastenwagen\")"
+          },
+          "height_m": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 4.5,
+            "description": "Height in meters (1.0–4.5)"
+          },
+          "width_m": {
+            "type": "number",
+            "minimum": 1.5,
+            "maximum": 3,
+            "description": "Width in meters (1.5–3.0)"
+          },
+          "length_m": {
+            "type": "number",
+            "minimum": 3,
+            "maximum": 20,
+            "description": "Length in meters (3.0–20.0)"
+          },
+          "weight_t": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 40,
+            "description": "Weight in metric tons (1.0–40.0)"
+          },
+          "avg_speed_kmh": {
+            "type": "number",
+            "minimum": 40,
+            "maximum": 130,
+            "description": "Average speed in km/h for ETA calculation (40–130)"
+          },
+          "hazmat": {
+            "type": "boolean",
+            "description": "Whether vehicle carries hazardous materials"
+          },
+          "avoid": {
+            "type": "object",
+            "properties": {
+              "motorway": {
+                "type": "boolean"
+              },
+              "toll": {
+                "type": "boolean"
+              },
+              "ferry": {
+                "type": "boolean"
+              },
+              "unpaved": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "motorway",
+              "toll",
+              "ferry",
+              "unpaved"
+            ],
+            "additionalProperties": false,
+            "description": "Route restriction preferences"
+          },
+          "is_active": {
+            "type": "boolean",
+            "description": "Whether this profile is currently active"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "height_m",
+          "width_m",
+          "length_m",
+          "weight_t",
+          "avg_speed_kmh",
+          "hazmat",
+          "avoid",
+          "is_active"
+        ],
+        "additionalProperties": false
+      },
+      "RouteRequest": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "lat": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90,
+                    "description": "Latitude in degrees (-90 to 90)"
+                  },
+                  "lon": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180,
+                    "description": "Longitude in degrees (-180 to 180)"
+                  }
+                },
+                "required": [
+                  "lat",
+                  "lon"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "current"
+                ]
+              }
+            ],
+            "description": "Starting point: LatLng or \"current\" for device position"
+          },
+          "destination": {
+            "type": "object",
+            "properties": {
+              "lat": {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90,
+                "description": "Latitude in degrees (-90 to 90)"
+              },
+              "lon": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180,
+                "description": "Longitude in degrees (-180 to 180)"
+              }
+            },
+            "required": [
+              "lat",
+              "lon"
+            ],
+            "additionalProperties": false
+          },
+          "waypoints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lat": {
+                  "type": "number",
+                  "minimum": -90,
+                  "maximum": 90,
+                  "description": "Latitude in degrees (-90 to 90)"
+                },
+                "lon": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180,
+                  "description": "Longitude in degrees (-180 to 180)"
+                }
+              },
+              "required": [
+                "lat",
+                "lon"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 25,
+            "description": "Intermediate waypoints (max 25)"
+          },
+          "profile_id": {
+            "type": "string",
+            "description": "UUID of vehicle profile to use"
+          },
+          "alternatives": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3,
+            "description": "Number of alternative routes to return (0–3)"
+          },
+          "exclude_locations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lat": {
+                  "type": "number",
+                  "minimum": -90,
+                  "maximum": 90,
+                  "description": "Latitude in degrees (-90 to 90)"
+                },
+                "lon": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180,
+                  "description": "Longitude in degrees (-180 to 180)"
+                }
+              },
+              "required": [
+                "lat",
+                "lon"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Optional point locations to exclude from routing for this request only (temporary avoidance, not persisted)"
+          },
+          "exclude_polygons": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "lat": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90,
+                    "description": "Latitude in degrees (-90 to 90)"
+                  },
+                  "lon": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180,
+                    "description": "Longitude in degrees (-180 to 180)"
+                  }
+                },
+                "required": [
+                  "lat",
+                  "lon"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 3,
+              "description": "Closed ring of LatLng points forming a polygon to exclude"
+            },
+            "description": "Optional polygons to exclude from routing for this request only (temporary avoidance, not persisted)"
+          },
+          "avoid_overrides": {
+            "type": "object",
+            "properties": {
+              "motorway": {
+                "type": "boolean"
+              },
+              "toll": {
+                "type": "boolean"
+              },
+              "ferry": {
+                "type": "boolean"
+              },
+              "unpaved": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false,
+            "description": "Optional per-request overrides of the active profile's avoid flags; the profile itself is not modified"
+          },
+          "heading": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 360,
+            "description": "Optional current vehicle heading in degrees (0 = North). On a reroute request it biases the origin edge in the direction of travel so the first instruction points forward."
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "waypoints",
+          "profile_id",
+          "alternatives"
+        ],
+        "additionalProperties": false
+      },
+      "Route": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Route identifier"
+          },
+          "distance_m": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Total route distance in meters"
+          },
+          "duration_s": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Total route duration in seconds (Valhalla time, calibrated)"
+          },
+          "geometry": {
+            "type": "string",
+            "description": "Encoded polyline (polyline6 format)"
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Leg index"
+                },
+                "distance_m": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Leg distance in meters"
+                },
+                "duration_s": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Leg duration in seconds"
+                }
+              },
+              "required": [
+                "index",
+                "distance_m",
+                "duration_s"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Route segments between waypoints"
+          },
+          "maneuvers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Maneuver index in route"
+                },
+                "type": {
+                  "type": "string",
+                  "description": "Maneuver type (Valhalla enum, e.g. \"turn_left\", \"roundabout_enter\")"
+                },
+                "instruction": {
+                  "type": "string",
+                  "description": "Localized instruction text"
+                },
+                "street_names": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Names of streets involved"
+                },
+                "distance_m": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Length of maneuver segment in meters"
+                },
+                "begin_shape_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Start index in route geometry"
+                },
+                "lanes": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "lane_index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Lane index from left"
+                      },
+                      "is_usable": {
+                        "type": "boolean",
+                        "description": "Whether vehicle can use this lane"
+                      },
+                      "direction": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "description": "Direction indicator if available"
+                      }
+                    },
+                    "required": [
+                      "lane_index",
+                      "is_usable"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "description": "Optional lane information"
+                },
+                "duration_s": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Planned duration of this maneuver segment in seconds (Valhalla time), optional (E04-T2)"
+                }
+              },
+              "required": [
+                "index",
+                "type",
+                "instruction",
+                "street_names",
+                "distance_m",
+                "begin_shape_index"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Turn-by-turn instructions"
+          },
+          "speed_limits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "begin_shape_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Start index in route geometry"
+                },
+                "end_shape_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "End index in route geometry"
+                },
+                "kmh": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 5,
+                  "maximum": 130,
+                  "description": "Speed limit in km/h (5–130 or null for unknown)"
+                }
+              },
+              "required": [
+                "begin_shape_index",
+                "end_shape_index",
+                "kmh"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Speed restrictions along route"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "description": "Warning code identifier"
+                },
+                "message": {
+                  "type": "string",
+                  "description": "Human-readable warning message"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Route warnings (e.g. \"restriction data missing\")"
+          }
+        },
+        "required": [
+          "id",
+          "distance_m",
+          "duration_s",
+          "geometry",
+          "legs",
+          "maneuvers",
+          "speed_limits",
+          "warnings"
+        ],
+        "additionalProperties": false
+      },
+      "Maneuver": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Maneuver index in route"
+          },
+          "type": {
+            "type": "string",
+            "description": "Maneuver type (Valhalla enum, e.g. \"turn_left\", \"roundabout_enter\")"
+          },
+          "instruction": {
+            "type": "string",
+            "description": "Localized instruction text"
+          },
+          "street_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Names of streets involved"
+          },
+          "distance_m": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Length of maneuver segment in meters"
+          },
+          "begin_shape_index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Start index in route geometry"
+          },
+          "lanes": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "lane_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Lane index from left"
+                },
+                "is_usable": {
+                  "type": "boolean",
+                  "description": "Whether vehicle can use this lane"
+                },
+                "direction": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Direction indicator if available"
+                }
+              },
+              "required": [
+                "lane_index",
+                "is_usable"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Optional lane information"
+          },
+          "duration_s": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Planned duration of this maneuver segment in seconds (Valhalla time), optional (E04-T2)"
+          }
+        },
+        "required": [
+          "index",
+          "type",
+          "instruction",
+          "street_names",
+          "distance_m",
+          "begin_shape_index"
+        ],
+        "additionalProperties": false
+      },
+      "NavState": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "routing",
+              "navigating",
+              "paused",
+              "arrived",
+              "off_route"
+            ],
+            "description": "Navigation state"
+          },
+          "route_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ID of current route or null"
+          },
+          "next_maneuver": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Maneuver index in route"
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "Maneuver type (Valhalla enum, e.g. \"turn_left\", \"roundabout_enter\")"
+                  },
+                  "instruction": {
+                    "type": "string",
+                    "description": "Localized instruction text"
+                  },
+                  "street_names": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Names of streets involved"
+                  },
+                  "distance_m": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Length of maneuver segment in meters"
+                  },
+                  "begin_shape_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Start index in route geometry"
+                  },
+                  "lanes": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "lane_index": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Lane index from left"
+                        },
+                        "is_usable": {
+                          "type": "boolean",
+                          "description": "Whether vehicle can use this lane"
+                        },
+                        "direction": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Direction indicator if available"
+                        }
+                      },
+                      "required": [
+                        "lane_index",
+                        "is_usable"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "Optional lane information"
+                  },
+                  "duration_s": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Planned duration of this maneuver segment in seconds (Valhalla time), optional (E04-T2)"
+                  }
+                },
+                "required": [
+                  "index",
+                  "type",
+                  "instruction",
+                  "street_names",
+                  "distance_m",
+                  "begin_shape_index"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Next upcoming maneuver or null"
+          },
+          "distance_to_maneuver_m": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "Distance to next maneuver in meters or null"
+          },
+          "distance_remaining_m": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "Total distance remaining to destination or null"
+          },
+          "duration_remaining_s": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "Estimated time to destination in seconds or null"
+          },
+          "eta": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Estimated time of arrival, UTC ISO 8601 with offset (client formats locally, W-22), or null"
+          },
+          "speed_kmh": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "Current speed in km/h or null"
+          },
+          "speed_limit_kmh": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 5,
+            "maximum": 130,
+            "description": "Speed limit from map data (5–130 or null for unknown)"
+          },
+          "altitude_m": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Current altitude in meters above mean sea level or null"
+          },
+          "destination": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "latlng": {
+                    "type": "object",
+                    "properties": {
+                      "lat": {
+                        "type": "number",
+                        "minimum": -90,
+                        "maximum": 90,
+                        "description": "Latitude in degrees (-90 to 90)"
+                      },
+                      "lon": {
+                        "type": "number",
+                        "minimum": -180,
+                        "maximum": 180,
+                        "description": "Longitude in degrees (-180 to 180)"
+                      }
+                    },
+                    "required": [
+                      "lat",
+                      "lon"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Destination name or null"
+                  }
+                },
+                "required": [
+                  "latlng",
+                  "name"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Destination with coordinates and optional name or null"
+          }
+        },
+        "required": [
+          "status",
+          "route_id",
+          "next_maneuver",
+          "distance_to_maneuver_m",
+          "distance_remaining_m",
+          "duration_remaining_s",
+          "eta",
+          "speed_kmh",
+          "speed_limit_kmh",
+          "altitude_m",
+          "destination"
+        ],
+        "additionalProperties": false
+      },
+      "NavInstruction": {
+        "type": "object",
+        "properties": {
+          "maneuver": {
+            "type": "object",
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Maneuver index in route"
+              },
+              "type": {
+                "type": "string",
+                "description": "Maneuver type (Valhalla enum, e.g. \"turn_left\", \"roundabout_enter\")"
+              },
+              "instruction": {
+                "type": "string",
+                "description": "Localized instruction text"
+              },
+              "street_names": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Names of streets involved"
+              },
+              "distance_m": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Length of maneuver segment in meters"
+              },
+              "begin_shape_index": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Start index in route geometry"
+              },
+              "lanes": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "lane_index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Lane index from left"
+                    },
+                    "is_usable": {
+                      "type": "boolean",
+                      "description": "Whether vehicle can use this lane"
+                    },
+                    "direction": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Direction indicator if available"
+                    }
+                  },
+                  "required": [
+                    "lane_index",
+                    "is_usable"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "Optional lane information"
+              },
+              "duration_s": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Planned duration of this maneuver segment in seconds (Valhalla time), optional (E04-T2)"
+              }
+            },
+            "required": [
+              "index",
+              "type",
+              "instruction",
+              "street_names",
+              "distance_m",
+              "begin_shape_index"
+            ],
+            "additionalProperties": false
+          },
+          "distance_m": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Distance to the maneuver at the moment this instruction fired, in meters"
+          },
+          "say": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Natural-language (de-DE) sentence to speak/display"
+          }
+        },
+        "required": [
+          "maneuver",
+          "distance_m",
+          "say"
+        ],
+        "additionalProperties": false
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Error code identifier"
+              },
+              "message": {
+                "type": "string",
+                "description": "Human-readable error message"
+              },
+              "details": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "description": "Optional additional error context"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false,
+            "description": "Error object with code, message, and optional details"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "SearchResult": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Short name of the result (e.g. \"Vaduz\")"
+          },
+          "label": {
+            "type": "string",
+            "description": "Full display label (e.g. \"Vaduz, Liechtenstein\")"
+          },
+          "latlng": {
+            "type": "object",
+            "properties": {
+              "lat": {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90,
+                "description": "Latitude in degrees (-90 to 90)"
+              },
+              "lon": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180,
+                "description": "Longitude in degrees (-180 to 180)"
+              }
+            },
+            "required": [
+              "lat",
+              "lon"
+            ],
+            "additionalProperties": false
+          },
+          "type": {
+            "type": "string",
+            "description": "Result category (e.g. \"city\", \"street\", \"coordinates\")"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "photon",
+              "nominatim",
+              "coords",
+              "lite"
+            ],
+            "description": "Backend that produced this result; \"lite\" = offline SQLite/FTS5 fallback used when Photon is down/disabled (E05-T5, W-12)"
+          },
+          "out_of_coverage": {
+            "type": "boolean",
+            "description": "True if the result lies outside all installed map regions (Vorgriff W-09)"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "latlng",
+          "type",
+          "source"
+        ],
+        "additionalProperties": false
+      },
+      "Favorite": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "UUID identifier"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable favorite name (e.g. \"Zuhause\")"
+          },
+          "latlng": {
+            "type": "object",
+            "properties": {
+              "lat": {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90,
+                "description": "Latitude in degrees (-90 to 90)"
+              },
+              "lon": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180,
+                "description": "Longitude in degrees (-180 to 180)"
+              }
+            },
+            "required": [
+              "lat",
+              "lon"
+            ],
+            "additionalProperties": false
+          },
+          "icon": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Free-form icon key/emoji shown as the favorite chip icon"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "home",
+              "campsite",
+              "poi",
+              "custom"
+            ],
+            "description": "Favorite category; \"home\" may exist at most once"
+          },
+          "sort_order": {
+            "type": "number",
+            "description": "Drag-order position, ascending"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "latlng",
+          "icon",
+          "category",
+          "sort_order"
+        ],
+        "additionalProperties": false
+      },
+      "HistoryEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "UUID identifier"
+          },
+          "query": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Raw search query text, or null if this entry is a picked destination"
+          },
+          "destination": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "latlng": {
+                "type": "object",
+                "properties": {
+                  "lat": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90,
+                    "description": "Latitude in degrees (-90 to 90)"
+                  },
+                  "lon": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180,
+                    "description": "Longitude in degrees (-180 to 180)"
+                  }
+                },
+                "required": [
+                  "lat",
+                  "lon"
+                ],
+                "additionalProperties": false
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "latlng",
+              "name"
+            ],
+            "additionalProperties": false,
+            "description": "Picked destination, or null if this entry is a raw search query"
+          },
+          "ts": {
+            "type": "string",
+            "description": "ISO 8601 UTC timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "query",
+          "destination",
+          "ts"
+        ],
+        "additionalProperties": false
+      },
+      "AddonManifest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$",
+            "description": "Reverse-DNS-ish identifier; becomes the data/addons/{id} directory name"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Exact semver, e.g. \"1.2.0\""
+          },
+          "core_api": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Semver range, e.g. \"^1.0\""
+          },
+          "author": {
+            "type": "string",
+            "minLength": 1
+          },
+          "license": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requires_online": {
+            "type": "boolean"
+          },
+          "ui": {
+            "type": "object",
+            "properties": {
+              "entry": {
+                "type": "string",
+                "minLength": 1
+              },
+              "widgets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "slots": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "slots"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "map_layers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "source": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "source"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "settings_page": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "entry"
+            ],
+            "additionalProperties": false
+          },
+          "service": {
+            "type": "object",
+            "properties": {
+              "runtime": {
+                "type": "string",
+                "enum": [
+                  "node18",
+                  "node20",
+                  "external"
+                ]
+              },
+              "entry": {
+                "type": "string",
+                "minLength": 1
+              },
+              "max_rss_mb": {
+                "type": "number",
+                "minimum": 16,
+                "maximum": 4096
+              }
+            },
+            "required": [
+              "runtime",
+              "entry"
+            ],
+            "additionalProperties": false
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "anyOf": [
+                {
+                  "enum": [
+                    "pos.read",
+                    "nav.read",
+                    "nav.control",
+                    "route.read",
+                    "route.propose",
+                    "map.layer.write",
+                    "widget.register",
+                    "events.publish",
+                    "storage.own",
+                    "ha.notify",
+                    "camera.view"
+                  ]
+                },
+                {
+                  "pattern": "^net\\.fetch:.+$"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "core_api",
+          "author",
+          "license",
+          "description",
+          "permissions"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

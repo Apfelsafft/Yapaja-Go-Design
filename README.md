@@ -28,6 +28,17 @@ inkl. Marketplace.
 | [docs/07-testing-qa.md](docs/07-testing-qa.md) | Teststrategie, Plausibilitätsprüfungen, Release-Gates, CI |
 | [docs/08-wargame.md](docs/08-wargame.md) | Wargame-Analyse: Risikoszenarien mit vorbereiteten Lösungen |
 
+## Nutzer- & Betriebs-Dokumentation (E10-T5)
+
+| Dokument | Inhalt |
+|---|---|
+| [docs/installation.md](docs/installation.md) | Installations-Guide: HA-Add-on **und** Compose/Proxmox-LXC, inkl. USB-GPS-Durchreichung |
+| [docs/erste-schritte.md](docs/erste-schritte.md) | Profil anlegen → Ziel suchen → Route berechnen → Navigation starten |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom → Ursache → Lösung für alle 🔴/🟠-Wargame-Fälle (`docs/08-wargame.md`) |
+| [docs/faq.md](docs/faq.md) | Häufige Fragen |
+| [docs/addon-dev-guide.md](docs/addon-dev-guide.md) | Add-on-Entwicklungsleitfaden (`@yapaja/addon-sdk`) |
+| [docs/openapi.json](docs/openapi.json) | Core-REST-API als OpenAPI 3.1, generiert aus den Fastify-Routen + `@yapaja/shared`-Schemas (`apps/core/src/openapi/`, CI-Check „Spec aktuell") |
+
 ## Task-Prompts (für Umsetzungs-Modelle)
 
 | Epic | Datei | Thema |

@@ -13,6 +13,18 @@ on:
         description: 'Soak-Laufzeit in Sekunden (Default 86400 = 24 h; fuer einen Rauchtest z. B. 600)'
         required: false
         default: '86400'
+  # E10-T5: macht diese komplette Job-Sammlung ("Nightly-Suite") als
+  # reusable Workflow fuer .github/workflows/release.yml aufrufbar
+  # (`uses: ./.github/workflows/nightly.yml`) -- docs/07-testing-qa.md §6
+  # definiert die Release-Pipeline woertlich als "Nightly-Suite + Add-on-
+  # Kompatibilitaetstest + Changelog + signierte Images", nicht als eigene,
+  # zweite Kopie derselben ~15 Jobs. `perf-soak-24h` bleibt dabei ausgesetzt
+  # (sein `if` prueft explizit `github.event.schedule`/`workflow_dispatch`;
+  # unter `workflow_call` ist `github.event_name == 'workflow_call'`, die
+  # Bedingung ist also false) -- gewollt: ein 24h-Soak gehoert nicht in einen
+  # Tag-Push-Ablauf, der in Minuten fertig sein soll, sondern bleibt sein
+  # eigener woechentlicher Rhythmus.
+  workflow_call: {}
 
 jobs:
   quality:
