@@ -40,6 +40,19 @@ Beide Wege enthalten einen eigenen Abschnitt zur
 - Optional, für echtes GPS statt Simulator: ein USB-GPS-Empfänger
   ("GPS-Maus", meist ein `u-blox`-Chipsatz, erscheint unter Linux als
   `/dev/ttyACM0` oder `/dev/ttyUSB0`).
+- **Kommandozeilen-Werkzeuge**, die weiter unten vorausgesetzt werden:
+  `curl` (Downloads und Health-Abfragen) und `jq` (formatiert die
+  JSON-Antworten lesbar). Auf einem minimalen System sind beide oft nicht
+  vorinstalliert:
+
+  ```bash
+  # Debian/Ubuntu (auch der Proxmox-LXC-Standard)
+  apt-get update && apt-get install -y curl jq
+  ```
+
+  Auf anderen Distributionen entsprechend `dnf install curl jq` (Fedora/RHEL)
+  bzw. `apk add curl jq` (Alpine). `jq` ist reiner Komfort — ohne es
+  funktioniert jeder `curl`-Aufruf ebenfalls, die Ausgabe ist nur einzeilig.
 - Mindestens eine Kartenregion als PBF-Datei (z. B. von
   [download.geofabrik.de](https://download.geofabrik.de/)) — ohne
   Kartendaten startet die App zwar, aber Routing/Suche haben nichts zu
@@ -55,13 +68,41 @@ ist der Text, den die Add-on-Store-Seite in HA tatsächlich anzeigt) — dieser
 Abschnitt hier ist die deutschsprachige Schritt-für-Schritt-Fassung
 zusätzlich zu jenem Dokument, nicht als Ersatz dafür.
 
-1. In Home Assistant: **Einstellungen → Add-ons → Add-on Store → ⋮ (oben
-   rechts) → Repositories**. Dort die URL des Add-on-Repositories eintragen
-   und mit „Hinzufügen" bestätigen. (docs/04-home-assistant.md §3 beschreibt
-   das Zielformat: ein eigenständiges `yapaja-go-ha-addon`-Repository im
-   HA-Add-on-Repository-Format.)
-2. Im Add-on-Store nach „Yapaja Go" suchen, öffnen, **Installieren** klicken.
-   Erwartete Dauer: wenige Minuten (Image-Download).
+> ⚠️ **Das öffentliche Add-on-Repository gibt es noch nicht.**
+> Ein HA-Add-on-Repository ist ein eigenes Git-Repository mit `repository.yaml`
+> im Wurzelverzeichnis; dieses Monorepo hat dieses Format bewusst nicht (die
+> Paketquelle liegt hier unter `ha-addon/yapaja_go/`, siehe
+> `ha-addon/README.md`). Der Store-Weg über **⋮ → Repositories** funktioniert
+> deshalb erst, wenn das `yapaja-go-ha-addon`-Repository veröffentlicht ist —
+> das ist ein Release-Schritt (docs/04-home-assistant.md §3) und Teil von
+> E10-T6, nicht schon erledigt. **Bis dahin gilt Schritt 1 unten (lokales
+> Add-on).** Wer nicht warten möchte, nimmt Weg B.
+
+1. **Lokales Add-on einspielen** (der Weg, der heute funktioniert). Das
+   Verzeichnis `ha-addon/yapaja_go/` aus diesem Repository in den
+   `addons`-Ordner der Home-Assistant-Installation kopieren — erreichbar z. B.
+   über das offizielle „Samba share"- oder „Advanced SSH & Web Terminal"-
+   Add-on:
+
+   ```bash
+   # auf dem HA-Host, im Ordner /addons/
+   git clone https://github.com/Apfelsafft/Yapaja-Go-Design.git /tmp/yapaja
+   cp -r /tmp/yapaja/ha-addon/yapaja_go /addons/yapaja_go
+   rm -rf /tmp/yapaja
+   ```
+
+   Danach **Einstellungen → Add-ons → Add-on Store → ⋮ → Nach Updates
+   suchen**. „Yapaja Go" erscheint anschließend im Abschnitt **„Lokale
+   Add-ons"**.
+   *Erwartetes Ergebnis:* die Kachel „Yapaja Go" ist sichtbar. Erscheint sie
+   nicht, stimmt der Pfad nicht — im Ordner `/addons/yapaja_go/` müssen
+   `config.yaml` und `Dockerfile` unmittelbar liegen (keine weitere
+   Zwischenebene).
+
+2. Add-on öffnen, **Installieren** klicken. Der Container wird dabei **auf dem
+   Gerät gebaut** (lokale Add-ons bringen kein fertiges Image mit) — je nach
+   Hardware **10–30 Minuten**, auf einem Raspberry Pi auch länger. Das ist
+   normal und kein Hänger.
 3. **Vor dem ersten Start**: den Reiter **Konfiguration** des Add-ons öffnen
    und mindestens `region` setzen (siehe Optionstabelle in
    `ha-addon/yapaja_go/DOCS.md` §„Configuration options"). Ohne `region`
@@ -132,6 +173,13 @@ mkdir -p data/pbf
 curl -fL --retry 3 -o data/pbf/li.osm.pbf \
   https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
 
+# Schlaegt der Download auch nach den drei Versuchen fehl, liegt es fast immer
+# an der Netzverbindung, einem Proxy oder einer Firewall -- nicht an Yapaja.
+# Pruefen: `curl -I https://download.geofabrik.de/` muss "200" liefern.
+# Geofabrik-Extrakte lassen sich auch vorab woanders herunterladen und
+# einfach nach data/pbf/ kopieren; der Dateiname ist das Einzige, worauf die
+# naechsten Schritte sich stuetzen.
+
 services/valhalla/build-tiles.sh data/pbf/li.osm.pbf
 ```
 
@@ -160,11 +208,24 @@ docker compose --profile routing --profile search up -d
 ```
 
 Erwartung: drei Container starten (`yapaja-core`, `yapaja-valhalla`,
-`yapaja-photon`). Prüfen:
+`yapaja-photon`).
+
+> **`yapaja-valhalla` zeigt „Restarting"? Das ist erwartbar, kein Fehler.**
+> Valhalla läuft mit `restart: on-failure:3` und beendet sich, solange unter
+> `data/valhalla/tiles/` noch kein fertiger Graph liegt — es versucht es
+> dreimal und bleibt dann gestoppt. Wer Schritt B.3 (Graph bauen) noch nicht
+> ausgeführt hat, sieht genau das. Der Health-Check unten meldet dann
+> `"valhalla": "down"`; sobald der Graph existiert und der Container gestartet
+> ist, springt er auf `"ok"`. Dasselbe gilt für `yapaja-photon` ohne Index.
+
+Prüfen:
 
 ```bash
 curl -s http://localhost:8080/api/v1/health | jq .
 ```
+
+*(Ohne `jq`: `curl -s http://localhost:8080/api/v1/health` — dieselbe Antwort,
+nur unformatiert.)*
 
 Erwartete Antwort (Auszug, `docs/03-api-spec.md` §2 „System"):
 
@@ -234,6 +295,8 @@ bestimmtes Docker-Image für `gpsd` erfordert:
 1. **`gpsd` installieren** (im selben Host bzw. derselben LXC, in der auch
    `docker compose` läuft):
    ```bash
+   # Debian/Ubuntu; auf Fedora/RHEL `dnf install gpsd gpsd-clients`,
+   # auf Alpine `apk add gpsd gpsd-clients`.
    apt-get update && apt-get install -y gpsd gpsd-clients
    ```
 2. **Proxmox-LXC-Device-Passthrough** (nur relevant, wenn Docker in einer
@@ -256,9 +319,12 @@ bestimmtes Docker-Image für `gpsd` erfordert:
 4. **Core auf dieses `gpsd` zeigen lassen.** Weil `core` im
    `docker-compose.yml` per Default im isolierten Bridge-Netzwerk läuft
    (eigenes `localhost`, das NICHT das `localhost` des Hosts ist), lokal
-   ergänzen (`docker-compose.override.yml`, wird von `docker compose`
-   automatisch mitgeladen, ohne die getrackte `docker-compose.yml`
-   anzufassen):
+   ergänzen. Dazu **neben** der `docker-compose.yml` eine zweite Datei namens
+   `docker-compose.override.yml` anlegen (exakt dieser Name): `docker compose`
+   lädt sie automatisch zusätzlich, wenn sie im selben Verzeichnis liegt — ein
+   Standardmechanismus von Compose, kein Yapaja-Sonderweg. So bleibt die
+   getrackte `docker-compose.yml` unangetastet und lokale Anpassungen
+   überstehen jedes `git pull`. Inhalt:
    ```yaml
    services:
      core:
