@@ -180,9 +180,30 @@ jobs:
         run: docker buildx build --platform linux/amd64,linux/arm64 -f apps/core/Dockerfile .
 
   audit:
-    name: Dependency Audit
+    name: Dependency Audit & Lizenz-Gate (E10-T4)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # E10-T4: dieser Job hiess vorher nur "Dependency Audit" und lief
+    # `pnpm audit --audit-level high` ueber den GESAMTEN Baum. Das hat in der
+    # Praxis nichts geschuetzt, sondern nur dauerhaft rot geleuchtet: die
+    # Advisories stammten fast ausschliesslich aus Dev-Werkzeugen (vitest,
+    # vite, esbuild), die das Geraet nie erreichen, und ein Gate, das immer rot
+    # ist, wird ignoriert statt beachtet.
+    #
+    # Ersetzt durch `scripts/dependency-audit.mjs`. Der Umfang ist damit
+    # ENGER, und das ist eine bewusste, hier festgehaltene Entscheidung:
+    # blockierend sind nur Produktions-Abhaengigkeiten (die per
+    # `pnpm install --prod` ins Image wandern), Dev-Funde werden weiterhin
+    # vollstaendig ausgegeben, nur eben nicht mehr blockierend. Dafuer ist das
+    # Gate jetzt tatsaechlich gruen erreichbar -- und Ausnahmen brauchen
+    # Begruendung und Ablaufdatum (< 90 Tage), statt dass man den Job
+    # stillschweigend rot laesst. Ausserdem laeuft hier zusaetzlich das
+    # Copyleft-Gate (E10-T4 Akzeptanzkriterium 3).
+    #
+    # Derselbe Job laeuft auch je PR (.github/workflows/ci.yml,
+    # `dependency-audit`); nightly bleibt er, weil neue Advisories ohne
+    # Code-Aenderung erscheinen -- ein gruener PR-Lauf von gestern sagt heute
+    # nichts mehr.
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -201,8 +222,110 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Audit dependencies
-        run: pnpm audit --audit-level high
+      - name: Ausnahme-Datei pruefen (Begruendung + Ablauf < 90 Tage)
+        run: node scripts/dependency-audit.mjs --check-exceptions
+
+      # Siehe ci.yml: in der Entwicklungsumgebung nicht ausfuehrbar (403 auf
+      # GitHub-Releases ueber den Proxy), laeuft erstmalig auf dem Runner.
+      - name: osv-scanner (JSON-Report erzeugen)
+        continue-on-error: true
+        uses: google/osv-scanner-action/osv-scanner-action@v2.2.4
+        with:
+          scan-args: |-
+            --format=json
+            --output=osv-report.json
+            --lockfile=pnpm-lock.yaml
+
+      - name: "Audit-Gate (blockierend: prod; sichtbar: dev)"
+        run: |
+          node scripts/dependency-audit.mjs \
+            --osv osv-report.json \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Lizenz-Inventar aktuell + Copyleft-Gate
+        run: node scripts/generate-licenses.mjs --check
+
+  # ─── E10-T4 (d): E09-T6-Suite in der Release-Pipeline ──────────────────────
+  # Doppel-Check-Ergebnis: die Sandbox-Escape-Suite lief bisher NUR in
+  # ci.yml (je PR/Push) -- nicht nightly. docs/07 §6 definiert die Release-
+  # Pipeline aber als "Nightly-Suite + Add-on-Kompatibilitaetstest + ...", d. h.
+  # die Sicherheitssuite war formal gar nicht Teil der Release-Pipeline, obwohl
+  # der Release-Gate-Punkt in §7 sie ausdruecklich verlangt
+  # ("Add-on-Sandbox-Escape-Tests (E09-T6) gruen"). Diese Luecke schliesst der
+  # folgende Job. `retries: 0` und der Mutations-Nachweis bleiben unveraendert
+  # wie in ci.yml -- eine Sicherheitsaussage wird nie gruen retried.
+  security-suite:
+    name: Security Suite (Sandbox-Escape, E09-T6, W-10) — Release-Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+
+      - name: Typecheck security suite
+        run: pnpm exec tsc --noEmit -p e2e/security/tsconfig.json
+
+      - name: Run security suite (all vectors blocked + logged)
+        run: pnpm e2e:security
+
+      - name: Mutation proof (the suite really detects a removed protection)
+        run: pnpm security:mutation-proof
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-suite-traces-nightly
+          path: e2e/security/.tmp/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # E10-T4 (b): die Auth-Matrix aus E08-T3 + der Security-Header-Check
+  # ebenfalls in der Release-Pipeline, nicht nur je PR.
+  api-security-smoke:
+    name: API-Security-Smoke (Auth-Matrix + Security-Header, E10-T4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Auth-Matrix + Header-Check (Unit)
+        run: npx vitest run apps/core/src/auth apps/core/src/security
+
+      - name: API-Security-Smoke gegen den gebauten Core (echtes HTTP)
+        run: bash scripts/api-security-smoke.sh
 
   golden-routes-de:
     name: Golden-Routes DE (nightly, non-blocking while unverified)

@@ -37,6 +37,12 @@ export default defineConfig({
       // `npx vitest run`-Lauf gehoert. Die MESSUNGEN selbst sind Playwright
       // und laufen ueber `e2e/perf/playwright.config.ts`.
       'e2e/perf/**/*.test.ts',
+      // E10-T4: die Auswertungslogik des Dependency-Audit-Gates
+      // (`scripts/dependency-audit.mjs`) -- gleiche Begruendung wie bei
+      // `e2e/perf` oben: reine Logik ohne Prozess/Netzwerk, also gehoert sie
+      // in den einen `npx vitest run`-Lauf. Die Scanner-AUFRUFE selbst laufen
+      // in CI (Job `dependency-audit`), nicht hier.
+      'scripts/**/*.test.ts',
     ],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.turbo/**'],
     coverage: {

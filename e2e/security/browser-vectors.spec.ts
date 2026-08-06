@@ -239,18 +239,48 @@ test('VEKTOR bridge.source_spoofed: eine Nachricht aus einem FREMDEN Fenster wir
   // anchor is `event.source === iframe.contentWindow`, so this must be
   // dropped without any side effect. (This is the SDK-bypass proof at its
   // sharpest: the message is protocol-valid, only the sender is wrong.)
+  // The forged messages are posted from the TOP window rather than from an
+  // injected `srcdoc` iframe (which is how this test used to work).
+  //
+  // WHY IT CHANGED (E10-T4): the Core now serves a
+  // `Content-Security-Policy: script-src 'self'` (`apps/core/src/security/
+  // headers.ts`), and a `srcdoc` frame inherits the embedder's policy -- so
+  // its inline `<script>` no longer runs at all. The old attacker never got
+  // to send anything, which made this test pass VACUOUSLY: the widget stayed
+  // 'armed' simply because no message was ever posted.
+  //
+  // Posting from the top window keeps the property under test EXACTLY the
+  // same. The host bridge's only trust anchor is
+  // `event.source === iframe.contentWindow`; the top window is just as
+  // foreign to that check as a stray iframe is, and it is a sender the CSP
+  // cannot silence. If anything this is the sharper probe: it removes the
+  // test's dependence on being able to execute attacker script at all.
+  //
+  // (That the CSP *also* independently blocks the srcdoc-script variant in
+  // production is defence in depth -- but the suite must still prove the
+  // source-pinning check itself, not lean on the CSP for it.)
   await page.evaluate(() => {
-    const attacker = document.createElement('iframe');
-    attacker.id = 'attacker-frame';
-    attacker.srcdoc =
-      '<script>window.parent.postMessage(' +
-      "{ ns: 'yapaja-addon', v: 1, type: 'call', callId: 'spoof-1', method: 'widgets.update', " +
-      "params: { widgetId: 'evil-status', data: { text: 'SPOOFED' } } }, '*');" +
-      "window.parent.postMessage({ ns: 'yapaja-addon', v: 1, type: 'security-violation', " +
-      "vector: 'ui.parent_dom_access', detail: 'forged-by-attacker-frame' }, '*');" +
-      // Split so this source file never contains a literal closing script tag.
-      '</scr' + 'ipt>';
-    document.body.appendChild(attacker);
+    window.postMessage(
+      {
+        ns: 'yapaja-addon',
+        v: 1,
+        type: 'call',
+        callId: 'spoof-1',
+        method: 'widgets.update',
+        params: { widgetId: 'evil-status', data: { text: 'SPOOFED' } },
+      },
+      '*',
+    );
+    window.postMessage(
+      {
+        ns: 'yapaja-addon',
+        v: 1,
+        type: 'security-violation',
+        vector: 'ui.parent_dom_access',
+        detail: 'forged-by-attacker-frame',
+      },
+      '*',
+    );
   });
   await page.waitForTimeout(1500);
 

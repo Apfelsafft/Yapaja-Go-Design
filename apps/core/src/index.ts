@@ -44,6 +44,7 @@ import { addonProxyPlugin } from './addons/proxy.js';
 import { AddonRepository } from './addons/repository.js';
 import { securityPlugin } from './security/routes.js';
 import { securityEventLog } from './security/securityEvents.js';
+import { securityHeadersPlugin } from './security/headers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -78,6 +79,14 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   const fastify = Fastify({
     logger: true,
   });
+
+  // E10-T4 (docs/07 §7): baseline security response headers (CSP incl.
+  // `frame-ancestors`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`)
+  // for EVERY reply this server produces -- SPA shell, static assets and
+  // `/api/*` alike. Registered FIRST so no later plugin can be served without
+  // them; the add-on UI host's stricter own CSP is explicitly not overridden
+  // (see `security/headers.ts`).
+  await fastify.register(securityHeadersPlugin);
 
   const version = await readPackageVersion();
 

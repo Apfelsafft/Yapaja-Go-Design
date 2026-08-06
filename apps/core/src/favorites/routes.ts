@@ -202,13 +202,17 @@ export const favoritesPlugin: FastifyPluginAsync = async (fastify) => {
     },
   );
 
-  fastify.delete<{ Params: FavoriteRouteParams; Reply: ApiError }>(
+  // `Reply` includes `undefined` because the success path is a bodiless 204.
+  // fastify 5 types `reply.send(payload)` with a REQUIRED argument (v4 allowed
+  // the zero-arg form), so a 204 is written as `.send(undefined)` -- same wire
+  // behaviour, now expressed in the type.
+  fastify.delete<{ Params: FavoriteRouteParams; Reply: ApiError | undefined }>(
     '/favorites/:id',
     async (request, reply) => {
       const { id } = request.params;
       try {
         favoriteService.delete(id);
-        reply.code(204).send();
+        reply.code(204).send(undefined);
       } catch (err) {
         handleFavoriteError(err, reply);
       }
@@ -246,13 +250,14 @@ export const favoritesPlugin: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  fastify.delete<{ Params: FavoriteRouteParams; Reply: ApiError }>(
+  // Bodiless 204 on success -- see the note on `DELETE /favorites/:id` above.
+  fastify.delete<{ Params: FavoriteRouteParams; Reply: ApiError | undefined }>(
     '/history/:id',
     async (request, reply) => {
       const { id } = request.params;
       try {
         historyService.deleteOne(id);
-        reply.code(204).send();
+        reply.code(204).send(undefined);
       } catch (err) {
         const error = err as HistoryError;
         if (error.code === 'NOT_FOUND') {
@@ -265,6 +270,6 @@ export const favoritesPlugin: FastifyPluginAsync = async (fastify) => {
 
   fastify.delete('/history', async (_request, reply) => {
     historyService.clear();
-    reply.code(204).send();
+    reply.code(204).send(undefined);
   });
 };

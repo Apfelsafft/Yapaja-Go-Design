@@ -95,7 +95,12 @@ Fixture-Datei `e2e/golden-routes.json` mit Fällen gegen den CI-Kartenextrakt
 - **PR:** lint → typecheck → unit → contract → build → E2E-Smoke (Flows 1–2)
   → Budget-Diff. Laufzeitziel < 15 min.
 - **Nightly:** volle E2E-Matrix, Golden-Routes gegen DE-Extrakt, RAM/fps-Messung
-  im QEMU-Profil „N100" (2 vCPU, 4 GB), Dependency-Audit, Docker-Multi-Arch-Build.
+  im QEMU-Profil „N100" (2 vCPU, 4 GB), Dependency-Audit + Lizenz-/Copyleft-Gate,
+  Sicherheitssuite (E09-T6) und API-Security-Smoke, Docker-Multi-Arch-Build.
+  > Die beiden Sicherheits-Jobs stehen hier, weil die Release-Pipeline unten als
+  > „Nightly-Suite + …" definiert ist: liefe die E09-T6-Suite nur je PR, wäre sie
+  > formal nicht Teil der Release-Pipeline, obwohl §7 sie ausdrücklich verlangt
+  > (Lücke gefunden und geschlossen in E10-T4 (d)).
 - **Release:** Nightly-Suite + Add-on-Kompatibilitätstest (Referenz-Add-ons gegen
   neue Core-API) + Changelog + signierte Images.
 
@@ -106,7 +111,25 @@ Fixture-Datei `e2e/golden-routes.json` mit Fällen gegen den CI-Kartenextrakt
 - [ ] Budgets: Kaltstart < 5 s, Rendering ≥ 30 fps, Reroute < 3 s, RAM-Tabelle docs/01 §4 eingehalten (gemessen im N100-Profil).
 - [ ] 24-h-Soak-Test: Simulator-Dauerfahrt, kein Memory-Leak (RSS-Drift < 5 %), keine WS/MQTT-Verbindungslecks.
 - [ ] HA: Add-on-Installation auf frischem HAOS, Discovery vollständig, Ingress ok, Update von Vorversion ohne Kartendaten-Verlust.
-- [ ] Sicherheit: `pnpm audit` ohne High/Critical; Add-on-Sandbox-Escape-Tests (E09-T6) grün; API ohne Token nicht zugreifbar (standalone).
+- [ ] Sicherheit — belegt durch drei benannte CI-Jobs (E10-T4):
+  - [ ] `dependency-audit`: `pnpm audit --prod` + osv-scanner ohne High/Critical.
+        **Umfang, bewusst gewählt:** blockierend sind nur Produktions-Abhängigkeiten
+        (das Image installiert mit `--prod`); Dev-Werkzeuge (vitest, vite, esbuild …)
+        werden bei jedem Lauf *gemeldet*, blockieren aber nicht. Ausnahmen brauchen
+        Begründung **und** Ablaufdatum < 90 Tage und stehen in
+        `security/audit-exceptions.json` — maschinell erzwungen von
+        `scripts/dependency-audit.mjs`.
+  - [ ] `security-suite`: Add-on-Sandbox-Escape-Tests (E09-T6) grün, `retries: 0`,
+        inkl. Mutations-Nachweis. Läuft je PR **und** nightly (= Release-Pipeline).
+  - [ ] `api-security-smoke`: API ohne Token nicht zugreifbar (Auth-Matrix E08-T3)
+        und Security-Header (CSP, `X-Content-Type-Options: nosniff`,
+        `frame-ancestors`) auf jeder Antwort — gegen den **gebauten** Core über
+        echtes HTTP, nicht nur `fastify.inject()`.
 - [ ] Manuelle Hardware-Checkliste durch Menschen: USB-GPS-Fix < 60 s kalt, echte Fahrt ≥ 30 min ohne Eingriff, Touch im Fahrbetrieb, Nachtmodus-Lesbarkeit.
 - [ ] Doku: Installations-Guide (Add-on + Compose), Add-on-Entwickler-Guide, Troubleshooting.
-- [ ] Lizenz-/Attributions-Prüfung (OSM, Fonts, Icons, Dependencies).
+- [ ] Lizenz-/Attributions-Prüfung (OSM, Fonts, Icons, Dependencies) —
+      [`docs/licenses.md`](licenses.md), generiert von `scripts/generate-licenses.mjs`.
+      CI prüft im Job `dependency-audit`, dass das Inventar zum Abhängigkeitsstand
+      passt, und lässt **Copyleft im ausgelieferten Bundle fehlschlagen** (GPL-
+      Abhängigkeit ⇒ rot). Die ODbL-Attribution ist zusätzlich per E2E-Assertion
+      abgesichert (Nachweise in `docs/licenses.md` §1).

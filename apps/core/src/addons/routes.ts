@@ -258,7 +258,7 @@ export const addonsPlugin: FastifyPluginAsync<AddonsPluginOptions> = async (fast
     async (request, reply) => {
       try {
         await service.uninstall(request.params.id);
-        reply.code(204).send();
+        reply.code(204).send(undefined);
       } catch (err) {
         sendAddonError(reply, err);
       }

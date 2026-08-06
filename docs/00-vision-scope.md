@@ -75,6 +75,9 @@ Sygic Truck, Offline-Fähigkeit von iGO/OsmAnd – als offene, erweiterbare Plat
 ## Rechtliches / Sicherheit (Rahmenbedingungen)
 
 - OSM-Daten: ODbL-Attribution in der UI ("© OpenStreetMap contributors").
+  Vollständiges Lizenz-Inventar (OSM, Schriften, Icons, Dependencies) und die
+  Nachweise, dass die Attribution per E2E-Assertion abgesichert ist:
+  [`docs/licenses.md`](licenses.md) (generiert, CI-geprüft — E10-T4).
 - Deutliche Haftungs-Hinweise: Kartendaten können falsch/veraltet sein; Beschilderung
   vor Ort hat immer Vorrang (Pflicht-Dialog bei Erstnutzung, Hinweis bei Profilrouting).
 - Bedienung während der Fahrt: große Touchziele, Eingabesperren für komplexe Dialoge

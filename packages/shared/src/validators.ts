@@ -40,20 +40,61 @@ import type {
 const ajv = new Ajv({ allErrors: true, strictSchema: false });
 addFormats(ajv);
 
+/**
+ * LAZY schema compilation (E10-T4).
+ *
+ * `ajv.compile()` generates JavaScript at runtime and evaluates it with
+ * `new Function()`. Doing that at MODULE LOAD meant that merely importing
+ * anything from `@yapaja/shared` -- even `formatEta` -- executed thirteen
+ * `new Function()` calls as a side effect of the barrel export.
+ *
+ * In Node that is invisible. In a browser under the Core's
+ * `Content-Security-Policy: script-src 'self'` (E10-T4,
+ * `apps/core/src/security/headers.ts`) it is fatal: the CSP refuses to
+ * evaluate the generated string, the import throws, and the whole web app
+ * fails to boot -- observed as a blank page with no map canvas.
+ *
+ * This is the SAME failure mode E09-T4 already hit once, when
+ * `packages/addon-sdk/src/version.ts` imported `isValidSemver` from this
+ * package and thereby died under the add-on CSP. There the fix was to stop
+ * importing the barrel; here it is fixed at the source, so no future
+ * consumer can trip over it again.
+ *
+ * Compiling on FIRST USE keeps the public API byte-identical (every
+ * `validateX(data)` still works exactly as before, and the Core -- which
+ * does call them -- pays the same one-off cost, just slightly later), while
+ * a browser that never validates never evaluates anything.
+ */
+function lazyValidator(schema: object): ValidateFunction {
+  let compiled: ValidateFunction | null = null;
+  // Typed as a `ValidateFunction` because callers legitimately read AJV's
+  // `.errors` after a failed call (`getValidationErrorsForValidator` below).
+  // The wrapper therefore FORWARDS `.errors` from the real compiled
+  // validator after every call, so the lazy version is observationally
+  // identical to the eager one.
+  const wrapper = ((data: unknown): boolean => {
+    if (compiled === null) compiled = ajv.compile(schema);
+    const ok = compiled(data) as boolean;
+    wrapper.errors = compiled.errors;
+    return ok;
+  }) as ValidateFunction;
+  return wrapper;
+}
+
 // Compile validators
-const validateLatLngImpl = ajv.compile(latLngSchema);
-const validatePositionImpl = ajv.compile(positionSchema);
-const validateVehicleProfileImpl = ajv.compile(vehicleProfileSchema);
-const validateRouteRequestImpl = ajv.compile(routeRequestSchema);
-const validateRouteImpl = ajv.compile(routeSchema);
-const validateManeuverImpl = ajv.compile(maneuverSchema);
-const validateNavStateImpl = ajv.compile(navStateSchema);
-const validateNavInstructionImpl = ajv.compile(navInstructionSchema);
-const validateApiErrorImpl = ajv.compile(apiErrorSchema);
-const validateSearchResultImpl = ajv.compile(searchResultSchema);
-const validateFavoriteImpl = ajv.compile(favoriteSchema);
-const validateHistoryEntryImpl = ajv.compile(historyEntrySchema);
-const validateAddonManifestStructuralImpl = ajv.compile(addonManifestSchema);
+const validateLatLngImpl = lazyValidator(latLngSchema);
+const validatePositionImpl = lazyValidator(positionSchema);
+const validateVehicleProfileImpl = lazyValidator(vehicleProfileSchema);
+const validateRouteRequestImpl = lazyValidator(routeRequestSchema);
+const validateRouteImpl = lazyValidator(routeSchema);
+const validateManeuverImpl = lazyValidator(maneuverSchema);
+const validateNavStateImpl = lazyValidator(navStateSchema);
+const validateNavInstructionImpl = lazyValidator(navInstructionSchema);
+const validateApiErrorImpl = lazyValidator(apiErrorSchema);
+const validateSearchResultImpl = lazyValidator(searchResultSchema);
+const validateFavoriteImpl = lazyValidator(favoriteSchema);
+const validateHistoryEntryImpl = lazyValidator(historyEntrySchema);
+const validateAddonManifestStructuralImpl = lazyValidator(addonManifestSchema);
 
 /**
  * Type guard for LatLng

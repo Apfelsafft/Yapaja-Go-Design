@@ -301,6 +301,124 @@ jobs:
       - name: Degradation proof (200 ms fixture must turn the pipeline red)
         run: pnpm perf:degradation-proof
 
+  dependency-audit:
+    name: Dependency-Audit & Lizenz-Gate (E10-T4)
+    runs-on: ubuntu-latest
+    # Bewusst KEIN `needs: quality` -- reine Metadaten-Pruefung auf Lockfile
+    # und package.json, unabhaengig von Lint/Build. Gleiche Begruendung wie
+    # bei `addon-config-check`: schnell, in-repo, darum ohne Vorbedingung.
+    #
+    # ─── SCOPING, ausdruecklich und absichtlich ────────────────────────────
+    # BLOCKIEREND ist nur der Produktions-Umfang (`pnpm audit --prod`). Dev-
+    # Werkzeuge (vitest, vite, esbuild, tsup, playwright) erreichen das Geraet
+    # nie -- apps/core/Dockerfile installiert mit `--prod` --, ein Advisory
+    # dort ist also ein Aufraeum-Ticket, kein Release-Blocker. Diese Funde
+    # werden trotzdem bei JEDEM Lauf ausgegeben und in die Job-Summary
+    # geschrieben, damit die Entscheidung sichtbar bleibt und nicht als
+    # stiller `--prod`-Schalter Funde verschwinden laesst. Ausnahmen fuer den
+    # blockierenden Umfang stehen mit Begruendung UND Ablaufdatum (< 90 Tage,
+    # maschinell erzwungen) in `security/audit-exceptions.json`.
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Eigener Schritt VOR den Scannern: eine abgelaufene oder zu weit in die
+      # Zukunft datierte Ausnahme ist selbst ein Gate-Fehler und soll als
+      # solcher erkennbar sein, nicht als Nebensatz einer Advisory-Ausgabe.
+      - name: Ausnahme-Datei pruefen (Begruendung + Ablauf < 90 Tage)
+        run: node scripts/dependency-audit.mjs --check-exceptions
+
+      # osv-scanner (osv.dev) als ZWEITE Quelle neben der npm-Advisory-DB:
+      # er kennt Advisories, die (noch) keinen npm-Eintrag haben.
+      #
+      # HINWEIS: Dieser Schritt konnte in der Entwicklungsumgebung NICHT
+      # ausgefuehrt werden -- GitHub-Releases antworten dort mit 403 ueber den
+      # Proxy, osv-scanner liess sich nicht installieren. Er ist hier nach der
+      # Dokumentation verdrahtet und laeuft erstmalig auf dem Runner.
+      # `continue-on-error`, weil osv-scanner sich mit != 0 beendet, sobald es
+      # ueberhaupt etwas findet -- die Bewertung (prod vs. dev, Ausnahmen)
+      # trifft der naechste Schritt, nicht der Scanner.
+      - name: osv-scanner (JSON-Report erzeugen)
+        id: osv
+        continue-on-error: true
+        uses: google/osv-scanner-action/osv-scanner-action@v2.2.4
+        with:
+          scan-args: |-
+            --format=json
+            --output=osv-report.json
+            --lockfile=pnpm-lock.yaml
+
+      # Das eigentliche Gate. Fasst beide Scanner zusammen, trennt prod/dev
+      # (OSV kennt die Unterscheidung fuer pnpm-Workspaces nicht -- das Skript
+      # schneidet die Funde gegen `pnpm list --prod` zu), wendet die Ausnahmen
+      # an und faellt bei High/Critical im Produktions-Umfang durch.
+      # Fehlt der OSV-Report, schlaegt das Skript bewusst FEHL ("fail closed")
+      # -- ein nicht gelaufener Scanner darf nie wie "nichts gefunden" wirken.
+      - name: "Audit-Gate (blockierend: prod; sichtbar: dev)"
+        run: |
+          node scripts/dependency-audit.mjs \
+            --osv osv-report.json \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      # Lizenz-Inventar: (1) ist docs/licenses.md noch aktuell, (2) enthaelt
+      # das ausgelieferte Bundle Copyleft? Eine GPL-Abhaengigkeit macht den
+      # Job rot (E10-T4 Akzeptanzkriterium 3).
+      - name: Lizenz-Inventar aktuell + Copyleft-Gate
+        run: node scripts/generate-licenses.mjs --check
+
+  api-security-smoke:
+    name: API-Security-Smoke (Auth-Matrix + Security-Header, E10-T4)
+    runs-on: ubuntu-latest
+    needs: quality
+    # E10-T4 (b). Die Auth-Matrix (E08-T3) und der Header-Check laufen bereits
+    # als Unit-Tests -- aber ueber `fastify.inject()`, also ohne echten Socket
+    # und ohne den @fastify/static-Stream. Genau dort koennen Header verloren
+    # gehen. Dieser Job startet den GEBAUTEN Core (`dist/`) mit dem echten
+    # Web-Bundle als public/ -- dieselbe Konstellation wie im Docker-Image --
+    # und prueft ueber echtes HTTP. Beim ersten Lauf hat genau das einen
+    # veralteten Build entlarvt, den die Unit-Tests nicht sehen konnten.
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Die in-process-Variante derselben Aussagen (voller Auth-Matrix-Umfang
+      # inkl. WebSocket-Upgrade, den ein curl-Rauchtest nicht abdeckt).
+      - name: Auth-Matrix + Header-Check (Unit)
+        run: npx vitest run apps/core/src/auth apps/core/src/security
+
+      - name: API-Security-Smoke gegen den gebauten Core (echtes HTTP)
+        run: bash scripts/api-security-smoke.sh
+
   docker:
     name: Docker Build & Health Check
     runs-on: ubuntu-latest

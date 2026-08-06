@@ -1,0 +1,26 @@
+{
+  "_doc": [
+    "Ausnahmen fuer das Dependency-Audit-Gate (E10-T4, docs/07 §7).",
+    "Geprueft und erzwungen von scripts/dependency-audit.mjs.",
+    "",
+    "Eine Ausnahme unterdrueckt GENAU EIN Advisory in GENAU EINEM Paket im",
+    "Produktions-Umfang. Sie ist kein Freibrief, sondern eine terminierte",
+    "Ausnahme mit Namen dran. Das Gate erzwingt maschinell:",
+    "  - abgelaufen               -> Gate rot (verlaengert sich nie von selbst)",
+    "  - Ablauf > 90 Tage entfernt -> Gate rot (Plausibilitaetsregel E10-T4)",
+    "  - Begruendung < 30 Zeichen  -> Gate rot",
+    "",
+    "Dev-only-Funde (vitest, vite, esbuild, tsup, playwright ...) gehoeren NICHT",
+    "hierher: sie sind ohnehin nicht blockierend, weil sie nie ausgeliefert",
+    "werden. Sie werden bei jedem Lauf gemeldet, siehe docs/licenses.md §5.",
+    "",
+    "Format je Eintrag:",
+    "  { \"id\": \"GHSA-xxxx-xxxx-xxxx\",",
+    "    \"package\": \"paketname\",",
+    "    \"reason\": \"warum das ausgelieferte Produkt das nicht trifft / warum jetzt nicht behebbar\",",
+    "    \"expires\": \"YYYY-MM-DD\",",
+    "    \"owner\": \"wer sich darum kuemmert\",",
+    "    \"tracking\": \"Issue-/PR-Link\" }"
+  ],
+  "exceptions": []
+}
