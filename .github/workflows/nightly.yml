@@ -328,8 +328,27 @@ jobs:
         run: bash scripts/api-security-smoke.sh
 
   golden-routes-de:
-    name: Golden-Routes DE (nightly, non-blocking while unverified)
+    name: Golden-Routes DE (manuell, zurueckgestellt -- siehe docs/backlog.md B-01)
     runs-on: ubuntu-latest
+    # ZURUECKGESTELLT (2026-08-05, Entscheidung des Betreibers): laeuft NICHT
+    # mehr im naechtlichen Zeitplan, sondern nur noch auf ausdrueckliche
+    # Anforderung (`workflow_dispatch`).
+    #
+    # Grund, empirisch und nicht vermutet: der Schritt "Build Germany tileset"
+    # lief in JEDEM Lauf seit Wochen exakt 2 h und wurde dann abgebrochen
+    # (z. B. Lauf 30980175183: 06:05:37 -> 08:05:55). Ein germany-latest-PBF
+    # laesst sich auf einem Standard-GitHub-Runner nicht in vertretbarer Zeit
+    # zu einem Valhalla-Graphen bauen. Der Job konnte also nie gruen werden --
+    # er hat nur jede Nacht eine rote Mail erzeugt und damit die Aufmerksamkeit
+    # fuer ECHTE Fehlschlaege abgestumpft.
+    #
+    # Das ist bewusst KEIN Loeschen und KEIN Gruenfaerben: die Arbeit steht als
+    # B-01 im Backlog, die DE-Faelle bleiben `unverified: true`, und v1.0 wird
+    # ausdruecklich mit einem Liechtenstein-Gate ausgeliefert (docs/07 §7,
+    # Ausnahme zu Punkt 2). Wer den Nachweis fuehren will, startet diesen Job
+    # von Hand auf einem ausreichend grossen Runner -- die 6-Punkte-Checkliste
+    # unten bleibt unveraendert gueltig.
+    if: github.event_name == 'workflow_dispatch'
     # DE Golden-Route slot (docs/07 §3b + §6 Nightly, E03-T5). Runs the DE
     # curated set against a full-Germany Valhalla graph. The DE PBF build is
     # large/slow (and may need a bigger/self-hosted runner or a smaller extract
@@ -701,8 +720,21 @@ jobs:
           if-no-files-found: warn
 
   photon-li-nightly:
-    name: Photon CH+LI Live Search (nightly, unverified/experimental, E05-T4)
+    name: Photon CH+LI Live Search (manuell, zurueckgestellt -- siehe docs/backlog.md B-02)
     runs-on: ubuntu-latest
+    # ZURUECKGESTELLT (2026-08-05), gleiche Begruendung wie golden-routes-de:
+    # der Schritt "Wait for Photon /status" lief seit Wochen in jedem Lauf ins
+    # Timeout (z. B. Lauf 30980175183: 25 min, danach abgebrochen), weil der
+    # JSONL-Import den Index IM Container aufbaut und das auf einem
+    # Standard-Runner nicht durchlaeuft. Ein Job, der nie gruen werden kann,
+    # ist kein Test, sondern eine Fehlalarmquelle.
+    #
+    # Faellt damit NICHT weg: der Lite-Suchindex (W-12-Fallback) wird
+    # weiterhin per PR gebaut und geraucht (`lite-search-li` in ci.yml), und
+    # `photon-setup` prueft die Skript-Fixtures + das Xmx-Wiring. Was hier
+    # fehlt, ist ausschliesslich der Live-Suchlauf gegen einen echten
+    # Photon-Index -- als B-02 im Backlog notiert.
+    if: github.event_name == 'workflow_dispatch'
     # E05-T4 Akzeptanz #1 ("CI startet Photon-LI und E05-T1-Integration laeuft
     # dagegen") NIGHTLY statt per-PR -- siehe `photon-setup` in ci.yml und
     # services/photon/README.md "Warum kein LI-only-Index in CI" fuer die
