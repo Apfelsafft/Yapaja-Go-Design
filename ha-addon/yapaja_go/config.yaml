@@ -21,11 +21,14 @@ arch:
   - amd64
   - aarch64
 
-# `application`: this is the user-facing product, not a background service
-# other add-ons depend on. `boot: auto` starts it with HAOS; operators can
-# still stop/disable it manually like any add-on.
-startup: application
-boot: auto
+# NOT SET, because both would only repeat the Supervisor default and
+# `frenck/action-addon-linter` rejects redundant keys (nightly, E10-T4):
+#   startup: application  -- this is the user-facing product, not a
+#                            background service other add-ons depend on.
+#   boot: auto            -- starts with HAOS; operators can still
+#                            stop/disable it manually like any add-on.
+# Both defaults are exactly what we want; spelling them out added no
+# behaviour, only a lint failure.
 
 # We ship our OWN s6-overlay (rootfs/etc/s6-overlay/, see Dockerfile) instead
 # of basing on Home Assistant's own base images (which already bundle
@@ -35,11 +38,12 @@ init: false
 
 # Ingress (docs/04 §3): the add-on UI appears in the HA sidebar, and HA
 # terminates auth + remote access (Nabu Casa) for it -- no separate
-# port-forwarding/reverse-proxy needed. `ingress_port` is the INTERNAL
-# container port the Core listens on; it is never published to the host
-# network directly (that's the whole point of Ingress).
+# port-forwarding/reverse-proxy needed. The INTERNAL container port the Core
+# listens on is the Supervisor default (8099) and is never published to the
+# host network directly (that's the whole point of Ingress) -- so
+# `ingress_port` is deliberately NOT set here: it would only restate the
+# default and the add-on linter rejects that (nightly, E10-T4).
 ingress: true
-ingress_port: 8099
 panel_icon: "mdi:map-marker-path"
 panel_title: "Yapaja Go"
 
@@ -82,12 +86,16 @@ udev: true
 hassio_api: true
 homeassistant_api: true
 
-# No elevated container privileges needed: usb+udev above already grant GPS
-# device access without `full_access: true` (which would disable Docker's
-# device allow-list entirely).
-full_access: false
-apparmor: true
-stdin: false
+# SECURITY POSTURE -- deliberately left at the Supervisor defaults, which are
+# already the hardened ones, and therefore NOT spelled out (the add-on linter
+# rejects keys that only restate a default; nightly, E10-T4):
+#   full_access: false  -- no elevated container privileges. usb+udev above
+#                          already grant GPS device access; `true` would
+#                          disable Docker's device allow-list entirely.
+#   apparmor:    true   -- AppArmor confinement stays ON.
+#   stdin:       false  -- no stdin channel into the container.
+# Any future change here is a widening of privileges and must be argued for
+# explicitly by ADDING the key with a comment saying why.
 
 # Options (docs/04 §3 "Kartenregion, MQTT-Prefix, Photon an/aus, GPS-Quelle,
 # Log-Level" + memory tuning). `region: ""` (empty) is a VALID, EXPECTED
