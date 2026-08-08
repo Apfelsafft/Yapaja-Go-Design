@@ -107,7 +107,16 @@ Fixture-Datei `e2e/golden-routes.json` mit Fällen gegen den CI-Kartenextrakt
 ## 7. Release-Gate-Checkliste v1.0 (G4)
 
 - [ ] Alle E2E-Flows 1–11 grün, 3 Läufe in Folge (Flake-Nachweis).
-- [ ] Golden-Routes DE: 100 % bestanden, inkl. aller Maßrestriktions-Fälle.
+- [ ] ~~Golden-Routes DE: 100 % bestanden, inkl. aller Maßrestriktions-Fälle.~~
+      **AUSNAHME FÜR v1.0 (Entscheidung Betreiber, 2026-08-05):** v1.0 wird
+      bewusst mit einem **Liechtenstein-only-Gate** ausgeliefert. Die 16
+      DE-Fälle bleiben `unverified` — der Nachweis braucht einen echten
+      DE-Valhalla-Graphen, der auf einem Standard-Runner nicht baubar ist
+      (2-h-Timeout in jedem Lauf). Details, Auswirkung und Wiederaufnahme:
+      [`docs/backlog.md` B-01](backlog.md#b-01--golden-routes-de-verifizieren-maßrestriktionen-deutschland).
+      **Diese Einschränkung MUSS in den Release-Notes von v1.0 stehen:** das
+      Gate belegt die Routing-*Mechanik*, nicht die Richtigkeit der deutschen
+      Maßrestriktionen in den ausgelieferten Kartendaten.
 - [ ] Budgets: Kaltstart < 5 s, Rendering ≥ 30 fps, Reroute < 3 s, RAM-Tabelle docs/01 §4 eingehalten (gemessen im N100-Profil).
 - [ ] 24-h-Soak-Test: Simulator-Dauerfahrt, kein Memory-Leak (RSS-Drift < 5 %), keine WS/MQTT-Verbindungslecks.
 - [ ] HA: Add-on-Installation auf frischem HAOS, Discovery vollständig, Ingress ok, Update von Vorversion ohne Kartendaten-Verlust.

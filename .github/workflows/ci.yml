@@ -1,10 +1,21 @@
 name: CI
 
+# ACTIONS-MINUTEN (2026-08-08): bewusst NUR `pull_request`, nicht zusaetzlich
+# `push: [main]`. Ein Squash-Merge erzeugt denselben Baum, den der PR-Lauf
+# soeben gegen alle 13 Jobs geprueft hat -- der Lauf danach auf `main` hat in
+# diesem Projekt noch nie etwas gefunden, kostete aber jedes Mal volle
+# ~36 abgerechnete Minuten. Das Gating passiert dort, wo es wirkt: VOR dem
+# Merge.
+#
+# Was dadurch entfaellt: ein Signal fuer den Fall, dass `main` durch zwei
+# unabhaengig gemergte PRs kaputtgeht (jeder fuer sich gruen, zusammen nicht).
+# Aufgefangen wird das vom woechentlichen Nightly, der auf `main` laeuft --
+# bei der Merge-Frequenz dieses Projekts ein vertretbarer Tausch. Wer haeufiger
+# parallel merged, sollte `push: [main]` wieder aufnehmen.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.ref }}
@@ -190,6 +201,14 @@ jobs:
   perf-budgets:
     name: Performance-Budgets (E10-T2, N100-Profil)
     runs-on: ubuntu-latest
+    # ACTIONS-MINUTEN (2026-08-08): laeuft NICHT mehr bei jedem PR, sondern nur
+    # noch auf Anforderung -- im woechentlichen Nightly ist derselbe Job fest
+    # verdrahtet. Begruendung: die beiden Perf-Jobs zusammen kosteten 12 der
+    # 36 abgerechneten Minuten JEDES PR-Laufs, also ein Drittel, und ihre
+    # Aussage ist ein TREND ueber die Zeit, kein Urteil ueber einen einzelnen
+    # Commit. Ein Budget-Verstoss faellt im woechentlichen Lauf frueh genug
+    # auf; wer eine Aenderung im Verdacht hat, startet den Job hier von Hand.
+    if: github.event_name == 'workflow_dispatch'
     needs: quality
     # Eigener Job neben `e2e`, aus demselben Grund wie `security-suite`: die
     # Suite (e2e/perf/) startet genau EINEN dedizierten Core (Port 4350),
@@ -269,6 +288,14 @@ jobs:
   perf-degradation-proof:
     name: Perf-Degradations-Nachweis (E10-T2 Akzeptanz 2)
     runs-on: ubuntu-latest
+    # ACTIONS-MINUTEN (2026-08-08): laeuft NICHT mehr bei jedem PR, sondern nur
+    # noch auf Anforderung -- im woechentlichen Nightly ist derselbe Job fest
+    # verdrahtet. Begruendung: die beiden Perf-Jobs zusammen kosteten 12 der
+    # 36 abgerechneten Minuten JEDES PR-Laufs, also ein Drittel, und ihre
+    # Aussage ist ein TREND ueber die Zeit, kein Urteil ueber einen einzelnen
+    # Commit. Ein Budget-Verstoss faellt im woechentlichen Lauf frueh genug
+    # auf; wer eine Aenderung im Verdacht hat, startet den Job hier von Hand.
+    if: github.event_name == 'workflow_dispatch'
     needs: quality
     # Akzeptanzkriterium 2: "kuenstliche Verschlechterung (Test-Fixture mit
     # 200 ms-Delay) macht Pipeline nachweislich rot". Bewusst ein EIGENER Job

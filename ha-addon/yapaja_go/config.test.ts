@@ -18,7 +18,11 @@ import { dirname, join } from 'node:path';
 import { load } from 'js-yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CONFIG_PATH = join(__dirname, 'config.yaml');
+const ADDON_DIR = __dirname;
+const CONFIG_PATH = join(ADDON_DIR, 'config.yaml');
+
+/** Supervisor's default when `ingress_port` is omitted from config.yaml. */
+const SUPERVISOR_DEFAULT_INGRESS_PORT = 8099;
 
 interface AddonConfig {
   name: string;
@@ -26,7 +30,7 @@ interface AddonConfig {
   version: string;
   arch: string[];
   ingress: boolean;
-  ingress_port: number;
+  ingress_port?: number;
   ports: Record<string, unknown>;
   map: string[];
   services: string[];
@@ -65,12 +69,38 @@ describe('ha-addon/yapaja_go/config.yaml is valid YAML with the required HA add-
     expect(config.arch).toContain('aarch64');
   });
 
-  it('has Ingress enabled with a numeric internal ingress_port', () => {
+  /**
+   * `ingress_port` is deliberately NOT set in config.yaml: 8099 is already the
+   * Supervisor default, and `frenck/action-addon-linter` (nightly, E08-T4)
+   * rejects keys that only restate a default.
+   *
+   * That makes the port coupling IMPLICIT, so this test makes it explicit
+   * again -- which is the more valuable assertion anyway. What actually has to
+   * hold is that the port the container LISTENS on is the port Ingress will
+   * dial. Asserting `typeof ingress_port === 'number'` (the previous version)
+   * never checked that: it would have happily passed with a port the Core
+   * does not serve.
+   */
+  it('is Ingress-enabled, and the container listens on exactly the Ingress port', () => {
     const config = loadConfig();
     expect(config.ingress).toBe(true);
-    expect(typeof config.ingress_port).toBe('number');
-    expect(Number.isInteger(config.ingress_port)).toBe(true);
-    expect(config.ingress_port).toBeGreaterThan(0);
+
+    // Not set = Supervisor default 8099.
+    const ingressPort = config.ingress_port ?? SUPERVISOR_DEFAULT_INGRESS_PORT;
+    expect(Number.isInteger(ingressPort)).toBe(true);
+    expect(ingressPort).toBeGreaterThan(0);
+
+    // ... and that is the port the container is actually configured to serve.
+    const initScript = readFileSync(
+      join(ADDON_DIR, 'rootfs', 'etc', 'yapaja', 'init-yapaja-config.sh'),
+      'utf-8',
+    );
+    const exported = /export_env "PORT" "(\d+)"/.exec(initScript);
+    expect(exported, 'init-yapaja-config.sh must export a PORT default').not.toBeNull();
+    expect(Number(exported?.[1])).toBe(ingressPort);
+
+    const dockerfile = readFileSync(join(ADDON_DIR, 'Dockerfile'), 'utf-8');
+    expect(dockerfile).toContain(`EXPOSE ${ingressPort}`);
   });
 
   it('is Ingress-only by default (no published ports)', () => {

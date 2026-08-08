@@ -1,7 +1,9 @@
 #!/usr/bin/with-contenv bash
 # ==============================================================================
 # core -- s6-rc longrun (E08-T4). The Fastify app itself (apps/core), serving
-# the bundled web UI + REST/WS API on :8099 (config.yaml `ingress_port`).
+# the bundled web UI + REST/WS API on :8099 -- the Supervisor Ingress
+# default port, which config.yaml therefore does NOT restate. The coupling
+# is asserted by config.test.ts (E08-T4).
 #
 # Dependency ordering: `dependencies.d/valhalla` makes s6-rc START valhalla
 # BEFORE core (matches docs/04 §3 "Abhängigkeits-Reihenfolge"). This is
