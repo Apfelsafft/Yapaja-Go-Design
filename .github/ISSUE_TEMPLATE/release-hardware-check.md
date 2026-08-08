@@ -88,11 +88,52 @@ Beleg (Screenshot/Video-Zeitstempel bzw. Log-Auszug mit Zeitstempeln):
 <hier einfügen, "keine" wenn zutreffend>
 ```
 
+### 5. Zugriff vom Telefon inkl. Browser-GPS
+
+Der Bedienweg, für den Yapaja eigentlich gebaut ist: das Gerät läuft im
+Fahrzeug, bedient wird es über den Browser eines Telefons, Tablets oder
+Android-Autoradios. Diese Kette ist bislang **nur im E2E-Setup** geprüft
+(simulierte Geolocation, Ingress-Sub-Pfad als Flow 9) — nie auf echter
+Hardware. Genau hier steckte in E10-T1 ein echter Fehler: unter Ingress
+verband sich **kein einziger** WebSocket, die Live-Position wäre also tot
+gewesen. Behoben und mit Regressionstests abgesichert, aber die Kombination
+ist erwiesenermaßen fehleranfällig.
+
+- [ ] App vom **Telefon** geöffnet — über Home-Assistant-Ingress (HAOS-
+      Add-on) **oder** über einen HTTPS-Reverse-Proxy (Compose/VPS).
+      Verwendeter Weg: `________________`
+- [ ] Karte rendert, Bedienung reagiert.
+- [ ] **Live-Position kommt an** (das ist der WebSocket-Pfad — bei einem
+      Sub-Pfad-Problem bleibt die Karte stehen, ohne Fehlermeldung).
+- [ ] Turn-by-Turn-Ansagen und Manöver-Panel aktualisieren sich während der
+      Fahrt auf dem Telefon.
+- [ ] **Browser-GPS als Positionsquelle geprüft**: ohne USB-Empfänger am
+      Gerät muss die Position des Telefons übernommen werden
+      (Prioritätskette `gpsd > browser > simulator`, ADR-007).
+      Hinweis: die Geolocation-API des Browsers verlangt **HTTPS** — über
+      nacktes `http://<LAN-IP>` blockiert der Browser den Standortzugriff,
+      nicht Yapaja.
+- [ ] Auffälligkeiten (Verbindungsabbrüche beim Displaysperren, Position
+      friert ein, Reconnect nach Tunnel):
+
+```
+<hier einfügen, "keine" wenn zutreffend>
+```
+
+- [ ] **Falls mehrere Geräte gleichzeitig verbunden waren** (z. B. Telefon
+      und Tablet): sprang die angezeigte Position zwischen Orten? Siehe
+      [Backlog B-03](../../docs/backlog.md) — bekanntes offenes Verhalten,
+      hier bitte nur beobachten und notieren, nicht als Fehlschlag werten.
+
+```
+<hier einfügen, "nicht getestet" wenn nur ein Gerät verbunden war>
+```
+
 ---
 
 ## Ergebnis
 
-- [ ] **Alle vier Punkte oben bestanden** — Hardware-Gate für dieses
+- [ ] **Alle fünf Punkte oben bestanden** — Hardware-Gate für dieses
       Release ist erfüllt.
 - [ ] Nicht bestanden — Details unter "Auffälligkeiten", Release blockiert
       bis behoben.

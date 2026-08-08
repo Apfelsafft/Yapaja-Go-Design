@@ -304,7 +304,7 @@ Erzwungen wird das von `scripts/generate-licenses.mjs --check` im CI-Job
 `dependency-audit`: eine GPL-Abhaengigkeit im ausgelieferten Bundle laesst die
 Pipeline fehlschlagen, nicht bloss diese Datei anders aussehen.
 
-**Dev-Abhaengigkeiten** (559 Pakete: vitest, vite, eslint, playwright, tsup …)
+**Dev-Abhaengigkeiten** (620 Pakete: vitest, vite, eslint, playwright, tsup …)
 sind hier bewusst nicht bewertet. Sie werden nie ausgeliefert — das Docker-Image
 installiert mit `--prod` —, koennen das Produkt also nicht lizenzrechtlich binden.
 Fuer Sicherheits-Advisories gilt dieselbe Trennung, dort aber mit sichtbarer Meldung:

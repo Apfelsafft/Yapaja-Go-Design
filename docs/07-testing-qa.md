@@ -125,7 +125,7 @@ Fixture-Datei `e2e/golden-routes.json` mit Fällen gegen den CI-Kartenextrakt
         und Security-Header (CSP, `X-Content-Type-Options: nosniff`,
         `frame-ancestors`) auf jeder Antwort — gegen den **gebauten** Core über
         echtes HTTP, nicht nur `fastify.inject()`.
-- [ ] Manuelle Hardware-Checkliste durch Menschen: USB-GPS-Fix < 60 s kalt, echte Fahrt ≥ 30 min ohne Eingriff, Touch im Fahrbetrieb, Nachtmodus-Lesbarkeit.
+- [ ] Manuelle Hardware-Checkliste durch Menschen: USB-GPS-Fix < 60 s kalt, echte Fahrt ≥ 30 min ohne Eingriff, Touch im Fahrbetrieb, Nachtmodus-Lesbarkeit, **Zugriff vom Telefon inkl. Browser-GPS** (Ingress bzw. HTTPS-Reverse-Proxy — der eigentliche Bedienweg, bislang nur im E2E-Setup geprüft; siehe `.github/ISSUE_TEMPLATE/release-hardware-check.md` Punkt 5).
 - [ ] Doku: Installations-Guide (Add-on + Compose), Add-on-Entwickler-Guide, Troubleshooting.
 - [ ] Lizenz-/Attributions-Prüfung (OSM, Fonts, Icons, Dependencies) —
       [`docs/licenses.md`](licenses.md), generiert von `scripts/generate-licenses.mjs`.
