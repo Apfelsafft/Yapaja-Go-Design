@@ -408,6 +408,58 @@ jobs:
       - name: Lizenz-Inventar aktuell + Copyleft-Gate
         run: node scripts/generate-licenses.mjs --check
 
+  docs-freshness:
+    name: Doku-Aktualität — OpenAPI + Wargame-Abgleich (E10-T5)
+    runs-on: ubuntu-latest
+    # Bewusst KEIN `needs: quality` -- gleiche Begruendung wie bei
+    # `addon-config-check`/`dependency-audit`: beide Pruefungen sind schnell,
+    # in-repo, deterministisch (kein Docker, kein externer Netzwerkzugriff)
+    # und haengen nicht vom Ergebnis der Quality-Checks ab.
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Pflicht-Test 1 (E10-T5 Akzeptanzkriterium 2 / "Spec aktuell"): baut
+      # den echten Core (buildServer(), In-Memory-DB, kein offener Port),
+      # liest daraus die tatsaechlich registrierten Fastify-Routen aus und
+      # vergleicht das damit erzeugte OpenAPI-Dokument BYTE-FUER-BYTE gegen
+      # das committete docs/openapi.json. Siehe apps/core/src/openapi/ fuer
+      # die Generierung und apps/core/src/openapi/generate.test.ts fuer den
+      # Nachweis, dass diese Pruefung echtes Auseinanderlaufen erkennt.
+      - name: "OpenAPI-Aktualitäts-Check (\"Spec aktuell\")"
+        run: pnpm openapi:check
+
+      # Pflicht-Test 2 (E10-T5 Akzeptanzkriterium 3): leitet die Liste der
+      # 🔴/🟠-Pflichtfaelle bei JEDEM Lauf frisch aus docs/08-wargame.md ab
+      # (keine hartkodierte Liste, siehe scripts/wargame-coverage.mjs) und
+      # scheitert, sobald einer davon keinen eigenen Abschnitt in
+      # docs/troubleshooting.md hat.
+      - name: W-ID-Abgleich (Troubleshooting deckt alle 🔴/🟠-Wargame-Fälle ab)
+        run: pnpm wargame:check
+
+      # Plausibilität (E10-T5): ein major-Bump auf eine Add-on-API-
+      # Paketgrenze (@yapaja/core, @yapaja/addon-sdk) OHNE benannten
+      # "## Breaking Change"-Abschnitt lässt bereits DIESEN PR fehlschlagen
+      # -- nicht erst beim Release. Bei null offenen Changesets ist das ein
+      # No-Op (siehe scripts/changeset-breaking-check.mjs).
+      - name: "Changesets: Breaking-Change-Kategorie erzwungen"
+        run: node scripts/changeset-breaking-check.mjs --check
+
   api-security-smoke:
     name: API-Security-Smoke (Auth-Matrix + Security-Header, E10-T4)
     runs-on: ubuntu-latest

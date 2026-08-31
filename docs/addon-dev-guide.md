@@ -477,3 +477,23 @@ Aufruf unabhängig noch einmal (§0).
   `.lon` (nicht `.lng`) lesen und `.ts` für den echten Fix-Zeitstempel nutzen,
   siehe `addons-examples/track-recorder/src/service.ts`s
   `ServiceTransportPositionFix`-Typ für ein dokumentiertes Beispiel.
+
+## 10. Siehe auch (E10-T5)
+
+- **REST-API-Referenz (maschinenlesbar):** [`docs/openapi.json`](openapi.json)
+  — OpenAPI 3.1, generiert aus den tatsächlich registrierten Fastify-Routen
+  und den `@yapaja/shared`-JSON-Schemas (`apps/core/src/openapi/`). Ein
+  CI-Gate (`pnpm openapi:check`, Job `docs-freshness` in
+  `.github/workflows/ci.yml`) hält das Dokument aktuell.
+- **Core-API-Versionierung & Breaking Changes:** ein `major`-Bump von
+  `@yapaja/core` oder `@yapaja/addon-sdk` (Wargame W-11 — der Fall, in dem
+  euer Add-on nach einem Core-Update deaktiviert statt geladen wird) braucht
+  einen erzwungenen `## Breaking Change`-Abschnitt im zugehörigen Changeset
+  und erscheint dadurch explizit im [`CHANGELOG.md`](../CHANGELOG.md) —
+  siehe `.changeset/README.md` und `scripts/changeset-breaking-check.mjs`.
+- **Troubleshooting aus Nutzersicht** (falls ihr ein Add-on gegen eine
+  laufende Installation testet): [`docs/troubleshooting.md`](troubleshooting.md),
+  insbesondere [W-10](troubleshooting.md#w-10--add-on-verhält-sich-verdächtig-)
+  (Sandbox/Kill-Switch) und
+  [W-11](troubleshooting.md#w-11--add-on-ist-nach-einem-update-deaktiviert)
+  (Core-Update-Kompatibilität).

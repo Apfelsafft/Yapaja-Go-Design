@@ -23,9 +23,17 @@
     "security:mutation-proof": "bash scripts/security-mutation-proof.sh",
     "perf": "playwright test -c e2e/perf/playwright.config.ts",
     "perf:soak": "PERF_SOAK=1 playwright test -c e2e/perf/playwright.config.ts -g \"Soak\"",
-    "perf:degradation-proof": "bash scripts/perf-degradation-proof.sh"
+    "perf:degradation-proof": "bash scripts/perf-degradation-proof.sh",
+    "openapi:generate": "pnpm --filter @yapaja/core run openapi:generate",
+    "openapi:check": "pnpm --filter @yapaja/core run openapi:check",
+    "wargame:check": "node scripts/wargame-coverage.mjs --check",
+    "addon-compat:check": "pnpm --filter @yapaja/core exec tsx ../../scripts/addon-compat-check.ts --check",
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "release:changelog-check": "node scripts/changeset-breaking-check.mjs"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.1",
     "@eslint/js": "^9.6.0",
     "@playwright/test": "^1.61.1",
     "@types/js-yaml": "^4.0.9",

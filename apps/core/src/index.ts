@@ -56,6 +56,23 @@ interface HealthResponse {
 
 export interface BuildServerOptions {
   publicDir?: string;
+  /**
+   * E10-T5 (docs/07 §7, OpenAPI): fired via Fastify's built-in `onRoute`
+   * hook for every route registered anywhere in this server, including
+   * inside nested plugins (`onRoute` hooks are inherited by every
+   * encapsulation context created by `fastify.register()` AFTER the hook
+   * is added -- which is why this is wired as the very first statement in
+   * `buildServer()`, before any plugin registration).
+   *
+   * This is how `apps/core/src/openapi/generate.ts` derives the real,
+   * live REST route inventory (method + URL, prefixes included) for the
+   * published OpenAPI document -- introspection of the actually-running
+   * app, not a hand-maintained list that can drift. Optional and unused
+   * by every other caller (tests, `main()`), so this is purely additive:
+   * omitting it leaves `buildServer()`'s behavior byte-for-byte identical
+   * to before.
+   */
+  onRouteHook?: (route: { method: string | string[]; url: string }) => void;
 }
 
 /**
@@ -79,6 +96,12 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   const fastify = Fastify({
     logger: true,
   });
+
+  // E10-T5: must be the FIRST thing registered on `fastify` -- see the
+  // `onRouteHook` doc comment above for why ordering matters here.
+  if (opts.onRouteHook) {
+    fastify.addHook('onRoute', opts.onRouteHook);
+  }
 
   // E10-T4 (docs/07 §7): baseline security response headers (CSP incl.
   // `frame-ancestors`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`)

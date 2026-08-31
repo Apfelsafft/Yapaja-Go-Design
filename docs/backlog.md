@@ -118,6 +118,51 @@ zu importieren — oder den Job auf einen self-hosted Runner legen. Dann
 
 ---
 
+## B-03 🟠 Mehrere Browser-Clients: wer liefert die Position?
+
+**Status:** offen, aufgenommen am 2026-08-07.
+**Betrifft:** `apps/core/src/position/service.ts`, `POST /api/v1/position/browser`.
+
+### Was unklar ist
+
+Yapaja unterstützt die **Browser-Geolocation** als vollwertige Positionsquelle
+(`browserSource.ts` → `POST /position/browser`, Prioritätskette
+`gpsd > browser > simulator`, ADR-007). Das ist der Bedienweg, der real
+genutzt wird: Telefon, Tablet oder Android-Autoradio greifen per Browser auf
+das Gerät zu.
+
+Sind aber **mehrere Clients gleichzeitig** verbunden, schicken alle ihre
+Fixes an denselben Endpunkt, und die Quelle heißt für alle gleich
+(`browser`). Es gibt derzeit keine Unterscheidung nach Client. Wer „gewinnt",
+ist damit nicht definiert — faktisch der zuletzt eingetroffene Fix.
+
+### Warum das im Alltag auffallen kann
+
+Im selben Fahrzeug ist es folgenlos: zwei Geräte melden dieselbe Position.
+Unangenehm wird es, sobald ein Gerät **woanders** ist — das Telefon zu Hause,
+das Tablet im Wohnmobil, oder ein zweiter Browser-Tab auf einem Rechner in
+der Wohnung. Dann springt die angezeigte Position zwischen zwei Orten, und
+die Navigation kann eine Abweichung erkennen, die es nicht gibt.
+
+Das ist **kein** Sicherheitsproblem und kein Datenverlust, aber ein
+Verhalten, das ein Nutzer nicht erklären kann.
+
+### Denkbare Auflösungen (noch nicht entschieden)
+
+* Client-Kennung beim Ingest, und nur der *zuletzt aktive* bzw. ein
+  ausdrücklich gewählter Client zählt.
+* Plausibilitätsprüfung: ein Fix, der räumlich unmöglich weit vom vorherigen
+  entfernt ist, wird verworfen (der `PlausibilityGuard` aus E02-T3 macht
+  genau das bereits für Sprünge — die Frage ist, ob er hier greift).
+* Bewusst dokumentieren, dass gleichzeitige Clients an verschiedenen Orten
+  nicht unterstützt sind.
+
+Vor einer Entscheidung sollte geprüft werden, wie sich der bestehende
+`PlausibilityGuard` in diesem Fall tatsächlich verhält — möglicherweise
+fängt er den Sprung schon ab, und es bleibt nur eine Doku-Frage.
+
+---
+
 ## Wie diese Datei gepflegt wird
 
 * Ein Eintrag verschwindet erst, wenn die Arbeit **getan** ist — nicht, wenn

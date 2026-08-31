@@ -1,0 +1,355 @@
+name: Release
+
+# E10-T5 (tasks/E10-qualitaet-release.md, docs/07-testing-qa.md §6 "Release:
+# Nightly-Suite + Add-on-Kompatibilitätstest + Changelog + signierte Images"):
+#
+#   Tag → volle Pipeline → Multi-Arch-Images pushen → HA-Add-on-Repo-Version
+#   bump → GitHub-Release mit Changelog (Changesets).
+#
+# ─── Angenommener Ablauf VOR einem Tag (nicht Teil dieser Datei) ────────────
+# Changesets' Standardfluss: PRs sammeln `.changeset/*.md`-Dateien; ein
+# separater "Version Packages"-PR (z. B. via `changesets/action`, hier NICHT
+# eingerichtet -- das ist E10-T6-Betrieb, nicht E10-T5-Prozess) konsumiert sie
+# per `pnpm changeset:version`, bumpt alle Paketversionen (siehe `.changeset/
+# config.json`s `"fixed"`-Gruppe) und schreibt `apps/core/CHANGELOG.md`; wird
+# er nach `main` gemergt, zeigt `apps/core/package.json`'s Version bereits
+# die neue Release-Version, BEVOR irgendwer taggt. Dieser Workflow prüft das
+# (Job `changelog`, erster Schritt) und bricht ab, falls der Tag NICHT zu
+# `apps/core/package.json`s Version passt -- ein Tag "aus Versehen" ohne
+# vorherigen Version-PR bricht die Pipeline, statt eine falsche Version zu
+# veröffentlichen.
+#
+# ─── Was in dieser Entwicklungsumgebung NICHT ausgeführt werden konnte ──────
+# Kein Docker-Daemon, kein Netzwerkzugriff auf ghcr.io/ghcr-Login, keine
+# Berechtigung, echte Tags zu pushen oder Releases anzulegen (harte
+# Umgebungs-Vorgaben dieser Aufgabe). Jeder Schritt unten, der NUR
+# repo-eigene Skripte/Tests aufruft (Checks, Changelog-Merge, Add-on-Version-
+# Bump), wurde lokal gegen den echten Code durchgespielt (siehe PR-
+# Beschreibung / Abschlussbericht für die genauen Kommandos+Ausgaben). Alles,
+# was einen echten Runner/Registry/GitHub-API-Zugriff braucht (Multi-Arch-
+# Image-Push, GitHub-Release-Erstellung, Cross-Repo-Mirror ins separate
+# `yapaja-go-ha-addon`-Repo), ist hier syntaktisch vollständig, aber NICHT
+# scharf gelaufen -- das ist E10-T6s Aufgabe (der echte v1.0.0-Tag).
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry-Run: alle Gates + Changelog-Schritte laufen, aber Image-Push/GitHub-Release/Add-on-Version-Bump werden NUR simuliert (keine Schreibwirkung nach außen)'
+        type: boolean
+        required: false
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # "Nightly-Suite" (docs/07 §6) als reusable Workflow -- siehe
+  # .github/workflows/nightly.yml's `workflow_call:`-Trigger-Kommentar für
+  # die Begründung, warum das keine zweite Kopie derselben Jobs ist.
+  full-pipeline:
+    name: Volle Nightly-Suite
+    uses: ./.github/workflows/nightly.yml
+
+  # Zusätzlich zur Nightly-Suite: die E10-T5-eigenen Pflicht-Gates. Laufen
+  # HIER erneut (nicht nur in ci.yml) aus demselben "Doppel-Check"-Grund, aus
+  # dem E10-T4 (d) die Security-Suite in die Release-Pipeline verdrahtet hat
+  # (docs/07 §6-Kommentar in ci.yml) -- ein Release, dessen Doku-Gates seit
+  # dem letzten PR-Merge (neuer Commit ohne neuen PR, Hotfix o. Ä.) veraltet
+  # sind, soll nicht stillschweigend durchrutschen.
+  docs-and-changeset-gates:
+    name: Doku- & Changeset-Gates (erneut, Release-Doppel-Check)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: "OpenAPI-Aktualitäts-Check (\"Spec aktuell\")"
+        run: pnpm openapi:check
+
+      - name: W-ID-Abgleich (Troubleshooting deckt alle 🔴/🟠-Wargame-Fälle ab)
+        run: pnpm wargame:check
+
+      - name: "Changesets: Breaking-Change-Kategorie erzwungen"
+        run: node scripts/changeset-breaking-check.mjs --check
+
+  # docs/07 §6: "Add-on-Kompatibilitätstest (Referenz-Add-ons gegen neue
+  # Core-API)" -- explizit als eigener Release-Pipeline-Bestandteil genannt,
+  # nicht Teil der Nightly-Suite selbst (siehe scripts/addon-compat-check.ts
+  # für die Begründung/den Mechanismus).
+  addon-compat-check:
+    name: Add-on-Kompatibilitätstest (Referenz-Add-ons, W-11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Referenz-Add-ons gegen die aktuelle Core-Version prüfen
+        run: pnpm addon-compat:check
+
+  # Changelog zusammenführen + HA-Add-on-Version bumpen. Läuft NACH allen
+  # Gates oben -- ein Release-Artefakt (Changelog-Text, Add-on-Version) wird
+  # nie aus einem Stand erzeugt, der die Gates nicht bestanden hat.
+  changelog:
+    name: Changelog zusammenführen + Add-on-Version bumpen
+    needs: [full-pipeline, docs-and-changeset-gates, addon-compat-check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      notes_path: ${{ steps.notes.outputs.path }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Bei einem echten Tag-Push ist das die Versionsnummer aus dem Tag
+      # (ohne führendes "v"). Bei einem manuellen Dry-Run (workflow_dispatch,
+      # kein Tag vorhanden) wird stattdessen die aktuelle
+      # apps/core/package.json-Version verwendet -- rein zu
+      # Demonstrationszwecken, es wird dabei NICHTS geschrieben/gepusht.
+      - name: Versionsnummer bestimmen
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(node -p "require('./apps/core/package.json').version")"
+            echo "::notice::Dry-Run (workflow_dispatch) -- kein echter Tag, verwende aktuelle apps/core/package.json-Version $VERSION nur zur Demonstration."
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # Sicherheitsnetz gegen "Tag ohne vorherigen Version-PR" (siehe
+      # Kopfkommentar dieser Datei) -- nur bei einem ECHTEN Tag-Push
+      # relevant, ein Dry-Run hat den Tag ja selbst aus package.json gebaut.
+      - name: Tag-Version gegen apps/core/package.json prüfen
+        if: github.event_name == 'push'
+        run: |
+          PKG_VERSION="$(node -p "require('./apps/core/package.json').version")"
+          if [ "$PKG_VERSION" != "${{ steps.version.outputs.version }}" ]; then
+            echo "::error::Tag ${{ steps.version.outputs.version }} passt nicht zu apps/core/package.json ($PKG_VERSION). Fehlt der 'Version Packages'-PR-Merge vor dem Taggen?"
+            exit 1
+          fi
+
+      # Konsumiert etwaige noch offene Changesets (im erwarteten Ablauf ein
+      # No-Op, siehe Kopfkommentar -- defensiv trotzdem hier, idempotent).
+      - name: "pnpm changeset:version (idempotent)"
+        run: pnpm changeset:version
+
+      - name: Root-CHANGELOG.md aus apps/core/CHANGELOG.md aktualisieren
+        run: node scripts/sync-root-changelog.mjs
+
+      # Bewusst WORKSPACE-relativ (nicht /tmp): actions/upload-artifact
+      # bildet bei mehreren Pfaden deren gemeinsame Wurzel nach -- ein Mix
+      # aus Workspace-Pfaden und absoluten /tmp-Pfaden würde eine
+      # unvorhersehbare, tief verschachtelte Artefakt-Struktur erzeugen.
+      - name: Release-Notes für diese Version extrahieren
+        id: notes
+        run: |
+          node scripts/sync-root-changelog.mjs --print-section "${{ steps.version.outputs.version }}" > release-notes.md \
+            || echo "Kein Abschnitt für ${{ steps.version.outputs.version }} in CHANGELOG.md -- Release-Notes bleiben leer (z. B. reiner Infra-Release ohne Changeset)." > release-notes.md
+          echo "path=release-notes.md" >> "$GITHUB_OUTPUT"
+
+      # HA-Add-on-Repo-Version-Bump: siehe scripts/bump-addon-version.mjs'
+      # Kopfkommentar -- das bumpt HIER (im Monorepo) ha-addon/yapaja_go/
+      # config.yaml. Der Spiegel-Push in ein eigenständiges
+      # `yapaja-go-ha-addon`-Repo (docs/04-home-assistant.md §3,
+      # ha-addon/README.md) ist laut dessen eigener, bereits vorher
+      # getroffener Festlegung ein SEPARATER Mirror-Schritt (git subtree/
+      # push), keine Code-Änderung -- und braucht Zugangsdaten zu einem
+      # zweiten Repository, die diese Pipeline-Definition bewusst nicht
+      # voraussetzt/erfindet. Als TODO stehen gelassen, nicht verschwiegen.
+      - name: HA-Add-on-Version bumpen (ha-addon/yapaja_go/config.yaml)
+        run: node scripts/bump-addon-version.mjs "${{ steps.version.outputs.version }}"
+
+      - name: "TODO (Follow-up, kein Teil dieser Aufgabe): Spiegel-Push nach yapaja-go-ha-addon"
+        run: |
+          echo "::notice::ha-addon/yapaja_go/config.yaml wurde auf ${{ steps.version.outputs.version }} gebumpt."
+          echo "::notice::Spiegelung in das separate HA-Add-on-Repository (ha-addon/README.md) ist ein dokumentierter Folgeschritt, nicht Teil dieser Pipeline-Definition."
+
+      - name: Geänderte Dateien als Artefakt hochladen (Changelog + Add-on-Version)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-changelog-${{ steps.version.outputs.version }}
+          path: |
+            CHANGELOG.md
+            ha-addon/yapaja_go/config.yaml
+            release-notes.md
+          retention-days: 90
+
+      # Nur bei einem ECHTEN Tag-Push zurück nach main committen (der von
+      # `changeset:version`/`sync-root-changelog.mjs`/`bump-addon-version.mjs`
+      # ggf. veränderte Stand: im erwarteten Ablauf -- siehe Kopfkommentar --
+      # ein No-Op, weil das alles schon im gemergten "Version Packages"-PR
+      # passiert ist; als Sicherheitsnetz trotzdem committet, falls doch
+      # etwas offen war. Ein Dry-Run committet NIE.
+      - name: Changelog-/Add-on-Version-Stand zurück nach main committen (nur bei echtem Tag)
+        if: github.event_name == 'push'
+        run: |
+          if git diff --quiet -- CHANGELOG.md ha-addon/yapaja_go/config.yaml 'apps/*/CHANGELOG.md' 'apps/*/package.json' 'packages/*/package.json'; then
+            echo "Keine Änderungen -- nichts zu committen (erwarteter Fall, siehe Kopfkommentar)."
+            exit 0
+          fi
+          git config user.name "yapaja-release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git add CHANGELOG.md ha-addon/yapaja_go/config.yaml 'apps/*/CHANGELOG.md' 'apps/*/package.json' 'packages/*/package.json'
+          git commit -m "chore(release): ${{ steps.version.outputs.version }} Changelog + Add-on-Version [skip ci]"
+          git push origin HEAD:main
+
+  # Multi-Arch-Images pushen (docs/07 §6). Baut auf demselben
+  # `docker buildx build --platform linux/amd64,linux/arm64`-Muster, das
+  # `.github/workflows/nightly.yml`s `multiarch`-Job schon (ungepusht)
+  # verifiziert -- hier zusätzlich `--push`, mit Login gegen ghcr.io.
+  publish-images:
+    name: Multi-Arch-Images pushen (ghcr.io)
+    needs: changelog
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # cosign keyless OIDC signing
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to ghcr.io
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # "Signiert" (docs/07 §6 "signierte Images"): cosign keyless signing
+      # gegen den Image-Digest -- läuft NACH dem Push, weil cosign den
+      # tatsächlich gepushten Digest signiert, nicht den lokalen Tag.
+      - name: Install cosign
+        if: github.event_name == 'push'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Core-Image bauen (+ push bei echtem Release)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/core/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name == 'push' }}
+          tags: |
+            ghcr.io/${{ github.repository }}/core:${{ needs.changelog.outputs.version }}
+            ghcr.io/${{ github.repository }}/core:latest
+
+      # cosign v2 keyless signing: signiert ueber die OIDC-Identitaet des
+      # Runners (kein statischer Schluessel, kein Secret noetig) -- braucht
+      # `id-token: write` (siehe `permissions:` oben) und signiert den
+      # tatsaechlich gepushten Digest, nicht den lokalen Tag/Namen.
+      - name: Image signieren (cosign keyless, nur bei echtem Release)
+        if: github.event_name == 'push'
+        run: |
+          cosign sign --yes "ghcr.io/${{ github.repository }}/core@${{ steps.build.outputs.digest }}"
+
+      - name: Dry-Run-Hinweis
+        if: github.event_name != 'push'
+        run: |
+          echo "::notice::Dry-Run: Image wurde GEBAUT (Multi-Arch), aber NICHT gepusht/signiert (push: false)."
+
+  # GitHub-Release mit Changelog (Changesets) -- der eigentliche
+  # sichtbare Abschluss der Pipeline.
+  github-release:
+    name: GitHub-Release erstellen
+    needs: [changelog, publish-images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Release-Notes herunterladen
+        uses: actions/download-artifact@v4
+        with:
+          name: release-changelog-${{ needs.changelog.outputs.version }}
+          path: /tmp/release-artifact
+
+      - name: GitHub-Release erstellen (nur bei echtem Tag-Push)
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Yapaja Go v${{ needs.changelog.outputs.version }}"
+          body_path: /tmp/release-artifact/release-notes.md
+          # E10-T5 Plausibilität: ein Breaking Change der Add-on-API steht
+          # (maschinell erzwungen, scripts/changeset-breaking-check.mjs)
+          # bereits als "## Breaking Change"-Abschnitt IM Changeset-Text und
+          # damit auch in body_path -- kein separates Häkchen hier nötig,
+          # es ist bereits Teil des Textes, den GitHub anzeigt.
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+
+      - name: Dry-Run-Zusammenfassung
+        if: github.event_name != 'push'
+        run: |
+          echo "### Dry-Run: GitHub-Release würde erstellt mit:" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: ${{ needs.changelog.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```markdown' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/release-artifact/release-notes.md >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

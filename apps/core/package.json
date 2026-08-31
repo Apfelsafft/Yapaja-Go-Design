@@ -10,7 +10,9 @@
     "start": "node dist/index.js",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest"
+    "test": "vitest",
+    "openapi:generate": "tsx src/openapi/generate.ts",
+    "openapi:check": "tsx src/openapi/generate.ts --check"
   },
   "dependencies": {
     "@fastify/static": "^10.1.2",
