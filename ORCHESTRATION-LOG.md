@@ -7,6 +7,99 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 **Umgebung:** Node v22.22.2, pnpm 10.33.0, Docker 29.3.1 — alles verfügbar.
 **Basis-Branch:** main · **Aktuelle Welle:** Phase 2 (Routing/Nav) — G1 bestanden; **E03-Routing-Epic KOMPLETT (T1–T6)**; **E05-T1+T2+T3+T5 (Suche) + E04-T1–T6 (Navigation KOMPLETT inkl. Dead-Reckoning) + E06 (Profile KOMPLETT) MERGED**. Die App ist jetzt ein voll funktionsfähiger Offline-Turn-by-Turn-Navigator (Suche→Route→Drive mit Sprachansage→Auto-Reroute→Ankunft→Reload-Fortsetzung, GPS-Verlust-Dead-Reckoning). **E01–E06 ALLE komplett — gesamtes Kernprodukt fertig** (Karten, Position, Routing, Navigation inkl. Dead-Reckoning, Suche inkl. Photon+Lite, Profile). App = voll funktionsfähiger Offline-Truck-Navigator. **E07-UI-Shell-Epic KOMPLETT (T1–T5): Widget/Slot-Engine + Drag&Drop-Edit + Tag/Nacht-Theme + Fahrbetrieb-Härtung/Speed-Lock/A11y + PWA/Kiosk. Die App ist jetzt produktreif als installierbare, offline-fähige Kiosk-PWA mit anpassbarer Widget-Oberfläche.** **E08-HA-Epic KOMPLETT (T1–T6): MQTT-Bridge + HA-Auto-Discovery + REST/WS-Token-Auth + HA-Ausgabekanal + HA-Add-on-Packaging(Ingress/s6/bashio) + Onboarding-Wizard + Update-sichere DB-Migrationen. App voll HA-integriert & als Add-on auslieferbar.** **E09-Add-on-Epic: T1 (Manifest/Install/Lifecycle inkl. gehärteter Tarball-Extraktion) + T2 (Frontend-Plugin-Runtime: iframe-Sandbox + scope-geprüfte Bridge, W-10) + T3 (Service-Plugin-Runtime: Child-Prozesse + Scoped Tokens + Watchdog + Egress-Proxy, W-14 — inkl. Fix einer ECHTEN Auth-Bypass-Lücke aus E08-T3) MERGED.** **+ T4 (SDK `@yapaja/addon-sdk` mit 2 Transporten + Dev-Guide) + T5 (Referenz-Add-ons poi-overlay/track-recorder, inkl. Fix eines echten SDK-CSP-Bugs) + T6 (Sandbox-Escape-/Sicherheits-Testsuite 🔴 W-10: `security`-Event-Kanal neu gebaut, 19 Vektoren gegen echten Core, Mutations-Nachweis, eigener CI-Job mit retries:0 — inkl. Fix von zwei echten Bestands-Defekten) + T7 (Registry & Store-UI mit Live-core_api-Gate + Offline-Cache, inkl. Fix eines echten Uninstall-Residuen-Bugs) + T8 (MQTT für Add-ons mit Topic-Sicherheitsschicht) MERGED — **E09-ADD-ON-EPIC KOMPLETT (T1–T8)**. Yapaja Go hat damit ein vollständiges, gehärtetes Add-on-System: Installation, Frontend- und Service-Runtime, SDK, Referenz-Add-ons, Sandbox-Escape-Testsuite, Registry/Store und HA-Anbindung. **CI hat 9 Jobs.**** **E10-Release-Epic LÄUFT: T1 (E2E-Suite komplett + entflakt, 11 Pflicht-Flows, 3× retries=0 grün — inkl. Fund von ZWEI echten Produktfehlern: fehlender Positions-Puck nach Kaltstart und tote WebSockets unter HA-Ingress) MERGED.** **+ T2 (Performance-Budgets in CI: zwei Tore, Degradations-Nachweis, Soak; inkl. Nachkalibrierung der Rauschgrenze nach einem echten Fehlalarm) MERGED — CI hat jetzt 11 Jobs.** **+ T3 (Golden-Routes DE: 20 Fälle mit gegateter Zusammensetzung h3/w2/wd1, PBF-Provenienz statt Overpass, Runbook + ausführbarer Abnahme-Nachweis) MERGED.** **+ T4 (Sicherheits- & Lizenz-Audit: Audit-Gate mit LEERER Ausnahmedatei, fastify 4→5 wegen echtem Guard-Bypass, Security-Header, Lizenz-Inventar — inkl. Fund von zwei Folgefehlern, die die App ausgeliefert kaputt gemacht hätten) MERGED — CI hat jetzt 13 Jobs.** **Offen Richtung v1.0:** **nur noch T5 (Doku & Release-Prozess) und T6 (Release v1.0 = Gate G4)**. **Nächste sinnvolle Reihenfolge:** E10-T5 → T6. ⚠️ **BEKANNTE NIGHTLY-FEHLSCHLÄGE** (Stand 2026-08-05, Nutzer meldet Mails): 4 von 9 Jobs rot — (1) `Dependency Audit` → **durch diesen PR behoben**; (2) `HA Add-on Linter` → sechs redundante Schlüssel in `ha-addon/yapaja_go/config.yaml` (`apparmor`, `boot`, `full_access`, `ingress_port`, `startup`, `stdin`) setzen nur Defaults, der Supervisor-Linter besteht auf Weglassen — **offen, trivial**; (3) `Golden-Routes DE` → Timeout beim Germany-Graph-Bau nach 2 h (bekannte Daten-Schuld, `continue-on-error`); (4) `Photon CH+LI` → Timeout beim Index-Import (als experimentell markiert). (3)+(4) sollten so umgebaut werden, dass sie **sichtbar „erwartet unvollständig"** melden statt rot — sonst gewöhnt man sich an rote Nightlies. ⚠️ **DATEN-SCHULD BLEIBT OFFEN:** die 16 `unverified`-Golden-Routes-Fälle (alle DE) können erst durch einen echten Nightly-Lauf eingefroren werden — `golden-routes-de` steht bis dahin auf `continue-on-error`, das per-PR-Safety-Gate deckt weiterhin nur LI ab. Die Werkzeuge dafür stehen (PBF-Provenienz-Skript + 6-Punkte-Checkliste im Job-Kopf); es fehlt ausschließlich die Ausführung außerhalb dieser Sandbox. (Release-Härtung inkl. echte DE-Golden-Routes/Security-Audit/Doku). Gate G2 (Golden-Routes-Framework + LI) steht. G2-Kriterium (Golden-Routes) hat jetzt Framework+LI-Gate; echte DE-Restriktionsfälle = nightly-Nachrüstung (Daten)
 
+---
+
+## ⏸️ WIEDERAUFNAHME — Stand 2026-08-08 (Session-Limit bei 90 %)
+
+**Beim Neustart ZUERST lesen. Was hier steht, ist der aktuelle Auftrag.**
+
+### Wo wir stehen
+
+E10-T1 bis T5 sind gemergt (#67, #68, #69, #70, #72). Dazu #71 (HA-Linter),
+#73 (Nightly grün + Backlog), #74 (CI-Minuten). Offen ist nur noch **E10-T6
+(Release v1.0, Gate G4)** — und davor die laufende Arbeit unten.
+
+### 🔴 Laufende Arbeit: Branch `feat/gui-install-path` (WIP gepusht, NICHT fertig)
+
+Der Betreiber hat **HAOS unter Proxmox, 8 GB RAM, Mini-PC** und will Yapaja Go
+**über die HA-GUI** installieren — ausdrücklich **ohne SSH**. Ein Agent war
+mitten im Umbau, als das Limit kam. Der Stand ist als WIP-Commit gesichert.
+
+**Fertig auf dem Branch:**
+* Add-on von `ha-addon/yapaja_go/` nach `yapaja_go/` (oberste Ebene) verschoben
+  — ein HA-Add-on-Repository verlangt die Add-on-Ordner auf Repo-Wurzelebene,
+  sonst findet der Supervisor sie nicht.
+* `repository.yaml` in der Wurzel angelegt.
+* Referenzen in CI/Tests/Doku nachgezogen (44+ Dateien).
+* `services/tiles/build-pmtiles.sh` + Test angelegt.
+
+**Noch offen:**
+1. Vollständige Prüfsequenz fahren (lint, typecheck, `npx vitest run`, build,
+   beide Playwright-Suites, golden, audit, openapi:check, wargame:check).
+2. **Belegen, dass kein Pfad mehr ins Leere zeigt** nach der Verschiebung.
+3. Regionen-Katalog bereinigen (siehe unten) — die GUI darf keinen Download
+   anbieten, der sicher scheitert.
+4. Preflight-Diagnose in der GUI: Kacheln, Routing-Graph, Suche (Photon ODER
+   Lite genügt), GPS-Quelle, MQTT — je mit „was ist zu tun".
+5. Doku auf die 8-GB-VM zuschneiden.
+
+### 🐞 DER ZENTRALE BEFUND: es gibt keinen funktionierenden Weg zu Kartenkacheln
+
+`apps/core/src/map/regions/regions-catalog.json` zeigt auf
+`download.geofabrik.de/.../{liechtenstein,germany}-latest.pmtiles`.
+**Beide URLs sind tot (404)** — vom Betreiber im Browser bestätigt, ausserhalb
+des Sandbox-Proxys. `https://build.protomaps.com` ebenfalls 404.
+
+Ursache: jemand hat die funktionierende Geofabrik-URL für die `.osm.pbf`
+genommen und die Endung auf `.pmtiles` geändert. Geofabrik liefert nur
+Rohdaten. Nie aufgefallen, weil in CI und allen Tests eine **synthetische**
+PMTiles-Fixture steckt, nie eine echte Quelle.
+
+**Die Lösung ist ein Bauschritt, kein Download.** `docs/01-architecture.md`
+ADR-003 sagt wörtlich „Offline-Karten = PMTiles (Protomaps-Builds **von
+OSM**)". Die `.osm.pbf` laden wir bereits herunter und bauen daraus schon
+Routing-Graph und Suchindex — die Kacheln sind das dritte Erzeugnis derselben
+Quelle. Werkzeug: **planetiler**. Genau dafür ist `build-pmtiles.sh` gedacht.
+
+**Hier nicht ausführbar:** kein Docker-Daemon, kein Netz (Geofabrik/Protomaps/
+Overpass alle 403 über den Proxy). Die prüfbaren Teile des Skripts
+(Argumente, Pfadableitung, atomarer Swap W-17, Fehlerpfad) müssen trotzdem
+getestet sein — so wie `build-tiles.sh` es vormacht.
+
+### Was der Betreiber als Nächstes braucht
+
+* **Testregion: `europe/germany/rheinland-pfalz-latest.osm.pbf`.** Er ist in
+  67368 Westheim (Rheinland-Pfalz) — nicht in den USA, eine frühere Annahme
+  von mir war falsch. Ein Bundesland ist klein genug für die 8-GB-VM und
+  deckt seinen echten Standort ab, also funktioniert Browser-GPS mit echter
+  Position auf der Karte. **URL vom Betreiber im Browser bestätigen lassen,
+  bevor sie verdrahtet wird.**
+* Kleine Region im Add-on baubar; **ganz Deutschland NICHT** auf dieser VM
+  (konkurriert mit HA + Valhalla + Photon). Proxmox-Ausweg: VM temporär
+  vergrössern oder separater LXC.
+* Praxis-Fallstrick, gehört in die Doku: wer Kacheln für Region A hat, sich
+  aber in Region B aufhält, sieht die Karte **ohne Positionspunkt**. Kein
+  GPS-Fehler.
+
+### Offene Punkte, die auf den Menschen warten (Gate G4)
+
+Hardware-Checkliste am Fahrzeug · Installation auf frischem HAOS · 24-h-Soak ·
+fps auf echter GPU. Template: `.github/ISSUE_TEMPLATE/release-hardware-check.md`
+(fünf Punkte, Punkt 5 = Telefon über Ingress inkl. Browser-GPS).
+
+### Betriebliche Randbedingungen
+
+* **Actions-Kontingent bei 90 %.** Nach #73/#74: PR-Lauf 24 abgerechnete
+  Minuten, kein Lauf mehr nach dem Merge, Nightly wöchentlich (80 min/Monat).
+  **Keine neuen CI-Jobs ohne Begründung.** GitHub rundet jeden Job auf volle
+  Minuten — viele kleine Jobs sind teurer, als sie aussehen.
+* Basiswerte: **2490 Unit-Tests**, **112 Haupt-E2E**, **23 Security**,
+  Golden 88/4. Chromium ist vorinstalliert, die Playwright-Suites LAUFEN hier.
+* Offene Backlog-Punkte: B-01 (DE-Golden-Routes unverifiziert, LI-only-Gate),
+  B-02 (Photon-Live-Suche), B-03 (mehrere Browser-Clients).
+
+---
+
 > ℹ️ GitHub-Token-Ausfall (2026-07-09) inzwischen behoben (Connector reconnected von selbst).
 
 | Task | Modell | Versuche | Status | PR | Anmerkungen |
