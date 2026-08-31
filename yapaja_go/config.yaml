@@ -4,14 +4,14 @@
 # Linted (nightly, continue-on-error) via frenck/action-addon-linter -- see
 # .github/workflows/nightly.yml job `addon-lint`. Per-PR CI instead runs an
 # in-repo, deterministic structural check
-# (ha-addon/yapaja_go/config.test.ts) so a flaky/unavailable third-party
-# Action can never block a merge -- see ha-addon/README.md "CI strategy".
+# (yapaja_go/config.test.ts) so a flaky/unavailable third-party
+# Action can never block a merge -- see yapaja_go/PACKAGING.md "CI strategy".
 
 name: "Yapaja Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
 version: "0.1.0"
-url: "https://github.com/yapaja/yapaja-go"
+url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
 
 # amd64 covers typical Mini-PC/NUC installs; aarch64 covers Raspberry Pi
 # 4/5-class HAOS hardware. Other archs are intentionally NOT listed: Valhalla/

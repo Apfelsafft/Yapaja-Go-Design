@@ -63,52 +63,63 @@ Beide Wege enthalten einen eigenen Abschnitt zur
 ## A. Home-Assistant-Add-on
 
 Der vollständige, technische Referenztext für diesen Weg ist
-[`ha-addon/yapaja_go/DOCS.md`](../ha-addon/yapaja_go/DOCS.md) (Englisch, das
+[`yapaja_go/DOCS.md`](../yapaja_go/DOCS.md) (Englisch, das
 ist der Text, den die Add-on-Store-Seite in HA tatsächlich anzeigt) — dieser
 Abschnitt hier ist die deutschsprachige Schritt-für-Schritt-Fassung
 zusätzlich zu jenem Dokument, nicht als Ersatz dafür.
 
-> ⚠️ **Das öffentliche Add-on-Repository gibt es noch nicht.**
-> Ein HA-Add-on-Repository ist ein eigenes Git-Repository mit `repository.yaml`
-> im Wurzelverzeichnis; dieses Monorepo hat dieses Format bewusst nicht (die
-> Paketquelle liegt hier unter `ha-addon/yapaja_go/`, siehe
-> `ha-addon/README.md`). Der Store-Weg über **⋮ → Repositories** funktioniert
-> deshalb erst, wenn das `yapaja-go-ha-addon`-Repository veröffentlicht ist —
-> das ist ein Release-Schritt (docs/04-home-assistant.md §3) und Teil von
-> E10-T6, nicht schon erledigt. **Bis dahin gilt Schritt 1 unten (lokales
-> Add-on).** Wer nicht warten möchte, nimmt Weg B.
+> **Dieses Repository ist selbst das Add-on-Repository.** In der Wurzel liegt
+> `repository.yaml`, das Add-on-Paket eine Ebene darunter als `yapaja_go/` —
+> genau das Layout, das der HA-Supervisor beim Eintragen einer
+> Repository-URL erwartet (Hintergrund: `yapaja_go/PACKAGING.md`,
+> `docs/04-home-assistant.md` §3). Schritt 1 unten ist deshalb der
+> GUI-Weg; der frühere „lokales Add-on nach `/addons/` kopieren"-Umweg steht
+> nur noch als Alternative dabei.
 
-1. **Lokales Add-on einspielen** (der Weg, der heute funktioniert). Das
-   Verzeichnis `ha-addon/yapaja_go/` aus diesem Repository in den
-   `addons`-Ordner der Home-Assistant-Installation kopieren — erreichbar z. B.
-   über das offizielle „Samba share"- oder „Advanced SSH & Web Terminal"-
-   Add-on:
+1. **Repository in Home Assistant eintragen** (GUI, ohne SSH).
+   **Einstellungen → Add-ons → Add-on Store → ⋮ (oben rechts) →
+   Repositories**, dort diese URL hinzufügen:
+
+   ```
+   https://github.com/Apfelsafft/Yapaja-Go-Design
+   ```
+
+   Danach den Dialog schließen und die Store-Seite neu laden (bzw. **⋮ → Nach
+   Updates suchen**).
+   *Erwartetes Ergebnis:* ein neuer Store-Abschnitt „Yapaja Go" mit der
+   Kachel **Yapaja Go**.
+   *Erscheint nichts:* HA meldet ungültige Repositories mit einer eigenen
+   Fehlermeldung im selben Dialog. Bleibt der Abschnitt leer ohne Fehler, hat
+   der Supervisor das Repository zwar geladen, aber kein Add-on darin
+   gefunden — dann fehlt entweder `repository.yaml` in der Wurzel oder
+   `yapaja_go/config.yaml`. Beides prüft der CI-Job `addon-config-check`
+   (`yapaja_go/config.test.ts`) bei jedem PR mit.
+
+   *Alternative ohne Store (falls das Repository nicht erreichbar ist):* das
+   Verzeichnis `yapaja_go/` aus diesem Repository in den `addons`-Ordner der
+   Home-Assistant-Installation kopieren — erreichbar z. B. über das
+   offizielle „Samba share"- oder „Advanced SSH & Web Terminal"-Add-on:
 
    ```bash
    # auf dem HA-Host, im Ordner /addons/
    git clone https://github.com/Apfelsafft/Yapaja-Go-Design.git /tmp/yapaja
-   cp -r /tmp/yapaja/ha-addon/yapaja_go /addons/yapaja_go
+   cp -r /tmp/yapaja/yapaja_go /addons/yapaja_go
    rm -rf /tmp/yapaja
    ```
 
-   Danach **Einstellungen → Add-ons → Add-on Store → ⋮ → Nach Updates
-   suchen**. „Yapaja Go" erscheint anschließend im Abschnitt **„Lokale
-   Add-ons"**.
-   *Erwartetes Ergebnis:* die Kachel „Yapaja Go" ist sichtbar. Erscheint sie
-   nicht, stimmt der Pfad nicht — im Ordner `/addons/yapaja_go/` müssen
-   `config.yaml` und `Dockerfile` unmittelbar liegen (keine weitere
-   Zwischenebene).
+   „Yapaja Go" erscheint dann im Abschnitt **„Lokale Add-ons"**. Im Ordner
+   `/addons/yapaja_go/` müssen `config.yaml` und `Dockerfile` unmittelbar
+   liegen (keine weitere Zwischenebene).
 
 2. Add-on öffnen, **Installieren** klicken. Der Container wird dabei **auf dem
-   Gerät gebaut** (lokale Add-ons bringen kein fertiges Image mit) — je nach
-   Hardware **10–30 Minuten**, auf einem Raspberry Pi auch länger. Das ist
-   normal und kein Hänger.
+   Gerät gebaut** — je nach Hardware **10–30 Minuten**, auf einem Raspberry Pi
+   auch länger. Das ist normal und kein Hänger.
 3. **Vor dem ersten Start**: den Reiter **Konfiguration** des Add-ons öffnen
    und mindestens `region` setzen (siehe Optionstabelle in
-   `ha-addon/yapaja_go/DOCS.md` §„Configuration options"). Ohne `region`
+   `yapaja_go/DOCS.md` §„Configuration options"). Ohne `region`
    startet das Add-on zwar (kein Absturz), aber ohne nutzbare Karte.
 4. Empfohlen bei knappem RAM auf einer geteilten HAOS-VM: die
-   RAM-Empfehlungstabelle in `ha-addon/yapaja_go/DOCS.md` §„RAM
+   RAM-Empfehlungstabelle in `yapaja_go/DOCS.md` §„RAM
    recommendation" **vor** dem ersten Start lesen — Home Assistant selbst,
    Mosquitto und alle anderen Add-ons teilen sich dieselbe VM.
 5. Add-on **starten** (Toggle „Start on boot" zusätzlich aktivieren, wenn das
@@ -282,7 +293,7 @@ Supervisor USB-Geräte automatisch durchreicht. Ablauf:
    sobald `gpsd` einen hat (freie Sicht zum Himmel nötig, siehe
    [Troubleshooting W-01](troubleshooting.md#w-01--gps-signal-verloren-tunnel-parkhaus-abschattung)).
 
-Details: `ha-addon/yapaja_go/DOCS.md` §„USB-GPS passthrough".
+Details: `yapaja_go/DOCS.md` §„USB-GPS passthrough".
 
 ### Weg B (Docker Compose / Proxmox-LXC)
 

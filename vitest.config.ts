@@ -22,7 +22,7 @@ export default defineConfig({
       'apps/**/*.test.tsx',
       'packages/**/*.test.ts',
       'packages/**/*.test.tsx',
-      'ha-addon/**/*.test.ts',
+      'yapaja_go/**/*.test.ts',
       // E09-T5 reference add-ons (docs/05 §6): deliberately NOT pnpm
       // workspace members (addons-examples/README.md), but their unit tests
       // still run as part of the ONE `npx vitest run` suite everyone uses --
@@ -43,6 +43,14 @@ export default defineConfig({
       // in den einen `npx vitest run`-Lauf. Die Scanner-AUFRUFE selbst laufen
       // in CI (Job `dependency-audit`), nicht hier.
       'scripts/**/*.test.ts',
+      // feat/gui-install-path: `services/tiles/build-pmtiles.test.ts` --
+      // dieselbe Begruendung wie bei `scripts/**` oben. Das Skript selbst
+      // ist Bash; der Test ersetzt `docker` durch ein Stub im PATH und
+      // prueft damit Argumentbehandlung, Regions-Ableitung, Signaturpruefung
+      // und atomaren Swap real, ohne Docker-Daemon. Als Vitest-Test (statt
+      // eines eigenen `.test.sh` wie bei services/photon) laeuft er im
+      // ohnehin existierenden `npx vitest run` mit -- kein neuer CI-Job.
+      'services/**/*.test.ts',
     ],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.turbo/**'],
     coverage: {

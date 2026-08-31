@@ -27,8 +27,7 @@ name: Release
 # Bump), wurde lokal gegen den echten Code durchgespielt (siehe PR-
 # Beschreibung / Abschlussbericht für die genauen Kommandos+Ausgaben). Alles,
 # was einen echten Runner/Registry/GitHub-API-Zugriff braucht (Multi-Arch-
-# Image-Push, GitHub-Release-Erstellung, Cross-Repo-Mirror ins separate
-# `yapaja-go-ha-addon`-Repo), ist hier syntaktisch vollständig, aber NICHT
+# Image-Push, GitHub-Release-Erstellung), ist hier syntaktisch vollständig, aber NICHT
 # scharf gelaufen -- das ist E10-T6s Aufgabe (der echte v1.0.0-Tag).
 
 on:
@@ -200,22 +199,22 @@ jobs:
             || echo "Kein Abschnitt für ${{ steps.version.outputs.version }} in CHANGELOG.md -- Release-Notes bleiben leer (z. B. reiner Infra-Release ohne Changeset)." > release-notes.md
           echo "path=release-notes.md" >> "$GITHUB_OUTPUT"
 
-      # HA-Add-on-Repo-Version-Bump: siehe scripts/bump-addon-version.mjs'
-      # Kopfkommentar -- das bumpt HIER (im Monorepo) ha-addon/yapaja_go/
-      # config.yaml. Der Spiegel-Push in ein eigenständiges
-      # `yapaja-go-ha-addon`-Repo (docs/04-home-assistant.md §3,
-      # ha-addon/README.md) ist laut dessen eigener, bereits vorher
-      # getroffener Festlegung ein SEPARATER Mirror-Schritt (git subtree/
-      # push), keine Code-Änderung -- und braucht Zugangsdaten zu einem
-      # zweiten Repository, die diese Pipeline-Definition bewusst nicht
-      # voraussetzt/erfindet. Als TODO stehen gelassen, nicht verschwiegen.
-      - name: HA-Add-on-Version bumpen (ha-addon/yapaja_go/config.yaml)
+      # HA-Add-on-Version-Bump: siehe scripts/bump-addon-version.mjs'
+      # Kopfkommentar -- das bumpt `yapaja_go/config.yaml` in DIESEM Repo,
+      # das seit `feat/gui-install-path` selbst das HA-Add-on-Repository ist
+      # (`repository.yaml` in der Wurzel, Add-on-Ordner `yapaja_go/` auf
+      # oberster Ebene -- docs/04-home-assistant.md §3,
+      # yapaja_go/PACKAGING.md). Ein Spiegel-Push in ein separates
+      # `yapaja-go-ha-addon`-Repo ist damit fuer den GUI-Installationsweg
+      # NICHT mehr noetig; er bleibt als optionaler spaeterer Schritt
+      # moeglich und ist unten als Notiz vermerkt, nicht verschwiegen.
+      - name: HA-Add-on-Version bumpen (yapaja_go/config.yaml)
         run: node scripts/bump-addon-version.mjs "${{ steps.version.outputs.version }}"
 
-      - name: "TODO (Follow-up, kein Teil dieser Aufgabe): Spiegel-Push nach yapaja-go-ha-addon"
+      - name: "Hinweis: Add-on-Repository ist dieses Repo selbst"
         run: |
-          echo "::notice::ha-addon/yapaja_go/config.yaml wurde auf ${{ steps.version.outputs.version }} gebumpt."
-          echo "::notice::Spiegelung in das separate HA-Add-on-Repository (ha-addon/README.md) ist ein dokumentierter Folgeschritt, nicht Teil dieser Pipeline-Definition."
+          echo "::notice::yapaja_go/config.yaml wurde auf ${{ steps.version.outputs.version }} gebumpt."
+          echo "::notice::Nutzer tragen dieses Repository direkt als HA-Add-on-Repository ein (repository.yaml in der Wurzel); ein separates Spiegel-Repo ist optional, siehe yapaja_go/PACKAGING.md."
 
       - name: Geänderte Dateien als Artefakt hochladen (Changelog + Add-on-Version)
         uses: actions/upload-artifact@v4
@@ -223,7 +222,7 @@ jobs:
           name: release-changelog-${{ steps.version.outputs.version }}
           path: |
             CHANGELOG.md
-            ha-addon/yapaja_go/config.yaml
+            yapaja_go/config.yaml
             release-notes.md
           retention-days: 90
 
@@ -236,13 +235,13 @@ jobs:
       - name: Changelog-/Add-on-Version-Stand zurück nach main committen (nur bei echtem Tag)
         if: github.event_name == 'push'
         run: |
-          if git diff --quiet -- CHANGELOG.md ha-addon/yapaja_go/config.yaml 'apps/*/CHANGELOG.md' 'apps/*/package.json' 'packages/*/package.json'; then
+          if git diff --quiet -- CHANGELOG.md yapaja_go/config.yaml 'apps/*/CHANGELOG.md' 'apps/*/package.json' 'packages/*/package.json'; then
             echo "Keine Änderungen -- nichts zu committen (erwarteter Fall, siehe Kopfkommentar)."
             exit 0
           fi
           git config user.name "yapaja-release-bot"
           git config user.email "release-bot@users.noreply.github.com"
-          git add CHANGELOG.md ha-addon/yapaja_go/config.yaml 'apps/*/CHANGELOG.md' 'apps/*/package.json' 'packages/*/package.json'
+          git add CHANGELOG.md yapaja_go/config.yaml 'apps/*/CHANGELOG.md' 'apps/*/package.json' 'packages/*/package.json'
           git commit -m "chore(release): ${{ steps.version.outputs.version }} Changelog + Add-on-Version [skip ci]"
           git push origin HEAD:main
 

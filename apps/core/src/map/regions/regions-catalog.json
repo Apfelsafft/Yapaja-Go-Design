@@ -2,15 +2,19 @@
   {
     "id": "liechtenstein",
     "name": "Liechtenstein",
-    "url": "https://download.geofabrik.de/europe/liechtenstein-latest.pmtiles",
+    "pbfUrl": "https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf",
     "sizeBytes": 15000000,
-    "bounds": [9.4716, 47.048, 9.6357, 47.2708]
+    "bounds": [9.4716, 47.048, 9.6357, 47.2708],
+    "buildEffort": "small",
+    "note": "Kleiner Extrakt -- der Kachelbau laeuft auch auf einer HAOS-VM neben Home Assistant, Valhalla und Photon (Minuten, ~1 GB Heap)."
   },
   {
     "id": "germany",
     "name": "Deutschland",
-    "url": "https://download.geofabrik.de/europe/germany-latest.pmtiles",
+    "pbfUrl": "https://download.geofabrik.de/europe/germany-latest.osm.pbf",
     "sizeBytes": 4500000000,
-    "bounds": [5.8663, 47.2701, 15.0419, 55.0992]
+    "bounds": [5.8663, 47.2701, 15.0419, 55.0992],
+    "buildEffort": "large",
+    "note": "Grosser Extrakt -- den Kachelbau NICHT auf der HAOS-VM ausfuehren. Auf einem Desktop/Server oder in einer temporaer vergroesserten VM bauen und die fertige Datei ablegen."
   }
 ]

@@ -85,7 +85,7 @@ destination-query-Integration; HA-Call-Mocks inkl. Fehlerpfade.
 ## E08-T4: HA-Add-on-Packaging
 
 - **Abhängigkeiten:** E08-T1–T3, E00-T3 · **Kontext:** docs/04 §3 KOMPLETT; Wargame W-15/W-16
-- **Pfade:** `ha-addon/`
+- **Pfade:** `yapaja_go/` (bis `feat/gui-install-path`: `ha-addon/`)
 
 **Aufgabe:** Add-on nach docs/04 §3 bauen: `config.yaml` (ingress, arch,
 map share:rw, services mqtt:need, usb+udev, options/schema: region, mqtt-prefix,

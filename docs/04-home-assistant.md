@@ -50,12 +50,24 @@ Aktionen), **HA-Add-on-Packaging** (Installation & UI-Zugriff via Ingress).
 
 ## 3. Auslieferung als HA-Add-on
 
-**Entscheidung:** Eigenes GitHub-Repo `yapaja-go-ha-addon` (Add-on-Repository-Format),
-damit Nutzer es über *Einstellungen → Add-ons → Repositories* hinzufügen können.
+**Entscheidung (aktualisiert in `feat/gui-install-path`):** **dieses Monorepo
+ist selbst das Add-on-Repository.** Nutzer tragen unter *Einstellungen →
+Add-ons → Add-on Store → ⋮ → Repositories* die URL
+`https://github.com/Apfelsafft/Yapaja-Go-Design` ein und bekommen „Yapaja Go"
+als installierbares Add-on angezeigt.
 
-Struktur:
+**Warum die Struktur so und nicht anders ist:** Der Supervisor erkennt ein
+Git-Repository nur dann als Add-on-Repository, wenn im **Wurzelverzeichnis**
+eine `repository.yaml` liegt; die installierbaren Add-ons sucht er danach als
+Verzeichnisse **eine Ebene darunter**, die je eine `config.yaml` enthalten.
+Die ursprüngliche Ablage `ha-addon/yapaja_go/` lag eine Ebene zu tief und war
+für den Supervisor damit unsichtbar — der Store-Weg funktionierte schlicht
+nicht (`docs/installation.md` §A trug dazu eine ausdrückliche Warnung).
+
+Struktur (Repo-Wurzel):
 ```
-yapaja-go-ha-addon/
+Yapaja-Go-Design/
+├── repository.yaml      # name, url, maintainer  ← macht das Repo zum Add-on-Repo
 └── yapaja_go/
     ├── config.yaml      # name, slug, arch: [amd64, aarch64], ingress: true,
     │                    # ports: {} (ingress-only) bzw. optional 8080 für Direktzugriff,
@@ -64,8 +76,14 @@ yapaja-go-ha-addon/
     ├── Dockerfile       # FROM yapaja/core-Basis; s6-overlay startet:
     │                    # core, valhalla, photon, gpsd (kein Compose in HA-Add-ons)
     ├── rootfs/etc/s6-overlay/...   # Service-Definitionen, Abhängigkeits-Reihenfolge
-    └── DOCS.md / README.md / icon.png
+    └── DOCS.md / README.md / PACKAGING.md / icon.png
 ```
+
+Alles Übrige im Monorepo (`apps/`, `packages/`, `services/`, `docs/` …)
+ignoriert der Supervisor — er sieht nur Verzeichnisse mit `config.yaml`. Eine
+spätere Auslagerung in ein eigenständiges `yapaja-go-ha-addon`-Repo bleibt
+als Spiegel-Schritt möglich, ist für den GUI-Weg aber nicht mehr nötig
+(`yapaja_go/PACKAGING.md`).
 
 Kernpunkte:
 - **Ingress:** `ingress: true` ⇒ UI erscheint in der HA-Seitenleiste, HA übernimmt

@@ -90,7 +90,7 @@ der [Add-on-Entwicklungsleitfaden](addon-dev-guide.md).
 Kommt stark auf Kartengröße und ob Photon-Suche aktiv ist an — die konkrete
 Tabelle steht in `docs/01-architecture.md` §4 und, für den HA-Add-on-Fall
 speziell (geteilte VM mit HA selbst), in
-`ha-addon/yapaja_go/DOCS.md` §„RAM recommendation". Bei knappem RAM: Photon
+`yapaja_go/DOCS.md` §„RAM recommendation". Bei knappem RAM: Photon
 deaktivieren (`photon_enabled: false` bzw. `PHOTON_ENABLED=false`) —
 Suche fällt automatisch auf einen deutlich schlankeren Offline-Index zurück
 ([Troubleshooting W-12](troubleshooting.md#w-12--suche-reagiert-nicht-mehrvereinfachte-suche)).
