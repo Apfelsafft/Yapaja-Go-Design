@@ -140,6 +140,9 @@ Ohne region-id wird sie aus dem Dateinamen abgeleitet
 Env-Overrides:
   TILES_DIR          Zielverzeichnis (Default: <repo>/data/tiles)
   PLANETILER_IMAGE   Container-Image (Default: ghcr.io/onthegomap/planetiler:v0.10.2)
+  PLANETILER_JAR     Pfad zu planetiler.jar -- laeuft dann per `java -jar`
+                     statt per Docker (noetig, wo kein Docker-Socket da ist,
+                     z. B. im HA-Add-on-Container)
   PLANETILER_XMX     JVM-Heap (Default: 1g)
   PLANETILER_ARGS    Ersetzt die planetiler-Argumente (%INPUT%/%OUTPUT% werden ersetzt)
 EOF

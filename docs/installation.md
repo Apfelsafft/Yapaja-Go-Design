@@ -11,7 +11,12 @@ Installationswege — wähle **einen**:
   eigenständig, ohne Home Assistant, auf einem beliebigen Linux-Host oder
   einer Proxmox-LXC-Instanz.
 
-Beide Wege enthalten einen eigenen Abschnitt zur
+Danach gilt für **beide** Wege:
+**[C. Kartenkacheln bauen](#c-kartenkacheln-bauen-pmtiles)** — ohne diesen
+Schritt gibt es keine Karte. Es gibt **keine** fertigen Kacheln zum
+Herunterladen; §C.1 erklärt, warum.
+
+Beide Wege enthalten außerdem einen eigenen Abschnitt zur
 **[USB-GPS-Durchreichung](#usb-gps-durchreichung)**.
 
 > **Hinweis zur Prüfbarkeit dieser Anleitung:** Dieses Dokument wurde in einer
@@ -265,6 +270,159 @@ tar czf "yapaja-backup-$(date +%Y%m%d).tar.gz" data/ .env
 
 (Siehe auch W-16 in [Troubleshooting](troubleshooting.md), falls nach einem
 Update dennoch Daten fehlen sollten.)
+
+Weiter mit [Erste Schritte](erste-schritte.md).
+
+---
+
+## C. Kartenkacheln bauen (PMTiles)
+
+Dieser Abschnitt gilt für **beide** Installationswege. Er ist der Schritt, der
+am ehesten überrascht — deshalb steht zuerst, warum es ihn überhaupt gibt.
+
+### C.1 Warum es keinen Download gibt
+
+`docs/01-architecture.md`, ADR-003 legt fest: **„Offline-Karten = PMTiles
+(Protomaps-Builds von OSM)"**. Die Kacheln sind also ein **Erzeugnis** aus
+OpenStreetMap-Rohdaten, kein Fremd-Download.
+
+Der Regionen-Katalog verwies trotzdem lange auf
+`https://download.geofabrik.de/europe/<region>-latest.pmtiles`. Diese Adressen
+existieren nicht — sie waren offenbar entstanden, indem an der
+funktionierenden `.osm.pbf`-Adresse die Endung getauscht wurde. Geofabrik
+verteilt ausschließlich Rohdaten (`.osm.pbf`, `.shp.zip`). Wer den
+„Herunterladen"-Knopf drückte, bekam einen 404 und suchte den Fehler in seiner
+eigenen Installation.
+
+Deshalb gilt jetzt: Regionen ohne fertige Datei zeigen in der Oberfläche
+**„Wird gebaut"** statt eines Knopfes, der nicht funktionieren kann. Der Weg
+zu Kacheln ist dieser Abschnitt.
+
+Dieselbe `.osm.pbf` erzeugt **drei** Dinge — die drei Skripte sind
+austauschbar in der Reihenfolge, brauchen aber alle dieselbe Eingabedatei:
+
+| Erzeugnis | Skript | Wofür |
+|---|---|---|
+| Kartenkacheln (`.pmtiles`) | `services/tiles/build-pmtiles.sh` | die Karte, die man sieht |
+| Routing-Graph | `services/valhalla/build-tiles.sh` | Routen berechnen |
+| Lite-Suchindex | `services/valhalla/build-lite-index.sh` | Ortssuche ohne Photon (W-12) |
+
+### C.2 Was fehlt mir gerade? — die Prüfung in der App
+
+Bevor du irgendetwas baust: öffne Yapaja und klicke rechts oben auf **🩺
+Installation prüfen**. Die Seite listet Kacheln, Routing, Suche, Position,
+RAM, Plattenplatz und MQTT — je mit dem, was tatsächlich vorgefunden wurde,
+und dem, was dagegen zu tun ist. Sie funktioniert auch dann, wenn noch gar
+keine Karte da ist; genau dafür ist sie gedacht.
+
+Dasselbe ohne Oberfläche:
+
+```bash
+curl -s http://localhost:8080/api/v1/system/preflight | jq .
+```
+
+### C.3 Kleine Region — direkt auf dem Gerät
+
+Für Liechtenstein, ein deutsches Bundesland oder einen US-Bundesstaat reicht
+das Gerät selbst, auch eine HAOS-VM mit 8 GB.
+
+```bash
+# Beispiel Rheinland-Pfalz (~300 MB PBF)
+services/tiles/build-pmtiles.sh \
+  https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf
+
+# Beispiel Liechtenstein (~3,5 MB PBF, Minuten)
+services/tiles/build-pmtiles.sh \
+  https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+```
+
+Das Skript lädt die PBF, baut in ein **temporäres** Verzeichnis, prüft die
+PMTiles-Signatur der erzeugten Datei und tauscht sie erst dann atomar nach
+`<TILES_DIR>/<region>.pmtiles` (W-17). Schlägt irgendetwas davor fehl, bleibt
+die bisherige Kartendatei unangetastet. Ein Neustart ist danach **nicht**
+nötig — der Core liest das Verzeichnis bei jeder Anfrage frisch; in der App
+genügt ein Reload.
+
+Danach denselben Extrakt für Routing und Suche verwenden:
+
+```bash
+services/valhalla/build-tiles.sh data/pbf/rheinland-pfalz-latest.osm.pbf
+services/valhalla/build-lite-index.sh data/pbf/rheinland-pfalz-latest.osm.pbf
+```
+
+### C.4 Im Add-on-Container gibt es kein Docker
+
+Standardmäßig ruft `build-pmtiles.sh` planetiler per `docker run` auf. **Innerhalb
+eines Home-Assistant-Add-ons gibt es keinen Docker-Socket** — dieser Weg
+funktioniert dort also nicht. Dafür gibt es den JAR-Modus:
+
+```bash
+# einmalig: planetiler holen (~100 MB)
+curl -fL -o /share/yapaja/planetiler.jar \
+  https://github.com/onthegomap/planetiler/releases/download/v0.10.2/planetiler.jar
+
+# bauen, ohne Docker
+PLANETILER_JAR=/share/yapaja/planetiler.jar \
+PLANETILER_XMX=2g \
+TILES_DIR=/share/yapaja/tiles \
+  services/tiles/build-pmtiles.sh https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+```
+
+Die Version ist **fest auf `v0.10.2` gepinnt**, nicht auf `latest`: ein Schritt,
+der Stunden läuft und dessen Ergebnis ausgeliefert wird, soll nicht davon
+abhängen, was gerade veröffentlicht wurde.
+
+### C.5 Ganzes Land (Deutschland) — nicht auf der HAOS-VM
+
+Das RAM-Budget einer 8-GB-HAOS-VM ist weitgehend vergeben:
+
+| Posten | Bedarf |
+|---|---|
+| Yapaja Core | ~300 MB |
+| Valhalla | ~1,5 GB |
+| Photon | ~1 GB |
+| Home Assistant + Mosquitto | ~1–1,5 GB |
+| **frei für alles Weitere** | **~3,5 GB** |
+
+Der Kachelbau ist der speicherhungrigste Schritt der ganzen Kette und
+konkurriert genau mit diesen Posten. Ein Deutschland-Extrakt (~4 GB PBF,
+~4,5 GB fertige Kacheln) sprengt das. Drei Auswege, **alle ohne SSH auf der
+HAOS-VM**:
+
+1. Die Proxmox-VM temporär auf 16 GB vergrößern, bauen, wieder verkleinern.
+2. Einen separaten LXC nur für den Build anlegen und die fertige Datei
+   herüberkopieren.
+3. Die `.pmtiles` auf einem Desktop/Server bauen und per **„Samba share"**-
+   oder **„File editor"**-Add-on nach `/share/yapaja/tiles/<region>.pmtiles`
+   legen. Das ist der einzige Weg, der gar keinen zweiten *eigenen* Rechner
+   voraussetzt, falls jemand die Datei bereitstellt.
+
+### C.6 Empfehlung bei 8 GB: Photon abschalten
+
+Photon will allein mehrere GB Heap. Auf einer geteilten 8-GB-VM ist der
+**Lite-Suchindex** die verlässlichere Wahl — er deckt dieselbe Ortssuche ab
+und braucht ein Vielfaches weniger Speicher (W-12,
+`docs/08-wargame.md`). In der Add-on-Konfiguration:
+
+```yaml
+photon_enabled: false
+```
+
+Die Installationsprüfung aus §C.2 meldet genau diese Empfehlung selbst,
+sobald sie wenig RAM **und** eingeschaltetes Photon vorfindet — und sie meldet
+die Suche als **in Ordnung**, sobald *einer* der beiden Wege da ist. Ein Gerät
+ohne Photon ist nicht suchunfähig.
+
+> **Was hier nicht nachgewiesen ist:** die Laufzeit- und RAM-Angaben in diesem
+> Abschnitt sind Größenordnungen aus planetilers eigener Dokumentation und den
+> Extraktgrößen. Der eigentliche planetiler-Lauf wurde in der
+> Entwicklungsumgebung **nie ausgeführt** (kein Docker-Daemon, kein Zugriff
+> auf ghcr.io/Geofabrik). Getestet ist alles darum herum — Argumentbehandlung,
+> Regionsableitung, Ausgabepfad, PMTiles-Signaturprüfung, atomarer Swap und
+> jeder Fehlerpfad (`services/tiles/build-pmtiles.test.ts`, das `docker` bzw.
+> `java` durch ein Stub-Programm ersetzt und die komplette Swap-/Fehlerlogik
+> real durchspielt). Wer diesen Abschnitt gegen echte Hardware fährt, sollte
+> Abweichungen über das Testprotokoll am Ende melden.
 
 Weiter mit [Erste Schritte](erste-schritte.md).
 

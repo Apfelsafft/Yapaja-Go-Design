@@ -9,6 +9,15 @@
     "note": "Kleiner Extrakt -- der Kachelbau laeuft auch auf einer HAOS-VM neben Home Assistant, Valhalla und Photon (Minuten, ~1 GB Heap)."
   },
   {
+    "id": "rheinland-pfalz",
+    "name": "Rheinland-Pfalz",
+    "pbfUrl": "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf",
+    "sizeBytes": 350000000,
+    "bounds": [6.1044, 48.9663, 8.5083, 50.9436],
+    "buildEffort": "small",
+    "note": "Bundesland-Extrakt (~300 MB PBF) -- auf einer HAOS-VM mit 8 GB baubar (PLANETILER_XMX=2g). Als erste echte Testregion in Deutschland gedacht."
+  },
+  {
     "id": "germany",
     "name": "Deutschland",
     "pbfUrl": "https://download.geofabrik.de/europe/germany-latest.osm.pbf",

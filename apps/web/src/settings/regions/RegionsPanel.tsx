@@ -254,15 +254,45 @@ export default function RegionsPanel(): React.ReactElement {
                           {formatBytes(entry.sizeBytes)} · {formatBounds(entry.bounds)}
                         </div>
                       </div>
-                      <button
-                        onClick={() => void handleDownload(entry.id)}
-                        disabled={isActive}
-                        className="shrink-0 px-2 py-1 rounded-md border border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50"
-                        data-testid={`download-button-${entry.id}`}
-                      >
-                        Herunterladen
-                      </button>
+                      {entry.url ? (
+                        <button
+                          onClick={() => void handleDownload(entry.id)}
+                          disabled={isActive}
+                          className="shrink-0 px-2 py-1 rounded-md border border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50"
+                          data-testid={`download-button-${entry.id}`}
+                        >
+                          Herunterladen
+                        </button>
+                      ) : (
+                        <span
+                          className="shrink-0 px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 text-xs"
+                          data-testid={`build-only-badge-${entry.id}`}
+                        >
+                          Wird gebaut
+                        </span>
+                      )}
                     </div>
+                    {/* Ein Eintrag ohne `url` hat keine fertige Datei zum
+                        Herunterladen -- die Kacheln entstehen aus dem
+                        OSM-Extrakt. Vorher stand hier trotzdem ein
+                        „Herunterladen"-Knopf, der sicher scheiterte: der
+                        Katalog nannte Geofabrik-`.pmtiles`-URLs, die es nie
+                        gab (404). Ein Knopf, der nicht funktionieren KANN,
+                        ist schlimmer als kein Knopf -- er schickt den
+                        Betreiber auf die Fehlersuche in seiner eigenen
+                        Installation. */}
+                    {!entry.url && (
+                      <p
+                        className="mt-1 text-xs text-slate-600 dark:text-slate-300"
+                        data-testid={`build-hint-${entry.id}`}
+                      >
+                        {entry.note ??
+                          (entry.buildEffort === 'large'
+                            ? 'Große Region: den Kachelbau nicht auf diesem Gerät ausführen.'
+                            : 'Die Kacheln für diese Region werden aus OpenStreetMap-Daten gebaut.')}{' '}
+                        Anleitung: <code>docs/installation.md</code> §C.
+                      </p>
+                    )}
                     {job && job.status !== 'done' && (
                       <div className="mt-1" data-testid={`download-progress-${entry.id}`}>
                         <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">

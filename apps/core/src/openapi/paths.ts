@@ -158,5 +158,10 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
 
   // --- System ---
   'GET /api/v1/system/resources': { summary: 'RAM/Disk frei-vs-gesamt (W-12/W-18)', tags: ['System'] },
+  'GET /api/v1/system/preflight': {
+    summary:
+      'Installationsprüfung: Kacheln, Routing, Suche (Photon ODER Lite), Position, RAM, Platz, MQTT — je mit Handlungsanweisung',
+    tags: ['System'],
+  },
   'GET /api/v1/health': { summary: 'Liveness: Version + Status je Subsystem (valhalla, photon, gpsd, mqtt)', tags: ['System'] },
 };
