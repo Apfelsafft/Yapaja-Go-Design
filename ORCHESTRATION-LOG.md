@@ -9,77 +9,73 @@ Bei Wiederaufnahme: diese Datei ZUERST lesen, dann exakt hier weitermachen.
 
 ---
 
-## ⏸️ WIEDERAUFNAHME — Stand 2026-08-08 (Session-Limit bei 90 %)
+## ⏸️ WIEDERAUFNAHME — Stand 2026-09-01
 
 **Beim Neustart ZUERST lesen. Was hier steht, ist der aktuelle Auftrag.**
 
 ### Wo wir stehen
 
-E10-T1 bis T5 sind gemergt (#67, #68, #69, #70, #72). Dazu #71 (HA-Linter),
-#73 (Nightly grün + Backlog), #74 (CI-Minuten). Offen ist nur noch **E10-T6
-(Release v1.0, Gate G4)** — und davor die laufende Arbeit unten.
+E10-T1 bis T5 sind gemergt (#67, #68, #69, #70, #72), dazu #71 (HA-Linter),
+#73 (Nightly grün + Backlog), #74 (CI-Minuten) und **#75 (GUI-Installationsweg,
+gemergt 2026-09-01, 12/14 Checks grün, 2 bewusst übersprungen)**. Offen ist
+nur noch **E10-T6 (Release v1.0, Gate G4)**.
 
-### 🔴 Laufende Arbeit: Branch `feat/gui-install-path` (WIP gepusht, NICHT fertig)
+### PR #75 — was drin ist
 
-Der Betreiber hat **HAOS unter Proxmox, 8 GB RAM, Mini-PC** und will Yapaja Go
-**über die HA-GUI** installieren — ausdrücklich **ohne SSH**. Ein Agent war
-mitten im Umbau, als das Limit kam. Der Stand ist als WIP-Commit gesichert.
+Der GUI-Installationsweg, in drei Teilen:
 
-**Fertig auf dem Branch:**
-* Add-on von `ha-addon/yapaja_go/` nach `yapaja_go/` (oberste Ebene) verschoben
-  — ein HA-Add-on-Repository verlangt die Add-on-Ordner auf Repo-Wurzelebene,
-  sonst findet der Supervisor sie nicht.
-* `repository.yaml` in der Wurzel angelegt.
-* Referenzen in CI/Tests/Doku nachgezogen (44+ Dateien).
-* `services/tiles/build-pmtiles.sh` + Test angelegt.
+1. **Add-on über die HA-GUI installierbar.** Repo ist selbst das
+   Add-on-Repository: `repository.yaml` in der Wurzel, Paket als `yapaja_go/`
+   (vorher `ha-addon/yapaja_go/` — zwei Ebenen tief und für den Supervisor
+   unsichtbar).
+2. **`services/tiles/build-pmtiles.sh`** — der bis dahin fehlende Erzeuger der
+   Kacheln. Version auf `v0.10.2` gepinnt; `PLANETILER_JAR`-Modus, weil es im
+   Add-on-Container **keinen Docker-Socket** gibt.
+3. **`GET /api/v1/system/preflight` + Panel 🩺** — sieben Prüfungen, jede mit
+   Handlungsanweisung. Suche ist ODER-verknüpft (Photon ODER Lite, W-12);
+   antwortet immer 200, Zustand im Rumpf.
 
-**Noch offen:**
-1. Vollständige Prüfsequenz fahren (lint, typecheck, `npx vitest run`, build,
-   beide Playwright-Suites, golden, audit, openapi:check, wargame:check).
-2. **Belegen, dass kein Pfad mehr ins Leere zeigt** nach der Verschiebung.
-3. Regionen-Katalog bereinigen (siehe unten) — die GUI darf keinen Download
-   anbieten, der sicher scheitert.
-4. Preflight-Diagnose in der GUI: Kacheln, Routing-Graph, Suche (Photon ODER
-   Lite genügt), GPS-Quelle, MQTT — je mit „was ist zu tun".
-5. Doku auf die 8-GB-VM zuschneiden.
+Dazu: die GUI bietet keinen Download mehr an, der scheitern muss;
+`docs/installation.md` §C; Rheinland-Pfalz als Testregion.
 
-### 🐞 DER ZENTRALE BEFUND: es gibt keinen funktionierenden Weg zu Kartenkacheln
+Lokal vollständig verifiziert: lint, typecheck, **2551 Unit-Tests**, build,
+openapi:check, golden 88, wargame:check, dependency-audit, **115 Web-E2E**,
+**23 Security-E2E**. Zwei Mutationsproben gegen die neuen Tests getötet.
 
-`apps/core/src/map/regions/regions-catalog.json` zeigt auf
-`download.geofabrik.de/.../{liechtenstein,germany}-latest.pmtiles`.
-**Beide URLs sind tot (404)** — vom Betreiber im Browser bestätigt, ausserhalb
-des Sandbox-Proxys. `https://build.protomaps.com` ebenfalls 404.
+### 🐞 Der zentrale Befund (durch #75 behoben)
 
-Ursache: jemand hat die funktionierende Geofabrik-URL für die `.osm.pbf`
-genommen und die Endung auf `.pmtiles` geändert. Geofabrik liefert nur
-Rohdaten. Nie aufgefallen, weil in CI und allen Tests eine **synthetische**
-PMTiles-Fixture steckt, nie eine echte Quelle.
+`regions-catalog.json` zeigte auf
+`download.geofabrik.de/.../{liechtenstein,germany}-latest.pmtiles`. **Beide
+URLs tot (404)**, vom Betreiber im Browser bestätigt. Ursache: an der
+funktionierenden `.osm.pbf`-URL wurde die Endung getauscht; Geofabrik liefert
+nur Rohdaten. Nie aufgefallen, weil alle Tests eine **synthetische**
+PMTiles-Fixture benutzen — und die e2e-Spec die *Anwesenheit* eines
+Download-Knopfes prüfte, nie seine Funktion.
 
-**Die Lösung ist ein Bauschritt, kein Download.** `docs/01-architecture.md`
-ADR-003 sagt wörtlich „Offline-Karten = PMTiles (Protomaps-Builds **von
-OSM**)". Die `.osm.pbf` laden wir bereits herunter und bauen daraus schon
-Routing-Graph und Suchindex — die Kacheln sind das dritte Erzeugnis derselben
-Quelle. Werkzeug: **planetiler**. Genau dafür ist `build-pmtiles.sh` gedacht.
+Lösung laut ADR-003 („PMTiles = Protomaps-Builds **von OSM**"): ein
+Bauschritt, kein Download. Dieselbe `.osm.pbf` erzeugt drei Dinge — Kacheln,
+Routing-Graph, Lite-Index.
 
-**Hier nicht ausführbar:** kein Docker-Daemon, kein Netz (Geofabrik/Protomaps/
-Overpass alle 403 über den Proxy). Die prüfbaren Teile des Skripts
-(Argumente, Pfadableitung, atomarer Swap W-17, Fehlerpfad) müssen trotzdem
-getestet sein — so wie `build-tiles.sh` es vormacht.
+**Vom Betreiber im Browser bestätigt erreichbar:** Geofabrik Rheinland-Pfalz
+(~297 MB), Geofabrik Liechtenstein (3,5 MB), `planetiler.jar` v0.10.2.
 
-### Was der Betreiber als Nächstes braucht
+### Was als Nächstes ansteht
 
-* **Testregion: `europe/germany/rheinland-pfalz-latest.osm.pbf`.** Er ist in
-  67368 Westheim (Rheinland-Pfalz) — nicht in den USA, eine frühere Annahme
-  von mir war falsch. Ein Bundesland ist klein genug für die 8-GB-VM und
-  deckt seinen echten Standort ab, also funktioniert Browser-GPS mit echter
-  Position auf der Karte. **URL vom Betreiber im Browser bestätigen lassen,
-  bevor sie verdrahtet wird.**
-* Kleine Region im Add-on baubar; **ganz Deutschland NICHT** auf dieser VM
-  (konkurriert mit HA + Valhalla + Photon). Proxmox-Ausweg: VM temporär
-  vergrössern oder separater LXC.
-* Praxis-Fallstrick, gehört in die Doku: wer Kacheln für Region A hat, sich
-  aber in Region B aufhält, sieht die Karte **ohne Positionspunkt**. Kein
-  GPS-Fehler.
+**E10-T6 (Release v1.0, Gate G4)** — der letzte offene Task: Release-Issue mit
+belegtem Nachweis je Checklistenpunkt; Menschen-Sub-Issues für
+Hardware-Checkliste, HAOS-Installation, 24-h-Soak, fps auf echter GPU.
+
+Für den Betreiber unmittelbar: Add-on über die HA-GUI installieren
+(Repository-URL eintragen), dann 🩺 „Installation prüfen" öffnen — die Seite
+sagt, was fehlt. Kacheln für Rheinland-Pfalz nach `docs/installation.md` §C.3
+bauen (auf der 8-GB-VM machbar), Photon dabei nach §C.6 abschalten.
+
+### Praxis-Fallstricke für die Doku
+
+* Wer Kacheln für Region A hat, sich aber in Region B aufhält, sieht die Karte
+  **ohne Positionspunkt**. Kein GPS-Fehler.
+* Browser-GPS braucht **HTTPS** — über HA-Ingress gegeben, sofern HA selbst
+  über HTTPS läuft.
 
 ### Offene Punkte, die auf den Menschen warten (Gate G4)
 
@@ -93,10 +89,12 @@ fps auf echter GPU. Template: `.github/ISSUE_TEMPLATE/release-hardware-check.md`
   Minuten, kein Lauf mehr nach dem Merge, Nightly wöchentlich (80 min/Monat).
   **Keine neuen CI-Jobs ohne Begründung.** GitHub rundet jeden Job auf volle
   Minuten — viele kleine Jobs sind teurer, als sie aussehen.
-* Basiswerte: **2490 Unit-Tests**, **112 Haupt-E2E**, **23 Security**,
+* Basiswerte nach #75: **2551 Unit-Tests**, **115 Haupt-E2E**, **23 Security**,
   Golden 88/4. Chromium ist vorinstalliert, die Playwright-Suites LAUFEN hier.
+* `pnpm -r test` ist KAPUTT — immer `npx vitest run` aus der Wurzel.
 * Offene Backlog-Punkte: B-01 (DE-Golden-Routes unverifiziert, LI-only-Gate),
-  B-02 (Photon-Live-Suche), B-03 (mehrere Browser-Clients).
+  B-02 (Photon-Live-Suche), B-03 (mehrere Browser-Clients), **B-04 (Kachelbau
+  aus der GUI auslösen)**.
 
 ---
 
