@@ -18,13 +18,26 @@ export interface InstalledRegion {
   compression: string;
 }
 
+/** Wie aufwändig der Kachelbau ist — steuert nur die Formulierung. */
+export type BuildEffort = 'small' | 'large';
+
 export interface CatalogRegion {
   id: string;
   name: string;
-  url: string;
+  /** Fertige `.pmtiles`-Datei zum Herunterladen. OPTIONAL: die
+   *  mitgelieferten Einträge haben KEINE (siehe
+   *  `apps/core/src/map/regions/catalog.ts`). Fehlt sie, wird die Region
+   *  aus dem OSM-Extrakt gebaut statt geladen — und dann darf die
+   *  Oberfläche keinen „Herunterladen"-Knopf anbieten. */
+  url?: string;
+  /** OSM-Extrakt, aus dem gebaut wird. */
+  pbfUrl?: string;
   sizeBytes: number;
   bounds: [number, number, number, number];
   sha256?: string;
+  buildEffort?: BuildEffort;
+  /** Freitext-Hinweis aus dem Katalog (deutsch). */
+  note?: string;
   installed: boolean;
 }
 

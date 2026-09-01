@@ -163,6 +163,66 @@ fängt er den Sprung schon ab, und es bleibt nur eine Doku-Frage.
 
 ---
 
+## B-04 🟠 Kachelbau aus der Oberfläche auslösen (statt über die Shell)
+
+**Status:** offen, aufgenommen am 2026-09-01.
+**Betrifft:** `services/tiles/build-pmtiles.sh`, `apps/core/src/map/regions/`,
+`yapaja_go/` (Add-on-Image).
+
+### Was fehlt
+
+Der ausdrückliche Wunsch lautet: **alles aus der GUI, nichts über SSH.**
+Erreicht ist das für Installation (Add-on-Store), Konfiguration, Diagnose
+(🩺 Installationsprüfung) und den Download eigener `.pmtiles`-Quellen.
+
+**Nicht** erreicht ist es für den Kachelbau selbst. `build-pmtiles.sh` muss
+heute auf einer Kommandozeile gestartet werden. Da es keine fertigen Kacheln
+zum Herunterladen gibt (siehe `docs/installation.md` §C.1), heißt das: der
+eine Schritt, ohne den es überhaupt keine Karte gibt, ist der einzige, der
+noch eine Shell braucht.
+
+### Warum zurückgestellt
+
+Nicht, weil es unklar wäre, sondern weil es ein eigener Bau ist und nicht
+nebenbei ehrlich zu machen:
+
+* ein Job, der **Stunden** läuft und einen Neustart des Add-ons überleben
+  bzw. sauber wieder anlaufen muss (die bestehende `JobRegistry` ist auf
+  Downloads von Minuten ausgelegt);
+* eine RAM-/Platz-Vorprüfung **vor** dem Start, sonst holt der OOM-Killer
+  auf einer 8-GB-VM nicht unbedingt planetiler, sondern Home Assistant;
+* die ~100 MB `planetiler.jar` müssen ins Image oder beim ersten Bau geholt
+  werden (der JAR-Modus dafür existiert bereits, siehe `PLANETILER_JAR`);
+* Fortschritt und Abbruch in der Oberfläche, sonst ist ein mehrstündiger
+  Lauf von einem Hänger nicht unterscheidbar.
+
+Ein halb gebauter Auslöser wäre schlechter als gar keiner: er verspricht
+GUI-Bedienbarkeit und liefert einen Lauf, den niemand beobachten oder
+abbrechen kann.
+
+### Was stattdessen gilt
+
+* `docs/installation.md` §C beschreibt den Bau vollständig, getrennt nach
+  kleiner Region (auf dem Gerät) und ganzem Land (woanders bauen), samt
+  JAR-Modus für den Add-on-Container ohne Docker-Socket.
+* Die Oberfläche **lügt nicht mehr**: Regionen ohne Download-Quelle zeigen
+  „Wird gebaut" statt eines Knopfes, der sicher scheitert.
+* Die 🩺 Installationsprüfung sagt, dass die Kacheln fehlen, und nennt den
+  Weg dorthin.
+* Für Weg (c) aus §C.5 — die fertige Datei woanders bauen und per „Samba
+  share"/„File editor" ablegen — ist tatsächlich **keine Shell auf der
+  HAOS-VM** nötig.
+
+### Wie es wieder aufgegriffen wird
+
+`POST /api/v1/map/regions/:id/build` auf Basis der bestehenden `JobRegistry`,
+mit Vorprüfung von RAM und Platz aus `system/preflight.ts`, Fortschritt über
+denselben Job-Polling-Weg wie der Download, und `planetiler.jar` im
+Add-on-Image. Der atomare Swap (W-17) und die PMTiles-Signaturprüfung sind im
+Skript bereits vorhanden und müssen nicht neu gebaut werden.
+
+---
+
 ## Wie diese Datei gepflegt wird
 
 * Ein Eintrag verschwindet erst, wenn die Arbeit **getan** ist — nicht, wenn

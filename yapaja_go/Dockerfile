@@ -20,7 +20,7 @@
 # NOTE for whoever runs this against a live Docker daemon for the first time
 # (this add-on's Dockerfile could not be built/executed inside the sandbox
 # this was authored in -- no docker daemon available, see
-# ha-addon/README.md "What was NOT verified here"): the exact base-OS
+# yapaja_go/README.md "What was NOT verified here"): the exact base-OS
 # package name for the JRE, and confirming `valhalla_service` is already on
 # PATH in the gis-ops image, are the two most likely things to need a
 # one-line fix once actually built. Everything else (s6-rc.d service tree,

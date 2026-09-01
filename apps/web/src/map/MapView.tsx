@@ -23,6 +23,7 @@ import ReCenterButton from './ReCenterButton';
 import StylePanel from './StylePanel';
 import RegionsPanel from '../settings/regions/RegionsPanel';
 import StorePanel from '../store/StorePanel';
+import PreflightPanel from '../settings/preflight/PreflightPanel';
 import PerfOverlay from '../perf/PerfOverlay';
 import { startPerfWatchdog } from '../perf/perfWatchdog';
 
@@ -297,9 +298,14 @@ export default function MapView(): React.ReactElement {
           <p className="text-lg font-semibold text-slate-800 dark:text-slate-100">
             Keine Karte installiert
           </p>
+          {/* Vorher stand hier „Lade eine Region herunter". Das war eine
+              Anweisung, die nicht ausführbar war: die mitgelieferten
+              Katalogeinträge haben keine fertige Datei zum Herunterladen,
+              die Kacheln werden gebaut (siehe
+              `apps/core/src/map/regions/catalog.ts`). */}
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Für dieses Gerät ist noch keine Kartenregion heruntergeladen. Lade eine Region
-            herunter, um die Karte anzuzeigen.
+            Für dieses Gerät sind noch keine Kartenkacheln vorhanden. Öffne „Installation
+            prüfen" (🩺) — dort steht, was genau fehlt und was dagegen zu tun ist.
           </p>
         </div>
         {/* E01-T5: reachable even with no map installed yet -- this is
@@ -308,6 +314,10 @@ export default function MapView(): React.ReactElement {
         {/* E09-T7: the add-on Store is independent of any map region being
             installed -- reachable here too. */}
         <StorePanel />
+        {/* Genau der Zustand, für den die Installationsprüfung existiert --
+            hier muss sie erreichbar sein, nicht nur auf einer laufenden
+            Karte. */}
+        <PreflightPanel />
       </div>
     );
   }
@@ -323,6 +333,7 @@ export default function MapView(): React.ReactElement {
           <StylePanel />
           <RegionsPanel />
           <StorePanel />
+          <PreflightPanel />
           <PerfOverlay />
         </>
       )}

@@ -1,0 +1,25 @@
+# Home Assistant Add-on repository descriptor.
+#
+# WARUM DIESE DATEI IM WURZELVERZEICHNIS LIEGT (und das Add-on gleich daneben):
+# Der Supervisor behandelt ein Git-Repository nur dann als Add-on-Repository,
+# wenn im WURZELVERZEICHNIS eine `repository.yaml` (bzw. `repository.json`)
+# liegt; die installierbaren Add-ons sucht er danach als Verzeichnisse auf
+# OBERSTER Ebene, die je eine `config.yaml` enthalten. Deshalb liegt das
+# Add-on-Paket seit `feat/gui-install-path` als `yapaja_go/` direkt in der
+# Repo-Wurzel und nicht mehr unter `ha-addon/yapaja_go/` -- zwei Ebenen tief
+# hat der Supervisor es schlicht nicht gefunden, weshalb der Store-Weg
+# (Einstellungen -> Add-ons -> Add-on Store -> ⋮ -> Repositories) bis hierher
+# nicht funktionierte (siehe die entsprechende Warnung, die in
+# `docs/installation.md` §A dazu stand).
+#
+# Schema: https://developers.home-assistant.io/docs/add-ons/repository
+#
+# Das monorepo-Wurzelverzeichnis IST damit zugleich das Add-on-Repository.
+# Alles andere hier (apps/, packages/, services/, docs/ ...) ignoriert der
+# Supervisor: er interessiert sich ausschliesslich fuer Verzeichnisse mit
+# `config.yaml`. Eine Aufspaltung in ein separates `yapaja-go-ha-addon`-Repo
+# (docs/04-home-assistant.md §3) bleibt als spaeterer Release-Schritt
+# moeglich, ist aber fuer den GUI-Installationsweg nicht mehr noetig.
+name: "Yapaja Go"
+url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
+maintainer: "Apfelsafft <apfelsafft@gmail.com>"

@@ -35,7 +35,7 @@ describe('bumpVersionLine', () => {
 });
 
 describe('Realer Repo-Stand', () => {
-  it('ha-addon/yapaja_go/config.yaml hat aktuell eine gültige version-Zeile', () => {
+  it('yapaja_go/config.yaml hat aktuell eine gültige version-Zeile', () => {
     const raw = readFileSync(ADDON_CONFIG_PATH, 'utf-8');
     expect(() => bumpVersionLine(raw, '99.99.99')).not.toThrow();
   });

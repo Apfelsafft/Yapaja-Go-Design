@@ -54,10 +54,63 @@ describe('regions catalog parsing', () => {
     writeCatalog([
       { id: 'ok', name: 'OK', url: 'http://x/ok.pmtiles', sizeBytes: 10, bounds: [0, 0, 1, 1] },
       { id: 'bad-bounds', name: 'Bad', url: 'http://x/b.pmtiles', sizeBytes: 10, bounds: [200, 0, 1, 1] },
-      { id: 'missing-url', name: 'Missing', sizeBytes: 10, bounds: [0, 0, 1, 1] },
+      { id: 'no-name', url: 'http://x/n.pmtiles', sizeBytes: 10, bounds: [0, 0, 1, 1] },
       { id: '../traversal', name: 'Evil', url: 'http://x/e.pmtiles', sizeBytes: 10, bounds: [0, 0, 1, 1] },
       { id: 'zero-size', name: 'Zero', url: 'http://x/z.pmtiles', sizeBytes: 0, bounds: [0, 0, 1, 1] },
       'not-an-object',
+    ]);
+
+    const catalog = await loadCatalog();
+    expect(catalog.map((e) => e.id)).toEqual(['ok']);
+  });
+
+  // Diese beiden Tests halten fest, dass sich die BEDEUTUNG von `url`
+  // geaendert hat, nicht nur eine Erwartung. Bis `feat/gui-install-path`
+  // galt: kein `url` => ungueltiger Eintrag, weil ein Download die einzige
+  // Bezugsquelle war. Seit klar ist, dass es keine fertigen PMTiles zum
+  // Herunterladen gibt (die alten Geofabrik-`.pmtiles`-URLs waren 404),
+  // ist "ohne url" der NORMALFALL: die Region wird aus dem OSM-Extrakt
+  // gebaut. Ein Eintrag darf deshalb nicht mehr weggeworfen werden, nur
+  // weil er keine fertige Datei nennt -- sonst verschwindet genau die
+  // Region aus der GUI, die man bauen soll.
+  it('keeps an entry without url -- that is a build-only region, not a defect', async () => {
+    writeCatalog([
+      {
+        id: 'buildonly',
+        name: 'Nur bauen',
+        pbfUrl: 'http://x/region-latest.osm.pbf',
+        sizeBytes: 10,
+        bounds: [0, 0, 1, 1],
+        buildEffort: 'small',
+      },
+    ]);
+
+    const catalog = await loadCatalog();
+    expect(catalog.map((e) => e.id)).toEqual(['buildonly']);
+    expect(catalog[0].url).toBeUndefined();
+    expect(catalog[0].pbfUrl).toBe('http://x/region-latest.osm.pbf');
+    expect(catalog[0].buildEffort).toBe('small');
+  });
+
+  // Die Gegenprobe: "optional" heisst nicht "beliebig". Ein Eintrag, der
+  // `url` oder `pbfUrl` in einer kaputten Form MITBRINGT, ist weiterhin
+  // fehlerhaft und wird verworfen -- sonst wuerde die Lockerung oben
+  // stillschweigend jede Quellenpruefung mit abschalten.
+  it('still drops entries whose url or pbfUrl is present but malformed', async () => {
+    writeCatalog([
+      { id: 'ok', name: 'OK', pbfUrl: 'http://x/ok.osm.pbf', sizeBytes: 10, bounds: [0, 0, 1, 1] },
+      { id: 'empty-url', name: 'Empty', url: '', sizeBytes: 10, bounds: [0, 0, 1, 1] },
+      { id: 'num-url', name: 'Num', url: 42, sizeBytes: 10, bounds: [0, 0, 1, 1] },
+      { id: 'empty-pbf', name: 'EmptyPbf', pbfUrl: '', sizeBytes: 10, bounds: [0, 0, 1, 1] },
+      { id: 'null-pbf', name: 'NullPbf', pbfUrl: null, sizeBytes: 10, bounds: [0, 0, 1, 1] },
+      {
+        id: 'bad-effort',
+        name: 'BadEffort',
+        pbfUrl: 'http://x/e.osm.pbf',
+        sizeBytes: 10,
+        bounds: [0, 0, 1, 1],
+        buildEffort: 'gigantic',
+      },
     ]);
 
     const catalog = await loadCatalog();
@@ -95,6 +148,15 @@ describe('regions catalog parsing', () => {
       expect(minLat).toBeGreaterThanOrEqual(-90);
       expect(maxLat).toBeLessThanOrEqual(90);
       expect(entry.sizeBytes).toBeGreaterThan(0);
+      // Jeder ausgelieferte Eintrag muss MINDESTENS EINEN Bezugsweg nennen.
+      // Genau das fehlte vorher nicht -- es war schlimmer: die Eintraege
+      // nannten einen Weg, den es nicht gab. `isValidCatalogEntry` allein
+      // faengt das nicht, weil beide Felder optional sind; ein Eintrag ohne
+      // beides waere formal gueltig und in der GUI eine Sackgasse.
+      expect(
+        entry.url ?? entry.pbfUrl,
+        `Katalogeintrag "${entry.id}" nennt weder url noch pbfUrl`,
+      ).toBeTruthy();
     }
   });
 });

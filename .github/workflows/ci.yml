@@ -64,10 +64,10 @@ jobs:
     # Abhaengigkeit vom Rest der Suite. Der eigentliche `frenck/action-
     # addon-linter` (Drittanbieter-Action, Schema-Vollpruefung) laeuft
     # bewusst NICHT hier, sondern nightly mit continue-on-error --
-    # Begruendung: ha-addon/README.md "CI strategy". Dieser Job prueft nur
+    # Begruendung: yapaja_go/PACKAGING.md "CI strategy". Dieser Job prueft nur
     # die konkreten, in tasks/E08-home-assistant.md + docs/04 §3 genannten
     # Pflicht-Keys (ingress, slug, arch, map, services, options/schema),
-    # rein in-repo via ha-addon/yapaja_go/config.test.ts (Vitest + js-yaml)
+    # rein in-repo via yapaja_go/config.test.ts (Vitest + js-yaml)
     # -- deterministisch, kein Netzwerk, kann daher gefahrlos Merge-Gate sein.
     timeout-minutes: 10
     steps:
@@ -88,11 +88,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate ha-addon/yapaja_go/config.yaml structure
-        run: npx vitest run ha-addon/yapaja_go/config.test.ts
+      - name: Validate yapaja_go/config.yaml structure
+        run: npx vitest run yapaja_go/config.test.ts
 
-      - name: Lint ha-addon/ TypeScript (config.test.ts)
-        run: npx eslint ha-addon --ext .ts
+      - name: Lint yapaja_go/ TypeScript (config.test.ts)
+        run: npx eslint yapaja_go --ext .ts
 
   e2e:
     name: E2E (Playwright)

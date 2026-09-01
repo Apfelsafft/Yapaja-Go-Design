@@ -80,3 +80,80 @@ describe('GET /api/v1/system/resources (E08-T5, W-12/W-18)', () => {
     }
   });
 });
+
+describe('GET /api/v1/system/preflight (feat/gui-install-path)', () => {
+  const GB = 1024 ** 3;
+
+  async function appWith(deps: Parameters<typeof systemPlugin>[1]['preflightDeps']) {
+    const app: FastifyInstance = Fastify({ logger: false });
+    await app.register(systemPlugin, { dataDir: '/fake/data/dir', preflightDeps: deps });
+    return app;
+  }
+
+  it('reicht den Bericht durch, so wie die Prüfung ihn erzeugt hat', async () => {
+    const app = await appWith({
+      env: {
+        TILES_DIR: '/data/tiles',
+        MQTT_BROKER_URL: 'mqtt://x:1883',
+        GPSD_ENABLED: 'true',
+      },
+      listDir: async () => ['liechtenstein.pmtiles'],
+      fileSize: async () => 1024,
+      tcpProbe: async () => true,
+      httpProbe: async () => true,
+      totalMem: () => 16 * GB,
+      diskFree: async () => 40 * GB,
+      now: () => new Date('2026-09-01T10:00:00.000Z'),
+    });
+
+    const response = await app.inject({ method: 'GET', url: '/api/v1/system/preflight' });
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as { data: { status: string; checks: unknown[]; checkedAt: string } };
+    expect(body.data.status).toBe('ok');
+    expect(body.data.checks).toHaveLength(7);
+    expect(body.data.checkedAt).toBe('2026-09-01T10:00:00.000Z');
+
+    await app.close();
+  });
+
+  // Der wichtigste Test dieser Datei. Eine unvollständige Installation ist
+  // GENAU der Fall, für den diese Seite existiert -- wenn sie dann einen
+  // Fehlerstatus liefert, verschluckt generische Fehlerbehandlung im Client
+  // (oder ein Reverse Proxy) die Erklärung, die der Betreiber gerade
+  // braucht. Der Zustand gehört in den Rumpf, nicht in den HTTP-Status.
+  it('antwortet auch bei kaputter Installation mit 200 -- der Zustand steht im Rumpf', async () => {
+    const app = await appWith({
+      env: {},
+      listDir: async () => {
+        throw new Error('ENOENT');
+      },
+      fileSize: async () => null,
+      tcpProbe: async () => false,
+      httpProbe: async () => false,
+      totalMem: () => 8 * GB,
+      diskFree: async () => 1 * GB,
+    });
+
+    const response = await app.inject({ method: 'GET', url: '/api/v1/system/preflight' });
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as {
+      data: { status: string; checks: Array<{ id: string; status: string; remedy?: string }> };
+    };
+    expect(body.data.status).toBe('fail');
+    const tiles = body.data.checks.find((c) => c.id === 'tiles');
+    expect(tiles?.status).toBe('fail');
+    expect(tiles?.remedy).toBeTruthy();
+
+    await app.close();
+  });
+
+  it('läuft ohne injizierte Sonden gegen die echte Umgebung, ohne zu werfen', async () => {
+    const app: FastifyInstance = Fastify({ logger: false });
+    await app.register(systemPlugin, {});
+    const response = await app.inject({ method: 'GET', url: '/api/v1/system/preflight' });
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as { data: { checks: Array<{ id: string }> } };
+    expect(body.data.checks.map((c) => c.id)).toContain('tiles');
+    await app.close();
+  });
+});

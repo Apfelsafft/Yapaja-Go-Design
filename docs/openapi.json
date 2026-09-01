@@ -2301,6 +2301,29 @@
         }
       }
     },
+    "/api/v1/system/preflight": {
+      "get": {
+        "summary": "Installationsprüfung: Kacheln, Routing, Suche (Photon ODER Lite), Position, RAM, Platz, MQTT — je mit Handlungsanweisung",
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/health": {
       "get": {
         "summary": "Liveness: Version + Status je Subsystem (valhalla, photon, gpsd, mqtt)",

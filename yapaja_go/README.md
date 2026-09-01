@@ -66,8 +66,18 @@ env-var wiring against the real Core code, `config.yaml`'s schema) does not
 depend on those two specifics and was cross-checked directly against
 `apps/core/src/`.
 
+## Why this folder sits at the repository root
+
+The HA Supervisor only recognizes a Git repository as an *add-on repository*
+if a `repository.yaml` sits in its ROOT, and it then looks for add-ons in
+directories one level below that root, each containing a `config.yaml`. So
+this package lives at `yapaja_go/` (repo root), not two levels deep — that
+is what makes **Settings → Add-ons → Add-on Store → ⋮ → Repositories →
+`https://github.com/Apfelsafft/Yapaja-Go-Design`** actually list "Yapaja Go".
+
 ## CI strategy
 
-See the repo-root `ha-addon/README.md` for why the config-validity check
-runs per-PR (in-repo, deterministic) while `frenck/action-addon-linter` and
-the full multi-arch Supervisor-builder build run nightly/manual only.
+See [`PACKAGING.md`](./PACKAGING.md) (next to this file) for why the
+config-validity check runs per-PR (in-repo, deterministic) while
+`frenck/action-addon-linter` and the full multi-arch Supervisor-builder
+build run nightly/manual only.

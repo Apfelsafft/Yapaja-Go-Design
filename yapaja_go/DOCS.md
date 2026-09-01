@@ -89,7 +89,7 @@ usable via the simulator/dead-reckoning position source either way.
 | `gps_source` | `usb` \| `network` \| `none` | `usb` | Where the Core's position service gets a GPS fix from. |
 | `log_level` | `debug` \| `info` \| `warn` \| `error` | `info` | Core log verbosity (pino). |
 | `photon_xmx_mb` | int 256–4096 | `1024` | Photon JVM heap cap (`-Xmx`). See the RAM table above. |
-| `valhalla_memory_mb` | int 512–8192 | `2048` | Documented RAM budget for Valhalla; informational (Valhalla's actual runtime cache size is set at graph-build time, not per-start — see `ha-addon/yapaja_go/rootfs/.../valhalla/run`'s comment). |
+| `valhalla_memory_mb` | int 512–8192 | `2048` | Documented RAM budget for Valhalla; informational (Valhalla's actual runtime cache size is set at graph-build time, not per-start — see `yapaja_go/rootfs/.../valhalla/run`'s comment). |
 
 ## MQTT
 

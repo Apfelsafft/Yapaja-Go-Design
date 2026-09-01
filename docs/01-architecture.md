@@ -149,7 +149,10 @@ yapaja-go/
 │   ├── valhalla/        # Dockerfile, valhalla.json-Template, Daten-Download-Skripte
 │   ├── photon/          # Dockerfile, Index-Download-Skripte
 │   └── gpsd/            # Setup-/udev-Doku, Container-Variante
-├── ha-addon/            # Home-Assistant-Add-on (config.yaml, Dockerfile, s6)
+├── yapaja_go/           # Home-Assistant-Add-on (config.yaml, Dockerfile, s6) --
+│                        # liegt bewusst auf oberster Ebene, damit der HA-Supervisor
+│                        # es zusammen mit repository.yaml (Wurzel) findet
+├── repository.yaml      # HA-Add-on-Repository-Deskriptor (Store-Weg via ⋮ -> Repositories)
 ├── addons-examples/     # Referenz-Add-ons (POI-Overlay, Track-Recorder)
 ├── e2e/                 # Playwright-Tests + GPS-Simulator (NMEA/Fixture-Replay)
 └── docs/                # dieses Verzeichnis
