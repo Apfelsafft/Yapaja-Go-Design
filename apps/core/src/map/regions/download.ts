@@ -203,6 +203,22 @@ export function runDownloadJob(
       return;
     }
 
+    // Ein Katalogeintrag OHNE `url` ist kein Fehler, sondern eine Region, die
+    // GEBAUT statt geladen wird (`services/tiles/build-pmtiles.sh`) -- seit
+    // klar ist, dass es keine fertigen PMTiles zum Herunterladen gibt. Ein
+    // Download-Job darf dafuer trotzdem nicht still nichts tun: er endet mit
+    // einer Meldung, die sagt, was stattdessen zu tun ist.
+    if (!entry.url) {
+      jobs.markError(jobId, {
+        code: 'NO_DOWNLOAD_URL',
+        message:
+          `Für die Region "${entry.id}" gibt es keine Download-Quelle. ` +
+          'Diese Kacheln werden aus einem OSM-Extrakt gebaut: ' +
+          'services/tiles/build-pmtiles.sh <pfad-oder-url-zur.osm.pbf>',
+      });
+      return;
+    }
+
     jobs.markRunning(jobId, entry.sizeBytes);
 
     try {

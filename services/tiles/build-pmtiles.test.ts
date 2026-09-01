@@ -50,6 +50,34 @@ function installDockerStub(body: string): void {
   chmodSync(path, 0o755);
 }
 
+/**
+ * Writes a `java` stub. Im JAR-Modus ruft das Skript `java -Xmx... -jar
+ * <jar> <args>` auf; der Stub schreibt seine argv nach `java-argv.txt` und
+ * legt eine gueltige PMTiles-Datei an der `--output=`-Stelle ab -- diesmal
+ * ein ECHTER Pfad, kein Container-Pfad, was der Test genau pruefen soll.
+ */
+function installJavaStub(): void {
+  const path = join(stubBin, 'java');
+  writeFileSync(
+    path,
+    `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$@" > "\${STUB_LOG_JAVA}"
+out=""
+for arg in "$@"; do
+  case "$arg" in
+    --output=*) out="\${arg#--output=}";;
+  esac
+done
+[ -n "$out" ] || { echo "java-stub: kein --output gefunden" >&2; exit 91; }
+printf 'PMTiles' > "$out"
+head -c 120 /dev/zero >> "$out"
+`,
+    'utf-8',
+  );
+  chmodSync(path, 0o755);
+}
+
 /** A stub that behaves like a successful planetiler run: it finds `-v
  *  <host>:/data` in its own argv and writes a valid PMTiles file to the
  *  `--output=` path inside that mount. */
@@ -103,6 +131,7 @@ function run(args: string[], env: Record<string, string> = {}): RunResult {
         PATH: `${stubBin}:${process.env.PATH ?? ''}`,
         TILES_DIR: tilesDir,
         STUB_LOG: join(work, 'docker-argv.txt'),
+        STUB_LOG_JAVA: join(work, 'java-argv.txt'),
         ...env,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -206,7 +235,41 @@ describe('build-pmtiles.sh — planetiler-Aufruf', () => {
     expect(argv).toContain('--osm-path=/data/input.osm.pbf');
     expect(argv).toContain('--output=/data/out.pmtiles');
     expect(argv).toContain('-Xmx3g');
-    expect(argv).toContain('ghcr.io/onthegomap/planetiler:latest');
+    // Auf eine VERSION gepinnt, nicht `:latest` -- gleiche Regel wie ueberall
+    // sonst im Repo (pnpm 10.33.0, node 22). v0.10.2 ist die Version, deren
+    // Release-Artefakt belegt existiert (vom Betreiber im Browser geprueft).
+    expect(argv).toContain('ghcr.io/onthegomap/planetiler:v0.10.2');
+    expect(argv).not.toContain(':latest');
+  });
+
+  /**
+   * Der JAR-Modus ist nicht bloss Bequemlichkeit: INNERHALB eines
+   * HA-Add-on-Containers gibt es keinen Docker-Socket, dort ist `java -jar`
+   * der einzig moegliche Weg. Der Test belegt, dass dann WEDER `docker`
+   * aufgerufen wird NOCH Container-Pfade (`/data/...`) durchrutschen.
+   */
+  it('PLANETILER_JAR laeuft ueber java statt docker und biegt die Pfade um', () => {
+    const pbf = writeFakePbf();
+    const jar = join(work, 'planetiler.jar');
+    writeFileSync(jar, 'nicht wirklich ein jar');
+    installJavaStub();
+    const result = run([pbf], { PLANETILER_JAR: jar });
+    expect(result.status).toBe(0);
+    // docker darf gar nicht erst angefasst worden sein
+    expect(existsSync(join(work, 'docker-argv.txt'))).toBe(false);
+    const argv = readFileSync(join(work, 'java-argv.txt'), 'utf-8');
+    expect(argv).toContain('-jar');
+    expect(argv).toContain(jar);
+    // Pfade zeigen auf das echte Arbeitsverzeichnis, nicht auf /data
+    expect(argv).not.toContain('/data/');
+  });
+
+  it('PLANETILER_JAR ohne vorhandene Datei bricht mit klarer Meldung ab', () => {
+    const pbf = writeFakePbf();
+    const result = run([pbf], { PLANETILER_JAR: join(work, 'fehlt.jar') });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/existiert nicht/);
+    expect(result.stderr).toContain('planetiler/releases/download/v0.10.2');
   });
 
   it('PLANETILER_IMAGE und PLANETILER_ARGS ueberschreiben Image und Argumente', () => {

@@ -101,7 +101,12 @@
 #                       (Default: <repo>/data/tiles; im HA-Add-on:
 #                        /share/yapaja/tiles, siehe
 #                        yapaja_go/rootfs/etc/yapaja/init-yapaja-config.sh)
-#   PLANETILER_IMAGE   Container-Image (Default: ghcr.io/onthegomap/planetiler:latest)
+#   PLANETILER_IMAGE   Container-Image (Default: ghcr.io/onthegomap/planetiler:v0.10.2)
+#   PLANETILER_JAR     Pfad zu planetiler.jar. Ist er gesetzt, laeuft der Bau
+#                      per `java -jar` STATT per Docker -- der einzige Weg
+#                      dort, wo kein Docker-Socket verfuegbar ist (z. B. IM
+#                      HA-Add-on-Container). Bezugsquelle (belegt):
+#                      github.com/onthegomap/planetiler/releases/download/v0.10.2/planetiler.jar
 #   PLANETILER_XMX     JVM-Heap fuer planetiler (Default: 1g)
 #   PLANETILER_ARGS    ERSETZT die planetiler-Argumente komplett. Fuer den
 #                       Fall, dass die CLI der verwendeten Version von der
@@ -115,7 +120,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 TILES_DIR="${TILES_DIR:-$REPO_ROOT/data/tiles}"
-PLANETILER_IMAGE="${PLANETILER_IMAGE:-ghcr.io/onthegomap/planetiler:latest}"
+PLANETILER_IMAGE="${PLANETILER_IMAGE:-ghcr.io/onthegomap/planetiler:v0.10.2}"
 PLANETILER_XMX="${PLANETILER_XMX:-1g}"
 
 usage() {
@@ -134,7 +139,7 @@ Ohne region-id wird sie aus dem Dateinamen abgeleitet
 
 Env-Overrides:
   TILES_DIR          Zielverzeichnis (Default: <repo>/data/tiles)
-  PLANETILER_IMAGE   Container-Image (Default: ghcr.io/onthegomap/planetiler:latest)
+  PLANETILER_IMAGE   Container-Image (Default: ghcr.io/onthegomap/planetiler:v0.10.2)
   PLANETILER_XMX     JVM-Heap (Default: 1g)
   PLANETILER_ARGS    Ersetzt die planetiler-Argumente (%INPUT%/%OUTPUT% werden ersetzt)
 EOF
@@ -228,13 +233,53 @@ RAW_ARGS="${RAW_ARGS//%OUTPUT%//data/$OUT_NAME}"
 # NICHT unterstuetzt (waere ein eval, und das ist es nicht wert).
 read -r -a PLANETILER_ARGV <<< "$RAW_ARGS"
 
-echo "Baue Kacheln fuer Region \"$REGION_ID\" mit $PLANETILER_IMAGE (Xmx=$PLANETILER_XMX) ..."
+# ZWEI LAUFARTEN. Docker ist der Default; die JAR-Variante ist NICHT bloss
+# eine Bequemlichkeit, sondern der einzige Weg an Stellen OHNE Docker-Zugriff
+# -- namentlich INNERHALB eines Home-Assistant-Add-on-Containers, der selbst
+# schon ein Container ist und keinen Docker-Socket hat. Wer die Kacheln also
+# aus der HA-Oberflaeche heraus bauen lassen will, braucht diesen Pfad.
+#
+# Die JAR-Bezugsquelle ist BELEGT (vom Betreiber im Browser geprueft):
+#   https://github.com/onthegomap/planetiler/releases/download/v0.10.2/planetiler.jar
+# Das Container-Image ist auf dieselbe Version gepinnt; ob es unter genau
+# diesem Tag existiert, konnte hier mangels Netz NICHT geprueft werden --
+# deshalb ist es ueberschreibbar und die JAR-Variante die belegte Alternative.
+if [ -n "${PLANETILER_JAR:-}" ]; then
+  RUNNER_DESC="planetiler.jar ($PLANETILER_JAR)"
+else
+  RUNNER_DESC="$PLANETILER_IMAGE"
+fi
+echo "Baue Kacheln fuer Region \"$REGION_ID\" mit $RUNNER_DESC (Xmx=$PLANETILER_XMX) ..."
 echo "Das kann je nach Extraktgroesse Minuten (Liechtenstein) bis Stunden (Deutschland) dauern."
-if ! docker run --rm \
-  -e JAVA_TOOL_OPTIONS="-Xmx$PLANETILER_XMX" \
-  -v "$WORK_DIR:/data" \
-  "$PLANETILER_IMAGE" \
-  "${PLANETILER_ARGV[@]}"; then
+
+if [ -n "${PLANETILER_JAR:-}" ]; then
+  if [ ! -f "$PLANETILER_JAR" ]; then
+    echo "FEHLER: PLANETILER_JAR=\"$PLANETILER_JAR\" existiert nicht." >&2
+    echo "Herunterladen mit:" >&2
+    echo "  curl -fL -o planetiler.jar \\" >&2
+    echo "    https://github.com/onthegomap/planetiler/releases/download/v0.10.2/planetiler.jar" >&2
+    exit 1
+  fi
+  if ! command -v java >/dev/null 2>&1; then
+    echo "FEHLER: PLANETILER_JAR gesetzt, aber kein java im PATH." >&2
+    echo "planetiler braucht eine JRE (17+). Ohne Java bleibt nur der" >&2
+    echo "Docker-Weg (PLANETILER_JAR leer lassen)." >&2
+    exit 1
+  fi
+  # Die Argumente zeigen auf /data (Container-Sicht); im JAR-Modus gibt es
+  # kein Mount, also auf die echten Pfade umbiegen.
+  JAR_ARGV=()
+  for a in "${PLANETILER_ARGV[@]}"; do JAR_ARGV+=("${a//\/data/$WORK_DIR}"); done
+  RUN_CMD=(java "-Xmx$PLANETILER_XMX" -jar "$PLANETILER_JAR" "${JAR_ARGV[@]}")
+else
+  RUN_CMD=(docker run --rm
+    -e JAVA_TOOL_OPTIONS="-Xmx$PLANETILER_XMX"
+    -v "$WORK_DIR:/data"
+    "$PLANETILER_IMAGE"
+    "${PLANETILER_ARGV[@]}")
+fi
+
+if ! "${RUN_CMD[@]}"; then
   echo "FEHLER: planetiler-Lauf fehlgeschlagen." >&2
   echo "Haeufigste Ursachen: zu wenig RAM (PLANETILER_XMX erhoehen), zu wenig" >&2
   echo "Plattenplatz unter ${TMPDIR:-/tmp}, oder eine abweichende planetiler-CLI." >&2
