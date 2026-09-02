@@ -119,6 +119,17 @@ zusätzlich zu jenem Dokument, nicht als Ersatz dafür.
 2. Add-on öffnen, **Installieren** klicken. Der Container wird dabei **auf dem
    Gerät gebaut** — je nach Hardware **10–30 Minuten**, auf einem Raspberry Pi
    auch länger. Das ist normal und kein Hänger.
+
+   Es gibt bewusst **kein fertiges Image zum Herunterladen**: `config.yaml`
+   deklariert absichtlich keinen `image:`-Schlüssel, damit der Supervisor
+   lokal baut. Der Bau lädt dabei den Quelltext von GitHub (~1,5 MB) sowie
+   Node.js, eine JRE und s6-overlay — eine Internetverbindung ist also nur
+   **während** der Installation nötig, danach läuft alles offline.
+
+   *Bricht die Installation ab* (z. B. `403 denied` beim Image-Download oder
+   `could not read Username for 'https://github.com'`): beide Fälle stehen mit
+   Ursache und Lösung unter
+   [Troubleshooting I-01](troubleshooting.md#i-01--die-add-on-installation-bricht-ab).
 3. **Vor dem ersten Start**: den Reiter **Konfiguration** des Add-ons öffnen
    und mindestens `region` setzen (siehe Optionstabelle in
    `yapaja_go/DOCS.md` §„Configuration options"). Ohne `region`

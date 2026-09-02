@@ -1,9 +1,18 @@
-# Companion to config.yaml's `image: ghcr.io/yapaja/yapaja-go-{arch}`.
-# Used by the Supervisor's multi-arch builder (`ha-addons/builder` /
-# `home-assistant/builder`) -- see .github/workflows/nightly.yml job
-# `addon-multiarch-build` (nightly/manual, NOT per-PR; see yapaja_go/PACKAGING.md
-# "CI strategy" for why a full multi-arch build is unsuitable as a per-PR
-# merge gate).
+# Build-Rezept fuer dieses Add-on. Der HA-Supervisor liest diese Datei, wenn
+# er das Add-on AUF DEM GERAET baut -- was er tut, weil `config.yaml`
+# bewusst kein `image:` deklariert (die Begruendung steht dort ausfuehrlich).
+#
+# KORREKTUR 2026-09-02: hier stand vorher, diese Datei sei der „Companion zu
+# config.yaml's `image: ghcr.io/yapaja/yapaja-go-{arch}`" und werde vom
+# nightly-Job `addon-multiarch-build` benutzt. Beides war falsch. Einen Job
+# dieses Namens gibt es in keinem Workflow; der nightly-Job `multiarch` baut
+# `apps/core/Dockerfile` (den eigenstaendigen Core), und `publish-images` in
+# `release.yml` pusht ebenfalls nur diesen. `yapaja_go/Dockerfile` wurde nie
+# irgendwo gebaut oder veroeffentlicht -- weshalb die GUI-Installation am
+# Pull eines nicht existierenden Images scheiterte.
+#
+# `build_from` wird als `BUILD_FROM` an den Dockerfile durchgereicht,
+# `args` als zusaetzliche Build-Argumente.
 # We build on top of the SAME `gis-ops/docker-valhalla` image the standalone
 # docker-compose stack already uses (ADR-014, services/valhalla/README.md),
 # instead of on `node:22-slim` (which apps/core/Dockerfile uses standalone).
@@ -27,3 +36,12 @@ args:
   # Threaded through to the Dockerfile's `ARG S6_OVERLAY_VERSION` so a
   # security/bugfix bump only needs to change one place.
   S6_OVERLAY_VERSION: "3.1.6.2"
+  # Welcher Quelltextstand gebaut wird. Stage 1 des Dockerfiles laedt ihn
+  # selbst herunter, weil der Supervisor mit `yapaja_go/` als Build-Kontext
+  # baut und die Repo-Wurzel dort nicht erreichbar ist (ausfuehrlich im
+  # Dockerfile-Kopf). `main` ist der richtige Default, solange es keine
+  # Release-Tags gibt -- der Store-Weg klont ohnehin `main`. Sobald ein Tag
+  # existiert, gehoert er HIER hinein, damit eine Add-on-Version reproduzierbar
+  # denselben Quelltext baut.
+  YAPAJA_REF: "main"
+  YAPAJA_REPO: "Apfelsafft/Yapaja-Go-Design"

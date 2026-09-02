@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { basename, dirname, join } from 'node:path';
 import { load } from 'js-yaml';
@@ -189,5 +189,160 @@ describe('repository layout makes the add-on discoverable via the HA GUI', () =>
     const config = loadConfig() as AddonConfig & { url?: string };
     const repo = load(readFileSync(join(REPO_ROOT, 'repository.yaml'), 'utf-8')) as { url?: string };
     expect(config.url).toBe(repo.url);
+  });
+});
+
+/**
+ * ─── DIE INSTALLATION MUSS TATSAECHLICH MOEGLICH SEIN ───────────────────────
+ *
+ * Diese Gruppe existiert wegen eines konkreten Fehlschlags am 2026-09-02: die
+ * GUI-Installation auf einer echten HAOS-Instanz brach ab mit
+ *
+ *   Can't install ghcr.io/yapaja/yapaja-go-amd64:0.1.0:
+ *   [403] Head ".../manifests/0.1.0": denied
+ *
+ * Zwei unabhaengige Fehler lagen hintereinander, und der erste verdeckte den
+ * zweiten:
+ *
+ *   1. `config.yaml` deklarierte `image: ghcr.io/yapaja/yapaja-go-{arch}`.
+ *      Steht dort ein `image:`, ZIEHT der Supervisor und baut nicht. Dieses
+ *      Image existierte nie -- `yapaja` ist nicht einmal der Namensraum
+ *      dieses Repositories, und kein Workflow hat `yapaja_go/Dockerfile` je
+ *      gebaut oder gepusht.
+ *   2. Der Dockerfile kopierte aus der REPO-WURZEL (`COPY apps/ ...`). Der
+ *      Supervisor baut aber mit dem ADD-ON-VERZEICHNIS als Kontext. Waere
+ *      Fehler 1 allein behoben worden, waere der Bau an
+ *      „COPY failed: file not found" gescheitert.
+ *
+ * Die 14 bestehenden Tests dieser Datei waren dabei gruen. Sie pruefen die
+ * Struktur der Konfiguration und die Auffindbarkeit im Store -- aber nichts,
+ * was die Installation tatsaechlich vollzieht. Genau diese Luecke schliessen
+ * die folgenden Tests.
+ */
+describe('die Installation kann tatsaechlich durchlaufen', () => {
+  const DOCKERFILE_PATH = join(ADDON_DIR, 'Dockerfile');
+  const WORKFLOW_DIR = join(ADDON_DIR, '..', '.github', 'workflows');
+
+  /** Alle `COPY`/`ADD`-Zeilen mit ihren Quellpfaden, ohne `--from=`-Stufen
+   *  (die beziehen sich auf eine vorherige Build-Stufe, nicht auf den
+   *  Kontext) und ohne `--chown=`/`--chmod=`-Flags. */
+  function contextCopySources(dockerfile: string): string[] {
+    const sources: string[] = [];
+    for (const rawLine of dockerfile.split('\n')) {
+      const line = rawLine.trim();
+      const match = /^(COPY|ADD)\s+(.*)$/i.exec(line);
+      if (!match) continue;
+      if (/--from=/i.test(match[2])) continue; // Quelle ist eine Build-Stufe
+      const tokens = match[2]
+        .split(/\s+/)
+        .filter((t) => t.length > 0 && !t.startsWith('--'));
+      // Letztes Token ist das Ziel im Image, alles davor sind Quellen.
+      sources.push(...tokens.slice(0, -1));
+    }
+    return sources;
+  }
+
+  /**
+   * DER TEST, DER DEN ZWEITEN FEHLER GEFANGEN HAETTE.
+   *
+   * Der Supervisor baut ein Add-on mit dem Add-on-Verzeichnis als
+   * Docker-Build-Kontext -- auch beim Store-Weg, wo er zwar das ganze
+   * Repository klont, aber aus `<clone>/yapaja_go/` baut. Jede `COPY`-Quelle
+   * muss also innerhalb dieses Verzeichnisses liegen. `COPY ../..` ist in
+   * Docker ohnehin verboten; der praktisch gefaehrliche Fall ist ein Pfad,
+   * der von der Repo-Wurzel aus existiert und deshalb beim Entwickeln
+   * (`docker build -f yapaja_go/Dockerfile .`) funktioniert -- und nur beim
+   * echten Add-on-Bau fehlschlaegt.
+   */
+  it('kopiert nichts aus dem Build-Kontext, was ausserhalb von yapaja_go/ liegt', () => {
+    const dockerfile = readFileSync(DOCKERFILE_PATH, 'utf-8');
+    const sources = contextCopySources(dockerfile);
+
+    // Plausibilitaet: der Test waere wertlos, wenn er gar keine Zeile faende.
+    expect(sources.length).toBeGreaterThan(0);
+
+    for (const source of sources) {
+      expect(source.startsWith('/'), `"${source}" ist ein absoluter Pfad`).toBe(false);
+      expect(source.startsWith('..'), `"${source}" zeigt aus dem Kontext heraus`).toBe(false);
+      const cleaned = source.replace(/\/$/, '');
+      expect(
+        existsSync(join(ADDON_DIR, cleaned)),
+        `COPY-Quelle "${source}" liegt nicht in yapaja_go/ und ist beim Add-on-Bau nicht erreichbar`,
+      ).toBe(true);
+    }
+  });
+
+  /**
+   * DER TEST, DER DEN ERSTEN FEHLER GEFANGEN HAETTE.
+   *
+   * Ein `image:` ist eine Zusage: „dieses Image gibt es fertig zum Ziehen".
+   * Sie ist nur dann wahr, wenn irgendein Workflow `yapaja_go/Dockerfile`
+   * baut UND in genau diesen Namensraum pusht. Der Test formuliert deshalb
+   * eine Implikation statt eines Verbots -- wer spaeter Images
+   * veroeffentlicht, darf `image:` wieder setzen, muss dann aber den
+   * Workflow mitliefern.
+   */
+  it('deklariert `image:` nur, wenn ein Workflow dieses Image auch baut und pusht', () => {
+    const config = loadConfig() as AddonConfig & { image?: string };
+    if (config.image === undefined) {
+      return; // Kein Versprechen gemacht -- der Supervisor baut lokal.
+    }
+
+    const workflows = existsSync(WORKFLOW_DIR)
+      ? readdirSync(WORKFLOW_DIR)
+          .filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'))
+          .map((f) => readFileSync(join(WORKFLOW_DIR, f), 'utf-8'))
+      : [];
+
+    // Der Namensraum ohne den `{arch}`-Platzhalter, z. B.
+    // "ghcr.io/yapaja/yapaja-go-" aus "ghcr.io/yapaja/yapaja-go-{arch}".
+    const namespace = config.image.split('{arch}')[0];
+
+    const publishing = workflows.filter(
+      (text) => text.includes(namespace) && text.includes('yapaja_go/Dockerfile'),
+    );
+
+    expect(
+      publishing.length,
+      `config.yaml verspricht das fertige Image "${config.image}", aber kein Workflow baut ` +
+        `yapaja_go/Dockerfile und pusht nach "${namespace}". Genau diese Luecke liess die ` +
+        `GUI-Installation am 2026-09-02 mit "403 denied" abbrechen.`,
+    ).toBeGreaterThan(0);
+  });
+
+  /** Jedes Build-Argument aus `build.yaml` muss im Dockerfile als `ARG`
+   *  deklariert sein -- sonst reicht der Supervisor einen Wert durch, den
+   *  niemand liest, und der Bau nimmt still den Default. */
+  it('jedes Argument aus build.yaml ist im Dockerfile als ARG deklariert', () => {
+    const build = load(readFileSync(join(ADDON_DIR, 'build.yaml'), 'utf-8')) as {
+      args?: Record<string, unknown>;
+    };
+    const dockerfile = readFileSync(DOCKERFILE_PATH, 'utf-8');
+
+    const args = Object.keys(build.args ?? {});
+    expect(args.length).toBeGreaterThan(0);
+
+    for (const arg of args) {
+      expect(
+        new RegExp(`^\\s*ARG\\s+${arg}(\\s|=|$)`, 'm').test(dockerfile),
+        `build.yaml uebergibt "${arg}", der Dockerfile deklariert dafuer kein ARG`,
+      ).toBe(true);
+    }
+  });
+
+  /** `build_from` muss jede unter `arch:` genannte Architektur abdecken --
+   *  sonst schlaegt der Bau genau auf der Hardware fehl, fuer die das Add-on
+   *  sich zustaendig erklaert. */
+  it('build.yaml nennt fuer jede unterstuetzte Architektur ein Basis-Image', () => {
+    const config = loadConfig();
+    const build = load(readFileSync(join(ADDON_DIR, 'build.yaml'), 'utf-8')) as {
+      build_from?: Record<string, string>;
+    };
+    for (const arch of config.arch) {
+      expect(
+        build.build_from?.[arch],
+        `build.yaml hat kein build_from fuer arch "${arch}"`,
+      ).toBeTruthy();
+    }
   });
 });

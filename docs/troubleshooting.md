@@ -389,10 +389,61 @@ Geräte-Zeitzone dauerhaft falsch: bitte als Fehler melden.
 
 ---
 
+## I-01 — Die Add-on-Installation bricht ab
+
+Kein Wargame-Fall, sondern zwei konkrete Fehlermeldungen aus dem
+Supervisor-Protokoll, die beim Einrichten auftreten können. Beide sind am
+2026-09-02 auf einer echten HAOS-Instanz aufgetreten.
+
+### „403 denied" beim Herunterladen des Images
+
+```
+Failed to fetch manifest for ghcr.io/yapaja/yapaja-go-amd64:0.1.0 - 401
+Can't install ghcr.io/yapaja/yapaja-go-amd64:0.1.0:
+[403] Head "https://ghcr.io/v2/yapaja/yapaja-go-amd64/manifests/0.1.0": denied
+```
+
+**Ursache (behoben):** `yapaja_go/config.yaml` deklarierte einen
+`image:`-Schlüssel. Steht dort ein `image:`, **zieht** der Supervisor dieses
+Image aus einer Registry und baut nichts selbst. Das genannte Image hat aber
+nie existiert — `yapaja` ist nicht einmal der Namensraum dieses Repositories,
+und kein Workflow hat das Add-on-Image je gebaut oder veröffentlicht.
+
+**Lösung:** Der Schlüssel ist entfernt. Der Supervisor baut das Add-on jetzt
+**auf dem Gerät** aus dem `Dockerfile` — was `DOCS.md` und
+[Installations-Guide §A](installation.md#a-home-assistant-add-on) Schritt 2
+ohnehin immer beschrieben haben. Rechne mit **10–30 Minuten**; auf einem
+Raspberry Pi länger. Das ist normal und kein Hänger.
+
+Tritt der Fehler weiterhin auf: **⋮ → Nach Updates suchen** im Add-on-Store,
+damit der Supervisor die aktuelle `config.yaml` liest. Ein zuvor
+fehlgeschlagenes Add-on muss unter Umständen einmal entfernt und neu
+hinzugefügt werden.
+
+### „could not read Username for 'https://github.com'"
+
+```
+Can't clone https://github.com/Apfelsafft/Yapaja-Go-Design repository:
+fatal: could not read Username for 'https://github.com': No such device or address
+```
+
+**Ursache:** Der Supervisor klont **anonym**, ohne Zugangsdaten. Diese Meldung
+heißt fast immer, dass das Repository zu diesem Zeitpunkt **privat** war (oder
+die URL einen Tippfehler hatte). Git fragt dann nach einem Benutzernamen, und
+im Supervisor-Container gibt es kein Terminal, das antworten könnte — daher
+„No such device or address".
+
+**Lösung:** Das Repository muss öffentlich sein. Prüfen lässt sich das ohne
+Home Assistant, in einem privaten Browserfenster: die Repository-Seite muss
+sich ohne Anmeldung öffnen lassen.
+
+---
+
 ## Weitere Hilfe
 
 Keine passende Lösung gefunden? Prüfe zusätzlich die
 [FAQ](faq.md) und den
-[Installations-Guide](installation.md). Für Entwickler-/
+[Installations-Guide](installation.md). Scheitert schon die **Installation**
+des Add-ons, siehe [I-01](#i-01--die-add-on-installation-bricht-ab). Für Entwickler-/
 Add-on-spezifische Fragen siehe den
 [Add-on-Entwicklungsleitfaden](addon-dev-guide.md).

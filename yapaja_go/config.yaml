@@ -120,4 +120,29 @@ schema:
   photon_xmx_mb: "int(256,4096)"
   valhalla_memory_mb: "int(512,8192)"
 
-image: "ghcr.io/yapaja/yapaja-go-{arch}"
+# KEIN `image:` -- und das ist eine bewusste Entscheidung, keine Auslassung.
+#
+# Steht hier ein `image:`, ZIEHT der Supervisor dieses Image aus einer
+# Registry und baut NICHTS lokal. Bis 2026-09-02 stand hier
+# `ghcr.io/yapaja/yapaja-go-{arch}`. Dieses Image existiert nicht und hat nie
+# existiert: `yapaja` ist nicht einmal der Namensraum dieses Repositories
+# (das waere `apfelsafft`), und kein einziger Workflow hat je
+# `yapaja_go/Dockerfile` gebaut oder gepusht -- `publish-images` in
+# `release.yml` baut `apps/core/Dockerfile`, also den eigenstaendigen Core,
+# nicht dieses Add-on. Die Folge war ein Installationsabbruch, den niemand
+# selbst beheben konnte:
+#
+#   Can't install ghcr.io/yapaja/yapaja-go-amd64:0.1.0:
+#   [403] Head ".../manifests/0.1.0": denied
+#
+# Ohne `image:` baut der Supervisor das Add-on aus `Dockerfile` auf dem
+# Geraet -- genau das, was `DOCS.md` und `docs/installation.md` §A Schritt 2
+# seit jeher beschreiben („Der Container wird dabei auf dem Geraet gebaut --
+# 10-30 Minuten"). Konfiguration und Dokumentation widersprachen sich; die
+# Dokumentation hatte recht.
+#
+# Wer spaeter fertige Images ausliefern will, braucht BEIDES: diesen
+# Schluessel UND einen Workflow, der `yapaja_go/Dockerfile` fuer alle unter
+# `arch:` genannten Architekturen baut und in genau diesen Namensraum pusht.
+# `config.test.ts` erzwingt diese Kopplung -- ein `image:` ohne
+# veroeffentlichenden Workflow laesst die Tests fehlschlagen.
