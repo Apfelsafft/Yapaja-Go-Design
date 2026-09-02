@@ -163,7 +163,31 @@ fängt er den Sprung schon ab, und es bleibt nur eine Doku-Frage.
 
 ---
 
-## B-04 🟠 Kachelbau aus der Oberfläche auslösen (statt über die Shell)
+## B-04 ✅ Kachelbau aus der Oberfläche auslösen — ERLEDIGT 2026-09-02
+
+**Status:** erledigt. Knopf „Kacheln bauen" im Regionen-Panel,
+`POST /api/v1/map/regions/:id/build`, Fortschritt über dieselbe
+Job-Maschinerie wie der Download.
+
+**Was den Ausschlag gab:** der dokumentierte Umweg über `docker exec` war
+für den Betreiber gar nicht gangbar — das Terminal-Add-on läuft im
+„Protection Mode", der den Docker-Socket ausblendet. Damit war der eine
+Schritt, ohne den es überhaupt keine Karte gibt, auf dem vorgesehenen
+Bedienweg unerreichbar. Der Core startet das Skript jetzt selbst — er läuft
+ohnehin in dem Container, in dem Java und das Skript liegen.
+
+**Bewusst nicht gebaut:** Überleben eines Add-on-Neustarts. Die Jobs liegen
+im Speicher. Das ist vertretbar, weil das Skript erst nach vollständiger
+Prüfung atomar einwechselt (W-17) — ein abgebrochener Lauf lässt die
+bisherige Kartendatei unangetastet, ein neuer Start beginnt sauber von vorn.
+
+**Ebenfalls bewusst:** kein Prozentwert. Planetilers Ausgabe lässt sich nicht
+versionsstabil in eine Zahl übersetzen; der Balken läuft unbestimmt und
+darunter steht die letzte Ausgabezeile. Eine erfundene Prozentzahl wäre
+genau die Sorte Behauptung, die diese Session über beseitigt wurde.
+
+<details>
+<summary>Ursprünglicher Eintrag vom 2026-09-01</summary>
 
 **Status:** offen, aufgenommen am 2026-09-01.
 **Betrifft:** `services/tiles/build-pmtiles.sh`, `apps/core/src/map/regions/`,
@@ -241,6 +265,8 @@ mit Vorprüfung von RAM und Platz aus `system/preflight.ts`, Fortschritt über
 denselben Job-Polling-Weg wie der Download, und `planetiler.jar` im
 Add-on-Image. Der atomare Swap (W-17) und die PMTiles-Signaturprüfung sind im
 Skript bereits vorhanden und müssen nicht neu gebaut werden.
+
+</details>
 
 ---
 

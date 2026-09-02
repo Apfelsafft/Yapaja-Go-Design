@@ -58,7 +58,7 @@ test('regions panel shows the installed region and refuses to delete the last on
   // steht dort die Bau-Erklärung statt eines Knopfes, der sicher scheitert.
   await expect(page.getByTestId('catalog-region-liechtenstein')).toBeVisible();
   await expect(page.getByTestId('download-button-liechtenstein')).toHaveCount(0);
-  await expect(page.getByTestId('build-only-badge-liechtenstein')).toBeVisible();
+  await expect(page.getByTestId('build-button-liechtenstein')).toBeVisible();
 
   // Deleting the only installed region must be refused (W-18-adjacent
   // "never half/zero map" rule) with a plain-language message, not a raw
@@ -144,8 +144,8 @@ test('ein Katalogeintrag MIT Download-Quelle bekommt weiterhin einen Download-Kn
   await expect(page.getByTestId('regions-panel')).toBeVisible();
 
   await expect(page.getByTestId('download-button-mitquelle')).toBeVisible();
-  await expect(page.getByTestId('build-only-badge-mitquelle')).toHaveCount(0);
+  await expect(page.getByTestId('build-button-mitquelle')).toHaveCount(0);
 
   await expect(page.getByTestId('download-button-ohnequelle')).toHaveCount(0);
-  await expect(page.getByTestId('build-only-badge-ohnequelle')).toBeVisible();
+  await expect(page.getByTestId('build-button-ohnequelle')).toBeVisible();
 });

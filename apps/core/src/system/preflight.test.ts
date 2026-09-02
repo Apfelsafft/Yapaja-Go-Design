@@ -440,9 +440,10 @@ describe('Handlungsanweisungen verweisen nur auf real Vorhandenes', () => {
     }
   });
 
-  // Die Gegenprobe zur Prüfung oben: die Anweisungen sollen KEINEN
-  // Bau-Knopf mehr versprechen, solange B-04 offen ist.
-  it('verspricht keinen Bau-Knopf, solange B-04 offen ist', async () => {
+  // Die Gegenprobe: seit B-04 GIBT es den Bau-Knopf, und die Anweisung soll
+  // ihn auch nennen -- sonst schickt sie den Betreiber weiter über eine
+  // Kommandozeile, obwohl der Weg in der Oberfläche existiert.
+  it('nennt den Bau-Knopf, jetzt wo es ihn gibt', async () => {
     const report = await runPreflight({
       env: {},
       listDir: async () => [],
@@ -453,13 +454,7 @@ describe('Handlungsanweisungen verweisen nur auf real Vorhandenes', () => {
       diskFree: async () => 1 * GB,
     });
 
-    for (const check of report.checks) {
-      const remedy = check.remedy ?? '';
-      expect(
-        /Knopf\s+„(Kacheln|Suchindex)/.test(remedy),
-        `Prüfung "${check.id}" verspricht einen Bau-Knopf in der Oberfläche. ` +
-          `Den gibt es nicht (Backlog B-04).`,
-      ).toBe(false);
-    }
+    const tiles = report.checks.find((c) => c.id === 'tiles');
+    expect(tiles?.remedy).toContain('Kacheln bauen');
   });
 });

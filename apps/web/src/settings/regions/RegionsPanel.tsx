@@ -25,6 +25,7 @@ import {
   fetchInstalledRegions,
   fetchJob,
   startDownload,
+  startBuild,
   RegionApiError,
   type CatalogRegion,
   type InstalledRegion,
@@ -66,6 +67,21 @@ function formatApiError(err: RegionApiError): string {
   }
   if (err.code === 'NOT_FOUND') {
     return 'Region nicht gefunden.';
+  }
+  // B-04: der Bau ist der speicherhungrigste Schritt der ganzen Kette. Die
+  // Ablehnung nennt deshalb den Ausweg, nicht nur die Zahl -- auf einer
+  // 8-GB-VM ist Photon abzuschalten ohnehin die empfohlene Einstellung.
+  if (err.code === 'INSUFFICIENT_MEMORY') {
+    const required =
+      typeof err.details?.requiredBytes === 'number' ? formatBytes(err.details.requiredBytes) : 'unbekannt';
+    const free = typeof err.details?.freeBytes === 'number' ? formatBytes(err.details.freeBytes) : 'unbekannt';
+    return (
+      `Zu wenig freier Arbeitsspeicher: benötigt ${required}, frei ${free}. ` +
+      'Schalte Photon in der Add-on-Konfiguration ab („photon_enabled: false") und versuche es erneut.'
+    );
+  }
+  if (err.code === 'NO_BUILD_SOURCE') {
+    return 'Für diese Region ist kein OpenStreetMap-Extrakt hinterlegt — es gibt nichts zu bauen.';
   }
   return err.message || 'Unbekannter Fehler.';
 }
@@ -149,6 +165,21 @@ export default function RegionsPanel(): React.ReactElement {
     } catch (err) {
       const message =
         err instanceof RegionApiError ? formatApiError(err) : 'Download konnte nicht gestartet werden.';
+      setErrorByRegion((prev) => ({ ...prev, [regionId]: message }));
+    }
+  }, []);
+
+  // B-04: der Bau nutzt DIESELBE Job-Maschinerie wie der Download --
+  // derselbe `downloads`-State, dasselbe Polling, dieselbe Fortschritts-
+  // anzeige. Nur der Auslöser ist ein anderer.
+  const handleBuild = useCallback(async (regionId: string) => {
+    setErrorByRegion((prev) => ({ ...prev, [regionId]: '' }));
+    try {
+      const jobId = await startBuild(regionId);
+      setDownloads((prev) => ({ ...prev, [regionId]: { jobId, job: null } }));
+    } catch (err) {
+      const message =
+        err instanceof RegionApiError ? formatApiError(err) : 'Bau konnte nicht gestartet werden.';
       setErrorByRegion((prev) => ({ ...prev, [regionId]: message }));
     }
   }, []);
@@ -264,12 +295,14 @@ export default function RegionsPanel(): React.ReactElement {
                           Herunterladen
                         </button>
                       ) : (
-                        <span
-                          className="shrink-0 px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 text-xs"
-                          data-testid={`build-only-badge-${entry.id}`}
+                        <button
+                          onClick={() => void handleBuild(entry.id)}
+                          disabled={isActive || !entry.pbfUrl}
+                          className="shrink-0 px-2 py-1 rounded-md border border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50"
+                          data-testid={`build-button-${entry.id}`}
                         >
-                          Wird gebaut
-                        </span>
+                          {isActive ? 'Baut…' : 'Kacheln bauen'}
+                        </button>
                       )}
                     </div>
                     {/* Ein Eintrag ohne `url` hat keine fertige Datei zum
@@ -295,16 +328,36 @@ export default function RegionsPanel(): React.ReactElement {
                     )}
                     {job && job.status !== 'done' && (
                       <div className="mt-1" data-testid={`download-progress-${entry.id}`}>
+                        {/* Ein Kachelbau hat keinen messbaren Fortschritt:
+                            planetilers Ausgabe laesst sich nicht
+                            versionsstabil in eine Zahl uebersetzen. Statt
+                            eine Prozentzahl zu erfinden, laeuft der Balken
+                            unbestimmt und darunter steht die letzte
+                            Ausgabezeile (`job.note`). Downloads haben eine
+                            echte Byte-Zahl und behalten ihre Prozente. */}
                         <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-blue-500 transition-[width]"
-                            style={{ width: `${Math.round(job.progress * 100)}%` }}
+                            className={
+                              job.totalBytes === null
+                                ? 'h-full w-1/3 bg-blue-500 animate-pulse'
+                                : 'h-full bg-blue-500 transition-[width]'
+                            }
+                            style={
+                              job.totalBytes === null
+                                ? undefined
+                                : { width: `${Math.round(job.progress * 100)}%` }
+                            }
                           />
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        <div
+                          className="text-xs text-slate-500 dark:text-slate-400 mt-0.5"
+                          data-testid={`job-status-${entry.id}`}
+                        >
                           {job.status === 'error'
-                            ? `Fehler: ${job.error?.message ?? 'Download fehlgeschlagen'}`
-                            : `${Math.round(job.progress * 100)}%`}
+                            ? `Fehler: ${job.error?.message ?? 'Vorgang fehlgeschlagen'}`
+                            : job.totalBytes === null
+                              ? (job.note ?? 'Läuft…')
+                              : `${Math.round(job.progress * 100)}%`}
                         </div>
                       </div>
                     )}

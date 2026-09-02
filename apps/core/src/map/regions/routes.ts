@@ -3,6 +3,7 @@
  *
  * - GET    /api/v1/map/regions/catalog   downloadable regions + `installed` flag
  * - POST   /api/v1/map/regions           starts a resumable download job (202)
+ * - POST   /api/v1/map/regions/:id/build starts a tile BUILD job (202, B-04)
  * - DELETE /api/v1/map/regions/:id       removes an installed region (409 if last)
  * - GET    /api/v1/jobs/:id              job status (progress/bytes/error)
  * - DELETE /api/v1/jobs/:id              cancels a queued/running job
@@ -21,12 +22,21 @@ import { listRegions } from '../regions.js';
 import { loadCatalog, type CatalogEntry } from './catalog.js';
 import { checkDiskSpace, type StatfsFn } from './disk.js';
 import { computeRemainingBytes, existingPartBytes, finalFilePath, partFilePath, runDownloadJob } from './download.js';
+import {
+  buildRequiredBytes,
+  buildRequiredFreeMemory,
+  defaultFreeMem,
+  runBuildJob,
+  type BuildJobDeps,
+} from './build.js';
 import { JobRegistry, type JobSnapshot } from './jobs.js';
 
 export interface RegionsPluginOptions {
   /** Injectable for tests (simulates a near-full disk); defaults to the
    *  real `fs.statfs`. */
   statfsImpl?: StatfsFn;
+  /** Injectable for tests: Prozess-Start und freier RAM des Kachelbaus. */
+  buildDeps?: BuildJobDeps;
 }
 
 interface CatalogReplyEntry extends CatalogEntry {
@@ -146,6 +156,93 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
 
       const jobId = jobs.create();
       runDownloadJob(jobId, jobs, entry, tilesDir);
+      return reply.code(202).send({ job_id: jobId });
+    },
+  );
+
+  // POST /api/v1/map/regions/:id/build -- baut die Kacheln aus dem
+  // OSM-Extrakt (B-04). Der Gegenpart zum Download fuer Regionen, fuer die
+  // es keine fertige Datei gibt -- also fuer alle mitgelieferten.
+  //
+  // Die beiden Vorpruefungen sind kein Zierrat: ein Bau, der nach zwei
+  // Stunden an vollem Speicher scheitert, hat zwei Stunden gekostet, und
+  // ein OOM auf einer HAOS-VM trifft nicht unbedingt planetiler, sondern
+  // Home Assistant. Beide Ablehnungen nennen deshalb die konkreten Zahlen.
+  fastify.post<{ Params: IdParams; Reply: PostRegionsReply | ApiError }>(
+    '/api/v1/map/regions/:id/build',
+    async (request, reply) => {
+      const regionId = request.params.id;
+      if (!REGION_NAME_PATTERN.test(regionId)) {
+        return reply
+          .code(400)
+          .send(createErrorResponse('INVALID_REGION', 'id must be a valid region slug'));
+      }
+
+      let catalog: CatalogEntry[];
+      try {
+        catalog = await loadCatalog();
+      } catch (err) {
+        fastify.log.error({ error: (err as Error).message }, 'Failed to load regions catalog');
+        return reply
+          .code(500)
+          .send(createErrorResponse('CATALOG_UNAVAILABLE', 'Regions catalog could not be loaded'));
+      }
+
+      const entry = catalog.find((candidate) => candidate.id === regionId);
+      if (!entry) {
+        return reply
+          .code(404)
+          .send(createErrorResponse('NOT_FOUND', `Unknown catalog region '${regionId}'`));
+      }
+
+      if (!entry.pbfUrl) {
+        return reply
+          .code(409)
+          .send(
+            createErrorResponse(
+              'NO_BUILD_SOURCE',
+              `Für die Region '${regionId}' ist kein OSM-Extrakt hinterlegt (pbfUrl).`,
+            ),
+          );
+      }
+
+      if (existsSync(finalFilePath(tilesDir, regionId))) {
+        return reply
+          .code(409)
+          .send(createErrorResponse('ALREADY_INSTALLED', `Region '${regionId}' is already installed`));
+      }
+
+      const requiredBytes = buildRequiredBytes(entry);
+      const diskCheck = await checkDiskSpace(tilesDir, requiredBytes, statfsImpl);
+      if (!diskCheck.ok) {
+        return reply.code(409).send(
+          createErrorResponse(
+            'INSUFFICIENT_SPACE',
+            'Nicht genug freier Speicherplatz für den Kachelbau. Der Bau braucht neben ' +
+              'der fertigen Datei auch Platz für das Zwischenergebnis.',
+            { requiredBytes: diskCheck.requiredBytes, freeBytes: diskCheck.freeBytes },
+          ),
+        );
+      }
+
+      const freeMemFn = opts.buildDeps?.freeMemFn ?? defaultFreeMem;
+      const requiredMemory = buildRequiredFreeMemory();
+      const freeMemory = freeMemFn();
+      if (freeMemory < requiredMemory) {
+        return reply.code(409).send(
+          createErrorResponse(
+            'INSUFFICIENT_MEMORY',
+            'Zu wenig freier Arbeitsspeicher für den Kachelbau. Schalten Sie Photon in ' +
+              'der Add-on-Konfiguration ab („photon_enabled: false") und versuchen Sie es ' +
+              'erneut — das ist auf einem Gerät mit 8 GB ohnehin die empfohlene ' +
+              'Einstellung (W-12).',
+            { requiredBytes: requiredMemory, freeBytes: freeMemory },
+          ),
+        );
+      }
+
+      const jobId = jobs.create();
+      runBuildJob(jobId, jobs, entry, tilesDir, opts.buildDeps);
       return reply.code(202).send({ job_id: jobId });
     },
   );

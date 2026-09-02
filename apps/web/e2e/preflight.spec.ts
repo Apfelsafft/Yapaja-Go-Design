@@ -42,15 +42,14 @@ test('zeigt ohne Karte die Installationsprüfung mit echten Befunden und Handlun
   // Und der eigentliche Zweck der Seite: zu jedem Mangel steht da, was zu
   // tun ist. Ein Befund ohne Anweisung nützt dem Adressaten nichts.
   //
-  // Hier stand `toContainText('Kartenregionen')`. Dieses Wort stammte aus dem
-  // Menüpfad „Einstellungen → Kartenregionen" -- den es nie gab. Der Test hat
-  // damit ausgerechnet die erfundene Formulierung festgeschrieben und wäre
-  // rot geworden, sobald jemand sie korrigiert. Geprüft wird jetzt das, was
-  // die Anweisung BRAUCHBAR macht: der Befehl, den der Betreiber wirklich
-  // eintippen kann.
-  await expect(page.getByTestId('preflight-remedy-tiles')).toContainText(
-    'yapaja-build-pmtiles',
-  );
+  // Geprüft wird das, was die Anweisung BRAUCHBAR macht -- nicht ihre
+  // Formulierung. Hier stand einmal `toContainText('Kartenregionen')`; dieses
+  // Wort stammte aus dem Menüpfad „Einstellungen → Kartenregionen", den es
+  // nie gab, und der Test hatte damit ausgerechnet die erfundene Formulierung
+  // festgeschrieben. Seit B-04 ist der handlungsfähige Teil der Knopf im
+  // Regionen-Panel -- und `preflight.test.ts` erzwingt zusätzlich, dass jede
+  // in der Anweisung genannte Beschriftung im Frontend wirklich existiert.
+  await expect(page.getByTestId('preflight-remedy-tiles')).toContainText('Kacheln bauen');
 
   // Alle sieben Prüfungen sind da, jede mit einem echten Status.
   await expect(page.locator('[data-testid^="preflight-check-"]')).toHaveCount(7);
