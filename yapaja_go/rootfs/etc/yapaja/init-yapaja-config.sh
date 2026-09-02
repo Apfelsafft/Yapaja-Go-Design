@@ -30,7 +30,11 @@ set -euo pipefail
 
 # ---- s6-overlay container-environment helper -------------------------------
 # Writes NAME=VALUE so that every `run` script sourced via
-# `#!/usr/bin/with-contenv bash` sees it as a normal env var. This is the
+# `#!/command/with-contenv bash` sees it as a normal env var. (Der Pfad stand
+# hier bis 2026-09-02 als `/usr/bin/with-contenv` -- den gibt es nur in den
+# offiziellen HA-Basisimages, nicht in dem selbst mitgebrachten s6-overlay
+# v3.1.6.2 dieses Add-ons; genau daran scheiterten die Dienste in 0.1.0.)
+# This is the
 # s6-overlay v3 mechanism for sharing computed config across services (the
 # alternative -- a shared `/etc/yapaja/env` file each `run` script sources --
 # would ALSO work and is a fine substitute if `with-contenv` behaves

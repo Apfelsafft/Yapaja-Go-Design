@@ -28,15 +28,22 @@ export default function GeolocationHints({ sourceState }: GeolocationHintsProps)
         return (
           <div className="space-y-2">
             <p className="font-semibold">Standortzugriff nicht verfügbar (unsicherer Kontext)</p>
-            <p className="text-sm">Die Browser-Geolocation-API benötigt ein sicheres Protokoll (HTTPS).</p>
             <p className="text-sm">
-              Optionen:
+              Der Browser gibt den GPS-Sensor nur über HTTPS frei. Diese Seite läuft über
+              HTTP — daran kann Yapaja nichts ändern, das entscheidet der Browser.
             </p>
+            {/* „Nutze Home Assistant Ingress (immer HTTPS)" stand hier bis
+                2026-09-02 und war schlicht falsch: Ingress erbt das Protokoll
+                von Home Assistant selbst. Wer HA über http://…:8123 aufruft,
+                bekommt auch Ingress über HTTP -- der Hinweis schickte genau
+                die Betroffenen im Kreis. */}
+            <p className="text-sm">Wege, die wirklich helfen:</p>
             <ul className="text-sm list-disc list-inside space-y-1">
-              <li>Nutze HTTPS statt HTTP</li>
-              <li>Nutze Home Assistant Ingress (immer HTTPS)</li>
-              <li>Verwende localhost (automatische Ausnahme)</li>
-              <li>Wähle stattdessen gpsd als GPS-Quelle</li>
+              <li>Home Assistant selbst über HTTPS erreichbar machen (eigenes
+                Zertifikat oder Nabu Casa) — dann ist auch Ingress HTTPS</li>
+              <li>USB-GPS am Gerät verwenden (Quelle „gpsd")</li>
+              <li>Nur zum Ausprobieren: Aufruf direkt auf dem Gerät über
+                localhost (dort gilt eine Ausnahme)</li>
             </ul>
           </div>
         );

@@ -7,8 +7,11 @@
  * Handles:
  * - Secure context checks (W-03): no HTTP on non-localhost
  * - Permission denials: show appropriate hints
- * - Timeouts/unavailable: retry with backoff
- * - Source selection: only send if browser/auto source is active
+ * - Timeouts/unavailable: reported as state, no own retry -- `watchPosition`
+ *   keeps running and der naechste erfolgreiche Fix setzt den Zustand selbst
+ *   wieder auf 'active'. (Hier stand frueher „retry with backoff"; ein
+ *   Backoff war nie implementiert.)
+ * - Source selection: nicht senden, wenn der Core eine ANDERE Quelle erzwingt
  */
 
 import type { Position } from '@yapaja/shared';
@@ -57,7 +60,10 @@ class BrowserSource {
   private sendQueue: Position[] = [];
   private isSending = false;
   private sourceCheckInterval: number | null = null;
-  private activeSource: string | null = null;
+  /** Ob der Core das Senden gerade zulaesst -- siehe `checkActiveSource()`.
+   *  Startwert `true`: bevor die erste Antwort da ist, ist nichts erzwungen,
+   *  und ein zu frueh gesendeter Fix waere folgenlos (409). */
+  private sendingAllowed = true;
 
   constructor(config?: BrowserSourceConfig) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -157,7 +163,14 @@ class BrowserSource {
     this.updateState({ status: 'active', lastPosition: pos });
 
     // Queue for sending
-    this.sendQueue.push(pos);
+    // Eine Positionsmeldung ist verderbliche Ware: „der neueste Fix" ist die
+    // ganze Wahrheit, ein zehn Sekunden alter Fix ist wertlos. Die
+    // Warteschlange war bisher unbegrenzt -- konnte der Client eine Weile
+    // nicht senden, staute sie sich auf und wurde danach im 100-ms-Takt am
+    // Stueck nachgeliefert. Der Core hat diese Positionen dann der Reihe nach
+    // als aktuell verarbeitet und die Anzeige einen laengst gefahrenen Weg
+    // nachzeichnen lassen. Deshalb: nur der letzte Fix bleibt stehen.
+    this.sendQueue = [pos];
     void this.flushQueue();
   }
 
@@ -215,7 +228,45 @@ class BrowserSource {
   }
 
   /**
-   * Check active source periodically and only send if it's 'browser' or 'auto'
+   * Periodically ask the Core whether this client may still send fixes.
+   *
+   * ─── WORAN DAS HIER GESCHEITERT IST ────────────────────────────────────────
+   * Die Frage lautet ausschliesslich: ist eine ANDERE Quelle ERZWUNGEN?
+   * Frueher stand hier stattdessen eine Auswertung des Feldes `active` -- und
+   * zwar mit dem falschen Schluessel: gelesen wurde `s.id`, geliefert wird von
+   * `GET /position/sources` aber `s.name` (siehe
+   * `apps/core/src/position/service.ts`, `SourceStatus`). `s.id` ist also
+   * immer `undefined`, damit war `some(s => s.id === 'browser')` immer falsch
+   * und `activeSources[0]?.id || null` immer `null` -- und `flushQueue()`
+   * bricht bei `!this.activeSource` ab.
+   *
+   * Die Folge war kein sauberer Ausfall, sondern ein Flattern, das man leicht
+   * dem GPS-Empfang anlastet:
+   *
+   *   1. Kaltstart: keine Quelle aktiv -> `activeSource = 'browser'` -> EIN Fix
+   *      wird gesendet.
+   *   2. Der Core meldet `browser` daraufhin fuer 5 s als aktiv
+   *      (`activeWindowMs`). Der naechste Poll liest `active: true`, findet
+   *      `s.id` nicht -> `activeSource = null` -> es wird NICHTS mehr gesendet.
+   *   3. Nach 5 s ohne Fix gilt `browser` wieder als inaktiv, der Core feuert
+   *      `event/gps_lost`, die Oberflaeche zeigt ab 3 s „GPS-Signal verloren"
+   *      (`gpsSignal.ts`).
+   *   4. Der naechste Poll sieht wieder „keine Quelle aktiv" -> ein Fix ->
+   *      zurueck zu 2.
+   *
+   * Browser-GPS war damit dauerhaft unbrauchbar: die Position sprang im
+   * 5-Sekunden-Takt zwischen „live" und „verloren". Gemerkt hat es niemand,
+   * weil `browserSource.test.ts` nur pruefte, dass die Typ-Unions existieren,
+   * und die E2E-Zusicherung in `position.spec.ts` in einem
+   * `if (sentPositions.length > 0)` stand -- also genau dann nicht prueft,
+   * wenn nichts gesendet wurde.
+   *
+   * Die Erlaubnis haengt jetzt an `forced`, und das ist auch inhaltlich die
+   * richtige Frage: `active` beschreibt, WER GERADE liefert (und wird durch
+   * unser eigenes Senden wahr -- die alte Logik hat sich also selbst
+   * stummgeschaltet), `forced` beschreibt, wer liefern DARF. Der Core setzt
+   * dieselbe Regel serverseitig noch einmal durch (`isSourceSelectable`,
+   * 409 SOURCE_NOT_SELECTABLE) -- diese Pruefung spart nur den Verkehr.
    */
   private startSourceCheck(): void {
     this.sourceCheckInterval = window.setInterval(() => {
@@ -233,19 +284,27 @@ class BrowserSource {
         method: 'GET',
       });
       if (response.ok) {
-        const data = (await response.json()) as { sources?: Array<{ id: string; active: boolean }> };
-        const activeSources = data.sources?.filter((s) => s.active) || [];
-        // Only proceed if the active source is 'browser' or no source is active (fall back to browser)
-        if (activeSources.length === 0 || activeSources.some((s) => s.id === 'browser')) {
-          this.activeSource = 'browser';
-        } else {
-          this.activeSource = activeSources[0]?.id || null;
-        }
+        const data = (await response.json()) as { forced?: string | null };
+        const forced = data.forced ?? null;
+        this.setSendingAllowed(forced === null || forced === 'browser');
       }
     } catch (err) {
       console.warn('[BrowserSource] Failed to check active source:', err);
-      // On error, assume browser is okay to use
-      this.activeSource = 'browser';
+      // Der Core weist einen unerwuenschten Fix ohnehin mit 409 ab. Bei einer
+      // unbeantwortbaren Anfrage lieber senden als schweigen: ein verworfener
+      // Fix ist folgenlos, eine stumme Navigation nicht.
+      this.setSendingAllowed(true);
+    }
+  }
+
+  /** Faellt die Sperre weg, wird der zurueckgehaltene Fix sofort nachgereicht
+   *  -- sonst bliebe er bis zum naechsten `watchPosition`-Ereignis liegen,
+   *  und bei stehendem Fahrzeug kann das dauern. */
+  private setSendingAllowed(allowed: boolean): void {
+    const wasBlocked = !this.sendingAllowed;
+    this.sendingAllowed = allowed;
+    if (allowed && wasBlocked) {
+      void this.flushQueue();
     }
   }
 
@@ -257,8 +316,7 @@ class BrowserSource {
       this.isSending ||
       this.state.status !== 'active' ||
       this.sendQueue.length === 0 ||
-      !this.activeSource ||
-      (this.activeSource !== 'browser' && this.activeSource !== 'auto')
+      !this.sendingAllowed
     ) {
       return;
     }

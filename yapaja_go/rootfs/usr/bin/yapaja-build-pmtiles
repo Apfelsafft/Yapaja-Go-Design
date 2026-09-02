@@ -61,7 +61,22 @@ fi
 export TILES_DIR="${TILES_DIR:-/share/yapaja/tiles}"
 export PLANETILER_XMX="${PLANETILER_XMX:-2g}"
 
-mkdir -p "$TILES_DIR" "$TOOLS_DIR"
+# ─── ARBEITSVERZEICHNIS GEHOERT AUF DIESELBE PLATTE WIE DAS ERGEBNIS ────────
+# `build-pmtiles.sh` legt sein Arbeitsverzeichnis unter ${TMPDIR:-/tmp} an --
+# im Container also in dessen beschreibbarer Schicht, NICHT unter /share.
+# Waehrend des Baus liegt dort der weitaus groesste Teil des Platzbedarfs
+# (planetiler haelt Knoten- und Wege-Zwischenstaende); die fertige .pmtiles
+# ist der kleinere Rest.
+#
+# Genau diesen Bedarf prueft der Core vor dem Start (BUILD_DISK_FACTOR = 3)
+# -- aber er misst `TILES_DIR`, also /share. Blieb die Arbeit in /tmp, war
+# die Vorpruefung eine Messung am falschen Dateisystem: sie haette bei einer
+# 350-MB-Region gruenes Licht gegeben und der Lauf waere Stunden spaeter in
+# der Container-Schicht am Platz gescheitert. Beides zeigt jetzt auf
+# dieselbe Platte, damit die geprueften Zahlen auch die zutreffenden sind.
+export TMPDIR="${TMPDIR:-$(dirname "$TILES_DIR")/tmp}"
+
+mkdir -p "$TILES_DIR" "$TOOLS_DIR" "$TMPDIR"
 
 if [ ! -s "$JAR_PATH" ]; then
   echo "== planetiler $PLANETILER_VERSION wird einmalig geladen (~100 MB) nach $JAR_PATH =="
