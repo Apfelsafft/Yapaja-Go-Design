@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bash
+#!/command/with-contenv bashio
 # ==============================================================================
 # init-yapaja-config -- s6-rc oneshot (E08-T4, docs/04 §3, W-16).
 #

@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bash
+#!/command/with-contenv bashio
 # ==============================================================================
 # valhalla -- s6-rc longrun (E08-T4). Serves routing/turn-by-turn/isochrone
 # requests on :8002, exactly like the standalone-compose `valhalla` service

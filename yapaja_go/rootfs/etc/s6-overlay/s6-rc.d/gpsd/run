@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bash
+#!/command/with-contenv bashio
 # ==============================================================================
 # gpsd -- s6-rc longrun (E08-T4, docs/04 §3 "USB-GPS: usb: true + udev; gpsd
 # läuft im Add-on-Container"). Bridges a USB GPS receiver to the Core's

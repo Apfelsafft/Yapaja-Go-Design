@@ -432,6 +432,108 @@ describe('die Installation kann tatsaechlich durchlaufen', () => {
     ).toBeLessThan(firstRun);
   });
 
+  /**
+   * DIE SECHSTE SCHICHT (2026-09-02): das Add-on liess sich installieren,
+   * startete aber nicht.
+   *
+   *     s6-supervise valhalla: warning: unable to spawn ./run
+   *                            (waiting 60 seconds): No such file or directory
+   *
+   * "No such file or directory" beim Starten einer vorhandenen, ausfuehrbaren
+   * Datei heisst fast immer: der INTERPRETER aus dem Shebang fehlt. Die
+   * Skripte begannen mit `#!/usr/bin/with-contenv bash`. Diesen Pfad legen
+   * nur die offiziellen HA-Basisimages an; s6-overlay v3 selbst installiert
+   * das Werkzeug nach `/command/with-contenv` (nachgeprueft im Release-
+   * Archiv v3.1.6.2: `./command/with-contenv` ist enthalten, ein
+   * `usr/bin/with-contenv` kommt darin ueberhaupt nicht vor). Wir bauen auf
+   * dem Valhalla-Image, also gab es den Pfad nicht.
+   */
+  const ROOTFS_DIR = join(ADDON_DIR, 'rootfs');
+
+  function rootfsScripts(): string[] {
+    const out: string[] = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (entry.isFile() && readFileSync(full, 'utf-8').startsWith('#!')) out.push(full);
+      }
+    };
+    walk(ROOTFS_DIR);
+    return out;
+  }
+
+  it('kein Skript unter rootfs/ benutzt den HA-Basisimage-Pfad /usr/bin/with-contenv', () => {
+    const scripts = rootfsScripts();
+    // Plausibilitaet: ohne Skripte prueft der Test nichts.
+    expect(scripts.length).toBeGreaterThan(0);
+
+    for (const file of scripts) {
+      const shebang = readFileSync(file, 'utf-8').split('\n')[0];
+      expect(
+        shebang.includes('/usr/bin/with-contenv'),
+        `${file.replace(ADDON_DIR, 'yapaja_go')} benutzt /usr/bin/with-contenv. Den Pfad legen ` +
+          `nur die offiziellen HA-Basisimages an; dieses Add-on baut auf dem Valhalla-Image ` +
+          `und installiert s6-overlay v3 selbst, das /command/with-contenv mitbringt. ` +
+          `s6 meldet den fehlenden Interpreter als "unable to spawn ./run: ` +
+          `No such file or directory".`,
+      ).toBe(false);
+    }
+  });
+
+  /**
+   * Die zweite Haelfte desselben Startfehlers: `init-yapaja-config.sh` lief
+   * unter nacktem `bash` (das `up`-Skript rief es so auf) und scheiterte an
+   * `bashio::log.info: command not found`. Ein Skript, das
+   * bashio-Funktionen benutzt, muss `bashio` als Interpreter haben --
+   * `bash` allein kennt sie nicht.
+   */
+  it('jedes Skript, das bashio:: benutzt, hat auch bashio als Interpreter', () => {
+    // Kommentarzeilen zaehlen NICHT als Verwendung -- mehrere dieser Skripte
+    // zitieren die Fehlermeldung `bashio::log.info: command not found` in
+    // ihrem Kopfkommentar, um zu erklaeren, warum der Shebang so aussieht,
+    // wie er aussieht.
+    const usesBashio = (file: string): boolean =>
+      readFileSync(file, 'utf-8')
+        .split('\n')
+        .some((l) => !l.trimStart().startsWith('#') && l.includes('bashio::'));
+    const users = rootfsScripts().filter(usesBashio);
+    // Plausibilitaet: es MUSS solche Skripte geben, sonst ist der Test leer.
+    expect(users.length).toBeGreaterThan(0);
+
+    for (const file of users) {
+      const shebang = readFileSync(file, 'utf-8').split('\n')[0];
+      expect(
+        /\bbashio\s*$/.test(shebang),
+        `${file.replace(ADDON_DIR, 'yapaja_go')} benutzt bashio::-Funktionen, sein Shebang ` +
+          `endet aber nicht auf "bashio": "${shebang}". Unter nacktem bash fuehrt das zu ` +
+          `"bashio::…: command not found".`,
+      ).toBe(true);
+    }
+  });
+
+  /**
+   * Und die Stelle, an der die beiden auseinanderliefen: das `up`-Skript des
+   * Oneshots rief `bash /etc/yapaja/init-yapaja-config.sh` auf und umging
+   * damit den Shebang des Skripts. Der Interpreter gehoert an EINE Stelle.
+   */
+  it('das oneshot-up-Skript umgeht den Shebang des init-Skripts nicht', () => {
+    const up = readFileSync(
+      join(ROOTFS_DIR, 'etc/s6-overlay/s6-rc.d/init-yapaja-config/up'),
+      'utf-8',
+    );
+    const body = up
+      .split('\n')
+      .filter((l) => !l.trimStart().startsWith('#') && l.trim().length > 0)
+      .join('\n');
+    expect(body).toContain('/etc/yapaja/init-yapaja-config.sh');
+    expect(
+      /\b(bash|sh)\s+\/etc\/yapaja\/init-yapaja-config\.sh/.test(body),
+      'Das up-Skript ruft init-yapaja-config.sh mit einem explizitem Interpreter auf und ' +
+        'umgeht damit dessen Shebang -- genau so lief es unter nacktem bash ohne bashio.',
+    ).toBe(false);
+  });
+
   /** `build_from` muss jede unter `arch:` genannte Architektur abdecken --
    *  sonst schlaegt der Bau genau auf der Hardware fehl, fuer die das Add-on
    *  sich zustaendig erklaert. */

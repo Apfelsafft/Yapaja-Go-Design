@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bash
+#!/command/with-contenv bashio
 # s6-rc "finish" script: runs after the `run` script's process exits, for
 # ANY reason (clean SIGTERM shutdown, crash, `run` never having managed to
 # exec at all). $1 is the exit code, $2 the signal number if killed by one.
