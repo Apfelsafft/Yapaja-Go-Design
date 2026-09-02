@@ -9,6 +9,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   runPreflight,
   PHOTON_COMFORTABLE_RAM_BYTES,
@@ -354,5 +357,109 @@ describe('Plattenplatzprüfung', () => {
       }),
     );
     expect(seen).toEqual(['/mnt/gross/tiles']);
+  });
+});
+
+/**
+ * ─── EINE ANWEISUNG DARF NICHT AUF ETWAS ZEIGEN, DAS ES NICHT GIBT ──────────
+ *
+ * Am 2026-09-02 zeigte die Installationsprüfung auf einer echten HAOS-Instanz
+ * korrekt an, dass Kacheln und Routinggraph fehlen — und nannte als Abhilfe
+ * den „Knopf ‚Kacheln bauen'" bzw. „‚Suchindex bauen'". Beide Knöpfe gibt es
+ * nicht; sie stehen als B-04 im Backlog. Der Betreiber suchte in der
+ * Oberfläche nach etwas, das nie gebaut wurde.
+ *
+ * Das ist exakt dieselbe Fehlerklasse wie der Katalog, der auf
+ * nicht existierende `.pmtiles`-URLs zeigte: eine Anweisung, die nicht
+ * befolgt werden KANN, ist schlimmer als gar keine — sie schickt den
+ * Adressaten auf die Fehlersuche in seiner eigenen Installation.
+ *
+ * Dieser Test kann nicht jede Formulierung prüfen. Er prüft das, was
+ * maschinell entscheidbar ist: nennt eine Anweisung ein Bedienelement in
+ * deutschen Anführungszeichen, muss diese Beschriftung im Frontend-Quelltext
+ * tatsächlich vorkommen.
+ */
+describe('Handlungsanweisungen verweisen nur auf real Vorhandenes', () => {
+  const GB = 1024 ** 3;
+
+  /** Beschriftungen, die in `„…"` stehen und wie ein Bedienelement aussehen.
+   *  Pfade, Dateinamen und Konfigurationsschlüssel sind ausgenommen — die
+   *  sind keine Knöpfe. */
+  function quotedControls(text: string): string[] {
+    const out: string[] = [];
+    for (const m of text.matchAll(/„([^"„]{2,40})"/g)) {
+      const label = m[1].trim();
+      if (/[/.:]/.test(label)) continue; // Pfad/Datei/Key, kein Bedienelement
+      if (/^[a-z_]+$/.test(label)) continue; // z. B. photon_enabled
+      out.push(label);
+    }
+    return out;
+  }
+
+  it('jede in Anführungszeichen genannte Beschriftung existiert im Frontend', async () => {
+    const report = await runPreflight({
+      env: {},
+      listDir: async () => [],
+      fileSize: async () => null,
+      tcpProbe: async () => false,
+      httpProbe: async () => false,
+      totalMem: () => 8 * GB,
+      diskFree: async () => 1 * GB,
+    });
+
+    const webSrc = join(
+      dirname(fileURLToPath(import.meta.url)),
+      '..',
+      '..',
+      '..',
+      'web',
+      'src',
+    );
+
+    // Beschriftungen, die BEWUSST nicht aus dem Frontend stammen: sie
+    // benennen Bedienelemente von Home Assistant bzw. fremden Add-ons, nicht
+    // von Yapaja. Jede weitere Ausnahme braucht dieselbe Begründung.
+    const FOREIGN_UI = new Set(['Samba share', 'File editor', 'Protokoll', 'Terminal']);
+
+    const labels = report.checks
+      .flatMap((c) => quotedControls(c.remedy ?? ''))
+      .filter((l) => !FOREIGN_UI.has(l));
+
+    if (labels.length === 0) {
+      return; // keine Beschriftung genannt -- nichts zu prüfen
+    }
+
+    const haystack = readFileSync(join(webSrc, 'settings/regions/RegionsPanel.tsx'), 'utf-8');
+    for (const label of labels) {
+      expect(
+        haystack.includes(label),
+        `Eine Handlungsanweisung nennt das Bedienelement „${label}", das im ` +
+          `RegionsPanel nicht vorkommt. Entweder das Element bauen oder die ` +
+          `Anweisung auf das umschreiben, was es wirklich gibt.`,
+      ).toBe(true);
+    }
+  });
+
+  // Die Gegenprobe zur Prüfung oben: die Anweisungen sollen KEINEN
+  // Bau-Knopf mehr versprechen, solange B-04 offen ist.
+  it('verspricht keinen Bau-Knopf, solange B-04 offen ist', async () => {
+    const report = await runPreflight({
+      env: {},
+      listDir: async () => [],
+      fileSize: async () => null,
+      tcpProbe: async () => false,
+      httpProbe: async () => false,
+      totalMem: () => 8 * GB,
+      diskFree: async () => 1 * GB,
+    });
+
+    for (const check of report.checks) {
+      const remedy = check.remedy ?? '';
+      expect(
+        /Knopf\s+„(Kacheln|Suchindex)/.test(remedy),
+        `Prüfung "${check.id}" verspricht einen Bau-Knopf in der Oberfläche. ` +
+          `Den gibt es nicht (Backlog B-04).`,
+      ).toBe(false);
+    }
   });
 });

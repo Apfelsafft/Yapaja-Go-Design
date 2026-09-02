@@ -213,12 +213,22 @@ async function checkTiles(tilesDir: string, listDir: ListDirFn): Promise<Preflig
     label: 'Kartenkacheln',
     severity: 'required' as const,
   };
+  // Diese Anweisung nennt ABSICHTLICH keinen Knopf in der Oberfläche: es gibt
+  // keinen. Bis 2026-09-02 stand hier „(Knopf „Kacheln bauen")" — den hat nie
+  // jemand gebaut (Backlog B-04). Eine Anweisung, die auf ein Bedienelement
+  // zeigt, das der Adressat nicht finden kann, ist genauso wertlos wie die
+  // 404-URL, die dieses ganze Thema ausgelöst hat.
   const remedy =
-    'In der Yapaja-Oberfläche unter „Einstellungen → Kartenregionen" eine Region auswählen. ' +
-    'Für die mitgelieferten Regionen gibt es keine fertige Datei zum Herunterladen: ' +
-    'die Kacheln werden aus dem OpenStreetMap-Extrakt gebaut (Knopf „Kacheln bauen"). ' +
-    'Liechtenstein (klein) läuft direkt auf dem Gerät; Deutschland ist zu groß dafür und ' +
-    'wird auf einem anderen Rechner gebaut — siehe docs/installation.md §C.';
+    'Für die mitgelieferten Regionen gibt es keine fertige Datei zum Herunterladen — ' +
+    'die Kacheln werden aus OpenStreetMap-Daten gebaut. Ein Knopf dafür fehlt in der ' +
+    'Oberfläche noch (Backlog B-04); bis dahin geht es über das Terminal des Add-ons ' +
+    '(Home Assistant → Terminal, dann `docker exec -it addon_*_yapaja_go bash`) mit: ' +
+    'yapaja-build-pmtiles https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf ' +
+    '— Liechtenstein braucht Minuten. Für Rheinland-Pfalz dieselbe Zeile mit ' +
+    'europe/germany/rheinland-pfalz-latest.osm.pbf (~300 MB, längere Laufzeit). ' +
+    'Ganz Deutschland ist für dieses Gerät zu groß: auf einem anderen Rechner bauen und ' +
+    'die fertige .pmtiles per „Samba share" nach /share/yapaja/tiles/ legen. ' +
+    'Ausführlich: docs/installation.md §C.';
 
   let entries: string[];
   try {
@@ -271,12 +281,21 @@ async function checkRouting(
     severity: 'required' as const,
   };
   const url = env.VALHALLA_URL || 'http://localhost:8002';
+  // Hier stand „er wird beim Bau einer Region miterzeugt". Das war schlicht
+  // FALSCH: `build-pmtiles.sh` baut ausschließlich Kacheln, und
+  // `services/valhalla/build-tiles.sh` verlangt einen Docker-Socket, den es
+  // im Add-on-Container nicht gibt. Auf diesem Gerät kann der Graph derzeit
+  // gar nicht gebaut werden — das gehört gesagt, statt auf einen Automatismus
+  // zu verweisen, auf den man sonst wartet.
   const remedy =
-    'Valhalla läuft als Teil des Add-ons und braucht einen gebauten Routinggraphen. ' +
-    'Ohne Graph startet der Dienst nicht. Der Graph entsteht aus demselben ' +
-    'OpenStreetMap-Extrakt wie die Kacheln — er wird beim Bau einer Region ' +
-    'miterzeugt. Wenn die Kachelprüfung oben ebenfalls rot ist, ist das hier ' +
-    'nur die Folge: erst die Region bauen, dann diese Prüfung wiederholen.';
+    'Valhalla läuft als Teil des Add-ons, braucht aber einen fertigen Routinggraphen; ' +
+    'ohne ihn startet der Dienst nicht. Dieser Graph kann auf dem Gerät selbst NICHT ' +
+    'gebaut werden: das Bauwerkzeug braucht einen Docker-Socket, den ein ' +
+    'Home-Assistant-Add-on nicht hat. Bauen Sie ihn auf einem anderen Rechner mit ' +
+    'services/valhalla/build-tiles.sh <pfad-zur.osm.pbf> aus diesem Repository und ' +
+    'legen Sie das Ergebnis per „Samba share" nach /share/yapaja/valhalla/tiles/. ' +
+    'Ohne Graph funktionieren Karte, Position und Favoriten weiterhin — nur das ' +
+    'Berechnen von Routen nicht. Ausführlich: docs/installation.md §C.';
 
   const reachable = await httpProbe(`${url}/status`, PROBE_TIMEOUT_MS);
   return reachable
@@ -335,10 +354,16 @@ async function checkSearch(
     detail: photonEnabled
       ? `Weder Photon (${photonUrl}) noch ein Lite-Index (${liteDbPath}) sind verfügbar.`
       : `Photon ist abgeschaltet und es gibt keinen Lite-Index (${liteDbPath}).`,
+    // Auch hier stand ein Knopf („Suchindex bauen"), den es nicht gibt, und
+    // der Lite-Index braucht ohnehin `osmium` und Repo-Werkzeug, die beide
+    // nicht im Add-on-Container liegen. Der ehrliche Weg ist derselbe wie
+    // beim Routinggraphen: woanders bauen, Datei ablegen.
     remedy:
-      'Es gibt zwei Wege, und einer genügt. (1) Lite-Index: braucht wenig RAM und ' +
-      'wird aus demselben OpenStreetMap-Extrakt gebaut wie die Kacheln — in der ' +
-      'Oberfläche unter „Einstellungen → Kartenregionen" mit „Suchindex bauen". ' +
+      'Es gibt zwei Wege, und einer genügt. (1) Lite-Index: braucht wenig RAM, ' +
+      'lässt sich auf dem Gerät aber nicht bauen (das Werkzeug dafür setzt osmium ' +
+      'und einen Repository-Checkout voraus). Auf einem anderen Rechner mit ' +
+      'services/valhalla/build-lite-index.sh <pfad-zur.osm.pbf> bauen und die ' +
+      'lite_search.db per „Samba share" nach /share/yapaja/lite-search/ legen. ' +
       'Das ist der empfohlene Weg auf einem Gerät mit 8 GB. (2) Photon: in der ' +
       'Add-on-Konfiguration einschalten und den Index importieren; rechnen Sie mit ' +
       'mehreren GB RAM. Ohne beides bleibt die Adresssuche leer — Navigieren zu ' +
@@ -431,7 +456,7 @@ function checkMemory(
       'mehrere GB; daneben laufen noch Valhalla, der Core und Home Assistant selbst.',
     remedy:
       'Empfehlung für dieses Gerät: Photon in der Add-on-Konfiguration abschalten ' +
-      '(„photon_enabled: false") und stattdessen den Lite-Suchindex bauen. Der ' +
+      '(„photon_enabled: false") und stattdessen den Lite-Suchindex verwenden. Der ' +
       'braucht ein Vielfaches weniger Speicher und deckt dieselbe Ortssuche ab ' +
       '(W-12). Wenn Photon bleiben soll, geben Sie der VM mehr RAM — sonst greift ' +
       'irgendwann der OOM-Killer, und zwar nicht unbedingt bei Photon.',
@@ -479,7 +504,9 @@ async function checkDisk(
       'Für eine kleine Region (Liechtenstein, ~15 MB) reicht das. Für eine große ' +
       'Region wie Deutschland (~4,5 GB fertige Kacheln, beim Bau zeitweise deutlich ' +
       'mehr) nicht. Vergrößern Sie die Platte der VM, oder entfernen Sie nicht mehr ' +
-      'benötigte Regionen unter „Einstellungen → Kartenregionen".',
+      // „Einstellungen → Kartenregionen" gab es nie als Menüpfad. Das Panel
+      // öffnet die Schaltfläche „Kartenregionen verwalten" (🗺️) rechts oben.
+      'benötigte Regionen über „Kartenregionen verwalten" (🗺️ rechts oben).',
   };
 }
 

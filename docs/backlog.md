@@ -200,6 +200,27 @@ Ein halb gebauter Auslöser wäre schlechter als gar keiner: er verspricht
 GUI-Bedienbarkeit und liefert einen Lauf, den niemand beobachten oder
 abbrechen kann.
 
+### Nachtrag 2026-09-02 — was der erste echte Betrieb gezeigt hat
+
+Die Installationsprüfung nannte als Abhilfe den „Knopf ‚Kacheln bauen'" und
+„‚Suchindex bauen'". **Beide gibt es nicht** — sie sind genau dieser
+Backlog-Punkt. Der Betreiber suchte in der Oberfläche nach Bedienelementen,
+die nie gebaut wurden. Das war dieselbe Fehlerklasse wie der Katalog, der auf
+404-URLs zeigte, und ist behoben: die Anweisungen beschreiben jetzt den Weg,
+den es wirklich gibt, und ein Test (`preflight.test.ts`) lässt keine
+Anweisung mehr durch, die ein Bedienelement nennt, das im Frontend nicht
+vorkommt.
+
+Zwei weitere Befunde aus demselben Anlass:
+
+* Das Bau-Skript lag **gar nicht im Add-on-Image**. Wer über den HA-Store
+  installiert, hat kein Repository — für ihn zeigten alle Anweisungen ins
+  Leere. `build-pmtiles.sh` liegt jetzt im Image, erreichbar als
+  `yapaja-build-pmtiles`.
+* Routinggraph und Lite-Suchindex lassen sich auf dem Gerät **überhaupt
+  nicht** bauen (Docker-Socket bzw. osmium fehlen). Das steht jetzt so in
+  §C.3a statt eines Verweises auf einen Automatismus, den es nicht gibt.
+
 ### Was stattdessen gilt
 
 * `docs/installation.md` §C beschreibt den Bau vollständig, getrennt nach
