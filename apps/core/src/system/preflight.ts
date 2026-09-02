@@ -220,12 +220,10 @@ async function checkTiles(tilesDir: string, listDir: ListDirFn): Promise<Preflig
   // 404-URL, die dieses ganze Thema ausgelöst hat.
   const remedy =
     'Für die mitgelieferten Regionen gibt es keine fertige Datei zum Herunterladen — ' +
-    'die Kacheln werden aus OpenStreetMap-Daten gebaut. Ein Knopf dafür fehlt in der ' +
-    'Oberfläche noch (Backlog B-04); bis dahin geht es über das Terminal des Add-ons ' +
-    '(Home Assistant → Terminal, dann `docker exec -it addon_*_yapaja_go bash`) mit: ' +
-    'yapaja-build-pmtiles https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf ' +
-    '— Liechtenstein braucht Minuten. Für Rheinland-Pfalz dieselbe Zeile mit ' +
-    'europe/germany/rheinland-pfalz-latest.osm.pbf (~300 MB, längere Laufzeit). ' +
+    'die Kacheln werden aus OpenStreetMap-Daten gebaut. Das geht direkt hier: ' +
+    '„Kartenregionen verwalten" (🗺️ rechts oben) öffnen und bei der gewünschten Region ' +
+    'auf „Kacheln bauen" drücken. Liechtenstein braucht Minuten, ein Bundesland wie ' +
+    'Rheinland-Pfalz deutlich länger; der Fortschritt steht im Panel. ' +
     'Ganz Deutschland ist für dieses Gerät zu groß: auf einem anderen Rechner bauen und ' +
     'die fertige .pmtiles per „Samba share" nach /share/yapaja/tiles/ legen. ' +
     'Ausführlich: docs/installation.md §C.';

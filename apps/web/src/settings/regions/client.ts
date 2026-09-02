@@ -56,6 +56,10 @@ export interface JobSnapshot {
   bytes: number;
   totalBytes: number | null;
   error: JobErrorInfo | null;
+  /** Statuszeile für Jobs ohne messbaren Fortschritt (Kachelbau, B-04).
+   *  Ein Prozentwert wäre dort erfunden — planetilers Ausgabe lässt sich
+   *  nicht versionsstabil in eine Zahl übersetzen. */
+  note?: string;
 }
 
 interface ApiErrorBody {
@@ -131,6 +135,22 @@ export async function startDownload(regionId: string): Promise<string> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ region_id: regionId }),
   });
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+  const body = (await response.json()) as { job_id: string };
+  return body.job_id;
+}
+
+/** Startet einen KACHELBAU für `regionId` (B-04) — der Gegenpart zu
+ *  `startDownload` für Regionen, für die es keine fertige Datei gibt.
+ *  Wirft RegionApiError bei 409 (INSUFFICIENT_SPACE / INSUFFICIENT_MEMORY /
+ *  ALREADY_INSTALLED / NO_BUILD_SOURCE) oder 404. */
+export async function startBuild(regionId: string): Promise<string> {
+  const response = await fetch(
+    apiUrl(`api/v1/map/regions/${encodeURIComponent(regionId)}/build`),
+    { method: 'POST' },
+  );
   if (!response.ok) {
     throw await toApiError(response);
   }

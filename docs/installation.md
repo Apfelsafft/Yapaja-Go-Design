@@ -337,16 +337,31 @@ curl -s http://localhost:8080/api/v1/system/preflight | jq .
 Für Liechtenstein, ein deutsches Bundesland oder einen US-Bundesstaat reicht
 das Gerät selbst, auch eine HAOS-VM mit 8 GB.
 
-**Im Add-on** (Home Assistant → Terminal, dann in den Container wechseln):
+**Der normale Weg — in der Yapaja-Oberfläche, ohne Shell:**
+
+1. **„Kartenregionen verwalten"** (🗺️ rechts oben) öffnen.
+2. Bei der gewünschten Region auf **„Kacheln bauen"** drücken.
+3. Der Fortschritt erscheint direkt darunter; der Knopf lässt sich jederzeit
+   abbrechen.
+
+Liechtenstein braucht Minuten, ein Bundesland wie Rheinland-Pfalz deutlich
+länger. Beim **ersten** Bau lädt das Add-on einmalig `planetiler.jar`
+(~100 MB) nach `/share/yapaja/tools/` — die bleibt dort über Updates hinweg.
+
+Der Core lehnt den Start ab, wenn zu wenig Plattenplatz **oder** zu wenig
+freier Arbeitsspeicher da ist, und sagt in beiden Fällen, was zu tun ist. Auf
+einer 8-GB-VM heißt das meistens: Photon abschalten (§C.6).
+
+> **Warum nicht über `docker exec`?** Das Terminal-Add-on läuft im
+> „Protection Mode" und hat deshalb gar keinen `docker`-Befehl. Der Weg über
+> den Container war nie gangbar — deshalb macht der Core es jetzt selbst.
+
+**Alternativ, im Add-on-Container** (nur wenn Protection Mode ausgeschaltet
+ist und `docker` zur Verfügung steht):
 
 ```bash
 docker exec -it $(docker ps --format '{{.Names}}' | grep yapaja_go) bash
-
-# Beispiel Liechtenstein (~3,5 MB PBF, Minuten)
 yapaja-build-pmtiles https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
-
-# Beispiel Rheinland-Pfalz (~300 MB PBF, deutlich länger)
-yapaja-build-pmtiles https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf
 ```
 
 `yapaja-build-pmtiles` ist ein Wrapper, der `TILES_DIR` auf

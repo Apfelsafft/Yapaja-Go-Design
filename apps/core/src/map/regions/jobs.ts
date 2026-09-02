@@ -31,6 +31,10 @@ export interface JobSnapshot {
   /** Expected total bytes, if known. */
   totalBytes: number | null;
   error: JobErrorInfo | null;
+  /** Kurze Statuszeile fuer Jobs ohne messbaren Fortschritt (Kachelbau,
+   *  B-04). Ein Prozentwert waere dort erfunden; diese Zeile sagt
+   *  stattdessen, WORAN gerade gearbeitet wird. */
+  note?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -52,6 +56,7 @@ function toSnapshot(record: JobRecord): JobSnapshot {
     bytes: record.bytes,
     totalBytes: record.totalBytes,
     error: record.error,
+    note: record.note,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -123,6 +128,18 @@ export class JobRegistry {
       record.totalBytes = totalBytes;
     }
     record.progress = record.totalBytes ? Math.min(1, bytes / record.totalBytes) : 0;
+    record.updatedAt = nowIso();
+  }
+
+  /** Setzt die Statuszeile eines laufenden Jobs (siehe `note`). Auf einem
+   *  bereits beendeten Job ist das ein No-op -- eine Zeile, die nach dem
+   *  Ende noch eintrudelt, darf den Endzustand nicht ueberschreiben. */
+  setNote(id: string, note: string): void {
+    const record = this.jobs.get(id);
+    if (!record || isFinished(record)) {
+      return;
+    }
+    record.note = note;
     record.updatedAt = nowIso();
   }
 

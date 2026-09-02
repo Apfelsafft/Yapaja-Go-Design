@@ -78,6 +78,10 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
   // --- Karten & Regionen (E01) ---
   'GET /api/v1/map/regions/catalog': { summary: 'Herunterladbare Kartenregionen (Katalog)', tags: ['Karten'] },
   'POST /api/v1/map/regions': { summary: 'Region-Download starten (202 + job_id)', tags: ['Karten'] },
+  'POST /api/v1/map/regions/:id/build': {
+    summary: 'Kachelbau aus dem OSM-Extrakt starten (B-04) — 202 mit job_id',
+    tags: ['Karten'],
+  },
   'DELETE /api/v1/map/regions/:id': { summary: 'Installierte Region entfernen', tags: ['Karten'] },
   'GET /api/v1/jobs/:id': { summary: 'Download-/Import-Job-Status (progress, eta, error)', tags: ['Karten'] },
   'DELETE /api/v1/jobs/:id': { summary: 'Job abbrechen', tags: ['Karten'] },
