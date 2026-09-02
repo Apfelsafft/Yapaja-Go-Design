@@ -233,11 +233,27 @@ RUN set -eux; \
 # Bundled by all official HA base images; installed manually here since we
 # build FROM the (non-HA) Valhalla image instead (see header comment).
 ARG BASHIO_VERSION=0.16.2
-RUN curl -fsSL "https://github.com/hassio-addons/bashio/archive/refs/tags/v${BASHIO_VERSION}.tar.gz" \
-    | tar -xz -C /tmp \
-  && mv "/tmp/bashio-${BASHIO_VERSION}/lib" /usr/lib/bashio \
-  && ln -sf /usr/lib/bashio/bashio /usr/bin/bashio \
-  && rm -rf "/tmp/bashio-${BASHIO_VERSION}"
+RUN set -eux; \
+    curl -fsSL "https://github.com/hassio-addons/bashio/archive/refs/tags/v${BASHIO_VERSION}.tar.gz" \
+      | tar -xz -C /tmp; \
+    mv "/tmp/bashio-${BASHIO_VERSION}/lib" /usr/lib/bashio; \
+    ln -sf /usr/lib/bashio/bashio /usr/bin/bashio; \
+    rm -rf "/tmp/bashio-${BASHIO_VERSION}"; \
+    # `ln -sf` legt auch dann einen Symlink an, wenn das Ziel gar nicht
+    # existiert -- der Bau bliebe gruen und der Fehler kaeme erst zur
+    # Laufzeit als "unable to spawn ./run: No such file or directory", also
+    # an der Stelle, an der er am schwersten zuzuordnen ist. Diese beiden
+    # Zeilen machen daraus einen Bauabbruch mit klarer Ursache.
+    test -x /usr/lib/bashio/bashio; \
+    test -x /usr/bin/bashio
+
+# Dieselbe Absicherung fuer s6-overlay: die Shebangs unter `rootfs/` zeigen
+# auf `/command/with-contenv` (das ist der Pfad, den s6-overlay v3
+# tatsaechlich mitbringt -- ein `/usr/bin/with-contenv` gibt es dort NICHT,
+# das liefern nur die offiziellen HA-Basisimages, auf denen wir nicht
+# bauen). Fehlt die Datei, sollen die Dienste nicht erst beim Start
+# scheitern.
+RUN test -x /command/with-contenv && test -x /command/execlineb
 
 # ---- Photon ----
 RUN mkdir -p /opt/photon

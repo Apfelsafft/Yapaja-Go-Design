@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bash
+#!/command/with-contenv bash
 # ==============================================================================
 # core -- s6-rc longrun (E08-T4). The Fastify app itself (apps/core), serving
 # the bundled web UI + REST/WS API on :8099 -- the Supervisor Ingress

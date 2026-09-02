@@ -469,6 +469,38 @@ Abgesichert wird der Container über AppArmor und den Verzicht auf
 `full_access` (siehe `config.yaml`, Abschnitt „SECURITY POSTURE"), nicht über
 einen unprivilegierten Benutzer.
 
+### Installiert, startet aber nicht: „unable to spawn ./run"
+
+```
+s6-supervise valhalla: warning: unable to spawn ./run
+                       (waiting 60 seconds): No such file or directory
+/etc/yapaja/init-yapaja-config.sh: line 44: bashio::log.info: command not found
+```
+
+**Ursache (behoben):** „No such file or directory" beim Starten einer
+vorhandenen, ausführbaren Datei heißt fast immer: der **Interpreter aus dem
+Shebang** fehlt — nicht die Datei selbst.
+
+Die Dienstskripte begannen mit `#!/usr/bin/with-contenv bash`. Diesen Pfad
+legen nur die **offiziellen HA-Basisimages** an. Dieses Add-on baut auf dem
+Valhalla-Image und installiert s6-overlay v3 selbst — und das bringt das
+Werkzeug unter `/command/with-contenv` mit. Im Release-Archiv v3.1.6.2 ist
+`./command/with-contenv` enthalten; ein `usr/bin/with-contenv` kommt darin
+überhaupt nicht vor.
+
+Die zweite Meldung ist dieselbe Wurzel an anderer Stelle: das `up`-Skript des
+Oneshots rief `bash /etc/yapaja/init-yapaja-config.sh` auf und umging damit
+den Shebang des Skripts. Unter nacktem `bash` sind bashio-Funktionen nicht
+definiert.
+
+**Lösung:** alle Shebangs auf `/command/with-contenv`; Skripte, die
+`bashio::`-Funktionen benutzen, bekommen `bashio` statt `bash` als
+Interpreter; das `up`-Skript ruft das init-Skript ohne expliziten Interpreter
+auf, sodass dessen Shebang gilt. Zusätzlich prüft der Bau jetzt selbst, dass
+`/command/with-contenv` und `/usr/bin/bashio` wirklich existieren — vorher
+legte `ln -sf` auch einen ins Leere zeigenden Symlink an, der Bau blieb grün
+und der Fehler kam erst beim Start.
+
 ### „could not read Username for 'https://github.com'"
 
 ```

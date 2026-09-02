@@ -3,5 +3,17 @@
 # completion (`foreground {}`) before s6-rc considers this service "up",
 # which is what makes every longrun service's
 # `dependencies.d/init-yapaja-config` actually block on it finishing.
-foreground { bash /etc/yapaja/init-yapaja-config.sh }
+#
+# KORREKTUR 2026-09-02: hier stand `foreground { bash /etc/yapaja/... }`.
+# Das umging den Shebang des Skripts und fuehrte es unter nacktem `bash`
+# aus -- ohne bashio und ohne Container-Environment. Ergebnis im Add-on-Log:
+#
+#     /etc/yapaja/init-yapaja-config.sh: line 44: bashio::log.info:
+#     command not found
+#
+# Jetzt wird das Skript direkt aufgerufen; sein eigener Shebang
+# (`#!/command/with-contenv bashio`) bestimmt den Interpreter. Damit ist der
+# Interpreter an genau EINER Stelle definiert, statt an zweien, die
+# auseinanderlaufen koennen.
+foreground { /etc/yapaja/init-yapaja-config.sh }
 true

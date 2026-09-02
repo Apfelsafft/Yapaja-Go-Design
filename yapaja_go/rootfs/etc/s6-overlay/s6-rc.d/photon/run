@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bash
+#!/command/with-contenv bashio
 # ==============================================================================
 # photon -- s6-rc longrun (E08-T4). Full-text geocoding search on :2322,
 # mirrors the standalone `photon` compose service (services/photon/README.md).
