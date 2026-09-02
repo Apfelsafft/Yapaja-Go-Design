@@ -578,6 +578,41 @@ Zeile steht zusätzlich in der Fehlermeldung selbst. Danach suchen:
 [Kachelbau liechtenstein]
 ```
 
+### Kachelbau bricht ab mit „docker nicht im PATH gefunden"
+
+```
+Fehler: Der Kachelbau ist mit Code 1 fehlgeschlagen. Zuletzt: „- die
+.pmtiles auf einem anderen Rechner bauen und nach /share/yapaja/tiles/
+kopieren".
+```
+
+**Ursache (behoben, ab 0.1.7):** `build-pmtiles.sh` kann planetiler auf zwei
+Wegen starten — als Docker-Container oder direkt als `java -jar`. Der
+Add-on-Wrapper `yapaja-build-pmtiles` setzt korrekt `PLANETILER_JAR`, weil es
+im Container keinen Docker-Socket gibt. Die Prüfung `command -v docker` stand
+im Skript aber **vor** der Auswertung von `PLANETILER_JAR` und lief
+unabhängig davon. Der JAR-Modus war damit unerreichbar: der Knopf „Kacheln
+bauen" scheiterte immer, und ausgerechnet mit dem Rat, die Kacheln „auf einem
+anderen Rechner" zu bauen — also mit einem Verweis aus der Oberfläche heraus,
+die den Bau gerade erst möglich machen sollte.
+
+Unbemerkt blieb es, weil die Tests des Skripts in **jedem** Fall ein
+`docker`-Stub in den PATH legten. Der eine Fall ohne Docker, aber mit JAR und
+JRE — im Add-on der Normalfall — kam darin nicht vor. Er ist jetzt als
+eigener Test drin.
+
+**Lösung:** Auf 0.1.7 aktualisieren und „Kacheln bauen" erneut drücken. Beim
+ersten Lauf wird `planetiler.jar` (~100 MB) einmalig nach
+`/share/yapaja/tools/` geladen; das steht als erste Zeile im Protokoll.
+
+**Gleich mit behoben:** Das Arbeitsverzeichnis des Baus lag unter `/tmp`,
+also in der beschreibbaren Schicht des Containers — während die
+Platz-Vorprüfung des Core `/share` misst. Bei einer kleinen Region fällt das
+nicht auf; bei Rheinland-Pfalz (~350 MB PBF) hätte die Vorprüfung grünes
+Licht gegeben und der Lauf wäre Stunden später am Platz gescheitert, auf
+einem anderen Dateisystem als dem geprüften. Der Bau arbeitet jetzt unter
+`/share/yapaja/tmp`.
+
 ### „could not read Username for 'https://github.com'"
 
 ```

@@ -183,13 +183,31 @@ fi
 
 OUTPUT_FILE="$TILES_DIR/$REGION_ID.pmtiles"
 
-command -v docker >/dev/null 2>&1 || {
-  echo "FEHLER: docker nicht im PATH gefunden." >&2
-  echo "planetiler laeuft hier als Container. Ohne Docker gibt es zwei Alternativen:" >&2
-  echo "  - planetiler als JAR direkt mit einer JRE 21+ starten (siehe services/tiles/README.md), oder" >&2
-  echo "  - die .pmtiles auf einem anderen Rechner bauen und nach $TILES_DIR/ kopieren." >&2
-  exit 1
-}
+# Docker wird NUR im Docker-Modus gebraucht. Diese Pruefung stand bis
+# 2026-09-02 ungeschuetzt hier und lief damit auch dann, wenn
+# PLANETILER_JAR gesetzt war -- also genau in dem Fall, fuer den der
+# JAR-Modus ueberhaupt existiert.
+#
+# Die Folge war der Fehlschlag, mit dem der Kachelbau im Add-on aus der
+# Oberflaeche abbrach: der Wrapper `yapaja-build-pmtiles` setzt
+# PLANETILER_JAR korrekt, laedt die JAR nach /share -- und dieses Skript
+# stieg trotzdem mit „docker nicht im PATH gefunden" aus, samt dem Rat,
+# die Kacheln „auf einem anderen Rechner" zu bauen. Der Betreiber sah
+# einen Knopf, der genau das Gegenteil des Beworbenen tat, und einen
+# Ratschlag, der ihn wieder aus der Oberflaeche hinausschickte.
+#
+# Unbemerkt blieb es, weil `build-pmtiles.test.ts` fuer JEDEN Fall ein
+# `docker`-Stub in den PATH legt -- der eine Fall ohne Docker, der im
+# Add-on der Normalfall ist, kam darin nicht vor.
+if [ -z "${PLANETILER_JAR:-}" ]; then
+  command -v docker >/dev/null 2>&1 || {
+    echo "FEHLER: docker nicht im PATH gefunden." >&2
+    echo "planetiler laeuft hier als Container. Ohne Docker gibt es zwei Alternativen:" >&2
+    echo "  - planetiler als JAR direkt mit einer JRE 21+ starten (PLANETILER_JAR setzen, siehe services/tiles/README.md), oder" >&2
+    echo "  - die .pmtiles auf einem anderen Rechner bauen und nach $TILES_DIR/ kopieren." >&2
+    exit 1
+  }
+fi
 
 # --- Eingabe beschaffen ------------------------------------------------------
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/yapaja-pmtiles-XXXXXX")"

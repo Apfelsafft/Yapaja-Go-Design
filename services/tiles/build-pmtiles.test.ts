@@ -110,14 +110,23 @@ const BASH = existsSync('/bin/bash') ? '/bin/bash' : '/usr/bin/bash';
  * work (the script needs `mktemp`/`cp`/… and this host has a real
  * `/usr/bin/docker` that any normal PATH would find).
  */
-function makeDockerlessBin(): string {
-  const dir = join(work, 'nodocker-bin');
+function makeDockerlessBin(options: { withJava?: boolean } = {}): string {
+  const dir = join(work, options.withJava ? 'nodocker-java-bin' : 'nodocker-bin');
   mkdirSync(dir, { recursive: true });
-  for (const tool of ['dirname', 'basename', 'mktemp', 'rm', 'mkdir', 'cp', 'head', 'wc', 'tr', 'cat']) {
+  // `bash` gehoert dazu, weil die Stubs selbst `#!/usr/bin/env bash` nutzen --
+  // `env` sucht den Interpreter im PATH, nicht im PATH des Aufrufers.
+  for (const tool of ['bash', 'dirname', 'basename', 'mktemp', 'rm', 'mkdir', 'cp', 'mv', 'head', 'wc', 'tr', 'cat', 'stat', 'sync']) {
     const resolved = execFileSync(BASH, ['-c', `command -v ${tool} || true`], { encoding: 'utf-8' }).trim();
     if (resolved) {
       symlinkSync(resolved, join(dir, tool));
     }
+  }
+  // Der Add-on-Container hat KEIN docker, aber SEHR WOHL eine JRE (das Image
+  // installiert `default-jre-headless` für Photon). Genau diese Kombination
+  // liess sich vorher nicht nachstellen -- und genau in ihr lag der Fehler.
+  if (options.withJava) {
+    installJavaStub();
+    symlinkSync(join(stubBin, 'java'), join(dir, 'java'));
   }
   return dir;
 }
@@ -299,6 +308,34 @@ describe('build-pmtiles.sh — planetiler-Aufruf', () => {
     expect(result.stderr).toContain('docker nicht im PATH');
     expect(result.stderr).toContain('JAR');
     expect(result.stderr).toContain('kopieren');
+  });
+
+  /**
+   * DER FALL DES ADD-ONS -- und der, der hier gefehlt hat.
+   *
+   * Im HA-Add-on-Container gibt es kein docker, aber eine JRE, und der
+   * Wrapper setzt PLANETILER_JAR. Genau diese Kombination kam in keinem
+   * Test vor: der JAR-Test oben laeuft mit docker-Stub im PATH, der
+   * Dockerless-Test oben ohne PLANETILER_JAR. In der Luecke dazwischen
+   * stand eine ungeschuetzte `command -v docker`-Pruefung VOR der
+   * Auswertung von PLANETILER_JAR -- der JAR-Modus war also unerreichbar,
+   * und der Knopf „Kacheln bauen" brach mit dem Rat ab, die Kacheln „auf
+   * einem anderen Rechner" zu bauen.
+   */
+  it('ohne docker, aber mit PLANETILER_JAR und java: baut trotzdem (Add-on-Fall)', () => {
+    const pbf = writeFakePbf();
+    const jar = join(work, 'planetiler.jar');
+    writeFileSync(jar, 'nicht wirklich ein jar');
+    const result = run([pbf], {
+      PATH: makeDockerlessBin({ withJava: true }),
+      PLANETILER_JAR: jar,
+    });
+    expect(result.stderr).not.toContain('docker nicht im PATH');
+    expect(result.status).toBe(0);
+    expect(existsSync(join(work, 'docker-argv.txt'))).toBe(false);
+    const argv = readFileSync(join(work, 'java-argv.txt'), 'utf-8');
+    expect(argv).toContain('-jar');
+    expect(argv).toContain(jar);
   });
 });
 
