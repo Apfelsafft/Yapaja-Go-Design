@@ -105,7 +105,28 @@ export_env "INGRESS_MODE" "1"
 export_env "PORT" "8099"
 export_env "HOST" "0.0.0.0"
 export_env "NODE_ENV" "production"
-export_env "LOG_LEVEL" "${LOG_LEVEL}"
+# ─── NICHT `LOG_LEVEL` ─────────────────────────────────────────────────────
+# Alles, was hier exportiert wird, landet in /run/s6/container_environment/
+# und damit in JEDEM Skript, das mit `with-contenv` startet -- auch in
+# bashio selbst. Und bashio liest genau diesen Namen:
+#
+#     lib/bashio.sh:31
+#     declare __BASHIO_LOG_LEVEL=${LOG_LEVEL:-${__BASHIO_DEFAULT_LOG_LEVEL}}
+#
+# Es erwartet dort eine ZAHL (1..8). Unsere Add-on-Option liefert aber einen
+# NAMEN ("info"). Ergebnis war, dass bashios `log.sh:107`
+#
+#     if [[ "${level}" -gt "${__BASHIO_LOG_LEVEL}" ]]; then
+#
+# den String arithmetisch auswerten wollte und unter `set -u` bei JEDEM
+# Log-Aufruf abbrach: „info: unbound variable". Das Add-on-Protokoll bestand
+# danach fast nur noch aus dieser Zeile, und keiner unserer s6-Dienste konnte
+# ueberhaupt etwas protokollieren.
+#
+# Deshalb heisst die geteilte Variable jetzt `YAPAJA_LOG_LEVEL`. Der Core
+# erwartet weiterhin `LOG_LEVEL` (pino) -- das setzt `core/run` lokal fuer
+# genau diesen einen Prozess, statt es global zu streuen.
+export_env "YAPAJA_LOG_LEVEL" "${LOG_LEVEL}"
 
 # ---- Data paths (W-16) ----
 export_env "DB_PATH" "${DATA_ROOT}/db/yapaja.db"

@@ -533,6 +533,51 @@ prüft die Verdrahtung, nicht den Bump — den muss man selbst machen.
 **Wenn du in dieser Lage steckst:** auf die nächste Version aktualisieren.
 Ein „Rebuild" allein hilft nicht, weil er denselben Cache trifft.
 
+### Add-on-Protokoll voll mit „log.sh: line 107: info: unbound variable"
+
+```
+/usr/lib/bashio/log.sh: line 107: info: unbound variable
+```
+…hunderte Male, und sonst fast nichts.
+
+**Ursache (behoben):** bashio liest seinen Log-Level **direkt aus der
+Umgebungsvariable `LOG_LEVEL`** und erwartet dort eine **Zahl** (1–8):
+
+```bash
+# lib/bashio.sh:31
+declare __BASHIO_LOG_LEVEL=${LOG_LEVEL:-${__BASHIO_DEFAULT_LOG_LEVEL}}
+
+# lib/log.sh:107  -- arithmetischer Vergleich
+if [[ "${level}" -gt "${__BASHIO_LOG_LEVEL}" ]]; then
+```
+
+Das Init-Skript exportierte aber `LOG_LEVEL=info` — einen **Namen** — in die
+**geteilte** Container-Umgebung. Alles unter
+`/run/s6/container_environment/` landet in jedem `with-contenv`-Skript, also
+auch in bashio. Der `-gt`-Vergleich wertete `info` arithmetisch aus und brach
+unter `set -u` bei **jedem** Log-Aufruf ab.
+
+Folge: keiner der s6-Dienste konnte mehr protokollieren, und das Add-on-Log
+war als Diagnosemittel wertlos — genau dann, wenn man es braucht.
+
+**Lösung:** Die geteilte Variable heißt jetzt `YAPAJA_LOG_LEVEL`. Der Core
+braucht weiterhin `LOG_LEVEL` (pino); das setzt `core/run` lokal für genau
+diesen einen Prozess.
+
+### Kachelbau schlägt fehl, aber im Protokoll steht nichts
+
+**Ursache (behoben):** Der Core las die Ausgabe des Bau-Prozesses, um daraus
+die Statuszeile zu gewinnen — und verwarf sie danach. Die Fehlermeldung
+verwies auf „ausführliche Ausgabe im Add-on-Protokoll", wo nie etwas ankam.
+
+**Lösung:** Jede Ausgabezeile wird jetzt mit dem Präfix
+`[Kachelbau <region>]` ins Add-on-Protokoll gespiegelt, und die **letzte**
+Zeile steht zusätzlich in der Fehlermeldung selbst. Danach suchen:
+
+```
+[Kachelbau liechtenstein]
+```
+
 ### „could not read Username for 'https://github.com'"
 
 ```

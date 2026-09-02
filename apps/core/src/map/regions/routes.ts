@@ -242,7 +242,13 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
       }
 
       const jobId = jobs.create();
-      runBuildJob(jobId, jobs, entry, tilesDir, opts.buildDeps);
+      // Der Logger wird hier verdrahtet, nicht in `build.ts`: nur die Route
+      // kennt die Fastify-Instanz, und deren stdout ist das, was im
+      // Add-on-Protokoll erscheint.
+      runBuildJob(jobId, jobs, entry, tilesDir, {
+        ...opts.buildDeps,
+        logger: opts.buildDeps?.logger ?? ((line) => fastify.log.info(line)),
+      });
       return reply.code(202).send({ job_id: jobId });
     },
   );

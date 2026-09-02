@@ -143,6 +143,52 @@ describe('runBuildJob — Verlauf und Ende', () => {
     expect(jobs.get(id)?.note).toBe('fertig mit Phase 2');
   });
 
+  /**
+   * Beim ersten echten Fehlschlag stand im Panel nur „Code 1" -- und die
+   * Meldung verwies auf „ausfuehrliche Ausgabe im Add-on-Protokoll", wo aber
+   * nie etwas ankam: die Pipes des Kindprozesses wurden gelesen und
+   * verworfen. Der einzige Text, der die Ursache genannt haette, ging
+   * verloren. Ein Verweis auf ein leeres Protokoll ist dasselbe wie eine
+   * Anweisung auf einen Knopf, den es nicht gibt.
+   */
+  it('spiegelt jede Ausgabezeile ins Protokoll, nicht nur die letzte', () => {
+    const jobs = new JobRegistry();
+    const id = jobs.create();
+    const stub = makeStub();
+    const logged: string[] = [];
+
+    runBuildJob(id, jobs, ENTRY, '/tiles', {
+      spawnFn: () => stub.child,
+      logger: (line) => logged.push(line),
+    });
+
+    stub.emitStdout('erste Zeile\nzweite Zeile\n');
+    stub.emitStderr('Fehler von planetiler');
+
+    expect(logged.some((l) => l.includes('erste Zeile'))).toBe(true);
+    expect(logged.some((l) => l.includes('zweite Zeile'))).toBe(true);
+    expect(logged.some((l) => l.includes('Fehler von planetiler'))).toBe(true);
+    // Praefix, damit die Zeilen im Add-on-Protokoll zwischen allem anderen
+    // auffindbar sind -- die Fehlermeldung nennt genau dieses Praefix.
+    expect(logged.every((l) => l.includes('[Kachelbau liechtenstein]'))).toBe(true);
+  });
+
+  /** Und die letzte Zeile gehoert IN die Fehlermeldung: die Oberflaeche
+   *  zeigt im Fehlerfall die Meldung, nicht die Statuszeile. */
+  it('nennt die letzte Ausgabezeile in der Fehlermeldung', () => {
+    const jobs = new JobRegistry();
+    const id = jobs.create();
+    const stub = makeStub();
+    runBuildJob(id, jobs, ENTRY, '/tiles', { spawnFn: () => stub.child });
+
+    stub.emitStderr('java: command not found');
+    stub.close(1);
+
+    const message = jobs.get(id)?.error?.message ?? '';
+    expect(message).toContain('java: command not found');
+    expect(message).toContain('[Kachelbau liechtenstein]');
+  });
+
   it('meldet Erfolg bei Code 0', () => {
     const jobs = new JobRegistry();
     const id = jobs.create();
