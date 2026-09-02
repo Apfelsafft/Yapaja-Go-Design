@@ -25,16 +25,70 @@
 # PATH in the gis-ops image, are the two most likely things to need a
 # one-line fix once actually built. Everything else (s6-rc.d service tree,
 # bashio config plumbing, env wiring) is independent of those specifics.
+#
+# ─── WARUM STAGE 1 DEN QUELLTEXT HERUNTERLAEDT, STATT IHN ZU KOPIEREN ────────
+# Der Home-Assistant-Supervisor baut ein Add-on mit dem ADD-ON-VERZEICHNIS
+# als Docker-Build-Kontext -- also mit `yapaja_go/`, nicht mit der
+# Repo-Wurzel. Das gilt fuer beide Installationswege gleichermassen: beim
+# Store-Weg klont der Supervisor zwar das ganze Repository nach
+# `/data/apps/git/<hash>/`, baut aber trotzdem aus
+# `/data/apps/git/<hash>/yapaja_go/`.
+#
+# Diese Datei enthielt bis 2026-09-02:
+#     COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
+#     COPY packages/ ./packages/
+#     COPY apps/ ./apps/
+# Keiner dieser Pfade liegt im Kontext, und `COPY ../..` ist in Docker
+# verboten. Der Bau haette also mit „COPY failed: file not found" abgebrochen
+# -- was nur deshalb nie jemand sah, weil `config.yaml` ein `image:` deklarierte
+# und der Supervisor deshalb gar nicht erst zu bauen versuchte (er scheiterte
+# vorher am Pull eines Images, das es nicht gibt). Zwei Fehler hintereinander,
+# von denen der erste den zweiten verdeckte.
+#
+# Stage 1 holt den Quelltext daher selbst. Das macht diesen Dockerfile
+# kontextunabhaengig: er baut identisch, egal ob der Kontext `yapaja_go/`
+# (Supervisor) oder die Repo-Wurzel (CI, `docker build -f`) ist.
+#
+# BEWUSSTE FOLGE: gebaut wird der Stand von `YAPAJA_REF` (Default `main`),
+# nicht der Inhalt des lokal vorliegenden Add-on-Ordners. Beim Store-Weg ist
+# das dasselbe -- der Supervisor klont ohnehin `main`. Wer einen Ordner von
+# Hand nach `/addons/` kopiert und lokal aendert, muss `YAPAJA_REF` (in
+# `build.yaml` unter `args:`) auf seinen Stand setzen, sonst baut er den
+# Quelltext von GitHub statt seinen eigenen. Sobald es Release-Tags gibt,
+# gehoert dort der Tag hinein statt `main`.
+#
+# `config.test.ts` erzwingt beides: kein `COPY`/`ADD` aus einer Quelle
+# ausserhalb von `yapaja_go/`, und jedes `ARG` aus `build.yaml` muss hier
+# deklariert sein.
 # ==============================================================================
 
 # ---- Stage 1: build apps/core + apps/web (identical recipe to apps/core/Dockerfile) ----
 FROM node:22-slim AS core-build
+# Vom Supervisor bzw. `build.yaml` gesetzt; siehe Kopfkommentar.
+ARG YAPAJA_REPO=Apfelsafft/Yapaja-Go-Design
+ARG YAPAJA_REF=main
 RUN corepack enable
 WORKDIR /app
 ENV CI=true
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
-COPY packages/ ./packages/
-COPY apps/ ./apps/
+
+# `curl`/`ca-certificates` sind in node:22-slim nicht enthalten; `tar` schon,
+# wird aber mit angefordert, damit ein kuenftig noch schlankeres Basis-Image
+# diesen Schritt nicht still zerlegt.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      curl ca-certificates tar \
+  && rm -rf /var/lib/apt/lists/*
+
+# `--strip-components=1` entfernt das von GitHub erzeugte
+# `<repo>-<ref>/`-Wurzelverzeichnis, sodass in /app exakt dieselbe
+# Verzeichnisstruktur liegt wie vorher durch die COPY-Zeilen.
+RUN set -eux; \
+    curl -fsSL --retry 3 --retry-delay 5 \
+      "https://codeload.github.com/${YAPAJA_REPO}/tar.gz/${YAPAJA_REF}" \
+      -o /tmp/yapaja-src.tar.gz; \
+    tar -xzf /tmp/yapaja-src.tar.gz -C /app --strip-components=1; \
+    rm /tmp/yapaja-src.tar.gz; \
+    test -f pnpm-lock.yaml && test -d apps/core && test -d apps/web && test -d packages
+
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
 RUN rm -rf node_modules apps/core/node_modules apps/web/node_modules packages/shared/node_modules \
@@ -51,6 +105,19 @@ FROM rtuszik/photon-docker:latest AS photon-src
 ARG BUILD_FROM
 FROM ${BUILD_FROM}
 ARG S6_OVERLAY_VERSION=3.1.6.2
+
+# ZWEI Architektur-Quellen, und die Reihenfolge ist wichtig:
+#   `BUILD_ARCH`  setzt der HA-Supervisor bei JEDEM Add-on-Bau (amd64 |
+#                 aarch64 | armv7 | ...). Das ist hier die verlaessliche.
+#   `TARGETARCH`  ist ein automatisches BuildKit-ARG (amd64 | arm64) und
+#                 damit nur gesetzt, wenn wirklich mit BuildKit gebaut wird.
+#
+# Vorher stand hier nur `${TARGETARCH:-amd64}`. Baut der Supervisor ohne
+# BuildKit -- was er darf --, ist `TARGETARCH` leer und der Ausdruck faellt
+# still auf `amd64` zurueck. Auf einem Raspberry Pi haette das eine
+# x86-Node-Binary in ein aarch64-Image gelegt: ein Bau, der GRUEN durchlaeuft
+# und dessen Ergebnis beim ersten Start mit „exec format error" stirbt.
+ARG BUILD_ARCH
 ARG TARGETARCH
 
 # `valhalla_service` + its shared libs are ALREADY present on PATH in this
@@ -81,10 +148,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ---- image's own package manager/repos having a recent-enough Node). ----
 ENV NODE_VERSION=22.11.0
 RUN set -eux; \
-    case "${TARGETARCH:-amd64}" in \
-      amd64) NODE_ARCH=x64 ;; \
-      arm64) NODE_ARCH=arm64 ;; \
-      *) echo "unsupported TARGETARCH=${TARGETARCH} (config.yaml only lists amd64/aarch64)"; exit 1 ;; \
+    ARCH="${BUILD_ARCH:-${TARGETARCH:-}}"; \
+    test -n "$ARCH" || { echo "neither BUILD_ARCH nor TARGETARCH is set -- refusing to guess"; exit 1; }; \
+    case "$ARCH" in \
+      amd64|x86_64) NODE_ARCH=x64 ;; \
+      aarch64|arm64) NODE_ARCH=arm64 ;; \
+      *) echo "unsupported arch=$ARCH (config.yaml only lists amd64/aarch64)"; exit 1 ;; \
     esac; \
     curl -fsSL -o /tmp/node.tar.xz \
       "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"; \
@@ -94,10 +163,12 @@ RUN set -eux; \
 
 # ---- s6-overlay v3 (our own PID 1 / service supervisor) ----
 RUN set -eux; \
-    case "${TARGETARCH:-amd64}" in \
-      amd64) S6_ARCH=x86_64 ;; \
-      arm64) S6_ARCH=aarch64 ;; \
-      *) echo "unsupported TARGETARCH=${TARGETARCH}"; exit 1 ;; \
+    ARCH="${BUILD_ARCH:-${TARGETARCH:-}}"; \
+    test -n "$ARCH" || { echo "neither BUILD_ARCH nor TARGETARCH is set -- refusing to guess"; exit 1; }; \
+    case "$ARCH" in \
+      amd64|x86_64) S6_ARCH=x86_64 ;; \
+      aarch64|arm64) S6_ARCH=aarch64 ;; \
+      *) echo "unsupported arch=$ARCH"; exit 1 ;; \
     esac; \
     curl -fsSL -o /tmp/s6-overlay-noarch.tar.xz \
       "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz"; \
@@ -147,7 +218,9 @@ RUN chmod +x \
     /etc/s6-overlay/s6-rc.d/core/finish \
     /etc/yapaja/init-yapaja-config.sh
 
-# 8099 matches config.yaml's `ingress_port` -- Ingress-only by default (see
+# 8099 ist der Supervisor-Default fuer `ingress_port`, den config.yaml
+# bewusst NICHT setzt (der Add-on-Linter verwirft Schluessel, die nur den
+# Default wiederholen -- siehe dortiger Kommentar). Ingress-only by default (see
 # config.yaml's `ports: {}` comment for the documented opt-in direct-access
 # path). 8002/2322/2947 (Valhalla/Photon/gpsd) are intentionally NOT exposed
 # here: they're internal, container-local (127.0.0.1) links the Core talks
