@@ -330,6 +330,58 @@ describe('die Installation kann tatsaechlich durchlaufen', () => {
     }
   });
 
+  /**
+   * DER TEST FUER DIE DRITTE SCHICHT (2026-09-02).
+   *
+   * Docker kennt zwei getrennte ARG-Gueltigkeitsbereiche: alles VOR dem
+   * ersten `FROM` ist global und steht jeder `FROM`-Zeile zur Verfuegung,
+   * alles danach gehoert zu genau der Stufe, in der es steht. Ein `ARG`, das
+   * in einer `FROM`-Zeile verwendet wird, muss deshalb global deklariert
+   * sein.
+   *
+   * `ARG BUILD_FROM` stand unmittelbar vor der letzten `FROM`-Zeile -- aber
+   * nach zwei vorherigen Stufen, also im Scope von niemandem. Der Supervisor
+   * uebergab `--build-arg BUILD_FROM=...` korrekt, der Wert kam nie an:
+   *
+   *     ERROR: failed to solve: base name (${BUILD_FROM}) should not be blank
+   *
+   * Der Fehler steckte seit E08-T4 in der Datei und wurde erst sichtbar,
+   * nachdem die beiden Fehler davor behoben waren und ueberhaupt zum ersten
+   * Mal gebaut wurde.
+   */
+  it('jedes ARG, das in einem FROM verwendet wird, ist vor dem ersten FROM deklariert', () => {
+    const lines = readFileSync(DOCKERFILE_PATH, 'utf-8').split('\n');
+    const firstFrom = lines.findIndex((l) => /^\s*FROM\s/i.test(l));
+    expect(firstFrom, 'Dockerfile enthaelt kein FROM').toBeGreaterThanOrEqual(0);
+
+    const globalArgs = new Set<string>();
+    for (const line of lines.slice(0, firstFrom)) {
+      const m = /^\s*ARG\s+([A-Za-z_][A-Za-z0-9_]*)/.exec(line);
+      if (m) globalArgs.add(m[1]);
+    }
+
+    const referenced: Array<{ name: string; line: number }> = [];
+    lines.forEach((line, i) => {
+      if (!/^\s*FROM\s/i.test(line)) return;
+      for (const m of line.matchAll(/\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?/g)) {
+        referenced.push({ name: m[1], line: i + 1 });
+      }
+    });
+
+    // Plausibilitaet: dieser Dockerfile MUSS ein ARG in einem FROM verwenden
+    // (`FROM ${BUILD_FROM}`) -- sonst prueft der Test nichts.
+    expect(referenced.length).toBeGreaterThan(0);
+
+    for (const { name, line } of referenced) {
+      expect(
+        globalArgs.has(name),
+        `Zeile ${line} benutzt \${${name}} in einem FROM, aber ARG ${name} ist nicht vor ` +
+          `dem ersten FROM (Zeile ${firstFrom + 1}) deklariert. Docker expandiert es dann zu ` +
+          `nichts: "base name should not be blank".`,
+      ).toBe(true);
+    }
+  });
+
   /** `build_from` muss jede unter `arch:` genannte Architektur abdecken --
    *  sonst schlaegt der Bau genau auf der Hardware fehl, fuer die das Add-on
    *  sich zustaendig erklaert. */

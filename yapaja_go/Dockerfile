@@ -62,6 +62,30 @@
 # deklariert sein.
 # ==============================================================================
 
+# ─── GLOBALER SCOPE: ARGs, die in einem `FROM` verwendet werden ──────────────
+# Ein `ARG`, das in einer `FROM`-Zeile steht, MUSS vor dem ERSTEN `FROM`
+# deklariert sein. Docker kennt zwei getrennte Gueltigkeitsbereiche: alles vor
+# dem ersten `FROM` ist global und steht jeder `FROM`-Zeile zur Verfuegung;
+# alles danach gehoert zu genau der Stufe, in der es steht.
+#
+# `ARG BUILD_FROM` stand bis 2026-09-02 unmittelbar VOR der letzten
+# `FROM`-Zeile -- aber eben nach den beiden Stufen darueber, also im Scope
+# von niemandem. Der Supervisor uebergab `--build-arg BUILD_FROM=...`
+# korrekt, der Wert kam aber nie an, und `FROM ${BUILD_FROM}` expandierte zu
+# nichts:
+#
+#     ERROR: failed to solve: base name (${BUILD_FROM}) should not be blank
+#
+# Der Fehler steckte seit E08-T4 in dieser Datei. Aufgefallen ist er erst
+# jetzt, weil `config.yaml` bis dahin ein `image:` deklarierte und der
+# Supervisor deshalb nie baute, sondern am Pull scheiterte.
+#
+# Der Default macht den Dockerfile ausserdem eigenstaendig baubar
+# (`docker build -f yapaja_go/Dockerfile yapaja_go/`) und ueberlebt die vom
+# Supervisor angekuendigte Abkuendigung von `build.yaml` -- solange
+# `build.yaml` gelesen wird, gewinnt dessen `build_from`.
+ARG BUILD_FROM=ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+
 # ---- Stage 1: build apps/core + apps/web (identical recipe to apps/core/Dockerfile) ----
 FROM node:22-slim AS core-build
 # Vom Supervisor bzw. `build.yaml` gesetzt; siehe Kopfkommentar.
@@ -102,7 +126,9 @@ FROM rtuszik/photon-docker:latest AS photon-src
 # build job (`addon-multiarch-build`) fails to find it here.
 
 # ---- Final stage: Valhalla's own base image + Node.js + JRE + gpsd + s6-overlay ----
-ARG BUILD_FROM
+# `BUILD_FROM` ist oben im GLOBALEN Scope deklariert (siehe Begruendung dort)
+# -- eine erneute Deklaration an dieser Stelle wuerde den Wert nicht etwa
+# bereitstellen, sondern war genau der Fehler.
 FROM ${BUILD_FROM}
 ARG S6_OVERLAY_VERSION=3.1.6.2
 

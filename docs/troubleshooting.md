@@ -420,6 +420,35 @@ damit der Supervisor die aktuelle `config.yaml` liest. Ein zuvor
 fehlgeschlagenes Add-on muss unter Umständen einmal entfernt und neu
 hinzugefügt werden.
 
+### „base name (${BUILD_FROM}) should not be blank"
+
+```
+ERROR: failed to build: failed to solve:
+base name (${BUILD_FROM}) should not be blank
+```
+
+**Ursache (behoben):** Docker kennt **zwei getrennte ARG-Gültigkeitsbereiche**.
+Alles vor dem ersten `FROM` ist *global* und steht jeder `FROM`-Zeile zur
+Verfügung; alles danach gehört zu genau der Stufe, in der es steht. Ein `ARG`,
+das in einer `FROM`-Zeile verwendet wird, muss also **global** deklariert sein.
+
+`ARG BUILD_FROM` stand unmittelbar vor der letzten `FROM`-Zeile — aber nach
+zwei vorherigen Build-Stufen, damit im Gültigkeitsbereich von niemandem. Der
+Supervisor übergab `--build-arg BUILD_FROM=…` völlig korrekt; der Wert kam nur
+nie an, und `FROM ${BUILD_FROM}` expandierte zu nichts.
+
+**Lösung:** `ARG BUILD_FROM` steht jetzt vor dem ersten `FROM`, mit dem
+Valhalla-Basisimage als Default. Der Default macht den Dockerfile zusätzlich
+eigenständig baubar und überlebt die vom Supervisor angekündigte Abkündigung
+von `build.yaml` (die Warnung *„uses build.yaml which is deprecated"* im Log
+ist genau das — eine Warnung, kein Fehler; solange `build.yaml` gelesen wird,
+gewinnt dessen `build_from`).
+
+**Reihenfolge der Befunde:** Dieser Fehler steckte seit E08-T4 im Dockerfile
+und wurde erst sichtbar, nachdem die beiden Fehler davor behoben waren — vorher
+kam der Supervisor gar nicht bis zum Bauen. Drei Schichten, jede von der
+darüberliegenden verdeckt.
+
 ### „could not read Username for 'https://github.com'"
 
 ```
