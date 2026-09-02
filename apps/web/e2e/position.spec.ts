@@ -19,6 +19,9 @@ test('browser geolocation: puck appears and follows position updates via WS', as
   page,
   context,
 }) => {
+  // Der Dauerlauf unten (8 × 1,5 s) plus der Wartezeit auf die Karte passt
+  // nicht in das Standard-Zeitlimit von 30 s.
+  test.setTimeout(60_000);
   // Grant geolocation permission and set initial position
   await context.grantPermissions(['geolocation']);
   await context.setGeolocation({ latitude: 48.8566, longitude: 2.3522, accuracy: 10 });
@@ -35,20 +38,42 @@ test('browser geolocation: puck appears and follows position updates via WS', as
   // The puck is rendered as part of a GeoJSON layer, check for its visibility
   await page.waitForTimeout(2000); // Let geolocation and WS sync happen
 
-  // Verify browser sent a POST to /position/browser
-  const sentPositions = tracker
-    .getAllUrls()
-    .filter((url) => url.includes('/api/v1/position/browser'));
+  // Der Client MUSS gesendet haben. Diese Zusicherung stand bis 2026-09-02 in
+  // einem `if (sentPositions.length > 0) { … }` -- sie prüfte also genau dann
+  // nichts, wenn nichts gesendet wurde, und damit ausgerechnet im Fehlerfall.
+  // Darunter blieb monatelang unbemerkt, dass `browserSource` sich 5 Sekunden
+  // nach dem ersten Fix selbst stummschaltete (siehe `browserSource.ts`,
+  // `checkActiveSource()`).
+  expect(
+    tracker.getAllUrls().filter((url) => url.includes('/api/v1/position/browser')).length,
+  ).toBeGreaterThan(0);
 
-  if (sentPositions.length > 0) {
-    expect(sentPositions.length).toBeGreaterThan(0);
-    // Position was sent via POST
-    expect(sentPositions[0]).toContain('/position/browser');
+  // Und das Signal muss STEHEN, während durchgehend gefahren wird -- genau
+  // hier verstummte der Client vorher: er wertete `active` aus und schaltete
+  // sich damit an seinem eigenen Erfolg ab (siehe `browserSource.ts`,
+  // `checkActiveSource()`).
+  //
+  // Geprüft wird bewusst NICHT die Zahl der POSTs. Die erste Fassung dieses
+  // Tests tat das und ging auch mit wieder eingebautem Fehler durch: die
+  // Sende-Warteschlange war unbegrenzt, staute sich während der Sendesperre
+  // auf und wurde danach am Stück nachgeliefert -- die Zählung stimmte, die
+  // Navigation stand trotzdem still. Ein Test, der einen Nachschub-Schwall
+  // von einem laufenden Signal nicht unterscheidet, misst nicht das, was
+  // zählt.
+  //
+  // Das GPS-Verlust-Banner (W-01) tut genau das: es erscheint nach 3 s ohne
+  // echten Fix im Core. Solange alle 1,5 s eine neue Position eintrifft, darf
+  // es zu keinem Zeitpunkt sichtbar werden.
+  const banner = page.locator('[data-testid="gps-loss-banner"]');
+  for (let i = 1; i <= 8; i += 1) {
+    await context.setGeolocation({
+      latitude: 48.8566 + i * 0.0005,
+      longitude: 2.3522 + i * 0.0005,
+      accuracy: 10,
+    });
+    await page.waitForTimeout(1500);
+    await expect(banner, `GPS-Verlust-Banner nach Fix ${i} sichtbar`).toBeHidden();
   }
-
-  // Move position (Playwright can update geolocation)
-  await context.setGeolocation({ latitude: 48.8600, longitude: 2.3550, accuracy: 10 });
-  await page.waitForTimeout(1000);
 
   // The position should be updated in the store (we can't directly check the visual puck,
   // but we can verify no errors occurred and the app stayed functional)

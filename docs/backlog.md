@@ -157,9 +157,87 @@ Verhalten, das ein Nutzer nicht erklären kann.
 * Bewusst dokumentieren, dass gleichzeitige Clients an verschiedenen Orten
   nicht unterstützt sind.
 
-Vor einer Entscheidung sollte geprüft werden, wie sich der bestehende
-`PlausibilityGuard` in diesem Fall tatsächlich verhält — möglicherweise
-fängt er den Sprung schon ab, und es bleibt nur eine Doku-Frage.
+### Nachtrag 2026-09-02 — die offene Frage ist beantwortet
+
+Hier stand: „Vor einer Entscheidung sollte geprüft werden, wie sich der
+bestehende `PlausibilityGuard` in diesem Fall tatsächlich verhält —
+möglicherweise fängt er den Sprung schon ab, und es bleibt nur eine
+Doku-Frage." Das ist geprüft, und die Antwort ist **nein**, aus einem
+einfacheren Grund als vermutet:
+
+**Der Guard ist auf diesem Weg gar nicht verdrahtet.** `PlausibilityGuard`
+wird ausschließlich in `apps/core/src/position/gpsd/index.ts` benutzt;
+`POST /position/browser` ruft `service.pushFix('browser', …)` direkt auf. Die
+einzige Prüfung dort ist `checkPosition()` (Wertebereiche), und die kennt
+keinen Vorgänger-Fix — sie kann einen Sprung gar nicht sehen.
+
+Es bleibt also **keine** reine Doku-Frage; es ist echte Arbeit.
+
+Und selbst mit Verdrahtung wäre es nur die halbe Lösung: nach
+`maxConsecutiveJumpRejects` (3) abgelehnten Sprüngen akzeptiert der Guard den
+nächsten Fix bewusst als neue Grundwahrheit (W-02, Fähre/Transport/Neustart).
+Zwei dauerhaft sendende Geräte an verschiedenen Orten würden damit nicht
+still stehen, sondern im Verhältnis 3:1 langsamer hin- und herspringen. Die
+andere Hälfte ist eine **Client-Kennung beim Ingest** — ohne sie lässt sich
+„derselbe Client, der sich bewegt hat" nicht von „ein anderer Client"
+unterscheiden.
+
+Ausführlich in `docs/gps-endgeraete.md` §5.
+
+---
+
+## B-05 🟠 Position aus der Home-Assistant-App (`device_tracker`)
+
+**Status:** offen, aufgenommen am 2026-09-02.
+**Betrifft:** `apps/core/src/position/service.ts`, `apps/core/src/ha/client.ts`,
+`packages/shared/src/{types.ts,schemas/position.ts}`, `yapaja_go/config.yaml`.
+
+### Was fehlt
+
+Eine vierte Positionsquelle `ha_tracker`, die die Position aus einer
+`device_tracker`-Entität von Home Assistant liest — also aus der **Companion
+App** auf Telefon, iPad oder Android-Autoradio.
+
+### Warum das aufgenommen wurde
+
+Aus der Frage des Betreibers, wie er das GPS seiner Endgeräte nutzen kann.
+Der gebaute Weg (Browser-Geolocation) ist auf seinem Gerät blockiert, und
+zwar nicht durch einen Fehler, sondern durch eine Browser-Regel: der
+GPS-Sensor wird nur in einem **secure context** freigegeben, und Home
+Assistant läuft dort über einfaches HTTP (`http://…:8123`). Ingress ändert
+daran nichts — es erbt das Protokoll von HA selbst.
+
+Die Companion App umgeht das vollständig: sie meldet an HA, nicht an den
+Browser, und das Add-on kann diese Zustände mit dem bereits vorhandenen
+`homeassistant_api: true` über `http://supervisor/core/api` lesen. Zusätzlich
+löst sie ein zweites, unabhängiges Problem: ein Browser-Tab wird bei
+gesperrtem Bildschirm von Safari eingefroren und von Chrome-Android
+gedrosselt — `watchPosition` liefert dann nichts mehr. Die App ist für genau
+diesen Fall gebaut.
+
+### Was das nicht ist
+
+**Kein Ersatz für den Browser-Weg.** Die Companion App meldet in Intervallen
+und ist träger; für eine Abbiegeanweisung in 200 m reicht das nicht. Die
+Quelle gehört deshalb **unter** den Browser:
+`gpsd > browser > ha_tracker > simulator`.
+
+### Wie es umgesetzt wird
+
+Die fünf Schritte stehen ausformuliert in `docs/gps-endgeraete.md` §4. Kurz:
+`'ha_tracker'` in `PositionSourceName` und das `source`-Enum des
+Positions-Schemas; ein GET-Helfer neben `callHaService` (das Modul kann heute
+nur POST) mit denselben Regeln — hartes Zeitlimit, Fehler wird geloggt und
+geschluckt; eine Option `ha_device_tracker`; und der `PlausibilityGuard`
+**davor** (siehe B-03), denn ein Tracker, der nach einem Ausfall 300 km
+weiter wieder auftaucht, ist genau sein Fall.
+
+### Was vorher gebraucht wird
+
+Eine Rückmeldung, welche `device_tracker`-Entität die App tatsächlich liefert
+und in welchem Intervall. Die Priorität gegenüber dem Browser lässt sich
+sonst nur raten, und eine geratene Zahl in einer Prioritätskette ist genau
+die Sorte Behauptung, die hier nichts zu suchen hat.
 
 ---
 
