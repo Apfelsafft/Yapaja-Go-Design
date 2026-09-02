@@ -169,8 +169,8 @@ kompiliert), inklusive aller transitiven Abhaengigkeiten.
 | `fast-querystring` | 1.1.2 | `MIT` |
 | `fast-redact` | 3.5.0 | `MIT` |
 | `fast-unique-numbers` | 9.0.27 | `MIT` |
-| `fast-uri` | 3.1.5 | `BSD-3-Clause` |
-| `fast-uri` | 4.1.2 | `BSD-3-Clause` |
+| `fast-uri` | 3.1.7 | `BSD-3-Clause` |
+| `fast-uri` | 4.1.4 | `BSD-3-Clause` |
 | `fastify` | 5.11.2 | `MIT` |
 | `fastify-plugin` | 6.0.0 | `MIT` |
 | `fastq` | 1.20.1 | `ISC` |
