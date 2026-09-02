@@ -577,6 +577,68 @@ describe('die Installation kann tatsaechlich durchlaufen', () => {
     ).toBe(true);
   });
 
+  /**
+   * DIE ACHTE SCHICHT (2026-09-02): das Add-on-Protokoll bestand fast nur
+   * noch aus einer einzigen Zeile.
+   *
+   *     /usr/lib/bashio/log.sh: line 107: info: unbound variable
+   *
+   * bashio liest seinen Log-Level DIREKT aus der Umgebung und erwartet dort
+   * eine ZAHL (lib/bashio.sh:31):
+   *
+   *     declare __BASHIO_LOG_LEVEL=${LOG_LEVEL:-${__BASHIO_DEFAULT_LOG_LEVEL}}
+   *
+   * und vergleicht ihn arithmetisch (lib/log.sh:107):
+   *
+   *     if [[ "${level}" -gt "${__BASHIO_LOG_LEVEL}" ]]; then
+   *
+   * `init-yapaja-config.sh` exportierte aber `LOG_LEVEL=info` -- einen
+   * NAMEN -- in die GETEILTE Container-Umgebung. Alles unter
+   * `/run/s6/container_environment/` landet in jedem `with-contenv`-Skript,
+   * also auch in bashio. Der `-gt`-Vergleich wertete `info` arithmetisch aus
+   * und brach unter `set -u` bei JEDEM Log-Aufruf ab. Kein s6-Dienst konnte
+   * mehr protokollieren.
+   *
+   * Der Name gehoert deshalb nicht in die geteilte Umgebung. Der Core will
+   * `LOG_LEVEL` weiterhin (pino) -- das setzt `core/run` lokal.
+   */
+  it('exportiert keine Variable in die geteilte Umgebung, die bashio belegt', () => {
+    const init = readFileSync(
+      join(ROOTFS_DIR, 'etc/yapaja/init-yapaja-config.sh'),
+      'utf-8',
+    );
+
+    // Namen, die bashio selbst aus der Umgebung liest und die deshalb nicht
+    // von uns global belegt werden duerfen. Jeder weitere Eintrag braucht
+    // denselben Nachweis: Fundstelle in bashios Quelltext.
+    const RESERVED_BY_BASHIO = ['LOG_LEVEL'];
+
+    const exported = [...init.matchAll(/^\s*export_env\s+"([A-Z0-9_]+)"/gm)].map((m) => m[1]);
+    // Plausibilitaet: ohne Exporte prueft der Test nichts.
+    expect(exported.length).toBeGreaterThan(0);
+
+    for (const reserved of RESERVED_BY_BASHIO) {
+      expect(
+        exported.includes(reserved),
+        `init-yapaja-config.sh exportiert "${reserved}" in die geteilte ` +
+          `Container-Umgebung. bashio liest genau diesen Namen (lib/bashio.sh:31) und ` +
+          `erwartet eine Zahl -- ein Name wie "info" laesst jeden bashio-Log-Aufruf ` +
+          `mit "unbound variable" abbrechen. Lokal im jeweiligen run-Skript setzen.`,
+      ).toBe(false);
+    }
+  });
+
+  /** Der Core braucht `LOG_LEVEL` trotzdem (pino). Wenn es nicht mehr global
+   *  kommt, muss es lokal gesetzt werden -- sonst ist die Option des
+   *  Betreibers stillschweigend wirkungslos. */
+  it('core/run setzt LOG_LEVEL lokal aus YAPAJA_LOG_LEVEL', () => {
+    const run = readFileSync(
+      join(ROOTFS_DIR, 'etc/s6-overlay/s6-rc.d/core/run'),
+      'utf-8',
+    );
+    expect(run).toMatch(/export\s+LOG_LEVEL=.*YAPAJA_LOG_LEVEL/);
+  });
+
   /** `build_from` muss jede unter `arch:` genannte Architektur abdecken --
    *  sonst schlaegt der Bau genau auf der Hardware fehl, fuer die das Add-on
    *  sich zustaendig erklaert. */

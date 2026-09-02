@@ -26,4 +26,11 @@
 set -uo pipefail
 
 cd /app
+# `LOG_LEVEL` wird bewusst NUR hier gesetzt, nicht global in der
+# Container-Umgebung: bashio belegt denselben Namen und erwartet dort eine
+# Zahl statt eines Namens (siehe die ausfuehrliche Begruendung in
+# /etc/yapaja/init-yapaja-config.sh). Global gesetzt hat er jeden
+# bashio-Log-Aufruf aller s6-Dienste zerlegt.
+export LOG_LEVEL="${YAPAJA_LOG_LEVEL:-info}"
+
 exec node apps/core/dist/index.js

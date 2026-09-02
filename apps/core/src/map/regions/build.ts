@@ -89,6 +89,9 @@ export type SpawnBuildFn = (
 export interface BuildJobDeps {
   spawnFn?: SpawnBuildFn;
   freeMemFn?: () => number;
+  /** Wohin die Ausgabe des Bau-Prozesses gespiegelt wird. In Produktion der
+   *  Fastify-Logger, dessen stdout im Add-on-Protokoll landet. */
+  logger?: (line: string) => void;
 }
 
 /** Letzte nicht-leere Zeile aus einem Ausgabe-Klumpen. Planetiler schreibt
@@ -118,6 +121,7 @@ export function runBuildJob(
   tilesDir: string,
   deps: BuildJobDeps = {},
 ): void {
+  const logger = deps.logger;
   const spawnFn: SpawnBuildFn =
     deps.spawnFn ??
     ((command, args, env) =>
@@ -160,14 +164,33 @@ export function runBuildJob(
     child.kill('SIGTERM');
   });
 
-  const onOutput = (chunk: Buffer | string): void => {
-    const line = lastMeaningfulLine(chunk.toString());
-    if (line) {
-      jobs.setNote(jobId, truncateNote(line));
+  // Die Ausgabe geht an ZWEI Stellen, und beide werden gebraucht:
+  //
+  //   * die letzte Zeile als `note` -> Fortschritt in der Oberflaeche;
+  //   * der volle Text ins Add-on-Protokoll.
+  //
+  // Der zweite Teil fehlte. Die Fehlermeldung sagte „ausfuehrliche Ausgabe im
+  // Add-on-Protokoll" -- dorthin kam aber nie etwas, weil wir die Pipes des
+  // Kindprozesses lesen und nirgendwo hinschreiben. Beim ersten echten
+  // Fehlschlag stand deshalb nur „Code 1" da und sonst nichts: der einzige
+  // Text, der die Ursache genannt haette, wurde verworfen. Ein Verweis auf
+  // ein Protokoll, in dem nichts steht, ist dasselbe wie eine Anweisung auf
+  // einen Knopf, den es nicht gibt.
+  const forward = (chunk: Buffer | string): void => {
+    const text = chunk.toString();
+    for (const raw of text.split(/\r?\n|\r/)) {
+      const line = raw.trim();
+      if (line.length > 0) {
+        logger?.(`[Kachelbau ${entry.id}] ${line}`);
+      }
+    }
+    const last = lastMeaningfulLine(text);
+    if (last) {
+      jobs.setNote(jobId, truncateNote(last));
     }
   };
-  child.stdout?.on('data', onOutput);
-  child.stderr?.on('data', onOutput);
+  child.stdout?.on('data', forward);
+  child.stderr?.on('data', forward);
 
   child.on('error', (err) => {
     jobs.markError(jobId, {
@@ -193,12 +216,18 @@ export function runBuildJob(
       jobs.markDone(jobId);
       return;
     }
+    // Die letzte Ausgabezeile gehoert IN die Fehlermeldung. Sie steht zwar
+    // auch als `note` im Job, aber die Oberflaeche zeigt im Fehlerfall die
+    // Meldung -- wer nur dorthin schaut, saehe sonst „Code 1" und sonst
+    // nichts.
+    const lastLine = jobs.get(jobId)?.note;
     jobs.markError(jobId, {
       code: 'BUILD_FAILED',
       message:
         `Der Kachelbau ist mit Code ${code ?? 'unbekannt'} fehlgeschlagen. ` +
-        'Die letzte Ausgabezeile steht im Job-Status; ausführliche Ausgabe im ' +
-        'Add-on-Protokoll. Die bisherige Kartendatei ist unverändert.',
+        (lastLine ? `Zuletzt: „${lastLine}". ` : '') +
+        'Die vollständige Ausgabe steht im Add-on-Protokoll (Zeilen mit ' +
+        `„[Kachelbau ${entry.id}]"). Die bisherige Kartendatei ist unverändert.`,
     });
   });
 }
