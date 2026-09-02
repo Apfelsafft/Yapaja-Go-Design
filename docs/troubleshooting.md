@@ -449,6 +449,26 @@ und wurde erst sichtbar, nachdem die beiden Fehler davor behoben waren — vorhe
 kam der Supervisor gar nicht bis zum Bauen. Drei Schichten, jede von der
 darüberliegenden verdeckt.
 
+### „Could not open lock file /var/lib/apt/lists/lock — Permission denied"
+
+```
+#15 [stage-2 2/17] RUN apt-get update && apt-get install ...
+E: Could not open lock file /var/lib/apt/lists/lock - open (13: Permission denied)
+E: Unable to lock directory /var/lib/apt/lists/
+```
+
+**Ursache (behoben):** Docker führt jedes `RUN` als den zuletzt gesetzten
+`USER` aus, und dieser wird von `FROM` mit übernommen. Das
+Valhalla-Basisimage setzt einen **nicht-privilegierten** Benutzer — der Bau
+durfte deshalb nicht in `/var/lib` schreiben. Kein Netz-, kein Paketproblem.
+
+**Lösung:** `USER root` direkt nach dem `FROM` der letzten Stufe. Das gilt
+auch zur Laufzeit, und zwar beabsichtigt: das Add-on bringt sein eigenes
+s6-overlay als PID 1 mit (`ENTRYPOINT ["/init"]`), und das braucht root.
+Abgesichert wird der Container über AppArmor und den Verzicht auf
+`full_access` (siehe `config.yaml`, Abschnitt „SECURITY POSTURE"), nicht über
+einen unprivilegierten Benutzer.
+
 ### „could not read Username for 'https://github.com'"
 
 ```
