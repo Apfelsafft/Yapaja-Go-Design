@@ -639,6 +639,28 @@ describe('die Installation kann tatsaechlich durchlaufen', () => {
     expect(run).toMatch(/export\s+LOG_LEVEL=.*YAPAJA_LOG_LEVEL/);
   });
 
+  /**
+   * CHANGELOG.md ist das, was Home Assistant dem Betreiber VOR dem Klick auf
+   * „Aktualisieren" anzeigt. Ein Update ohne Eintrag ist damit ein Update,
+   * ueber das er nichts erfaehrt -- und weil `version:` erhoeht werden MUSS,
+   * damit der Supervisor ueberhaupt eines anbietet, faellt genau dann auf,
+   * wenn beides auseinanderlaeuft.
+   *
+   * Geprueft wird die Kopplung, nicht der Inhalt: zu jeder ausgelieferten
+   * Version muss eine Ueberschrift existieren.
+   */
+  it('CHANGELOG.md hat einen Eintrag fuer die ausgelieferte Version', () => {
+    const changelog = readFileSync(join(ADDON_DIR, 'CHANGELOG.md'), 'utf-8');
+    const { version } = loadConfig();
+    const heading = new RegExp(`^##\\s+v?${version.replace(/\./g, '\\.')}\\s*$`, 'm');
+    expect(
+      changelog,
+      `CHANGELOG.md hat keine Ueberschrift "## ${version}". Home Assistant zeigt ` +
+        'diese Datei beim Update an -- ohne Eintrag erfaehrt der Betreiber nicht, ' +
+        'was sich aendert.',
+    ).toMatch(heading);
+  });
+
   /** `build_from` muss jede unter `arch:` genannte Architektur abdecken --
    *  sonst schlaegt der Bau genau auf der Hardware fehl, fuer die das Add-on
    *  sich zustaendig erklaert. */

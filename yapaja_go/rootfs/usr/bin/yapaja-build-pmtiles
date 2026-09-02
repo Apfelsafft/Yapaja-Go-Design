@@ -76,7 +76,16 @@ export PLANETILER_XMX="${PLANETILER_XMX:-2g}"
 # dieselbe Platte, damit die geprueften Zahlen auch die zutreffenden sind.
 export TMPDIR="${TMPDIR:-$(dirname "$TILES_DIR")/tmp}"
 
-mkdir -p "$TILES_DIR" "$TOOLS_DIR" "$TMPDIR"
+# ─── GEMEINSAME BASISDATEN GEHOEREN NEBEN DIE KACHELN, NICHT IN DEN CONTAINER ─
+# Das OpenMapTiles-Profil braucht neben dem OSM-Extrakt drei nicht
+# regionsspezifische Quellen (Wasserflaechen, Natural Earth,
+# Seen-Mittellinien). Sie werden beim ERSTEN Bau geladen -- mehrere hundert MB
+# -- und danach von jeder weiteren Region wiederverwendet. Deshalb unter
+# /share: ueberlebt Add-on-Updates, und der zweite Regionsbau laedt nichts
+# mehr nach.
+export PLANETILER_SOURCES_DIR="${PLANETILER_SOURCES_DIR:-$(dirname "$TILES_DIR")/planetiler-sources}"
+
+mkdir -p "$TILES_DIR" "$TOOLS_DIR" "$TMPDIR" "$PLANETILER_SOURCES_DIR"
 
 if [ ! -s "$JAR_PATH" ]; then
   echo "== planetiler $PLANETILER_VERSION wird einmalig geladen (~100 MB) nach $JAR_PATH =="
@@ -91,4 +100,11 @@ fi
 export PLANETILER_JAR="$JAR_PATH"
 
 echo "== Baue Kacheln nach $TILES_DIR (Heap $PLANETILER_XMX, JAR $PLANETILER_JAR) =="
+if [ -z "$(ls -A "$PLANETILER_SOURCES_DIR" 2>/dev/null)" ]; then
+  echo "== Erster Bau: die gemeinsamen Basisdaten (Wasserflaechen, Natural Earth,"
+  echo "   Seen-Mittellinien) werden einmalig nach $PLANETILER_SOURCES_DIR geladen."
+  echo "   Das sind mehrere hundert MB und dauert entsprechend; jede weitere"
+  echo "   Region benutzt danach dieselben Dateien. =="
+fi
+
 exec /opt/yapaja/bin/build-pmtiles.sh "$@"

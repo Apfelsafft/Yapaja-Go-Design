@@ -86,7 +86,11 @@ host_dir=""
 out_rel=""
 prev=""
 for arg in "$@"; do
-  if [ "$prev" = "-v" ]; then host_dir="\${arg%%:*}"; fi
+  # Es gibt MEHRERE -v Mounts (Arbeitsverzeichnis als /data, die gemeinsamen
+  # planetiler-Basisdaten als /sources). Frueher nahm dieses Stub schlicht das
+  # zuletzt gesehene -- und schrieb die Ausgabe damit ins falsche Verzeichnis,
+  # sobald ein zweiter Mount dazukam. Es zaehlt der Mount NACH /data.
+  if [ "$prev" = "-v" ] && [ "\${arg##*:}" = "/data" ]; then host_dir="\${arg%%:*}"; fi
   case "$arg" in
     --output=*) out_rel="\${arg#--output=}";;
   esac
@@ -322,6 +326,58 @@ describe('build-pmtiles.sh — planetiler-Aufruf', () => {
    * und der Knopf „Kacheln bauen" brach mit dem Rat ab, die Kacheln „auf
    * einem anderen Rechner" zu bauen.
    */
+  /**
+   * DER FEHLSCHLAG AUS 0.1.7, IN BEIDEN LAUFARTEN.
+   *
+   * Das OpenMapTiles-Profil braucht neben dem OSM-Extrakt drei nicht
+   * regionsspezifische Quellen (Seen-Mittellinien, Wasserflaechen, Natural
+   * Earth). Fehlt `--download`, bricht planetiler ab, BEVOR eine Kachel
+   * entsteht:
+   *
+   *   java.lang.IllegalArgumentException: data/sources/lake_centerline.shp.zip
+   *   does not exist. Run with --download to fetch it
+   *
+   * Der Aufruf war damit in KEINER Umgebung lauffaehig -- auch nicht per
+   * Docker. Sichtbar wurde es nie, weil planetiler in diesen Tests ein Stub
+   * ist, das sich um fehlende Quellen nicht schert: es kann nur die ARGUMENTE
+   * pruefen. Also prueft es die jetzt.
+   */
+  it('uebergibt --download und ein DAUERHAFTES Quellenverzeichnis (Docker)', () => {
+    const pbf = writeFakePbf();
+    const result = run([pbf]);
+    expect(result.status).toBe(0);
+    const argv = readFileSync(join(work, 'docker-argv.txt'), 'utf-8').split('\n');
+    expect(argv).toContain('--download');
+    expect(argv).toContain('--download_dir=/sources');
+    // Das Quellenverzeichnis muss als eigener Mount hereinkommen, sonst zeigt
+    // /sources im Container ins Leere und alles wird bei JEDEM Lauf neu
+    // geladen.
+    const sourcesMount = argv.find((a) => a.endsWith(':/sources'));
+    expect(sourcesMount).toBeDefined();
+    // ... und es darf NICHT im Arbeitsverzeichnis liegen, das nach dem Lauf
+    // geloescht wird -- sonst waeren es mehrere hundert MB pro Region.
+    expect(sourcesMount).toContain('planetiler-sources');
+    expect(sourcesMount).not.toContain('yapaja-pmtiles-');
+  });
+
+  it('loest %SOURCES% im JAR-Modus zum echten Pfad auf, ohne ihn zu zerlegen', () => {
+    // Der Platzhalter wird erst nach der /data-Ersetzung aufgeloest. Andernfalls
+    // zerlegt die /data-Ersetzung den eingesetzten Pfad, sobald dieser selbst
+    // „/data" enthaelt -- im Repo-Fall (<repo>/data/planetiler-sources) ist das
+    // der Normalfall, nicht der Ausnahmefall.
+    const pbf = writeFakePbf();
+    const jar = join(work, 'planetiler.jar');
+    writeFileSync(jar, 'nicht wirklich ein jar');
+    installJavaStub();
+    const sources = join(work, 'data', 'planetiler-sources');
+    const result = run([pbf], { PLANETILER_JAR: jar, PLANETILER_SOURCES_DIR: sources });
+    expect(result.status).toBe(0);
+    const argv = readFileSync(join(work, 'java-argv.txt'), 'utf-8').split('\n');
+    expect(argv).toContain('--download');
+    expect(argv).toContain(`--download_dir=${sources}`);
+    expect(argv.join('\n')).not.toContain('%SOURCES%');
+  });
+
   it('ohne docker, aber mit PLANETILER_JAR und java: baut trotzdem (Add-on-Fall)', () => {
     const pbf = writeFakePbf();
     const jar = join(work, 'planetiler.jar');
@@ -364,7 +420,7 @@ describe('build-pmtiles.sh — Pruefung des Erzeugnisses', () => {
 host_dir=""
 prev=""
 for arg in "$@"; do
-  if [ "$prev" = "-v" ]; then host_dir="\${arg%%:*}"; fi
+  if [ "$prev" = "-v" ] && [ "\${arg##*:}" = "/data" ]; then host_dir="\${arg%%:*}"; fi
   prev="$arg"
 done
 printf '<html>404 Not Found</html>' > "$host_dir/out.pmtiles"
@@ -382,7 +438,7 @@ printf '<html>404 Not Found</html>' > "$host_dir/out.pmtiles"
 host_dir=""
 prev=""
 for arg in "$@"; do
-  if [ "$prev" = "-v" ]; then host_dir="\${arg%%:*}"; fi
+  if [ "$prev" = "-v" ] && [ "\${arg##*:}" = "/data" ]; then host_dir="\${arg%%:*}"; fi
   prev="$arg"
 done
 : > "$host_dir/out.pmtiles"
