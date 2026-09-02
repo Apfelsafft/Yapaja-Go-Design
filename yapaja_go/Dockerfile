@@ -91,6 +91,10 @@ FROM node:22-slim AS core-build
 # Vom Supervisor bzw. `build.yaml` gesetzt; siehe Kopfkommentar.
 ARG YAPAJA_REPO=Apfelsafft/Yapaja-Go-Design
 ARG YAPAJA_REF=main
+# Der Supervisor uebergibt hier die Add-on-Version aus `config.yaml`
+# (`--build-arg BUILD_VERSION=0.1.5`). Sie wird unten im Fetch-Schritt
+# GELESEN -- warum, steht dort ausfuehrlich.
+ARG BUILD_VERSION=dev
 RUN corepack enable
 WORKDIR /app
 ENV CI=true
@@ -102,10 +106,36 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       curl ca-certificates tar \
   && rm -rf /var/lib/apt/lists/*
 
+# ─── WARUM HIER DIE VERSION AUFTAUCHT ───────────────────────────────────────
+# Docker bildet den Cache-Schluessel einer `RUN`-Zeile aus ihrem BEFEHLSTEXT,
+# nicht aus dem, was der Befehl herunterlaedt. `${YAPAJA_REF}` ist `main`,
+# also ein BEWEGLICHER Zeiger, dessen Text sich nie aendert. Ergebnis vor
+# 2026-09-02: dieser Schritt wurde ein einziges Mal ausgefuehrt und danach
+# bei JEDEM weiteren Bau aus dem Cache genommen --
+#
+#     #10 [core-build 5/8] RUN set -eux; curl ... tar.gz/main
+#     #10 CACHED
+#
+# -- im Log des Betreibers nachweisbar. Die Folge war besonders tueckisch,
+# weil sie wie ein erfolgreiches Update aussah: der Supervisor liest
+# `version:` aus dem GIT-KLON und zeigte brav 0.1.4 an, waehrend das Image
+# den Quelltext von Stunden zuvor enthielt. Zwei aufeinanderfolgende Releases
+# kamen auf dem Geraet schlicht nie an; der Betreiber suchte in der
+# Oberflaeche nach einem Knopf, der in seinem Image nicht existierte.
+#
+# `${BUILD_VERSION}` steht deshalb IM Befehl. Es aendert sich mit jeder
+# Add-on-Version, der Cache-Schluessel damit auch, und der Quelltext wird neu
+# geholt. Das `echo` ist kein Debug-Rest: es IST der Mechanismus.
+#
+# Damit wird die ohnehin geltende Regel tragend: jede Aenderung braucht einen
+# Versions-Bump in `config.yaml`. Ohne ihn liefert der Supervisor nicht nur
+# kein Update aus -- der Bau wuerde jetzt auch den alten Quelltext behalten.
+#
 # `--strip-components=1` entfernt das von GitHub erzeugte
 # `<repo>-<ref>/`-Wurzelverzeichnis, sodass in /app exakt dieselbe
 # Verzeichnisstruktur liegt wie vorher durch die COPY-Zeilen.
 RUN set -eux; \
+    echo "Quelltext fuer Add-on-Version ${BUILD_VERSION} aus ${YAPAJA_REF}"; \
     curl -fsSL --retry 3 --retry-delay 5 \
       "https://codeload.github.com/${YAPAJA_REPO}/tar.gz/${YAPAJA_REF}" \
       -o /tmp/yapaja-src.tar.gz; \
