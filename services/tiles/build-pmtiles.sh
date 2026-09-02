@@ -108,6 +108,12 @@
 #                      HA-Add-on-Container). Bezugsquelle (belegt):
 #                      github.com/onthegomap/planetiler/releases/download/v0.10.2/planetiler.jar
 #   PLANETILER_XMX     JVM-Heap fuer planetiler (Default: 1g)
+#   PLANETILER_SOURCES_DIR  Dauerhafte Ablage der NICHT regionsspezifischen
+#                       Basisdaten des OpenMapTiles-Profils (Wasserflaechen,
+#                       Natural Earth, Seen-Mittellinien). Default:
+#                       <TILES_DIR>/../planetiler-sources. Beim ERSTEN Bau
+#                       werden sie geladen (mehrere hundert MB), danach nutzt
+#                       jede weitere Region dieselben Dateien.
 #   PLANETILER_ARGS    ERSETZT die planetiler-Argumente komplett. Fuer den
 #                       Fall, dass die CLI der verwendeten Version von der
 #                       hier hinterlegten abweicht -- dann muss niemand
@@ -144,7 +150,13 @@ Env-Overrides:
                      statt per Docker (noetig, wo kein Docker-Socket da ist,
                      z. B. im HA-Add-on-Container)
   PLANETILER_XMX     JVM-Heap (Default: 1g)
-  PLANETILER_ARGS    Ersetzt die planetiler-Argumente (%INPUT%/%OUTPUT% werden ersetzt)
+  PLANETILER_SOURCES_DIR  Dauerhafte Ablage der gemeinsamen Basisdaten
+                     (Wasserflaechen, Natural Earth, Seen-Mittellinien;
+                     Default: <TILES_DIR>/../planetiler-sources). Einmalig
+                     mehrere hundert MB, danach von jeder Region genutzt.
+  PLANETILER_ARGS    Ersetzt die planetiler-Argumente (%INPUT%/%OUTPUT%/%SOURCES%
+                     werden ersetzt). Wer das setzt, muss `--download` und
+                     `--download_dir=%SOURCES%` selbst mitgeben.
 EOF
 }
 
@@ -243,9 +255,42 @@ fi
 OUT_NAME="out.pmtiles"
 mkdir -p "$TILES_DIR"
 
+# ─── GEMEINSAME BASISDATEN, DIE NICHT AUS DER PBF KOMMEN ────────────────────
+# Das OpenMapTiles-Profil, das planetiler hier benutzt, braucht neben dem
+# OSM-Extrakt DREI weitere Quellen, die nicht regionsspezifisch sind:
+# `lake_centerline.shp.zip`, `water-polygons-split-3857.zip` und
+# `natural_earth_vector.sqlite.zip` (Seen-Mittellinien, Wasserflaechen,
+# Natural-Earth-Basis fuer kleine Zoomstufen).
+#
+# Ohne sie bricht planetiler ab, BEVOR auch nur eine Kachel entsteht:
+#
+#   java.lang.IllegalArgumentException: data/sources/lake_centerline.shp.zip
+#   does not exist. Run with --download to fetch it
+#
+# Genau das ist im Add-on passiert. Die Argumente hier nannten `--download`
+# nicht -- der Aufruf war also von Anfang an unvollstaendig und konnte in
+# KEINER Umgebung durchlaufen, auch nicht per Docker. Dass es nie auffiel,
+# liegt daran, dass planetiler in den Tests durch ein Stub ersetzt ist: das
+# Stub schreibt eine PMTiles-Datei und schert sich nicht um fehlende Quellen.
+# Der Aufruf selbst war nie gegen ein echtes planetiler gelaufen.
+#
+# `--download` holt laut planetilers eigenem Quelltext (`Planetiler.java`,
+# `getPath`) NUR, was noch nicht da ist -- die PBF wird also nicht erneut
+# geladen, und ein zweiter Regionsbau laedt gar nichts mehr nach. Deshalb
+# zeigt `--download_dir` auf ein DAUERHAFTES Verzeichnis neben den Kacheln
+# und nicht ins Arbeitsverzeichnis: sonst wuerden mehrere hundert MB
+# Basisdaten bei jedem Lauf neu geholt und danach weggeworfen.
+SOURCES_DIR="${PLANETILER_SOURCES_DIR:-$(dirname "$TILES_DIR")/planetiler-sources}"
+mkdir -p "$SOURCES_DIR"
+
 # `%INPUT%`/`%OUTPUT%` sind die CONTAINER-internen Pfade ($WORK_DIR ist als
-# /data eingehaengt).
-DEFAULT_ARGS="--osm-path=/data/$INPUT_NAME --output=/data/$OUT_NAME --force --nodemap-type=sortedtable"
+# /data eingehaengt). `%SOURCES%` bleibt bis zur Laufart stehen und wird erst
+# dort aufgeloest -- als Mount-Ziel /sources (Docker) bzw. als echter Pfad
+# (JAR). Ein Platzhalter und kein fester Pfad, weil die JAR-Variante die
+# /data-Ersetzung als globales Suchen-und-Ersetzen macht: stuende hier schon
+# ein echter Pfad, der selbst `/data` enthaelt (im Repo-Fall
+# `<repo>/data/planetiler-sources`), wuerde diese Ersetzung ihn zerlegen.
+DEFAULT_ARGS="--osm-path=/data/$INPUT_NAME --output=/data/$OUT_NAME --force --nodemap-type=sortedtable --download --download_dir=%SOURCES%"
 RAW_ARGS="${PLANETILER_ARGS:-$DEFAULT_ARGS}"
 RAW_ARGS="${RAW_ARGS//%INPUT%//data/$INPUT_NAME}"
 RAW_ARGS="${RAW_ARGS//%OUTPUT%//data/$OUT_NAME}"
@@ -289,15 +334,28 @@ if [ -n "${PLANETILER_JAR:-}" ]; then
   fi
   # Die Argumente zeigen auf /data (Container-Sicht); im JAR-Modus gibt es
   # kein Mount, also auf die echten Pfade umbiegen.
+  #
+  # REIHENFOLGE IST HIER WESENTLICH: erst `/data`, dann `%SOURCES%`. Umgekehrt
+  # wuerde die /data-Ersetzung in den gerade eingesetzten Quellen-Pfad
+  # hineinschlagen, sobald dieser selbst `/data` enthaelt -- im Repo-Fall
+  # (`<repo>/data/planetiler-sources`) ist das der Normalfall. Der Platzhalter
+  # `%SOURCES%` enthaelt kein `/data` und ueberlebt den ersten Schritt
+  # unversehrt.
   JAR_ARGV=()
-  for a in "${PLANETILER_ARGV[@]}"; do JAR_ARGV+=("${a//\/data/$WORK_DIR}"); done
+  for a in "${PLANETILER_ARGV[@]}"; do
+    a="${a//\/data/$WORK_DIR}"
+    JAR_ARGV+=("${a//%SOURCES%/$SOURCES_DIR}")
+  done
   RUN_CMD=(java "-Xmx$PLANETILER_XMX" -jar "$PLANETILER_JAR" "${JAR_ARGV[@]}")
 else
+  DOCKER_ARGV=()
+  for a in "${PLANETILER_ARGV[@]}"; do DOCKER_ARGV+=("${a//%SOURCES%//sources}"); done
   RUN_CMD=(docker run --rm
     -e JAVA_TOOL_OPTIONS="-Xmx$PLANETILER_XMX"
     -v "$WORK_DIR:/data"
+    -v "$SOURCES_DIR:/sources"
     "$PLANETILER_IMAGE"
-    "${PLANETILER_ARGV[@]}")
+    "${DOCKER_ARGV[@]}")
 fi
 
 if ! "${RUN_CMD[@]}"; then

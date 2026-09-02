@@ -613,6 +613,35 @@ Licht gegeben und der Lauf wäre Stunden später am Platz gescheitert, auf
 einem anderen Dateisystem als dem geprüften. Der Bau arbeitet jetzt unter
 `/share/yapaja/tmp`.
 
+### Kachelbau bricht ab mit „lake_centerline.shp.zip does not exist"
+
+```
+java.lang.IllegalArgumentException: data/sources/lake_centerline.shp.zip
+does not exist. Run with --download to fetch it
+```
+
+**Ursache (behoben, ab 0.1.8):** Die Karte entsteht nicht allein aus dem
+OSM-Extrakt der Region. Das OpenMapTiles-Profil, das planetiler hier benutzt,
+braucht zusätzlich drei **nicht regionsspezifische** Quellen —
+Seen-Mittellinien, Wasserflächen und Natural-Earth-Basisdaten für die kleinen
+Zoomstufen. Der Aufruf nannte `--download` nicht und war damit von Anfang an
+unvollständig: er hätte in **keiner** Umgebung durchlaufen können, auch nicht
+über Docker.
+
+Unbemerkt blieb es, weil planetiler in den Tests durch ein Stub ersetzt ist,
+das eine PMTiles-Datei schreibt und sich um fehlende Quellen nicht schert —
+der Aufruf war nie gegen ein echtes planetiler gelaufen. Ein Test prüft jetzt
+die Argumente selbst.
+
+**Lösung:** Auf 0.1.8 aktualisieren.
+
+**Was du dabei erwarten solltest:** Der **erste** Bau lädt diese gemeinsamen
+Basisdaten einmalig nach `/share/yapaja/planetiler-sources/`. Das sind mehrere
+hundert MB — er dauert also spürbar länger als der eigentliche Bau von
+Liechtenstein, und das ist kein Hänger. Jede weitere Region benutzt danach
+dieselben Dateien und lädt nichts mehr nach. Die genauen Größen stehen im
+Protokoll.
+
 ### „could not read Username for 'https://github.com'"
 
 ```
