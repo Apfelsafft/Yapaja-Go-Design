@@ -130,6 +130,31 @@ FROM rtuszik/photon-docker:latest AS photon-src
 # -- eine erneute Deklaration an dieser Stelle wuerde den Wert nicht etwa
 # bereitstellen, sondern war genau der Fehler.
 FROM ${BUILD_FROM}
+
+# ─── WARUM HIER `USER root` STEHEN MUSS ─────────────────────────────────────
+# Das Valhalla-Basisimage setzt einen eigenen, NICHT-privilegierten `USER`.
+# Docker fuehrt jedes `RUN` als den zuletzt gesetzten Benutzer aus, und der
+# wird von `FROM` mit uebernommen -- der erste `apt-get` scheiterte deshalb
+# am 2026-09-02 mit:
+#
+#     E: Could not open lock file /var/lib/apt/lists/lock
+#        - open (13: Permission denied)
+#
+# Das ist kein Netz- und kein Paketproblem: der Bau darf schlicht nicht in
+# /var/lib schreiben. Betroffen waere danach ohnehin jeder weitere Schritt
+# dieser Stufe (Node nach /usr/local, s6-overlay nach /, bashio nach
+# /usr/lib, rootfs nach /).
+#
+# `USER root` bleibt auch zur LAUFZEIT bestehen, und das ist beabsichtigt,
+# nicht bloss geduldet: dieses Add-on bringt sein eigenes s6-overlay als PID 1
+# mit (`ENTRYPOINT ["/init"]`, `config.yaml`s `init: false`). s6-overlay
+# richtet Dienstverzeichnisse ein, legt Fifos an und startet Dienste als
+# verschiedene Nutzer -- das geht nur als root. Home-Assistant-Add-ons laufen
+# standardmaessig als root; die Absicherung leisten hier `apparmor` und der
+# Verzicht auf `full_access` (siehe config.yaml, Abschnitt
+# „SECURITY POSTURE"), nicht ein unprivilegierter Benutzer im Container.
+USER root
+
 ARG S6_OVERLAY_VERSION=3.1.6.2
 
 # ZWEI Architektur-Quellen, und die Reihenfolge ist wichtig:

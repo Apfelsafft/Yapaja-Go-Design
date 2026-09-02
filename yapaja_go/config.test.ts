@@ -382,6 +382,56 @@ describe('die Installation kann tatsaechlich durchlaufen', () => {
     }
   });
 
+  /**
+   * DER TEST FUER DIE VIERTE SCHICHT (2026-09-02).
+   *
+   * Docker fuehrt jedes `RUN` als den zuletzt gesetzten `USER` aus, und der
+   * wird von `FROM` mit uebernommen. Das Valhalla-Basisimage setzt einen
+   * nicht-privilegierten Benutzer, weshalb der erste `apt-get` der letzten
+   * Stufe scheiterte:
+   *
+   *     E: Could not open lock file /var/lib/apt/lists/lock
+   *        - open (13: Permission denied)
+   *
+   * Die letzte Stufe MUSS root sein -- nicht nur fuer apt, sondern weil
+   * dieses Add-on s6-overlay als PID 1 mitbringt (`ENTRYPOINT ["/init"]`),
+   * und das braucht root. Der Test verankert das an der Stelle, an der es
+   * gilt: vor dem ersten `RUN` der letzten Stufe.
+   */
+  it('die letzte Build-Stufe setzt USER root vor ihrem ersten RUN', () => {
+    const lines = readFileSync(DOCKERFILE_PATH, 'utf-8').split('\n');
+
+    const fromIdx = lines.reduce(
+      (acc, l, i) => (/^\s*FROM\s/i.test(l) ? i : acc),
+      -1,
+    );
+    expect(fromIdx, 'Dockerfile enthaelt kein FROM').toBeGreaterThanOrEqual(0);
+
+    const finalStage = lines.slice(fromIdx + 1);
+    const firstRun = finalStage.findIndex((l) => /^\s*RUN\s/i.test(l));
+    const userRoot = finalStage.findIndex((l) => /^\s*USER\s+root\s*$/i.test(l));
+
+    // Plausibilitaet: die letzte Stufe MUSS ein RUN haben, sonst prueft der
+    // Test nichts.
+    expect(firstRun).toBeGreaterThanOrEqual(0);
+
+    expect(
+      userRoot,
+      'Die letzte Build-Stufe setzt nirgends `USER root`. Das Basisimage ' +
+        'bestimmt dann den Benutzer -- beim Valhalla-Image ist das ein ' +
+        'unprivilegierter, und jedes apt-get/Schreiben nach /usr, /var oder / ' +
+        'scheitert mit "Permission denied".',
+    ).toBeGreaterThanOrEqual(0);
+
+    expect(
+      userRoot,
+      `\`USER root\` steht erst nach dem ersten RUN der letzten Stufe ` +
+        `(RUN in Zeile ${fromIdx + firstRun + 2}, USER root in Zeile ` +
+        `${fromIdx + userRoot + 2}). Das erste RUN laeuft dann noch als der ` +
+        `Benutzer des Basisimages.`,
+    ).toBeLessThan(firstRun);
+  });
+
   /** `build_from` muss jede unter `arch:` genannte Architektur abdecken --
    *  sonst schlaegt der Bau genau auf der Hardware fehl, fuer die das Add-on
    *  sich zustaendig erklaert. */
