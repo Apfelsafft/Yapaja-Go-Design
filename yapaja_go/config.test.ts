@@ -534,6 +534,49 @@ describe('die Installation kann tatsaechlich durchlaufen', () => {
     ).toBe(false);
   });
 
+  /**
+   * DIE SIEBTE SCHICHT (2026-09-02): das Update kam auf dem Geraet nie an.
+   *
+   * Docker bildet den Cache-Schluessel einer `RUN`-Zeile aus ihrem
+   * BEFEHLSTEXT, nicht aus dem, was der Befehl herunterlaedt. Stage 1 holt
+   * den Quelltext von `tar.gz/main` -- ein beweglicher Zeiger, dessen Text
+   * sich nie aendert. Der Schritt lief deshalb genau EINMAL und wurde danach
+   * bei jedem Bau aus dem Cache genommen (`#10 ... CACHED` im Log).
+   *
+   * Sichtbar wurde das nicht als Fehler, sondern als scheinbar erfolgreiches
+   * Update: der Supervisor liest `version:` aus dem Git-Klon und zeigte
+   * 0.1.4 an, waehrend das Image den Quelltext von Stunden zuvor enthielt.
+   * Zwei Releases kamen nie an.
+   *
+   * Der Fetch-Schritt muss deshalb einen Wert lesen, der sich pro Version
+   * aendert. `BUILD_VERSION` uebergibt der Supervisor aus `config.yaml`.
+   */
+  it('der Quelltext-Fetch haengt am Cache-Schluessel von der Add-on-Version ab', () => {
+    const dockerfile = readFileSync(DOCKERFILE_PATH, 'utf-8');
+
+    // Die RUN-Zeile, die den Quelltext holt (inkl. Fortsetzungszeilen).
+    const fetchStep = dockerfile
+      .split(/\n(?=[A-Z]+ )/)
+      .find((block) => block.includes('codeload.github.com'));
+    expect(fetchStep, 'kein Quelltext-Fetch im Dockerfile gefunden').toBeTruthy();
+
+    expect(
+      /\$\{?BUILD_VERSION\}?/.test(fetchStep ?? ''),
+      'Der Quelltext-Fetch liest BUILD_VERSION nicht. Ohne einen Wert, der sich pro ' +
+        'Version aendert, bleibt der Befehlstext gleich -- Docker nimmt den Schritt aus ' +
+        'dem Cache und das Image behaelt ewig denselben Quelltext, obwohl der Supervisor ' +
+        'eine neue Version anzeigt.',
+    ).toBe(true);
+
+    // Und das ARG muss in DERSELBEN Stufe deklariert sein, sonst ist es leer.
+    const stage = (fetchStep ?? '') + dockerfile.slice(0, dockerfile.indexOf('codeload'));
+    expect(
+      /^\s*ARG\s+BUILD_VERSION/m.test(stage),
+      'BUILD_VERSION wird im Fetch-Schritt gelesen, ist in dieser Stufe aber nicht als ' +
+        'ARG deklariert -- es expandiert dann zu nichts und bustet keinen Cache.',
+    ).toBe(true);
+  });
+
   /** `build_from` muss jede unter `arch:` genannte Architektur abdecken --
    *  sonst schlaegt der Bau genau auf der Hardware fehl, fuer die das Add-on
    *  sich zustaendig erklaert. */

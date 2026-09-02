@@ -501,6 +501,38 @@ auf, sodass dessen Shebang gilt. Zusätzlich prüft der Bau jetzt selbst, dass
 legte `ln -sf` auch einen ins Leere zeigenden Symlink an, der Bau blieb grün
 und der Fehler kam erst beim Start.
 
+### Update installiert, aber die Oberfläche ist die alte
+
+Der Supervisor zeigt die neue Version, das Add-on startet — und trotzdem
+fehlen Knöpfe oder Texte aus dem Release. Im Build-Log steht:
+
+```
+#10 [core-build 5/8] RUN set -eux; curl ... tar.gz/main
+#10 CACHED
+```
+
+**Ursache (behoben):** Docker bildet den Cache-Schlüssel einer `RUN`-Zeile
+aus ihrem **Befehlstext**, nicht aus dem, was der Befehl herunterlädt. Der
+Quelltext wird von `tar.gz/main` geholt — einem beweglichen Zeiger, dessen
+Text sich nie ändert. Der Schritt lief deshalb genau einmal und wurde danach
+bei jedem Bau aus dem Cache genommen.
+
+Das sah nicht wie ein Fehler aus, sondern wie ein erfolgreiches Update: der
+Supervisor liest `version:` aus dem **Git-Klon**, nicht aus dem Image, und
+zeigte brav die neue Nummer an, während das Image den Quelltext von Stunden
+zuvor enthielt.
+
+**Lösung:** Der Fetch-Schritt liest jetzt `BUILD_VERSION` (übergibt der
+Supervisor aus `config.yaml`). Der Cache-Schlüssel ändert sich damit bei
+jedem Versions-Bump, und der Quelltext wird neu geholt.
+
+**Folge für die Entwicklung:** jede Änderung braucht einen Versions-Bump in
+`config.yaml`. Ohne ihn behält der Bau den alten Quelltext. `config.test.ts`
+prüft die Verdrahtung, nicht den Bump — den muss man selbst machen.
+
+**Wenn du in dieser Lage steckst:** auf die nächste Version aktualisieren.
+Ein „Rebuild" allein hilft nicht, weil er denselben Cache trifft.
+
 ### „could not read Username for 'https://github.com'"
 
 ```
