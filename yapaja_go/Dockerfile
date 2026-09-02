@@ -269,6 +269,39 @@ COPY --from=core-build /app/apps/core/package.json ./apps/core/package.json
 COPY --from=core-build /app/apps/core/dist ./apps/core/dist
 COPY --from=core-build /app/apps/web/dist ./apps/core/public
 
+# ---- Datenaufbereitungs-Skripte (Kacheln, Routinggraph, Lite-Suchindex) ----
+# ─── WARUM DIESE DREI DATEIEN INS IMAGE GEHOEREN ────────────────────────────
+# Ohne sie ist JEDE Anweisung, die dieses Produkt seinem Betreiber gibt, auf
+# seinem Geraet unausfuehrbar. Der Fehlercode `NO_DOWNLOAD_URL` sagt
+# „services/tiles/build-pmtiles.sh <pfad>", die Installationspruefung sagt
+# dasselbe, `docs/installation.md` §C beschreibt es ausfuehrlich -- und bis
+# 2026-09-02 lag keine dieser Dateien im Add-on-Image. Wer Yapaja ueber den
+# HA-Store installiert, hat dieses Repository nicht; fuer ihn verwiesen alle
+# drei Stellen auf etwas, das es bei ihm nirgends gibt.
+#
+# Das ist derselbe Fehler wie der Katalog, der auf 404-URLs zeigte: eine
+# Anweisung, die nicht befolgt werden KANN, ist schlimmer als keine -- sie
+# schickt den Betreiber auf die Fehlersuche in seiner eigenen Installation.
+#
+# Sie kommen aus dem in Stufe 1 heruntergeladenen Quelltext, nicht aus dem
+# Build-Kontext (der ist `yapaja_go/`, siehe Kopfkommentar).
+#
+# NUR `build-pmtiles.sh` -- und das ist Absicht, keine Nachlaessigkeit.
+# Die beiden Geschwisterskripte sind in diesem Container NICHT lauffaehig:
+#   * `services/valhalla/build-tiles.sh` bricht mit
+#     „FEHLER: docker nicht im PATH gefunden" ab. In einem HA-Add-on gibt es
+#     keinen Docker-Socket (dieselbe Einschraenkung, wegen der
+#     build-pmtiles.sh ueberhaupt einen JAR-Modus hat).
+#   * `services/valhalla/build-lite-index.sh` braucht `osmium` (nicht
+#     installiert) und ruft `pnpm exec tsx src/...` aus dem Repository auf,
+#     das hier nicht liegt.
+# Sie mitzuliefern wuerde genau den Fehler wiederholen, den dieser Abschnitt
+# behebt: ein Werkzeug bereitstellen, das beim ersten Aufruf scheitert.
+# Beide Wege stehen stattdessen ehrlich in `docs/installation.md` §C.5 als
+# „auf einem anderen Rechner bauen und die Datei ablegen".
+COPY --from=core-build /app/services/tiles/build-pmtiles.sh /opt/yapaja/bin/build-pmtiles.sh
+RUN chmod +x /opt/yapaja/bin/build-pmtiles.sh && test -x /opt/yapaja/bin/build-pmtiles.sh
+
 # ---- Our rootfs overlay: s6-rc.d service tree + init script (see ----
 # ---- rootfs/etc/s6-overlay/s6-rc.d/ and rootfs/etc/yapaja/) ----
 COPY rootfs/ /

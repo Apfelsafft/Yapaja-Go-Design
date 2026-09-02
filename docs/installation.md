@@ -337,12 +337,27 @@ curl -s http://localhost:8080/api/v1/system/preflight | jq .
 Für Liechtenstein, ein deutsches Bundesland oder einen US-Bundesstaat reicht
 das Gerät selbst, auch eine HAOS-VM mit 8 GB.
 
+**Im Add-on** (Home Assistant → Terminal, dann in den Container wechseln):
+
 ```bash
-# Beispiel Rheinland-Pfalz (~300 MB PBF)
-services/tiles/build-pmtiles.sh \
-  https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf
+docker exec -it $(docker ps --format '{{.Names}}' | grep yapaja_go) bash
 
 # Beispiel Liechtenstein (~3,5 MB PBF, Minuten)
+yapaja-build-pmtiles https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+
+# Beispiel Rheinland-Pfalz (~300 MB PBF, deutlich länger)
+yapaja-build-pmtiles https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf
+```
+
+`yapaja-build-pmtiles` ist ein Wrapper, der `TILES_DIR` auf
+`/share/yapaja/tiles` setzt und beim **ersten** Aufruf einmalig
+`planetiler.jar` (~100 MB) nach `/share/yapaja/tools/` lädt — dort bleibt sie
+über Add-on-Updates hinweg. Er nutzt den JAR-Modus, weil es im Add-on-Container
+keinen Docker-Socket gibt.
+
+**Aus einem Repository-Checkout** (anderer Rechner, mit Docker):
+
+```bash
 services/tiles/build-pmtiles.sh \
   https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
 ```
@@ -354,12 +369,39 @@ die bisherige Kartendatei unangetastet. Ein Neustart ist danach **nicht**
 nötig — der Core liest das Verzeichnis bei jeder Anfrage frisch; in der App
 genügt ein Reload.
 
-Danach denselben Extrakt für Routing und Suche verwenden:
+### C.3a Routinggraph und Suchindex — nur auf einem anderen Rechner
+
+Für Routing und Suche braucht es zwei weitere Erzeugnisse aus **derselben**
+`.osm.pbf`. Beide lassen sich **nicht auf dem Gerät bauen**, und das ist keine
+Bequemlichkeitsfrage:
+
+| Erzeugnis | Werkzeug | Warum nicht im Add-on |
+|---|---|---|
+| Routinggraph | `services/valhalla/build-tiles.sh` | braucht einen **Docker-Socket** — den hat ein HA-Add-on nicht |
+| Lite-Suchindex | `services/valhalla/build-lite-index.sh` | braucht **osmium** und einen Repository-Checkout |
+
+Deshalb liegen diese beiden Skripte bewusst **nicht** im Add-on-Image: ein
+mitgeliefertes Werkzeug, das beim ersten Aufruf abbricht, ist schlimmer als
+keines.
+
+Auf einem Rechner mit Docker und dem Repository:
 
 ```bash
-services/valhalla/build-tiles.sh data/pbf/rheinland-pfalz-latest.osm.pbf
+services/valhalla/build-tiles.sh      data/pbf/rheinland-pfalz-latest.osm.pbf
 services/valhalla/build-lite-index.sh data/pbf/rheinland-pfalz-latest.osm.pbf
 ```
+
+Die Ergebnisse danach per **„Samba share"**- oder **„File editor"**-Add-on
+ablegen:
+
+| Datei | Ziel auf der HAOS-VM |
+|---|---|
+| Valhalla-Graph | `/share/yapaja/valhalla/tiles/` |
+| `lite_search.db` | `/share/yapaja/lite-search/` |
+
+Ohne Routinggraph funktionieren Karte, Position und Favoriten weiterhin — nur
+das **Berechnen von Routen** nicht. Ohne Suchindex bleibt die Adresssuche leer;
+Navigieren zu Koordinaten und Favoriten geht trotzdem.
 
 ### C.4 Im Add-on-Container gibt es kein Docker
 

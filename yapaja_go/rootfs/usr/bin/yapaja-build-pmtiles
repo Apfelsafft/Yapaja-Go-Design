@@ -1,0 +1,79 @@
+#!/command/with-contenv bash
+# ==============================================================================
+# yapaja-build-pmtiles -- Kartenkacheln fuer eine Region bauen, VON INNEN.
+#
+# ─── WOZU DIESER WRAPPER ────────────────────────────────────────────────────
+# `services/tiles/build-pmtiles.sh` ist fuer einen Checkout des Repositories
+# geschrieben: es leitet `TILES_DIR` aus der Repo-Wurzel ab und ruft
+# standardmaessig `docker run` auf. Beides trifft im Add-on-Container nicht
+# zu -- es gibt kein Repository und keinen Docker-Socket.
+#
+# Dieser Wrapper setzt genau die drei Dinge, die dort anders sind:
+#   * TILES_DIR      -> das persistente Add-on-Verzeichnis unter /share
+#   * PLANETILER_JAR -> schaltet das Skript vom Docker- in den JAR-Modus
+#   * PLANETILER_XMX -> Heap, aus der Add-on-Option `valhalla_memory_mb`
+#                       abgeleitet bzw. konservativ gedeckelt
+#
+# ─── WARUM DIE JAR NICHT IM IMAGE LIEGT ─────────────────────────────────────
+# ~100 MB, die jeder Betreiber mitschleppen wuerde, auch wenn er nie eine
+# Region baut (etwa weil er die fertige Datei per „Samba share" ablegt).
+# Sie wird beim ERSTEN Bau nach /share/yapaja/tools/ geladen und bleibt
+# dort -- ausserhalb des Containers, also ueber Add-on-Updates hinweg.
+#
+# ─── VERWENDUNG ─────────────────────────────────────────────────────────────
+#   yapaja-build-pmtiles <pbf-url-oder-pfad> [region-id]
+#
+# Beispiele:
+#   yapaja-build-pmtiles https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+#   yapaja-build-pmtiles https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf
+#
+# Ohne region-id wird sie aus dem Dateinamen abgeleitet
+# ("liechtenstein-latest.osm.pbf" -> "liechtenstein").
+#
+# Nach einem erfolgreichen Lauf ist KEIN Neustart noetig: der Core listet die
+# Regionen bei jeder Anfrage frisch aus dem Verzeichnis. In der Oberflaeche
+# genuegt ein Reload.
+# ==============================================================================
+set -euo pipefail
+
+PLANETILER_VERSION="${PLANETILER_VERSION:-v0.10.2}"
+TOOLS_DIR="${YAPAJA_TOOLS_DIR:-/share/yapaja/tools}"
+JAR_PATH="${PLANETILER_JAR:-$TOOLS_DIR/planetiler-$PLANETILER_VERSION.jar}"
+
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+  cat >&2 <<'EOF'
+Usage: yapaja-build-pmtiles <pbf-url-oder-pfad> [region-id]
+
+Beispiel:
+  yapaja-build-pmtiles https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+
+Env-Overrides:
+  TILES_DIR        Zielverzeichnis (Default: /share/yapaja/tiles)
+  PLANETILER_JAR   eigene planetiler.jar statt der automatisch geladenen
+  PLANETILER_XMX   JVM-Heap (Default: 2g)
+EOF
+  exit 1
+fi
+
+# TILES_DIR kommt normalerweise aus dem Container-Environment (gesetzt von
+# rootfs/etc/yapaja/init-yapaja-config.sh). Der Default hier ist nur der
+# Rueckfall, wenn jemand den Wrapper ausserhalb des s6-Kontexts aufruft.
+export TILES_DIR="${TILES_DIR:-/share/yapaja/tiles}"
+export PLANETILER_XMX="${PLANETILER_XMX:-2g}"
+
+mkdir -p "$TILES_DIR" "$TOOLS_DIR"
+
+if [ ! -s "$JAR_PATH" ]; then
+  echo "== planetiler $PLANETILER_VERSION wird einmalig geladen (~100 MB) nach $JAR_PATH =="
+  # Erst in eine .part-Datei, dann umbenennen: ein abgebrochener Download
+  # darf beim naechsten Lauf nicht als fertige JAR durchgehen.
+  curl -fL --retry 3 --retry-delay 5 \
+    "https://github.com/onthegomap/planetiler/releases/download/$PLANETILER_VERSION/planetiler.jar" \
+    -o "$JAR_PATH.part"
+  mv "$JAR_PATH.part" "$JAR_PATH"
+fi
+
+export PLANETILER_JAR="$JAR_PATH"
+
+echo "== Baue Kacheln nach $TILES_DIR (Heap $PLANETILER_XMX, JAR $PLANETILER_JAR) =="
+exec /opt/yapaja/bin/build-pmtiles.sh "$@"
