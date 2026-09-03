@@ -107,6 +107,46 @@ interface DownloadState {
   job: JobSnapshot | null;
 }
 
+/**
+ * Fortschritt eines laufenden Jobs. Lag frueher nur im Katalog-Abschnitt --
+ * und fehlte damit ausgerechnet dort, wo der Routingbau stattfindet: bei
+ * einer bereits INSTALLIERTEN Region. Ein mehrminuetiger Lauf ohne jede
+ * Anzeige ist von einem Haenger nicht zu unterscheiden.
+ */
+function JobProgress({ regionId, job }: { regionId: string; job: JobSnapshot }): React.ReactElement {
+  return (
+    <div className="mt-1" data-testid={`download-progress-${regionId}`}>
+      {/* Ein Bau hat keinen messbaren Fortschritt: die Ausgabe der
+          Bauwerkzeuge laesst sich nicht versionsstabil in eine Zahl
+          uebersetzen. Statt eine Prozentzahl zu erfinden, laeuft der Balken
+          unbestimmt und darunter steht die letzte Ausgabezeile (`job.note`).
+          Downloads haben eine echte Byte-Zahl und behalten ihre Prozente. */}
+      <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+        <div
+          className={
+            job.totalBytes === null
+              ? 'h-full w-1/3 bg-blue-500 animate-pulse'
+              : 'h-full bg-blue-500 transition-[width]'
+          }
+          style={
+            job.totalBytes === null ? undefined : { width: `${Math.round(job.progress * 100)}%` }
+          }
+        />
+      </div>
+      <div
+        className="text-xs text-slate-500 dark:text-slate-400 mt-0.5"
+        data-testid={`job-status-${regionId}`}
+      >
+        {job.status === 'error'
+          ? `Fehler: ${job.error?.message ?? 'Vorgang fehlgeschlagen'}`
+          : job.totalBytes === null
+            ? (job.note ?? 'Läuft…')
+            : `${Math.round(job.progress * 100)}%`}
+      </div>
+    </div>
+  );
+}
+
 export default function RegionsPanel(): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
   const [installed, setInstalled] = useState<InstalledRegion[]>([]);
@@ -259,7 +299,24 @@ export default function RegionsPanel(): React.ReactElement {
               </p>
             )}
             <ul className="space-y-2">
-              {installed.map((region) => (
+              {installed.map((region) => {
+                // Sobald die KACHELN installiert sind, verschwindet die Region
+                // aus „Verfuegbare Regionen" -- und damit verschwand auch der
+                // Knopf „Routing bauen", der dort stand. Der Routinggraph ist
+                // aber ein ZWEITES, unabhaengiges Erzeugnis: wer die Karte
+                // gebaut hat, hat noch lange kein Routing. Der Betreiber stand
+                // damit vor einer Oberflaeche ohne jeden Weg zum Graphen und
+                // versuchte, die Karte zu loeschen, um den Knopf
+                // zurueckzubekommen -- was die Letzte-Region-Regel (zu Recht)
+                // ebenfalls verweigert. Eine Sackgasse mit zwei Waenden.
+                //
+                // Deshalb steht der Knopf jetzt AUCH hier. `pbfUrl` kommt aus
+                // dem Katalog; ohne Quelle gibt es nichts zu bauen.
+                const catalogEntry = catalog.find((candidate) => candidate.id === region.region);
+                const state = downloads[region.region];
+                const job = state?.job ?? null;
+                const isActive = Boolean(state) && (!job || (job.status !== 'done' && job.status !== 'error'));
+                return (
                 <li
                   key={region.region}
                   className="border border-slate-200 dark:border-slate-700 rounded-lg p-2"
@@ -272,14 +329,29 @@ export default function RegionsPanel(): React.ReactElement {
                         {formatBytes(region.size_bytes)} · {formatBounds(region.bounds)}
                       </div>
                     </div>
-                    <button
-                      onClick={() => void handleDelete(region.region)}
-                      className="shrink-0 px-2 py-1 rounded-md border border-red-300 text-red-600 dark:border-red-700 dark:text-red-400 text-xs hover:bg-red-50 dark:hover:bg-red-900/30"
-                      data-testid={`delete-button-${region.region}`}
-                    >
-                      Löschen
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {catalogEntry?.pbfUrl ? (
+                        <button
+                          onClick={() => void handleGraphBuild(region.region)}
+                          disabled={isActive}
+                          className="px-2 py-1 rounded-md border border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 text-xs hover:bg-emerald-50 dark:hover:bg-emerald-900/30 disabled:opacity-50"
+                          data-testid={`graph-build-button-${region.region}`}
+                        >
+                          {isActive ? 'Baut…' : 'Routing bauen'}
+                        </button>
+                      ) : null}
+                      <button
+                        onClick={() => void handleDelete(region.region)}
+                        className="px-2 py-1 rounded-md border border-red-300 text-red-600 dark:border-red-700 dark:text-red-400 text-xs hover:bg-red-50 dark:hover:bg-red-900/30"
+                        data-testid={`delete-button-${region.region}`}
+                      >
+                        Löschen
+                      </button>
+                    </div>
                   </div>
+                  {job && job.status !== 'done' && (
+                    <JobProgress regionId={region.region} job={job} />
+                  )}
                   {errorByRegion[region.region] && (
                     <p
                       className="mt-1 text-xs text-red-600 dark:text-red-400"
@@ -289,7 +361,8 @@ export default function RegionsPanel(): React.ReactElement {
                     </p>
                   )}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </section>
 
@@ -374,39 +447,7 @@ export default function RegionsPanel(): React.ReactElement {
                       </p>
                     )}
                     {job && job.status !== 'done' && (
-                      <div className="mt-1" data-testid={`download-progress-${entry.id}`}>
-                        {/* Ein Kachelbau hat keinen messbaren Fortschritt:
-                            planetilers Ausgabe laesst sich nicht
-                            versionsstabil in eine Zahl uebersetzen. Statt
-                            eine Prozentzahl zu erfinden, laeuft der Balken
-                            unbestimmt und darunter steht die letzte
-                            Ausgabezeile (`job.note`). Downloads haben eine
-                            echte Byte-Zahl und behalten ihre Prozente. */}
-                        <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                          <div
-                            className={
-                              job.totalBytes === null
-                                ? 'h-full w-1/3 bg-blue-500 animate-pulse'
-                                : 'h-full bg-blue-500 transition-[width]'
-                            }
-                            style={
-                              job.totalBytes === null
-                                ? undefined
-                                : { width: `${Math.round(job.progress * 100)}%` }
-                            }
-                          />
-                        </div>
-                        <div
-                          className="text-xs text-slate-500 dark:text-slate-400 mt-0.5"
-                          data-testid={`job-status-${entry.id}`}
-                        >
-                          {job.status === 'error'
-                            ? `Fehler: ${job.error?.message ?? 'Vorgang fehlgeschlagen'}`
-                            : job.totalBytes === null
-                              ? (job.note ?? 'Läuft…')
-                              : `${Math.round(job.progress * 100)}%`}
-                        </div>
-                      </div>
+                      <JobProgress regionId={entry.id} job={job} />
                     )}
                     {errorByRegion[entry.id] && (
                       <p

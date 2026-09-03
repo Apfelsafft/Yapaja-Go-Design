@@ -10,6 +10,27 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.2.1
+
+**„Routing bauen" ist jetzt auch bei einer bereits installierten Karte
+erreichbar.**
+
+In 0.2.0 stand der Knopf nur bei Regionen, die noch **nicht** installiert
+waren. Sobald die Kacheln fertig waren, wanderte die Region in „Installierte
+Regionen" — und der Knopf verschwand mit ihr. Wer die Karte gebaut hatte,
+hatte damit keinen Weg mehr zum Routinggraphen, obwohl die
+Installationsprüfung ihn weiterhin anmahnte.
+
+Der naheliegende Ausweg — die Karte löschen, um den Knopf zurückzubekommen —
+führt ebenfalls nicht weiter: die letzte installierte Region lässt sich nicht
+löschen. Eine Sackgasse mit zwei Wänden.
+
+Der Routinggraph ist ein **zweites, unabhängiges Erzeugnis**: wer die Karte
+hat, hat noch lange kein Routing. Der Knopf steht deshalb jetzt in beiden
+Abschnitten. Ein laufender Bau zeigt dort auch seinen Fortschritt — vorher
+gab es die Anzeige nur im Katalog, also gerade nicht dort, wo der Routingbau
+stattfindet.
+
 ## 0.2.0
 
 **Der Routinggraph lässt sich jetzt auf dem Gerät bauen — neuer Knopf
