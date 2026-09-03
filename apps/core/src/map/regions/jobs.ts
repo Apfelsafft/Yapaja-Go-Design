@@ -42,6 +42,9 @@ export interface JobSnapshot {
 interface JobRecord extends JobSnapshot {
   cancelled: boolean;
   onCancel: (() => void) | null;
+  /** Grobe Art des Jobs. Nur dafuer da, laufende Jobs derselben Art
+   *  wiederzufinden -- siehe `findUnfinished`. */
+  kind: string | null;
 }
 
 function nowIso(): string {
@@ -69,8 +72,10 @@ function isFinished(record: JobRecord): boolean {
 export class JobRegistry {
   private readonly jobs = new Map<string, JobRecord>();
 
-  /** Registers a new job in `queued` state and returns its id. */
-  create(): string {
+  /** Registers a new job in `queued` state and returns its id. `kind` ist
+   *  optional und dient allein dazu, laufende Jobs derselben Art
+   *  wiederzufinden (`findUnfinished`). */
+  create(kind: string | null = null): string {
     const id = randomUUID();
     const timestamp = nowIso();
     this.jobs.set(id, {
@@ -82,10 +87,30 @@ export class JobRegistry {
       error: null,
       cancelled: false,
       onCancel: null,
+      kind,
       createdAt: timestamp,
       updatedAt: timestamp,
     });
     return id;
+  }
+
+  /**
+   * Der aelteste noch nicht beendete Job dieser Art, falls es einen gibt.
+   *
+   * Gebraucht wird das, weil zwei gleichzeitige Kachelbauten einander
+   * zerstoeren: beide planetiler-Prozesse benutzen DASSELBE Verzeichnis fuer
+   * die gemeinsamen Basisdaten. Der zweite Lauf liest dann eine Datei, die
+   * der erste noch herunterlaedt, und stirbt an
+   * `java.util.zip.ZipException: zip END header not found` -- ein Fehler, der
+   * wie ein kaputter Download aussieht und in Wahrheit ein Wettlauf ist.
+   */
+  findUnfinished(kind: string): JobSnapshot | undefined {
+    for (const record of this.jobs.values()) {
+      if (record.kind === kind && !isFinished(record)) {
+        return toSnapshot(record);
+      }
+    }
+    return undefined;
   }
 
   get(id: string): JobSnapshot | undefined {

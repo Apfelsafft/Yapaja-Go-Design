@@ -10,6 +10,36 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.1.9
+
+**Zwei Kachelbauten gleichzeitig gehen nicht mehr — und das ist eine
+Reparatur, keine Einschränkung.**
+
+Bricht der Bau bei dir mit dieser Zeile ab, ist genau das hier gemeint:
+
+```
+java.util.zip.ZipException: zip END header not found
+```
+
+Das sieht nach einer kaputten Datei aus, war aber ein Wettlauf: wird
+„Kacheln bauen" ein zweites Mal gedrückt, während der erste Lauf noch die
+gemeinsamen Basisdaten lädt, liest der zweite Prozess eine Datei, die der
+erste gerade erst schreibt. Beide teilen sich dasselbe Verzeichnis.
+
+Ein zweiter Bau wird jetzt abgelehnt, solange einer läuft — auch für eine
+**andere** Region, denn geteilt ist das Quellenverzeichnis, nicht die
+Region. Die Meldung sagt, warum.
+
+**Eine abgebrochene Basisdatei blockiert nicht mehr dauerhaft.** Wurde eine
+der gemeinsamen Dateien nur halb geladen, wurde sie danach nie wieder
+erneuert — sie existierte ja — und jeder weitere Bau scheiterte an derselben
+Stelle. Da die Datei unter `/share` liegt und der vorgesehene Bedienweg nur
+die Oberfläche ist, gab es kein Mittel, sie loszuwerden. Unvollständige
+Dateien werden jetzt vor dem Bau erkannt, verworfen und neu geladen.
+
+**Abbrechen wirkt sofort.** Ein abgebrochener Bau gibt den Knopf sofort
+wieder frei, statt zu warten, bis der Hintergrundprozess tatsächlich endet.
+
 ## 0.1.8
 
 **Der Kachelbau läuft jetzt tatsächlich durch.**

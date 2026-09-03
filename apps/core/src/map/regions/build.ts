@@ -43,6 +43,11 @@ import type { JobRegistry } from './jobs.js';
  *  beim ersten Lauf planetiler.jar und ruft dann das eigentliche Skript. */
 export const BUILD_COMMAND = '/usr/bin/yapaja-build-pmtiles';
 
+/** Job-Art des Kachelbaus. Die Route erkennt daran einen bereits laufenden
+ *  Bau -- zwei gleichzeitige Laeufe teilen sich das Quellenverzeichnis und
+ *  zerstoeren einander (siehe `JobRegistry.findUnfinished`). */
+export const BUILD_JOB_KIND = 'tile-build';
+
 /** JVM-Heap fuer planetiler. 2 GB ist der Wert, mit dem eine kleine bis
  *  mittlere Region (Liechtenstein bis Bundesland) durchlaeuft, ohne eine
  *  8-GB-VM neben Home Assistant zu sprengen. */
@@ -160,8 +165,24 @@ export function runBuildJob(
   // Ein Abbruch aus der Oberfläche muss den Prozess wirklich beenden --
   // sonst läuft planetiler stundenlang weiter, während die Anzeige
   // „abgebrochen" behauptet.
+  //
+  // Der Job wird SOFORT beendet, nicht erst wenn das Kind wirklich stirbt.
+  // Andernfalls entsteht eine Falle: seit ein laufender Bau jeden weiteren
+  // sperrt (BUILD_JOB_KIND), wuerde ein Kindprozess, der auf SIGTERM nicht
+  // reagiert, den Knopf „Kacheln bauen" bis zum Neustart des Add-ons
+  // blockieren -- und ein Add-on-Neustart ist genau die Art Ausweg, die auf
+  // dem vorgesehenen Bedienweg niemand finden soll.
+  //
+  // `markError` auf einem bereits beendeten Job ist ein No-op, der
+  // `close`-Zweig unten darf also gefahrlos noch einmal dasselbe tun.
   jobs.setOnCancel(jobId, () => {
     child.kill('SIGTERM');
+    jobs.markError(jobId, {
+      code: 'CANCELLED',
+      message:
+        'Bau abgebrochen. Die bisherige Kartendatei ist unverändert — das Skript ' +
+        'wechselt erst nach vollständiger Prüfung ein (W-17).',
+    });
   });
 
   // Die Ausgabe geht an ZWEI Stellen, und beide werden gebraucht:
