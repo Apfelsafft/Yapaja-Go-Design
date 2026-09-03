@@ -914,7 +914,6 @@ jobs:
           rows = cur.fetchall()
           print("Treffer fuer 'Vadu':", rows)
           names = [r[0] for r in rows]
-          kinds_by_name = {r[0]: r[1] for r in rows}
           assert "Vaduz" in names, "Vaduz nicht gefunden"
           # Akzeptanz #1 verlangt nur, dass Vaduz GEFUNDEN wird -- der genaue
           # kind haengt an OSMs Tagging (Vaduz ist als kleine Hauptstadt real
@@ -922,8 +921,18 @@ jobs:
           # nur, dass es als ORT (nicht als Strasse) im Index landet. Die
           # kind-Rangfolge (city>town>village>street) ist separat in
           # ranking.test.ts gegen synthetische Daten bewiesen.
-          assert kinds_by_name["Vaduz"] in ("city", "town", "village"), (
-              f"Vaduz hat unerwarteten kind: {kinds_by_name['Vaduz']}"
+          #
+          # ALLE Zeilen mit diesem Namen ansehen, nicht eine.
+          # Seit 0.3.6 stehen auch Sonderziele im Index, und in Liechtenstein
+          # heissen mehrere davon woertlich "Vaduz" (Bushaltestelle, Poststelle
+          # ...). Ein dict {name: kind} behaelt davon die LETZTE Zeile und
+          # verglich dann den Ort mit dem kind eines POI -- der Index war
+          # richtig, die Pruefung war es nicht. Namen sind nicht eindeutig;
+          # diese Annahme trug nur, solange es ausser Orten und Strassen
+          # nichts gab.
+          vaduz_kinds = {r[1] for r in rows if r[0] == "Vaduz"}
+          assert vaduz_kinds & {"city", "town", "village"}, (
+              f"Vaduz steht im Index, aber unter keiner Ortsart: {sorted(vaduz_kinds)}"
           )
 
           cur.execute("SELECT COUNT(*) FROM places WHERE kind = 'street'")
