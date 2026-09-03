@@ -152,6 +152,37 @@ if grep -q "/custom_files/${STAGING_NAME}" "$CONFIG"; then
   exit 1
 fi
 
+# ─── VERWEISE AUF DATEIEN ENTFERNEN, DIE WIR NICHT BAUEN ────────────────────
+# `valhalla_build_config` traegt IMMER `mjolnir.tile_extract`
+# (valhalla_tiles.tar) und `mjolnir.traffic_extract` (traffic.tar) ein, auch
+# wenn beide gar nicht erzeugt werden. Wir bauen ein Kachel-VERZEICHNIS; das
+# ist der normale Weg und funktioniert vollstaendig.
+#
+# Beim Start sucht valhalla_service die Tar-Dateien trotzdem und meldet:
+#
+#   [ERROR] (stat): /custom_files/valhalla_tiles.tar No such file or directory
+#   [WARN]  Tile extract could not be loaded
+#
+# Danach faellt es auf das Verzeichnis zurueck und laeuft. Die Meldungen sind
+# also folgenlos -- aber sie stehen als ERROR im Protokoll, direkt nach einem
+# ERFOLGREICHEN Bau. Genau diese Sorte Meldung hat dieses Projekt schon
+# mehrfach auf falsche Faehrten geschickt. Eine Konfiguration soll
+# beschreiben, was da ist, nicht was da sein koennte.
+#
+# Entfernt werden nur diese beiden Schluessel, best-effort: fehlt `jq`,
+# bleibt alles wie es war (harmlose Warnungen statt eines kaputten Baus).
+if command -v jq >/dev/null 2>&1; then
+  if jq 'del(.mjolnir.tile_extract) | del(.mjolnir.traffic_extract)' "$CONFIG" > "$CONFIG.tmp" \
+     && [ -s "$CONFIG.tmp" ]; then
+    mv "$CONFIG.tmp" "$CONFIG"
+  else
+    rm -f "$CONFIG.tmp"
+    echo "Hinweis: tile_extract/traffic_extract konnten nicht entfernt werden."
+    echo "Der Graph laeuft trotzdem; Valhalla meldet beim Start nur zwei ERROR-Zeilen"
+    echo "ueber fehlende .tar-Dateien und benutzt dann das Kachelverzeichnis."
+  fi
+fi
+
 # --- Atomar einwechseln (W-17) ---------------------------------------------
 # Erst das Alte beiseite, dann das Neue an seinen Platz, dann das Alte weg.
 # Schlaegt der mittlere Schritt fehl, wird zurueckgeschoben.

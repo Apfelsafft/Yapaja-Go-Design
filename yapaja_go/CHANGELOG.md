@@ -10,6 +10,29 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.2.2
+
+**Nach einem Bau steht jetzt da, dass er geklappt hat.** Bisher verschwand
+die Fortschrittsanzeige am Ende einfach, und übrig blieb eine Oberfläche wie
+vor dem Klick — ob der Bau geglückt oder still gestorben war, ließ sich nur
+im Add-on-Protokoll nachsehen. Also genau dort, wohin der Weg über die
+Oberfläche nicht führen soll. Ein mehrminütiger Vorgang endet jetzt mit einer
+Bestätigung.
+
+**Zwei irreführende Fehlermeldungen weniger.** Nach einem erfolgreichen
+Routingbau standen beim Start des Routing-Dienstes diese Zeilen im
+Protokoll:
+
+```
+[ERROR] (stat): /custom_files/valhalla_tiles.tar No such file or directory
+[WARN]  Tile extract could not be loaded
+```
+
+Sie waren folgenlos — der Dienst benutzt danach das Kachelverzeichnis und
+läuft — aber „ERROR" direkt nach einem geglückten Bau ist genau die Sorte
+Meldung, die auf eine falsche Fährte führt. Die Konfiguration verweist jetzt
+nicht mehr auf Dateien, die gar nicht gebaut werden.
+
 ## 0.2.1
 
 **„Routing bauen" ist jetzt auch bei einer bereits installierten Karte

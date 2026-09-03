@@ -72,6 +72,20 @@ describe('RegionsPanel: der Weg zum Routinggraphen darf nicht verschwinden', () 
     expect(catalogSection()).toContain('graph-build-button-');
   });
 
+  it('ein fertiger Bau bleibt sichtbar, statt kommentarlos zu verschwinden', () => {
+    // Frueher wurde die Anzeige bei `status === 'done'` weggefiltert: der
+    // Balken verschwand, und uebrig blieb eine Oberflaeche wie vor dem Klick.
+    // Ob der Bau geglueckt oder still gestorben war, liess sich nicht
+    // unterscheiden -- man musste ins Add-on-Protokoll sehen, also genau
+    // dorthin, wohin der GUI-Weg NICHT fuehren soll.
+    expect(
+      SOURCE,
+      'Die Fortschrittsanzeige darf den Erfolgsfall nicht wegfiltern — ' +
+        'sonst endet ein mehrminütiger Bau ohne jede Rückmeldung.',
+    ).not.toContain("job.status !== 'done' && (\n                    <JobProgress");
+    expect(SOURCE, 'Es fehlt eine Erfolgsmeldung nach dem Bau.').toContain('job-done-');
+  });
+
   it('ein laufender Bau zeigt auch bei installierten Regionen seinen Fortschritt', () => {
     // Ein mehrminuetiger Lauf ohne jede Anzeige ist von einem Haenger nicht zu
     // unterscheiden. Die Fortschrittsanzeige lag frueher nur im

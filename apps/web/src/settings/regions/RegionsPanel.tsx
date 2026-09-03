@@ -114,6 +114,26 @@ interface DownloadState {
  * Anzeige ist von einem Haenger nicht zu unterscheiden.
  */
 function JobProgress({ regionId, job }: { regionId: string; job: JobSnapshot }): React.ReactElement {
+  // ─── DER ABSCHLUSS GEHOERT DAZU ───────────────────────────────────────────
+  // Frueher wurde diese Anzeige bei `status === 'done'` gar nicht mehr
+  // gerendert: der Balken verschwand, und uebrig blieb eine Oberflaeche, die
+  // aussah wie vor dem Klick. Ob der Bau geglueckt oder still gestorben war,
+  // liess sich nicht unterscheiden -- man musste ins Add-on-Protokoll sehen,
+  // also genau dorthin, wohin der GUI-Weg NICHT fuehren soll.
+  //
+  // Ein Bau dauert Minuten. Das Ergebnis eines mehrminuetigen Vorgangs
+  // kommentarlos verschwinden zu lassen, ist keine Sparsamkeit, sondern eine
+  // Luecke.
+  if (job.status === 'done') {
+    return (
+      <p
+        className="mt-1 text-xs text-emerald-700 dark:text-emerald-400"
+        data-testid={`job-done-${regionId}`}
+      >
+        ✓ {job.note ?? 'Fertig.'}
+      </p>
+    );
+  }
   return (
     <div className="mt-1" data-testid={`download-progress-${regionId}`}>
       {/* Ein Bau hat keinen messbaren Fortschritt: die Ausgabe der
@@ -349,9 +369,7 @@ export default function RegionsPanel(): React.ReactElement {
                       </button>
                     </div>
                   </div>
-                  {job && job.status !== 'done' && (
-                    <JobProgress regionId={region.region} job={job} />
-                  )}
+                  {job && <JobProgress regionId={region.region} job={job} />}
                   {errorByRegion[region.region] && (
                     <p
                       className="mt-1 text-xs text-red-600 dark:text-red-400"
@@ -446,9 +464,7 @@ export default function RegionsPanel(): React.ReactElement {
                         Anleitung: <code>docs/installation.md</code> §C.
                       </p>
                     )}
-                    {job && job.status !== 'done' && (
-                      <JobProgress regionId={entry.id} job={job} />
-                    )}
+                    {job && <JobProgress regionId={entry.id} job={job} />}
                     {errorByRegion[entry.id] && (
                       <p
                         className="mt-1 text-xs text-red-600 dark:text-red-400"
