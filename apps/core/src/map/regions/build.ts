@@ -81,11 +81,24 @@ export const TILE_BUILD: BuildVariant = {
   doneNote: 'Kacheln fertig eingewechselt.',
 };
 
+/** Der Wrapper fuer den OFFLINE-SUCHINDEX. Er benutzt `osmium` (seit 0.3.4
+ *  im Image) und das gebaute Index-Werkzeug `dist/lite-index.js`. Bis dahin
+ *  hiess es, das ginge auf dem Geraet nicht -- das beschrieb aber nur, was
+ *  wir ins Image gelegt hatten, keine technische Grenze. */
+export const LITE_INDEX_BUILD_COMMAND = '/usr/bin/yapaja-build-lite-index';
+
 export const GRAPH_BUILD: BuildVariant = {
   command: GRAPH_BUILD_COMMAND,
   logPrefix: 'Routingbau',
   humanName: 'Der Bau des Routinggraphen',
   doneNote: 'Routinggraph fertig eingewechselt. Der Dienst startet binnen 30 Sekunden von allein.',
+};
+
+export const LITE_INDEX_BUILD: BuildVariant = {
+  command: LITE_INDEX_BUILD_COMMAND,
+  logPrefix: 'Suchindex',
+  humanName: 'Der Bau des Suchindex',
+  doneNote: 'Suchindex fertig. Die Adresssuche ist ab sofort nutzbar — ohne Neustart.',
 };
 
 /** JVM-Heap fuer planetiler. 2 GB ist der Wert, mit dem eine kleine bis

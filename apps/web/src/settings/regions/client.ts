@@ -175,6 +175,23 @@ export async function startGraphBuild(regionId: string): Promise<string> {
   return body.job_id;
 }
 
+/** Startet den Bau des OFFLINE-SUCHINDEX für `regionId`. Dritter Gegenpart
+ *  zu `startBuild`/`startGraphBuild`, dieselbe Job-Maschinerie. Ohne Index
+ *  bleibt die Adresssuche leer — Navigieren zu einem angetippten Punkt und
+ *  zu Favoriten funktioniert auch ohne. Wirft RegionApiError bei 409
+ *  (BUILD_IN_PROGRESS / INSUFFICIENT_MEMORY / NO_BUILD_SOURCE) oder 404. */
+export async function startSearchIndexBuild(regionId: string): Promise<string> {
+  const response = await fetch(
+    apiUrl(`api/v1/map/regions/${encodeURIComponent(regionId)}/build-search-index`),
+    { method: 'POST' },
+  );
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+  const body = (await response.json()) as { job_id: string };
+  return body.job_id;
+}
+
 /** Fetches one job's current status. Returns null (never throws) on
  *  network/parse failure or an unknown job id, so pollers can just skip a
  *  beat rather than crash. */

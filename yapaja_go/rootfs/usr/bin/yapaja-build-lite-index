@@ -1,0 +1,149 @@
+#!/command/with-contenv bash
+# ==============================================================================
+# yapaja-build-lite-index -- Offline-Suchindex fuer eine Region bauen, VON INNEN.
+#
+# ─── WARUM ES DIESEN WEG GIBT ───────────────────────────────────────────────
+# Bis 0.3.3 sagten die Installationspruefung, das Dockerfile und
+# docs/installation.md uebereinstimmend: der Lite-Index lasse sich auf dem
+# Geraet nicht bauen, das Werkzeug setze `osmium` und einen
+# Repository-Checkout voraus. Beides stimmte -- und beides war eine
+# VERPACKUNGSENTSCHEIDUNG, keine technische Grenze:
+#
+#   * `osmium-tool` ist ein gewoehnliches Ubuntu-Paket. Es fehlte im Image,
+#     weil es niemand hineingelegt hatte.
+#   * Das Index-Werkzeug lag nicht im Image, weil `apps/core/tsup.config.ts`
+#     nur `src/index.ts` als Einstiegspunkt fuehrte. Der Quelltext war seit
+#     E05-T5 fertig.
+#
+# Damit blieb die Adresssuche auf jedem Geraet leer, das keinen zweiten
+# Rechner hat -- und das ist der Normalfall. Dieselbe Fehlerklasse wie beim
+# Kachelbau, beim Routinggraphen und beim JAR-Modus von planetiler: der Weg
+# war da, nur nicht begehbar.
+#
+# ─── WARUM NICHT services/valhalla/build-lite-index.sh ──────────────────────
+# Jenes Skript ruft `pnpm exec tsx src/...` aus dem Repository auf. Das
+# Repository liegt hier nicht; im Image liegt der GEBAUTE Core. Dieser
+# Wrapper macht dieselben drei Schritte gegen das gebaute Werkzeug.
+#
+# ─── ATOMARER TAUSCH ────────────────────────────────────────────────────────
+# Den macht das Werkzeug selbst (`cli.ts`: temporaere Datei + rename(2), W-17).
+# Ein abgebrochener Lauf laesst den bisherigen Index unberuehrt; die Suche
+# funktioniert waehrend des Baus weiter.
+#
+# ─── VERWENDUNG ─────────────────────────────────────────────────────────────
+#   yapaja-build-lite-index <pbf-url-oder-pfad> [region-id]
+# ==============================================================================
+set -euo pipefail
+
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+  cat >&2 <<'EOF'
+Usage: yapaja-build-lite-index <pbf-url-oder-pfad> [region-id]
+
+Beispiel:
+  yapaja-build-lite-index https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+
+Env-Overrides:
+  LITE_SEARCH_DB_PATH  Zielpfad des Index
+                       (Default: /share/yapaja/lite-search/lite_search.db)
+EOF
+  exit 1
+fi
+
+PBF_ARG="$1"
+REGION_ARG="${2:-}"
+
+OUT_DB="${LITE_SEARCH_DB_PATH:-/share/yapaja/lite-search/lite_search.db}"
+CLI="/app/apps/core/dist/lite-index.js"
+
+# Lieber hier hart abbrechen als spaeter „erfolgreich" ohne Index dastehen.
+# Genau das war der Fehler, den der Einstiegspunkt-Waechter in cli.ts
+# verursachte: Programm tat nichts, Rueckgabewert 0.
+if [ ! -f "$CLI" ]; then
+  echo "FEHLER: Index-Werkzeug fehlt im Image ($CLI)." >&2
+  echo "Der Core-Build muss 'lite-index' als Einstiegspunkt fuehren (apps/core/tsup.config.ts)." >&2
+  exit 1
+fi
+command -v osmium >/dev/null 2>&1 || {
+  echo "FEHLER: osmium (osmium-tool) fehlt im Image." >&2
+  echo "Es wird im Dockerfile per apt installiert -- bitte das Add-on neu bauen lassen." >&2
+  exit 1
+}
+
+derive_region_id() {
+  local base
+  base="$(basename "$1")"
+  base="${base%%\?*}"
+  base="${base%.pbf}"
+  base="${base%.osm}"
+  base="${base%-latest}"
+  printf '%s' "$base"
+}
+REGION_ID="${REGION_ARG:-$(derive_region_id "$PBF_ARG")}"
+if ! [[ "$REGION_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+  echo "FEHLER: ungueltige Regions-ID \"$REGION_ID\"." >&2
+  exit 1
+fi
+
+# Unter /share arbeiten, nicht unter /tmp: /tmp liegt in der Container-Schicht
+# und ist auf einem HAOS-Geraet knapp. Dieselbe Begruendung wie in
+# yapaja-build-pmtiles.
+WORK_ROOT="$(dirname "$(dirname "$OUT_DB")")/tmp"
+mkdir -p "$WORK_ROOT" "$(dirname "$OUT_DB")"
+WORK_DIR="$(mktemp -d "$WORK_ROOT/lite-index.XXXXXX")"
+cleanup() { rm -rf "$WORK_DIR"; }
+trap cleanup EXIT
+
+# --- PBF beschaffen ---------------------------------------------------------
+# Wiederverwendet, was der Kachelbau schon heruntergeladen hat, wenn es da
+# ist: derselbe Extrakt, und ein zweiter Download waere auf einem
+# Mobilfunkanschluss teuer erkauft.
+INPUT="$WORK_DIR/$REGION_ID.osm.pbf"
+CACHED="$(dirname "$(dirname "$OUT_DB")")/planetiler-sources/$REGION_ID.osm.pbf"
+if [ -f "$CACHED" ]; then
+  echo "Verwende bereits vorhandenen OSM-Extrakt: $CACHED"
+  INPUT="$CACHED"
+elif [[ "$PBF_ARG" =~ ^https?:// ]]; then
+  echo "Lade OSM-Extrakt herunter: $PBF_ARG"
+  curl -fL --retry 3 --retry-delay 5 -o "$INPUT" "$PBF_ARG"
+else
+  if [ ! -f "$PBF_ARG" ]; then
+    echo "FEHLER: lokale PBF-Datei nicht gefunden: $PBF_ARG" >&2
+    exit 1
+  fi
+  INPUT="$PBF_ARG"
+fi
+
+# --- 1/3: Orte und Strassen herausfiltern ----------------------------------
+echo "== Filtere Orte (place=city,town,village) =="
+osmium tags-filter --overwrite -o "$WORK_DIR/places.osm.pbf" "$INPUT" n/place=city,town,village
+
+echo "== Filtere Strassen (highway=*) =="
+osmium tags-filter --overwrite -o "$WORK_DIR/streets.osm.pbf" "$INPUT" w/highway
+
+# --- 2/3: nach GeoJSONSeq exportieren --------------------------------------
+# Orte sind Nodes -> Points. Strassen sind Ways; `osmium export` reduziert sie
+# NICHT auf einen Punkt, mit `--geometry-types=point` fielen sie komplett weg.
+# Der Zentroid wird deshalb im Normalisierer berechnet (extract.ts).
+echo "== Exportiere GeoJSONSeq =="
+osmium export --overwrite --geometry-types=point -f geojsonseq \
+  -o "$WORK_DIR/places.geojsonseq" "$WORK_DIR/places.osm.pbf"
+osmium export --overwrite --geometry-types=linestring,polygon -f geojsonseq \
+  -o "$WORK_DIR/streets.geojsonseq" "$WORK_DIR/streets.osm.pbf"
+
+# --- 3/3: Index bauen (atomarer Tausch im Werkzeug) -------------------------
+echo "== Baue $OUT_DB =="
+cd /app
+node "$CLI" \
+  --places "$WORK_DIR/places.geojsonseq" \
+  --streets "$WORK_DIR/streets.geojsonseq" \
+  --out "$OUT_DB"
+
+# Und nachsehen, statt es zu glauben: ein Werkzeug, das „fertig" meldet und
+# nichts hinterlaesst, hat es in dieser Kette schon gegeben.
+if [ ! -s "$OUT_DB" ]; then
+  echo "FEHLER: $OUT_DB fehlt oder ist leer, obwohl der Bau ohne Fehler endete." >&2
+  exit 1
+fi
+
+echo "Lite-Suchindex fertig: $OUT_DB"
+echo "Die Adresssuche ist ab sofort nutzbar -- ohne Neustart des Add-ons."

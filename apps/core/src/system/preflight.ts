@@ -407,20 +407,26 @@ async function checkSearch(
     detail: photonEnabled
       ? `Weder Photon (${photonUrl}) noch ein Lite-Index (${liteDbPath}) sind verfügbar.`
       : `Photon ist abgeschaltet und es gibt keinen Lite-Index (${liteDbPath}).`,
-    // Auch hier stand ein Knopf („Suchindex bauen"), den es nicht gibt, und
-    // der Lite-Index braucht ohnehin `osmium` und Repo-Werkzeug, die beide
-    // nicht im Add-on-Container liegen. Der ehrliche Weg ist derselbe wie
-    // beim Routinggraphen: woanders bauen, Datei ablegen.
+    // ─── DIESER TEXT WAR ZWEIMAL FALSCH ────────────────────────────────
+    // Zuerst nannte er einen Knopf „Suchindex bauen", den es nicht gab.
+    // Danach — als Korrektur gedacht — behauptete er, der Index lasse sich
+    // auf dem Gerät NICHT bauen, das Werkzeug setze osmium und einen
+    // Repository-Checkout voraus, und schickte den Betreiber an einen
+    // zweiten Rechner. Das beschrieb aber nur, was wir ins Image gelegt
+    // hatten: `osmium-tool` ist ein gewöhnliches Ubuntu-Paket, und das
+    // Werkzeug fehlte allein deshalb, weil der Core-Build es nicht mitnahm.
+    //
+    // Seit 0.3.4 stimmt beides nicht mehr, und der Knopf, den die erste
+    // Fassung fälschlich versprach, existiert jetzt wirklich.
     remedy:
-      'Es gibt zwei Wege, und einer genügt. (1) Lite-Index: braucht wenig RAM, ' +
-      'lässt sich auf dem Gerät aber nicht bauen (das Werkzeug dafür setzt osmium ' +
-      'und einen Repository-Checkout voraus). Auf einem anderen Rechner mit ' +
-      'services/valhalla/build-lite-index.sh <pfad-zur.osm.pbf> bauen und die ' +
-      'lite_search.db per „Samba share" nach /share/yapaja/lite-search/ legen. ' +
-      'Das ist der empfohlene Weg auf einem Gerät mit 8 GB. (2) Photon: in der ' +
+      'Es gibt zwei Wege, und einer genügt. (1) Lite-Index (empfohlen auf einem ' +
+      'Gerät mit 8 GB): braucht wenig Arbeitsspeicher und wird direkt hier ' +
+      'gebaut — „Kartenregionen verwalten" (🗺️ rechts oben) öffnen und bei der ' +
+      'Region auf „Suche bauen" drücken. Liechtenstein braucht Minuten, ein ' +
+      'Bundesland länger; der Fortschritt steht im Panel. (2) Photon: in der ' +
       'Add-on-Konfiguration einschalten und den Index importieren; rechnen Sie mit ' +
       'mehreren GB RAM. Ohne beides bleibt die Adresssuche leer — Navigieren zu ' +
-      'Koordinaten und zu Favoriten funktioniert trotzdem.',
+      'einem angetippten Punkt und zu Favoriten funktioniert trotzdem.',
   };
 }
 

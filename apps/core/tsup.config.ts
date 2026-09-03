@@ -11,7 +11,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // deps stay external (installed via `pnpm install --prod`); better-sqlite3 in
 // particular is a native module and must never be bundled.
 export default defineConfig({
-  entry: { index: 'src/index.ts' },
+  // ─── ZWEI EINSTIEGSPUNKTE ──────────────────────────────────────────────
+  // `index` ist der Dienst. `lite-index` ist das Werkzeug, das den
+  // Offline-Suchindex baut (src/search/lite/cli.ts).
+  //
+  // Bis 0.3.3 wurde NUR `index` gebaut, und genau daraus folgte die Aussage
+  // im Dockerfile, der Lite-Index lasse sich auf dem Geraet nicht bauen: das
+  // Werkzeug lag schlicht nicht im Image, weil dieser Build es nicht
+  // mitnahm. Das war keine technische Grenze, sondern eine Auslassung an
+  // dieser Stelle -- und sie hat den Betreiber eine Funktion gekostet, die
+  // seit E05-T5 fertig im Quelltext liegt.
+  entry: { index: 'src/index.ts', 'lite-index': 'src/search/lite/cli.ts' },
   format: ['esm'],
   platform: 'node',
   target: 'node22',
