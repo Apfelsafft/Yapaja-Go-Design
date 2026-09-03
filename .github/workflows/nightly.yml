@@ -95,17 +95,20 @@ jobs:
         with:
           path: "./yapaja_go"
 
-  # E08-T4: the full multi-arch (amd64+aarch64) Supervisor-builder image
-  # build for yapaja_go/Dockerfile is intentionally NOT automated
-  # yet (documented as nightly/manual only, see yapaja_go/PACKAGING.md "CI
-  # strategy" table) -- it could not be exercised end-to-end from the
-  # authoring sandbox (no Docker daemon there) and involves compiling/
-  # linking native dependencies for two architectures, which is slow and,
-  # like `golden-routes-de`/`photon-li-nightly` above, not something to
-  # claim "done and passing" without having actually watched it run. A
-  # follow-up job here would mirror the `multiarch` job below, pointed at
-  # `-f yapaja_go/Dockerfile --build-arg BUILD_FROM=...` per
-  # `yapaja_go/build.yaml`'s per-arch base images.
+  # E08-T4 / STAND 0.3.8: `yapaja_go/Dockerfile` wird jetzt gebaut -- in
+  # `.github/workflows/addon-image.yml`, pfadgefiltert auf `yapaja_go/**`,
+  # amd64, mit Pruefungen IM Container.
+  #
+  # Dass es das vorher nicht gab, war der strukturelle Grund, warum jeder
+  # Fehler in diesem Image beim Betreiber landete und nicht in der CI: der
+  # Job „Docker Build & Health Check" in ci.yml baut `apps/core/Dockerfile`,
+  # ein anderes Image mit anderer Basis und anderem Inhalt.
+  #
+  # Weiterhin NICHT automatisiert: der aarch64-Bau. Das Zielgeraet ist ein
+  # Mini-PC (amd64); eine zweite Architektur verdoppelte die Kosten fuer
+  # einen Fall, den es hier noch nicht gibt. Er bleibt manuell, per
+  # `workflow_dispatch` auf `addon-image.yml` mit passendem `BUILD_FROM`
+  # aus `yapaja_go/build.yaml`.
 
   perf-soak-24h:
     name: Performance-Soak 24 h (E10-T2, woechentlich)

@@ -10,6 +10,41 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.3.8
+
+**Behoben: die Suche fand nichts mehr — auch nach erneutem Bauen nicht.**
+
+> „Die Suche geht gar nicht mehr. Auch nach neuem Bauen."
+
+Auf der Karte stand „Beethovenstraße", die Suche danach meldete „Nichts
+gefunden". Das war kein Fehler im Index: der war richtig gebaut. Er wurde nur
+nie gelesen.
+
+Der Neubau schreibt den Index in eine neue Datei und schiebt sie über die
+alte. Das Add-on hatte die alte Datei aber schon offen — und ein geöffneter
+Zugriff bleibt bei der alten Datei, auch wenn längst eine andere unter dem
+Namen liegt. Die Meldung „ab sofort nutzbar, ohne Neustart" stimmte deshalb
+nur, solange noch niemand gesucht hatte. Wer zuerst die Suche für
+Liechtenstein gebaut, einmal gesucht und danach die für Rheinland-Pfalz
+gebaut hatte, bekam für immer Antworten aus dem Liechtensteiner Index. Ein
+erneuter Neubau half nie: er tauscht die Datei, nicht den offenen Zugriff.
+
+Das Add-on sieht jetzt vor jeder Suche nach, ob die Datei ausgetauscht wurde,
+und öffnet dann die neue. Ein Neustart ist weiterhin nicht nötig — jetzt
+stimmt es auch.
+
+**Noch zu wissen:** es gibt **einen** Suchindex, nicht einen pro Region.
+„Suche bauen" bei einer Region ersetzt den Index der anderen. Bei zwei
+installierten Regionen findet die Suche also immer nur in der zuletzt
+gebauten. Das ist eine echte Einschränkung, keine Nachwirkung dieses Fehlers
+— sie stand nur bisher hinter ihm.
+
+**Für Entwickler:** das Add-on-Image wird jetzt in CI gebaut und *im
+Container* geprüft (Werkzeuge, Bau-Skripte, Schriftzeichen, Dienste,
+Startskripte, laufender Core). Bisher wurde genau dieses Image in keinem Job
+gebaut — der Grund, warum Verpackungsfehler regelmäßig erst nach dem Update
+auf dem Gerät auffielen.
+
 ## 0.3.7
 
 **Die Karte sieht jetzt wie eine Karte aus — und es gibt fünf Stile zur

@@ -1,0 +1,198 @@
+name: Add-on-Image
+
+# ─── WARUM ES DIESEN WORKFLOW GIBT ──────────────────────────────────────────
+# `yapaja_go/Dockerfile` wurde bisher in KEINEM Job gebaut. Der Job „Docker
+# Build & Health Check" in ci.yml baut `apps/core/Dockerfile` -- den
+# eigenstaendigen Core, ein anderes Image mit einer anderen Basis und einem
+# anderen Inhalt. Das Add-on-Image, also genau das, was der Supervisor auf dem
+# Geraet des Betreibers baut und startet, war unbeobachtet.
+#
+# Das ist der strukturelle Grund, warum jeder Fehler darin dem Betreiber
+# begegnet ist und nicht der CI: fehlendes `osmium-tool` im Image, ein
+# Startskript, das im Image woanders lag als gedacht, ein gebuendeltes
+# CLI-Werkzeug, das beim Aufruf wortlos nichts tat. Jedes Mal war der Weg
+# „gruene CI -> Update installieren -> es geht nicht".
+#
+# ─── UND WARUM ER TROTZDEM SELTEN LAEUFT ────────────────────────────────────
+# Der Bau ist teuer (grosse Valhalla-Basis, Node-Tarball, Photon-JAR). Er
+# laeuft deshalb NUR, wenn sich am Add-on-Paket selbst etwas aendert -- also
+# genau dann, wenn er etwas finden kann. Fuer die grosse Mehrheit der PRs
+# erscheint dieser Check gar nicht erst. Das entspricht der Vorgabe, mit
+# moeglichst wenig Actions-Minuten auszukommen.
+#
+# Bewusst nur amd64: das Zielgeraet ist ein Mini-PC. Ein aarch64-Bau
+# verdoppelte die Kosten fuer einen Fall, den es hier noch nicht gibt; er
+# bleibt manuell (`workflow_dispatch` im nightly, siehe PACKAGING.md).
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'yapaja_go/**'
+      - '.github/workflows/addon-image.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: addon-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Add-on-Image bauen & im Container nachsehen
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Der Dockerfile laedt den Quelltext in Stage 1 SELBST herunter (der
+      # Supervisor baut mit `yapaja_go/` als Kontext, die Repo-Wurzel ist dort
+      # nicht erreichbar). Gebaut werden muss also der Stand DIESES PRs, nicht
+      # `main` -- sonst prueft der Job den falschen Quelltext und meldet gruen
+      # fuer etwas, das gar nicht zur Aenderung gehoert.
+      - name: Zu bauenden Quelltextstand bestimmen
+        id: ref
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            REF="${{ github.head_ref }}"
+          else
+            REF="${GITHUB_REF_NAME}"
+          fi
+          echo "value=$REF" >> "$GITHUB_OUTPUT"
+          echo "Baue Quelltextstand: $REF"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Add-on-Image bauen (amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./yapaja_go
+          file: ./yapaja_go/Dockerfile
+          push: false
+          load: true
+          tags: yapaja-go:ci
+          build-args: |
+            BUILD_FROM=ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+            YAPAJA_REPO=${{ github.repository }}
+            YAPAJA_REF=${{ steps.ref.outputs.value }}
+            BUILD_VERSION=ci-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ─── AB HIER: IM IMAGE NACHSEHEN, NICHT DEM BAU GLAUBEN ───────────────
+      # Ein Bau, der durchlaeuft, sagt nur, dass jede RUN-Zeile 0 zurueckgab.
+      # Er sagt NICHT, ob das drin ist, was zur Laufzeit gebraucht wird. Jeder
+      # Punkt unten steht fuer einen Fehler, der genau so beim Betreiber
+      # gelandet ist.
+
+      - name: Werkzeuge, die die Bau-Skripte zur Laufzeit aufrufen
+        run: |
+          # `osmium` hat im Image GEFEHLT -- der Suchindex-Bau brach dadurch
+          # auf dem Geraet ab, waehrend jede CI gruen war.
+          docker run --rm --entrypoint sh yapaja-go:ci -c '
+            set -e
+            for tool in osmium node java python3 curl; do
+              command -v "$tool" >/dev/null 2>&1 || { echo "FEHLT im Image: $tool"; exit 1; }
+              echo "vorhanden: $tool ($($tool --version 2>&1 | head -1))"
+            done
+          '
+
+      - name: Bau-Skripte liegen da, wo die Oberflaeche sie aufruft
+        run: |
+          # Die Oberflaeche ruft diese drei ueber ihren Namen im PATH auf.
+          # Liegen sie woanders oder sind sie nicht ausfuehrbar, scheitert
+          # "Kacheln bauen" / "Routing bauen" / "Suche bauen" erst auf dem
+          # Geraet -- mit einer Fehlermeldung, die niemand zuordnen kann.
+          docker run --rm --entrypoint sh yapaja-go:ci -c '
+            set -e
+            for s in yapaja-build-pmtiles yapaja-build-graph yapaja-build-lite-index; do
+              p="$(command -v "$s")" || { echo "FEHLT im Image: $s"; exit 1; }
+              [ -x "$p" ] || { echo "nicht ausfuehrbar: $p"; exit 1; }
+              echo "vorhanden: $p"
+            done
+          '
+
+      - name: Das gebuendelte Suchindex-Werkzeug laeuft wirklich
+        run: |
+          # Es hat einmal mit Code 0 geendet und NICHTS getan (die
+          # Einsprungpruefung verglich den falschen Dateinamen). Ein Bau
+          # bemerkt so etwas nicht -- nur das Ausfuehren.
+          docker run --rm --entrypoint sh yapaja-go:ci -c '
+            set -e
+            test -f /app/apps/core/dist/lite-index.js
+            node /app/apps/core/dist/lite-index.js 2>&1 | grep -q "Usage:"
+            echo "lite-index.js meldet sich wie erwartet"
+          '
+
+      - name: Die Oberflaeche und ihre Schriftzeichen sind im Image
+        run: |
+          # Ohne die Glyphen zeichnet die Karte keinen Buchstaben -- und zwar
+          # ohne Fehlermeldung (0.3.7). Sie kommen ueber `apps/web/dist` ins
+          # Image; faellt dieser Weg weg, faellt die Beschriftung still aus.
+          docker run --rm --entrypoint sh yapaja-go:ci -c '
+            set -e
+            test -f /app/apps/core/public/index.html
+            for f in noto-sans-regular noto-sans-bold; do
+              test -s "/app/apps/core/public/fonts/$f/0-255.pbf" \
+                || { echo "Glyphen fehlen im Image: $f"; exit 1; }
+            done
+            echo "Oberflaeche und Schriftzeichen vorhanden"
+          '
+
+      - name: s6-Dienste sind vollstaendig verdrahtet
+        run: |
+          # Ein Dienst ohne `run` startet nicht; einer, der nicht unter
+          # `user/contents.d` steht, wird gar nicht erst angefasst.
+          docker run --rm --entrypoint sh yapaja-go:ci -c '
+            set -e
+            for svc in core valhalla photon gpsd; do
+              test -x "/etc/s6-overlay/s6-rc.d/$svc/run" || { echo "$svc: run fehlt"; exit 1; }
+              test -e "/etc/s6-overlay/s6-rc.d/user/contents.d/$svc" || { echo "$svc: nicht aktiviert"; exit 1; }
+            done
+            test -x /etc/s6-overlay/s6-rc.d/init-yapaja-config/up
+            echo "s6-Dienste vollstaendig"
+          '
+
+      - name: Der Shebang des Init-Skripts ist im Image aufloesbar
+        run: |
+          # Genau hier stand einmal `bashio::log.info: command not found` im
+          # Add-on-Log: das Skript lief unter nacktem `bash`, ohne bashio.
+          # Ein Shebang, der ins Leere zeigt, faellt beim BAUEN nicht auf --
+          # nur beim Starten auf dem Geraet.
+          docker run --rm --entrypoint sh yapaja-go:ci -c '
+            set -e
+            test -x /etc/yapaja/init-yapaja-config.sh
+            head -1 /etc/yapaja/init-yapaja-config.sh | grep -q "with-contenv bashio"
+            test -x /command/with-contenv
+            test -x /usr/bin/bashio
+            echo "Init-Skript, with-contenv und bashio sind da"
+          '
+
+      - name: Der Core startet im Image und antwortet
+        run: |
+          # Der Endnachweis: nicht nur vorhanden, sondern lauffaehig. Ohne
+          # s6/Supervisor gestartet, damit der Test nicht an einer fehlenden
+          # HA-Umgebung haengt -- geprueft wird der Core selbst.
+          # `LOG_LEVEL`, nicht `YAPAJA_LOG_LEVEL`: die Umbenennung macht sonst
+          # das s6-Startskript (`rootfs/.../core/run`), das hier bewusst
+          # uebersprungen wird.
+          docker run -d --name yapaja-ci -p 18099:8080 \
+            -e LOG_LEVEL=info -e PORT=8080 \
+            --entrypoint node yapaja-go:ci /app/apps/core/dist/index.js
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:18099/api/v1/health >/dev/null 2>&1; then
+              echo "Core antwortet nach ${i}s:"
+              curl -fsS http://127.0.0.1:18099/api/v1/health
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Der Core im Add-on-Image hat binnen 30s nicht geantwortet."
+          docker logs yapaja-ci
+          exit 1
+
+      - name: Aufraeumen
+        if: always()
+        run: docker rm -f yapaja-ci 2>/dev/null || true
