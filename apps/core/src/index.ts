@@ -225,6 +225,11 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     positionService,
     resolveConnection: () => resolveHaConnection({ settings: settingsService }),
     entityId: process.env.HA_DEVICE_TRACKER ?? '',
+    // `gps_source: ha_tracker` heisst „nimm die Companion App" -- und nicht
+    // „schlag die Entity-ID in Entwicklerwerkzeuge -> Zustaende nach und
+    // schreib sie ab". Gibt es genau einen Tracker mit Koordinaten, waehlt
+    // die Quelle ihn selbst; bei mehreren raet sie bewusst nicht.
+    autoSelect: process.env.GPS_SOURCE === 'ha_tracker',
     logger: {
       info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
       warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),

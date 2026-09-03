@@ -25,10 +25,11 @@ Notbehelf:
 * Die Prioritätskette ist `gpsd > browser > simulator` (ADR-007). Ohne
   angeschlossenes USB-GPS **gewinnt der Browser automatisch** — es muss
   nichts umgestellt werden.
-* Die Add-on-Option `gps_source` (`usb|network|none`) schaltet nur den
-  gpsd-Dienst im Container an oder aus. Sie hat **keinen** Einfluss darauf,
-  ob Browser-Positionen angenommen werden. Auch mit `gps_source: none`
-  funktioniert der Browser-Weg.
+* Die Add-on-Option `gps_source` (`usb|network|ha_tracker|none`) schaltet den
+  gpsd-Dienst im Container an oder aus und wählt seit 0.3.1 zusätzlich die
+  HA-Tracker-Quelle. Sie hat in **keinem** Fall Einfluss darauf, ob
+  Browser-Positionen angenommen werden — der Browser-Weg funktioniert bei
+  jedem Wert.
 * Der Onboarding-Schritt „GPS" (`GpsStep.tsx`) listet „Browser-Standort" und
   kann ihn fest wählen.
 
@@ -218,11 +219,20 @@ sich B-05 mit einem realistischen Wert statt einer Annahme bauen.
   der Tab vorn ist — es hilft nicht gegen den eingefrorenen Hintergrund-Tab,
   und den Bildschirm einer Fahrzeugbedienung ungefragt dauerhaft anzuschalten
   ist eine Entscheidung des Betreibers, keine Voreinstellung.
-* **Keine Änderung an `gps_source`.** Die Option um `browser` zu erweitern
+* **Kein `browser` in `gps_source`.** Die Option um `browser` zu erweitern
   klänge stimmig, wäre aber irreführend: sie schaltet den gpsd-Dienst, nicht
   die Annahme von Browser-Fixes. Browser-GPS funktioniert bei **jedem** Wert.
   Statt einer neuen Auswahlmöglichkeit gehört das in die Beschreibung der
   Option.
+
+  **Nachtrag 0.3.1:** Für `ha_tracker` gilt dieses Argument gerade *nicht*,
+  und deshalb steht der Wert dort inzwischen. Er ist keine Anzeige eines
+  Zustands, der ohnehin gilt, sondern schaltet die Quelle tatsächlich ein:
+  gesetzt, sucht sie sich ihre Entität selbst. Ohne ihn ließ sie sich nur
+  über das Textfeld `ha_device_tracker` aktivieren — und dafür musste man
+  eine Entity-ID kennen, die man erst in Home Assistant nachschlagen muss.
+  Der erste Betreiber, der 0.3.0 in Betrieb nahm, meldete genau das: „den ha
+  tracker kann ich nicht auswählen. In der Konfiguration sehe ich nur usb."
 * **Kein Backoff im Browser-Client.** Der Modul-Kopf behauptete
   „retry with backoff"; implementiert war nie einer. Er wird auch nicht
   gebraucht: `watchPosition` läuft nach einem Zeitlimit weiter, und der

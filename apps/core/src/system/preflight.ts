@@ -64,6 +64,9 @@ import { totalmem } from 'os';
 import { createConnection } from 'net';
 import { resolveTilesDir } from '../map/paths.js';
 import { resolveLiteSearchDbPath } from '../search/lite/paths.js';
+import { resolveHaConnection } from '../ha/config.js';
+import { fetchHaStates } from '../ha/client.js';
+import { listGpsTrackers } from '../position/haTracker/index.js';
 
 /** Kennung einer Prüfung. Stabil — die GUI und die Doku verweisen darauf. */
 export type PreflightCheckId =
@@ -113,12 +116,21 @@ export type FileSizeFn = (path: string) => Promise<number | null>;
 export type TcpProbeFn = (host: string, port: number, timeoutMs: number) => Promise<boolean>;
 /** Antwortet `url` mit einem HTTP-Status < 500? */
 export type HttpProbeFn = (url: string, timeoutMs: number) => Promise<boolean>;
+/**
+ * Alle `device_tracker.*`-Entitaeten in Home Assistant, die Koordinaten
+ * tragen. `null` heisst „konnte nicht nachsehen" (Home Assistant nicht
+ * konfiguriert oder nicht erreichbar) und ist ausdruecklich etwas anderes als
+ * `[]` („nachgesehen, keiner da") -- die Prueftexte unterscheiden das, weil
+ * die Handlungsanweisung eine voellig andere ist.
+ */
+export type ListHaTrackersFn = () => Promise<string[] | null>;
 
 export interface PreflightDeps {
   listDir?: ListDirFn;
   fileSize?: FileSizeFn;
   tcpProbe?: TcpProbeFn;
   httpProbe?: HttpProbeFn;
+  listHaTrackers?: ListHaTrackersFn;
   totalMem?: () => number;
   /** Freier Plattenplatz im Datenverzeichnis, in Bytes. */
   diskFree?: (path: string) => Promise<number>;
@@ -187,6 +199,41 @@ async function defaultHttpProbe(url: string, timeoutMs: number): Promise<boolean
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Fragt Home Assistant selbst, welche Tracker es gibt.
+ *
+ * Bis 2026-09-03 stand in `yapaja_go/config.yaml`, diese Pruefung liste die
+ * in Frage kommenden Entitaeten auf. Sie tat es nicht -- der Satz war eine
+ * Zusage an den Betreiber, die niemand eingeloest hat, und er stand
+ * ausgerechnet an der Stelle, an der man die Entity-ID sonst raten muss.
+ * Hier wird sie eingeloest.
+ *
+ * Fehler werden geschluckt (`null`): eine Diagnoseseite, die selbst
+ * abstuerzt, weil Home Assistant langsam ist, ist genau dann kaputt, wenn man
+ * sie braucht.
+ */
+function defaultListHaTrackers(env: Record<string, string | undefined>): ListHaTrackersFn {
+  return async (): Promise<string[] | null> => {
+    const connection = resolveHaConnection({ env });
+    if (!connection) {
+      return null;
+    }
+    const noop = (): void => {};
+    const states = await fetchHaStates(connection, {
+      logger: { info: noop, warn: noop, error: noop },
+      timeoutMs: PROBE_TIMEOUT_MS,
+    });
+    // `fetchHaStates` schluckt Fehler und liefert dann `[]`. Fuer die
+    // Unterscheidung „nicht erreichbar" vs. „erreichbar, aber kein Tracker"
+    // ist ein leeres Gesamtergebnis das verlaesslichere Signal: eine laufende
+    // HA-Instanz hat IMMER Zustaende (`sun.sun`, `person.*`, ...).
+    if (states.length === 0) {
+      return null;
+    }
+    return listGpsTrackers(states);
+  };
 }
 
 async function defaultDiskFree(path: string): Promise<number> {
@@ -377,9 +424,24 @@ async function checkSearch(
   };
 }
 
+/** Hilfstext: die gefundenen Tracker als Satz, oder `null`, wenn es nichts zu
+ *  sagen gibt. Steht in mehreren Zweigen und soll ueberall gleich klingen. */
+function trackerListSentence(trackers: string[] | null): string | null {
+  if (trackers === null || trackers.length === 0) {
+    return null;
+  }
+  return `Gefunden in Home Assistant: ${trackers.map((id) => `„${id}"`).join(', ')}.`;
+}
+
+const HA_TRACKER_SETUP_HINT =
+  'Home-Assistant-Companion-App auf dem Telefon/Tablet installieren, dort die ' +
+  'Ortung („Standort senden") erlauben — Home Assistant legt dann automatisch ' +
+  'eine `device_tracker`-Entität an.';
+
 async function checkPosition(
   env: Record<string, string | undefined>,
   tcpProbe: TcpProbeFn,
+  listHaTrackers: ListHaTrackersFn,
 ): Promise<PreflightCheck> {
   const base = {
     id: 'position' as const,
@@ -404,25 +466,108 @@ async function checkPosition(
       remedy:
         'Prüfen Sie, ob der USB-GPS-Empfänger gesteckt ist und ob das Gerät in der ' +
         'Add-on-Konfiguration unter „gps_device" eingetragen ist (meist /dev/ttyACM0 ' +
-        'oder /dev/ttyUSB0). Solange gpsd fehlt, kann Yapaja die Position weiterhin ' +
-        'aus dem Browser beziehen — Telefon, Tablet oder Autoradio liefern sie über ' +
-        'die Standortfreigabe der Seite (ADR-007: gpsd > Browser > Simulator). ' +
-        'Achtung: über HA-Ingress muss die Verbindung HTTPS sein, sonst gibt der ' +
-        'Browser den Standort nicht frei.',
+        'oder /dev/ttyUSB0). Haben Sie gar keinen USB-Empfänger, ist „gps_source: usb" ' +
+        'schlicht die falsche Einstellung — stellen Sie sie auf „ha_tracker" ' +
+        '(Position aus der Home-Assistant-Companion-App) oder auf „none" ' +
+        '(Position aus dem Browser). Solange gpsd fehlt, kann Yapaja die Position ' +
+        'weiterhin aus dem Browser beziehen — Telefon, Tablet oder Autoradio liefern ' +
+        'sie über die Standortfreigabe der Seite (ADR-007: gpsd > Browser > ' +
+        'Companion App > Simulator). Achtung: der Browser gibt den Standort nur über ' +
+        'HTTPS frei.',
     };
   }
 
-  // B-05: eine konfigurierte Companion-App-Entitaet ist der Weg, der OHNE
-  // HTTPS funktioniert -- und damit fuer viele Aufbauten der einzige, der
-  // ueberhaupt eine Position liefert. Steht sie, ist hier nichts mehr offen.
+  // B-05: die Companion-App-Entitaet ist der Weg, der OHNE HTTPS funktioniert
+  // -- und damit fuer viele Aufbauten der einzige, der ueberhaupt eine
+  // Position liefert.
   const haTracker = (env.HA_DEVICE_TRACKER ?? '').trim();
+  const haTrackerSelected = env.GPS_SOURCE === 'ha_tracker';
+
+  // Nachsehen, WAS es gibt, statt den Betreiber raten zu lassen. Genau das
+  // verspricht die Add-on-Konfiguration an dieser Stelle.
+  const trackers = haTracker.length > 0 || haTrackerSelected ? await listHaTrackers() : null;
+  const found = trackerListSentence(trackers);
+
   if (haTracker.length > 0) {
+    // Eine eingetragene Entitaet, die es nicht gibt, ist der teuerste Fall:
+    // alles sieht eingerichtet aus, und es kommt trotzdem nie eine Position.
+    if (trackers !== null && !trackers.includes(haTracker)) {
+      return {
+        ...base,
+        status: 'warn',
+        detail:
+          `Die eingetragene Entität „${haTracker}" liefert in Home Assistant keine ` +
+          'Koordinaten — entweder gibt es sie nicht, oder sie meldet nur „zuhause"/' +
+          '„nicht zuhause" (WLAN-Tracker) statt einer Position.',
+        remedy:
+          (found ??
+            'Home Assistant kennt derzeit gar keinen `device_tracker` mit Koordinaten. ' +
+              HA_TRACKER_SETUP_HINT) +
+          ' Tragen Sie den gewünschten Namen in der Add-on-Konfiguration unter ' +
+          '„ha_device_tracker" ein — oder lassen Sie das Feld leer und setzen Sie ' +
+          '„gps_source" auf „ha_tracker", dann sucht Yapaja selbst, solange es ' +
+          'genau einen gibt.',
+      };
+    }
     return {
       ...base,
       status: 'ok',
       detail:
         `Position aus der Home-Assistant-Entität „${haTracker}" (Companion App). ` +
         'Ein Browser-Standort hat weiterhin Vorrang, wenn er verfügbar ist.',
+    };
+  }
+
+  if (haTrackerSelected) {
+    // „gps_source: ha_tracker" ohne Entity-ID heisst: Yapaja sucht selbst.
+    // Was dabei herauskommt, haengt allein an dem, was Home Assistant hat --
+    // also steht es hier, mit Namen.
+    if (trackers === null) {
+      return {
+        ...base,
+        status: 'warn',
+        detail:
+          'Als Positionsquelle ist die Home-Assistant-Companion-App gewählt, aber ' +
+          'Home Assistant war nicht erreichbar — welche Tracker es gibt, ließ sich ' +
+          'nicht feststellen.',
+        remedy:
+          'Das ist meist vorübergehend (Home Assistant startet gerade neu). Bleibt es ' +
+          'so, prüfen Sie im Add-on-Protokoll die Zeilen mit „HA states request" und ' +
+          'starten Sie das Add-on neu. Als Ausweichweg liefert der Browser die ' +
+          'Position, sofern die Seite über HTTPS läuft.',
+      };
+    }
+    if (trackers.length === 1) {
+      return {
+        ...base,
+        status: 'ok',
+        detail:
+          `Position aus der Home-Assistant-Entität „${trackers[0]}" (Companion App) — ` +
+          'automatisch gewählt, weil es genau eine mit Koordinaten gibt. ' +
+          'Ein Browser-Standort hat weiterhin Vorrang, wenn er verfügbar ist.',
+      };
+    }
+    if (trackers.length === 0) {
+      return {
+        ...base,
+        status: 'warn',
+        detail:
+          'Als Positionsquelle ist die Home-Assistant-Companion-App gewählt, aber Home ' +
+          'Assistant kennt keine einzige `device_tracker`-Entität mit Koordinaten.',
+        remedy:
+          HA_TRACKER_SETUP_HINT +
+          ' Ein Tracker, der nur „zuhause"/„nicht zuhause" per WLAN meldet, zählt ' +
+          'hier nicht — er hat keine Koordinaten und taugt nicht zum Navigieren.',
+      };
+    }
+    return {
+      ...base,
+      status: 'warn',
+      detail:
+        `Als Positionsquelle ist die Companion App gewählt, aber es gibt ${trackers.length} ` +
+        'Tracker mit Koordinaten. Yapaja rät nicht, welcher gemeint ist — der zweite ' +
+        'könnte das Telefon einer anderen Person sein.',
+      remedy: `${found ?? ''} Tragen Sie den gewünschten in der Add-on-Konfiguration unter „ha_device_tracker" ein.`,
     };
   }
 
@@ -443,12 +588,11 @@ async function checkPosition(
       'sofern Home Assistant selbst über HTTPS läuft — läuft es über http://, gibt ' +
       'der Browser den Sensor NICHT frei, und daran kann Yapaja nichts ändern). ' +
       'Ohne HTTPS ist der Weg über die Home-Assistant-Companion-App der richtige: ' +
-      'App installieren, Ortung erlauben, und in der Add-on-Konfiguration unter ' +
-      '„ha_device_tracker" die Entität eintragen (z. B. device_tracker.mein_telefon; ' +
-      'die vorhandenen stehen in Home Assistant unter Entwicklerwerkzeuge → Zustände). ' +
-      'Für einen fest eingebauten ' +
-      'USB-Empfänger stattdessen in der Add-on-Konfiguration „gpsd_enabled" ' +
-      'einschalten und „gps_device" setzen.',
+      'in der Add-on-Konfiguration „gps_source" auf „ha_tracker" stellen. Gibt es ' +
+      'genau eine `device_tracker`-Entität mit Koordinaten, sucht Yapaja sie selbst; ' +
+      'gibt es mehrere, nennt diese Prüfung sie danach beim Namen, und Sie tragen die ' +
+      'gewünschte unter „ha_device_tracker" ein. Für einen fest eingebauten ' +
+      'USB-Empfänger stattdessen „gps_source" auf „usb" stellen.',
   };
 }
 
@@ -599,6 +743,7 @@ export async function runPreflight(deps: PreflightDeps = {}): Promise<PreflightR
   const fileSize = deps.fileSize ?? defaultFileSize;
   const tcpProbe = deps.tcpProbe ?? defaultTcpProbe;
   const httpProbe = deps.httpProbe ?? defaultHttpProbe;
+  const listHaTrackers = deps.listHaTrackers ?? defaultListHaTrackers(env);
   const totalMem = deps.totalMem ?? totalmem;
   const diskFree = deps.diskFree ?? defaultDiskFree;
   const now = deps.now ?? ((): Date => new Date());
@@ -609,7 +754,7 @@ export async function runPreflight(deps: PreflightDeps = {}): Promise<PreflightR
     checkTiles(tilesDir, listDir),
     checkRouting(env, httpProbe),
     checkSearch(env, httpProbe, fileSize),
-    checkPosition(env, tcpProbe),
+    checkPosition(env, tcpProbe, listHaTrackers),
     Promise.resolve(checkMemory(env, totalMem)),
     checkDisk(tilesDir, diskFree),
     Promise.resolve(checkMqtt(env)),

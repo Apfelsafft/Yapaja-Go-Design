@@ -64,8 +64,25 @@ export interface HaTrackerSourceOptions {
   positionService: PositionService;
   /** Wie das Add-on Home Assistant erreicht; `null` = nicht konfiguriert. */
   resolveConnection: () => HaConnection | null;
-  /** Entity-ID, z. B. `device_tracker.mein_telefon`. Leer = Quelle aus. */
+  /** Entity-ID, z. B. `device_tracker.mein_telefon`. Leer = Quelle aus,
+   *  ausser `autoSelect` ist gesetzt. */
   entityId: string;
+  /**
+   * Ohne ausdrueckliche Entity-ID selbst suchen (`gps_source: ha_tracker`).
+   *
+   * Der Grund: eine Entity-ID ist nichts, was man weiss. Sie steht in Home
+   * Assistant unter Entwicklerwerkzeuge -> Zustaende, und wer sie dort
+   * abschreiben muss, bevor irgendetwas funktioniert, hat eine Einrichtung
+   * vor sich, die aus einem Textfeld und einem Ratespiel besteht. In der
+   * ueberwaeltigenden Mehrheit der Installationen gibt es genau EINEN
+   * `device_tracker` mit Koordinaten -- dann gibt es auch nichts zu waehlen.
+   *
+   * Gibt es MEHRERE, wird hier bewusst NICHT geraten: der zweite Tracker
+   * koennte das Telefon einer anderen Person sein, und die Navigation wuerde
+   * ihr stillschweigend folgen. Dann bleibt die Quelle inaktiv und nennt im
+   * Protokoll die Auswahl.
+   */
+  autoSelect?: boolean;
   logger: HaClientLogger;
   pollIntervalMs?: number;
   /** Injizierbar fuer Tests. */
@@ -141,15 +158,76 @@ export class HaTrackerSource implements PositionSource {
   private timer: ReturnType<typeof setInterval> | null = null;
   /** Damit ein dauerhaft fehlender Tracker das Protokoll nicht vollschreibt. */
   private missingLogged = false;
+  /** Dasselbe fuer die automatische Auswahl: einmal sagen, was gefunden
+   *  wurde, nicht alle fuenf Sekunden. */
+  private autoLogged = false;
+  /** Die zuletzt automatisch gewaehlte Entitaet -- nur fuers Protokoll, damit
+   *  ein Wechsel (Tracker verschwindet, anderer kommt) wieder auftaucht. */
+  private autoPicked: string | null = null;
 
   constructor(opts: HaTrackerSourceOptions) {
     this.opts = opts;
   }
 
-  /** Ob diese Quelle ueberhaupt etwas tun kann (Entity gesetzt UND HA
-   *  erreichbar konfiguriert). */
+  /** Ob diese Quelle ueberhaupt etwas tun kann: HA erreichbar konfiguriert,
+   *  und entweder eine Entity-ID gesetzt ODER die Erlaubnis, selbst zu
+   *  suchen. */
   isConfigured(): boolean {
-    return this.opts.entityId.trim().length > 0 && this.opts.resolveConnection() !== null;
+    if (this.opts.resolveConnection() === null) {
+      return false;
+    }
+    return this.opts.entityId.trim().length > 0 || this.opts.autoSelect === true;
+  }
+
+  /**
+   * Welche Entitaet dieser Durchgang lesen soll -- die konfigurierte, oder
+   * die einzige, die in Frage kommt. `null` heisst „diesmal keine"; das ist
+   * kein Fehler, sondern der Zustand vor der Einrichtung.
+   */
+  private resolveEntityId(states: HaEntityState[]): string | null {
+    const configured = this.opts.entityId.trim();
+    if (configured.length > 0) {
+      return configured;
+    }
+    if (this.opts.autoSelect !== true) {
+      return null;
+    }
+
+    const candidates = listGpsTrackers(states);
+    if (candidates.length === 1) {
+      const picked = candidates[0];
+      if (this.autoPicked !== picked) {
+        this.autoPicked = picked;
+        this.autoLogged = false;
+      }
+      if (!this.autoLogged) {
+        this.autoLogged = true;
+        this.opts.logger.info(
+          'ha_tracker: Entitaet automatisch gewaehlt (genau eine mit Koordinaten gefunden)',
+          { entityId: picked },
+        );
+      }
+      return picked;
+    }
+
+    this.autoPicked = null;
+    if (!this.autoLogged) {
+      this.autoLogged = true;
+      if (candidates.length === 0) {
+        this.opts.logger.warn(
+          'ha_tracker: kein device_tracker mit Koordinaten in Home Assistant gefunden -- ' +
+            'Quelle bleibt inaktiv. Companion App installieren und die Ortung erlauben.',
+        );
+      } else {
+        this.opts.logger.warn(
+          'ha_tracker: mehrere device_tracker mit Koordinaten gefunden -- es wird KEINER ' +
+            'geraten. Bitte in der Add-on-Konfiguration unter „ha_device_tracker" ' +
+            'eintragen, welcher gemeint ist.',
+          { verfuegbar: candidates },
+        );
+      }
+    }
+    return null;
   }
 
   start(): void {
@@ -178,7 +256,10 @@ export class HaTrackerSource implements PositionSource {
     }
     const fetchStates = this.opts.fetchStates ?? fetchHaStates;
     const states = await fetchStates(connection, { logger: this.opts.logger });
-    const wanted = this.opts.entityId.trim();
+    const wanted = this.resolveEntityId(states);
+    if (wanted === null) {
+      return;
+    }
     const state = states.find((entry) => entry.entity_id === wanted);
     if (!state) {
       if (!this.missingLogged) {

@@ -38,14 +38,20 @@ function trackerState(overrides: Partial<HaEntityState> = {}): HaEntityState {
 
 function makeSource(
   states: HaEntityState[],
-  opts: { entityId?: string; connection?: typeof CONNECTION | null } = {},
+  opts: {
+    entityId?: string;
+    connection?: typeof CONNECTION | null;
+    autoSelect?: boolean;
+    logger?: typeof silentLogger;
+  } = {},
 ): { source: HaTrackerSource; service: PositionService } {
   const service = new PositionService({ bus: new EventBus(), checkIntervalMs: 10_000 });
   const source = new HaTrackerSource({
     positionService: service,
     resolveConnection: () => (opts.connection === undefined ? CONNECTION : opts.connection),
     entityId: opts.entityId ?? 'device_tracker.mein_telefon',
-    logger: silentLogger,
+    autoSelect: opts.autoSelect,
+    logger: opts.logger ?? silentLogger,
     fetchStates: async () => states,
   });
   return { source, service };
@@ -131,6 +137,84 @@ describe('HaTrackerSource', () => {
   it('ist ohne HA-Verbindung nicht eingerichtet', () => {
     const { source } = makeSource([trackerState()], { connection: null });
     expect(source.isConfigured()).toBe(false);
+  });
+
+  // ─── Automatische Wahl (`gps_source: ha_tracker` ohne Entity-ID) ─────────
+  // Eine Entity-ID ist nichts, was man weiß. Bis 0.3.0 war sie Pflicht, und
+  // sie stand nur in Home Assistant unter Entwicklerwerkzeuge → Zustände —
+  // die Einrichtung bestand damit aus einem leeren Textfeld und Raten.
+  describe('automatische Wahl', () => {
+    it('wählt die einzige Entität mit Koordinaten selbst', async () => {
+      const { source, service } = makeSource(
+        [
+          trackerState({ entity_id: 'device_tracker.telefon' }),
+          trackerState({ entity_id: 'device_tracker.nur_wlan', attributes: { source_type: 'router' } }),
+        ],
+        { entityId: '', autoSelect: true },
+      );
+      expect(source.isConfigured()).toBe(true);
+      await source.poll();
+      expect(service.getLast()?.source).toBe('ha_tracker');
+    });
+
+    // Der zweite Tracker könnte das Telefon einer anderen Person sein. Eine
+    // Navigation, die ihm stillschweigend folgt, ist schlimmer als eine, die
+    // sagt „sag mir, welcher".
+    it('rät bei mehreren nicht, sondern nennt die Auswahl im Protokoll', async () => {
+      const warn = vi.fn();
+      const { source, service } = makeSource(
+        [
+          trackerState({ entity_id: 'device_tracker.telefon' }),
+          trackerState({ entity_id: 'device_tracker.ipad' }),
+        ],
+        { entityId: '', autoSelect: true, logger: { ...silentLogger, warn } },
+      );
+      await source.poll();
+      expect(service.getLast()).toBeNull();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][1]).toEqual({
+        verfuegbar: ['device_tracker.ipad', 'device_tracker.telefon'],
+      });
+    });
+
+    it('schreibt das Protokoll nicht bei jedem Durchgang voll', async () => {
+      const warn = vi.fn();
+      const { source } = makeSource(
+        [
+          trackerState({ entity_id: 'device_tracker.telefon' }),
+          trackerState({ entity_id: 'device_tracker.ipad' }),
+        ],
+        { entityId: '', autoSelect: true, logger: { ...silentLogger, warn } },
+      );
+      await source.poll();
+      await source.poll();
+      await source.poll();
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    // Ohne `autoSelect` bleibt es beim alten Verhalten: leer heißt aus.
+    it('sucht ohne autoSelect nicht selbst', async () => {
+      const { source, service } = makeSource([trackerState({ entity_id: 'device_tracker.telefon' })], {
+        entityId: '',
+      });
+      expect(source.isConfigured()).toBe(false);
+      await source.poll();
+      expect(service.getLast()).toBeNull();
+    });
+
+    // Eine ausdrücklich eingetragene Entität schlägt die Automatik — sonst
+    // wäre das Feld eine Anzeige statt einer Einstellung.
+    it('bevorzugt die konfigurierte Entität, auch wenn autoSelect an ist', async () => {
+      const { source, service } = makeSource(
+        [
+          trackerState({ entity_id: 'device_tracker.telefon', attributes: { latitude: 47.1, longitude: 9.5 } }),
+          trackerState({ entity_id: 'device_tracker.ipad', attributes: { latitude: 48.2, longitude: 10.6 } }),
+        ],
+        { entityId: 'device_tracker.ipad', autoSelect: true },
+      );
+      await source.poll();
+      expect(service.getLast()?.lat).toBe(48.2);
+    });
   });
 
   it('fragt gar nicht erst ab, wenn keine HA-Verbindung konfiguriert ist', async () => {

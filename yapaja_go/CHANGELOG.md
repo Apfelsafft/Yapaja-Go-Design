@@ -10,6 +10,42 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.3.1
+
+**Die Companion App lässt sich jetzt auch auswählen.** 0.3.0 hat die
+Positionsquelle gebaut — in der Konfiguration stand unter „gps_source"
+trotzdem nur `usb`, `network` und `none`. Einschalten ging allein über das
+freie Textfeld `ha_device_tracker` darunter, und dafür musste man erst
+wissen, dass es eine Entity-ID gibt, und sie dann in Home Assistant unter
+Entwicklerwerkzeuge → Zustände abschreiben. Eine Funktion, die man an der
+Stelle, an der man nachsieht, nicht findet, ist keine.
+
+`gps_source` hat jetzt einen vierten Wert: **`ha_tracker`**. Er genügt für
+sich allein — gibt es genau eine `device_tracker`-Entität mit Koordinaten
+(der Normalfall), sucht Yapaja sie selbst. Das Textfeld darunter ist nur noch
+nötig, wenn es mehrere gibt; dann wird bewusst **keiner geraten**, denn der
+zweite könnte das Telefon einer anderen Person sein, und die Navigation würde
+ihr stillschweigend folgen.
+
+**Die Installationsprüfung (🩺) nennt die Tracker jetzt wirklich beim Namen.**
+In der Add-on-Konfiguration stand seit 0.3.0 der Satz, sie liste alle
+gefundenen `device_tracker.*` mit Koordinaten auf. Das tat sie nicht — der
+Satz war eine Zusage ohne Deckung, und er stand ausgerechnet an der Stelle,
+an der man die Entity-ID sonst raten muss. Jetzt fragt die Prüfung Home
+Assistant und zeigt die gefundenen Namen an. Sie unterscheidet dabei drei
+Fälle, die vorher alle gleich ausgesehen hätten: kein Tracker vorhanden,
+Home Assistant nicht erreichbar, und eine eingetragene Entität, die es so
+nicht gibt (der teuerste Fall — alles sieht eingerichtet aus, und es kommt
+trotzdem nie eine Position).
+
+**Voreinstellung ist jetzt `none` statt `usb`.** Ein USB-GPS-Empfänger ist
+Zubehör, das die wenigsten haben. Mit `usb` meldete die Prüfung bei jeder
+frischen Installation „gpsd ist eingeschaltet, antwortet aber nicht unter
+127.0.0.1:2947" — eine Warnung über ein Gerät, das nie da war. **Bestehende
+Installationen behalten ihre eigene Einstellung**; wer bisher `usb` stehen
+hatte und keinen Empfänger besitzt, stellt hier am besten auf `ha_tracker`
+oder `none` um.
+
 ## 0.3.0
 
 **Start und Ziel sind jetzt beide wählbar.** Bisher konnte man nur ein Ziel
