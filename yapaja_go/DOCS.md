@@ -59,7 +59,10 @@ region with Photon search enabled.
 
 ## USB-GPS passthrough
 
-Set `gps_source: usb` (the default) in the add-on's Configuration tab.
+Set `gps_source: usb` in the add-on's Configuration tab (as of 0.3.1 the
+default is `none`, because a USB receiver is an accessory most installs don't
+have — with `usb` set on a machine without one, the preflight warned forever
+about a device that was never there).
 `config.yaml` declares `usb: true` + `udev: true`, which makes the
 Supervisor pass USB device nodes and udev events through into the add-on's
 container — this is what lets our internal `gpsd` service actually see a
@@ -75,9 +78,28 @@ plugged-in GPS receiver.
    one.
 
 If you don't have (or don't yet have) a GPS receiver connected, leave
-`gps_source: usb` set anyway (harmless — gpsd idles and retries) or switch
-to `gps_source: none` to silence the retry warnings; the app remains fully
-usable via the simulator/dead-reckoning position source either way.
+`gps_source` at `none` (the default): the app remains fully usable, and the
+position then comes from the browser — or, if the browser won't hand over its
+sensor, from the Home Assistant Companion App (see below).
+
+## Position from the Home Assistant Companion App
+
+The browser only releases its GPS sensor over HTTPS. If Home Assistant runs
+over plain `http://`, no phone, tablet or car radio will give Yapaja a
+position, and no add-on setting can change that. The Companion App reports to
+Home Assistant instead of to the browser, and keeps reporting with the screen
+locked.
+
+Set `gps_source: ha_tracker`. That is normally all: if exactly one
+`device_tracker` entity in Home Assistant carries coordinates, Yapaja picks it
+itself. If there are several, none is guessed — the second one could be
+someone else's phone, and a navigation that silently follows it is worse than
+one that asks. In that case the preflight check (🩺) names the candidates and
+you enter the one you want under `ha_device_tracker`.
+
+Source priority is `gpsd > browser > ha_tracker > simulator`: the app reports
+at intervals, so it is the source that *exists* when the browser gives none —
+not a replacement for a live browser fix.
 
 ## Configuration options
 
@@ -86,7 +108,8 @@ usable via the simulator/dead-reckoning position source either way.
 | `region` | string (optional) | *(empty)* | Which map region to use. Empty = onboarding/no-data state (E08-T5 builds the full setup wizard; this add-on version simply doesn't crash without one). |
 | `mqtt_prefix` | string | `yapaja` | MQTT topic prefix (docs/03-api-spec.md §4). |
 | `photon_enabled` | bool | `true` | Full-text search via Photon. `false` = RAM-saver, falls back to the offline lite-search index (W-12). |
-| `gps_source` | `usb` \| `network` \| `none` | `usb` | Where the Core's position service gets a GPS fix from. |
+| `gps_source` | `usb` \| `network` \| `ha_tracker` \| `none` | `none` | Where the Core's position service gets a GPS fix from. `usb`/`network` start gpsd; `ha_tracker` reads a Home Assistant `device_tracker` (Companion App); `none` leaves the browser as the source. Browser positions are accepted at **every** value. |
+| `ha_device_tracker` | string (optional) | *(empty)* | Which `device_tracker` entity to read, e.g. `device_tracker.my_phone`. Only needed with `gps_source: ha_tracker` **and** more than one candidate — with exactly one, Yapaja picks it itself. |
 | `log_level` | `debug` \| `info` \| `warn` \| `error` | `info` | Core log verbosity (pino). |
 | `photon_xmx_mb` | int 256–4096 | `1024` | Photon JVM heap cap (`-Xmx`). See the RAM table above. |
 | `valhalla_memory_mb` | int 512–8192 | `2048` | Documented RAM budget for Valhalla; informational (Valhalla's actual runtime cache size is set at graph-build time, not per-start — see `yapaja_go/rootfs/.../valhalla/run`'s comment). |

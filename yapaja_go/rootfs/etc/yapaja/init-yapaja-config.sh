@@ -40,9 +40,17 @@ set -euo pipefail
 # would ALSO work and is a fine substitute if `with-contenv` behaves
 # differently than expected on the actual target image; noted here for
 # whoever verifies this against a live build).
+#
+# Das Zielverzeichnis ist ueberschreibbar (`S6_CONTAINER_ENVIRONMENT_DIR`) und
+# steht im Betrieb IMMER auf der Vorgabe -- s6 setzt die Variable nicht. Der
+# Grund fuer die Klammer ist ein Test: `config.test.ts` fuehrt dieses Skript
+# mit einem gefaelschten bashio wirklich AUS und liest nach, was es exportiert
+# hat. Nur so laesst sich pruefen, dass `gps_source: ha_tracker` gpsd
+# ausschaltet, statt zu pruefen, dass der Quelltext das Wort enthaelt -- was
+# beides zugleich wahr sein kann, ohne dass das eine aus dem anderen folgt.
 export_env() {
   local name="$1" value="$2"
-  echo -n "${value}" > "/run/s6/container_environment/${name}"
+  echo -n "${value}" > "${S6_CONTAINER_ENVIRONMENT_DIR:-/run/s6/container_environment}/${name}"
 }
 
 bashio::log.info "init-yapaja-config: reading add-on options..."
@@ -162,16 +170,27 @@ export_env "PHOTON_XMX_MB" "${PHOTON_XMX_MB}"
 export_env "PHOTON_DATA_DIR" "${DATA_ROOT}/photon/photon_data"
 
 # ---- GPS source (docs/04 §3 "GPS-Quelle") ----
+# `usb` / `network` -> gpsd; `ha_tracker` -> Companion App; `none` -> Browser.
+# Der Core liest `GPS_SOURCE` selbst (apps/core/src/index.ts): bei
+# `ha_tracker` darf die HA-Quelle sich ihre Entitaet selbst suchen, statt eine
+# abgeschriebene Entity-ID zu verlangen.
 export_env "GPS_SOURCE" "${GPS_SOURCE}"
 # B-05: Position aus einer HA-`device_tracker`-Entitaet (Companion App).
-# Leer = aus; der Core startet die Quelle dann gar nicht erst.
+# Leer UND `gps_source != ha_tracker` = aus; der Core startet die Quelle dann
+# gar nicht erst.
 export_env "HA_DEVICE_TRACKER" "${HA_DEVICE_TRACKER:-}"
 if [ "${GPS_SOURCE}" = "usb" ] || [ "${GPS_SOURCE}" = "network" ]; then
   export_env "GPSD_ENABLED" "true"
   export_env "GPSD_HOST" "127.0.0.1"
   export_env "GPSD_PORT" "2947"
 else
+  # Auch `ha_tracker` landet hier -- gpsd auf einer Installation ohne
+  # USB-Empfaenger zu starten, erzeugt nur eine Warnung ueber ein Geraet, das
+  # es nicht gibt.
   export_env "GPSD_ENABLED" "false"
+fi
+if [ "${GPS_SOURCE}" = "ha_tracker" ] && [ -z "${HA_DEVICE_TRACKER}" ]; then
+  bashio::log.info "init-yapaja-config: gps_source=ha_tracker ohne feste Entity-ID -- der Core waehlt selbst, sofern es genau einen device_tracker mit Koordinaten gibt (sonst sagt die Installationspruefung, welche zur Wahl stehen)."
 fi
 
 # ---- HA output channel (E08-T3, docs/04 §2) via the Supervisor-proxied API -

@@ -42,6 +42,10 @@ function healthyDeps(overrides: Partial<PreflightDeps> = {}): PreflightDeps {
     fileSize: async () => 4 * 1024 * 1024,
     tcpProbe: async () => true,
     httpProbe: async () => true,
+    // `null` = „konnte Home Assistant nicht fragen". Das ist die Vorgabe im
+    // Test, damit kein Test versehentlich echte Zustände holt; die Tests, in
+    // denen es um Tracker geht, setzen es ausdrücklich.
+    listHaTrackers: async () => null,
     totalMem: () => 16 * GB,
     diskFree: async () => 40 * GB,
     now: () => new Date('2026-09-01T10:00:00.000Z'),
@@ -302,6 +306,117 @@ describe('Positionsprüfung', () => {
       }),
     );
     expect(seen).toContainEqual(['gps-box', 3333]);
+  });
+
+  // ─── Die Zusage aus yapaja_go/config.yaml ────────────────────────────────
+  // Dort stand seit 0.3.0: „Welche Entitaeten in Frage kommen, sagt die
+  // Installationspruefung: sie listet alle gefundenen `device_tracker.*` MIT
+  // Koordinaten auf." Sie tat es nicht. Diese Tests sind der Grund, warum der
+  // Satz jetzt stimmt — sie fallen um, sobald die Auflistung wieder
+  // verschwindet.
+  describe('Home-Assistant-Tracker (B-05)', () => {
+    const haEnv = (extra: Record<string, string> = {}): Record<string, string> => ({
+      ...(healthyDeps().env as Record<string, string>),
+      GPSD_ENABLED: 'false',
+      ...extra,
+    });
+
+    it('nennt bei „gps_source: ha_tracker" mit mehreren Trackern jeden beim Namen', async () => {
+      const report = await runPreflight(
+        healthyDeps({
+          env: haEnv({ GPS_SOURCE: 'ha_tracker' }),
+          listHaTrackers: async () => ['device_tracker.ipad', 'device_tracker.telefon'],
+        }),
+      );
+      const pos = byId(report.checks, 'position');
+      expect(pos.status).toBe('warn');
+      expect(pos.remedy).toContain('device_tracker.telefon');
+      expect(pos.remedy).toContain('device_tracker.ipad');
+      expect(pos.remedy).toContain('ha_device_tracker');
+    });
+
+    it('ist ok — und nennt die Entität — wenn es genau eine gibt (automatische Wahl)', async () => {
+      const report = await runPreflight(
+        healthyDeps({
+          env: haEnv({ GPS_SOURCE: 'ha_tracker' }),
+          listHaTrackers: async () => ['device_tracker.telefon'],
+        }),
+      );
+      const pos = byId(report.checks, 'position');
+      expect(pos.status).toBe('ok');
+      expect(pos.detail).toContain('device_tracker.telefon');
+      expect(pos.detail).toContain('automatisch');
+    });
+
+    it('unterscheidet „kein Tracker vorhanden" von „Home Assistant nicht erreichbar"', async () => {
+      const keiner = byId(
+        (
+          await runPreflight(
+            healthyDeps({ env: haEnv({ GPS_SOURCE: 'ha_tracker' }), listHaTrackers: async () => [] })
+          )
+        ).checks,
+        'position',
+      );
+      expect(keiner.status).toBe('warn');
+      expect(keiner.remedy).toContain('Companion-App');
+
+      const unerreichbar = byId(
+        (
+          await runPreflight(
+            healthyDeps({
+              env: haEnv({ GPS_SOURCE: 'ha_tracker' }),
+              listHaTrackers: async () => null,
+            }),
+          )
+        ).checks,
+        'position',
+      );
+      expect(unerreichbar.status).toBe('warn');
+      expect(unerreichbar.detail).toContain('nicht erreichbar');
+      // Die beiden Fälle dürfen NICHT denselben Text bekommen — die
+      // Handlungsanweisung ist eine völlig andere.
+      expect(unerreichbar.detail).not.toBe(keiner.detail);
+    });
+
+    // Der teuerste Fall: alles sieht eingerichtet aus, und es kommt trotzdem
+    // nie eine Position.
+    it('warnt, wenn die eingetragene Entität in Home Assistant keine Koordinaten hat, und nennt die, die welche haben', async () => {
+      const report = await runPreflight(
+        healthyDeps({
+          env: haEnv({ HA_DEVICE_TRACKER: 'device_tracker.vertippt' }),
+          listHaTrackers: async () => ['device_tracker.telefon'],
+        }),
+      );
+      const pos = byId(report.checks, 'position');
+      expect(pos.status).toBe('warn');
+      expect(pos.detail).toContain('device_tracker.vertippt');
+      expect(pos.remedy).toContain('device_tracker.telefon');
+    });
+
+    it('ist ok, wenn die eingetragene Entität existiert', async () => {
+      const report = await runPreflight(
+        healthyDeps({
+          env: haEnv({ HA_DEVICE_TRACKER: 'device_tracker.telefon' }),
+          listHaTrackers: async () => ['device_tracker.telefon'],
+        }),
+      );
+      expect(byId(report.checks, 'position').status).toBe('ok');
+    });
+
+    // Ohne diesen Zweig wäre die Auflistung eine Funktion, die nur findet,
+    // wer schon weiß, dass es sie gibt: der Weg zur Companion App muss in der
+    // Voreinstellung („none", Browser) benannt sein.
+    it('weist im Browser-Fall auf „gps_source: ha_tracker" hin', async () => {
+      const report = await runPreflight(healthyDeps({ env: haEnv() }));
+      expect(byId(report.checks, 'position').remedy).toContain('ha_tracker');
+    });
+
+    // Der konkrete Ausgangspunkt: gps_source stand auf „usb", ein Empfänger
+    // war nie da, und die Prüfung riet nur zu einem Gerät, das es nicht gibt.
+    it('nennt bei totem gpsd auch die Möglichkeit, dass „usb" schlicht falsch eingestellt ist', async () => {
+      const report = await runPreflight(healthyDeps({ tcpProbe: async () => false }));
+      expect(byId(report.checks, 'position').remedy).toContain('ha_tracker');
+    });
   });
 });
 

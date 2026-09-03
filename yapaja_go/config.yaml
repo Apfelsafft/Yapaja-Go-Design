@@ -10,7 +10,7 @@
 name: "Yapaja Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.3.0"
+version: "0.3.1"
 url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
 
 # amd64 covers typical Mini-PC/NUC installs; aarch64 covers Raspberry Pi
@@ -97,8 +97,29 @@ homeassistant_api: true
 # Any future change here is a widening of privileges and must be argued for
 # explicitly by ADDING the key with a comment saying why.
 
-# `ha_device_tracker` (B-05): Entity-ID einer Home-Assistant-
-# `device_tracker`-Entitaet, z. B. `device_tracker.mein_telefon`. Leer = aus.
+# `gps_source` -- WOHER die Position kommt. Vier Werte, und der Reihe nach:
+#
+#   usb        fest eingebauter GPS-Empfaenger am USB-Port (gpsd)
+#   network    gpsd auf einem anderen Geraet im Netz
+#   ha_tracker Home-Assistant-Companion-App auf Telefon/Tablet/Autoradio
+#   none       kein eigener Empfaenger -- die Position kommt aus dem Browser
+#
+# `ha_tracker` fehlte bis 0.3.0 in dieser Liste. Die Quelle GAB es (0.3.0 hat
+# sie gebaut), aber einschalten liess sie sich nur ueber das freie Textfeld
+# `ha_device_tracker` darunter -- und dafuer musste man erst wissen, dass es
+# eine Entity-ID gibt, und sie dann in Home Assistant unter
+# Entwicklerwerkzeuge -> Zustaende abschreiben. In der Konfiguration stand an
+# der Stelle, an der man nachsieht, nur „usb". Eine Funktion, die man nicht
+# findet, ist keine.
+#
+# `ha_tracker` genuegt jetzt fuer sich allein: gibt es genau EINEN
+# `device_tracker` mit Koordinaten -- der Normalfall --, waehlt Yapaja ihn
+# selbst. Gibt es mehrere, wird bewusst KEINER geraten (der zweite koennte
+# das Telefon einer anderen Person sein); dann nennt die Installationspruefung
+# sie beim Namen und man traegt den gewuenschten unten ein.
+#
+# `ha_device_tracker` (B-05): Entity-ID, z. B. `device_tracker.mein_telefon`.
+# Leer = automatisch (siehe oben). Nur noetig, wenn es mehrere gibt.
 #
 # Der Weg fuer Telefon/Tablet/Autoradio, wenn der Browser den GPS-Sensor gar
 # nicht freigibt -- ohne HTTPS tut er das nie, und Home Assistant laeuft in
@@ -109,7 +130,10 @@ homeassistant_api: true
 # Welche Entitaeten in Frage kommen, sagt die Installationspruefung (🩺):
 # sie listet alle gefundenen `device_tracker.*` MIT Koordinaten auf. Einer
 # ohne Koordinaten (nur „home"/„not home" per WLAN) taugt nicht als
-# Positionsquelle und wird deshalb gar nicht erst angeboten.
+# Positionsquelle und wird deshalb gar nicht erst angeboten. (Dieser Satz
+# stand hier schon in 0.3.0 und war da noch eine Zusage ohne Deckung -- die
+# Pruefung listete nichts. `apps/core/src/system/preflight.ts` tut es seit
+# 0.3.1 wirklich, und `preflight.test.ts` haelt es fest.)
 #
 # Options (docs/04 §3 "Kartenregion, MQTT-Prefix, Photon an/aus, GPS-Quelle,
 # Log-Level" + memory tuning). `region: ""` (empty) is a VALID, EXPECTED
@@ -120,7 +144,14 @@ options:
   region: ""
   mqtt_prefix: "yapaja"
   photon_enabled: true
-  gps_source: "usb"
+  # Voreinstellung `none` statt `usb`: ein USB-GPS-Empfaenger ist Zubehoer,
+  # das die wenigsten haben. Mit `usb` meldete die Installationspruefung bei
+  # jeder frischen Installation „gpsd ist eingeschaltet, antwortet aber nicht
+  # unter 127.0.0.1:2947" -- eine Warnung ueber ein Geraet, das nie da war.
+  # Wer einen Empfaenger hat, stellt hier `usb` ein; das ist die Reihenfolge,
+  # in der man es merkt. (Bestehende Installationen behalten ihre eigene
+  # Einstellung -- Vorgaben gelten nur fuer neue.)
+  gps_source: "none"
   ha_device_tracker: ""
   log_level: "info"
   photon_xmx_mb: 1024
@@ -130,7 +161,7 @@ schema:
   region: "str?"
   mqtt_prefix: "str"
   photon_enabled: "bool"
-  gps_source: "list(usb|network|none)"
+  gps_source: "list(usb|network|ha_tracker|none)"
   ha_device_tracker: "str?"
   log_level: "list(debug|info|warn|error)"
   photon_xmx_mb: "int(256,4096)"

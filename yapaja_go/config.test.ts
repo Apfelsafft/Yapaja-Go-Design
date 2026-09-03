@@ -12,7 +12,17 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { basename, dirname, join } from 'node:path';
 import { load } from 'js-yaml';
@@ -141,6 +151,27 @@ describe('yapaja_go/config.yaml is valid YAML with the required HA add-on keys',
       expect(config.options, `options.${key} missing`).toHaveProperty(key);
       expect(config.schema, `schema.${key} missing`).toHaveProperty(key);
     }
+  });
+
+  // 0.3.0 BUILT the Companion-App position source but never listed it here.
+  // The Configuration tab therefore offered usb/network/none only, and the
+  // one operator running the add-on reported exactly that: "den ha tracker
+  // kann ich nicht auswaehlen. In der Konfiguration sehe ich nur usb."
+  // A feature that cannot be selected is not a feature.
+  it('offers every implemented position source in gps_source, including ha_tracker', () => {
+    const config = loadConfig();
+    const schema = config.schema.gps_source as string;
+    const match = /^list\((.+)\)$/.exec(schema);
+    expect(match, `gps_source schema is not a list(): ${schema}`).not.toBeNull();
+    const values = (match as RegExpExecArray)[1].split('|');
+    expect(values).toContain('ha_tracker');
+    expect(values).toContain('usb');
+    expect(values).toContain('network');
+    expect(values).toContain('none');
+    // The default must itself be one of the offered values -- the Supervisor
+    // rejects the add-on outright otherwise, and it would do so on the
+    // operator's machine, not here.
+    expect(values).toContain(config.options.gps_source);
   });
 
   it('every options key has a matching schema key and vice versa (no orphaned entries)', () => {
@@ -706,5 +737,116 @@ describe('die Installation kann tatsaechlich durchlaufen', () => {
         `build.yaml hat kein build_from fuer arch "${arch}"`,
       ).toBeTruthy();
     }
+  });
+});
+
+/**
+ * Was `init-yapaja-config.sh` WIRKLICH exportiert.
+ *
+ * Der Unterschied zu jeder Textprüfung darüber: hier läuft das Skript. Ein
+ * `expect(quelltext).toContain('ha_tracker')` wäre grün gewesen, seit das
+ * Wort irgendwo im Skript steht — auch dann, wenn die Fallunterscheidung
+ * darunter gpsd trotzdem einschaltet. Genau diese Sorte Lücke („die Zeile ist
+ * da, der Weg ist trotzdem nicht begehbar") hat dieses Add-on schon mehrfach
+ * gekostet.
+ *
+ * Dafür wird bashio gefälscht: es ist im Testcontainer nicht vorhanden, und
+ * es soll auch nicht sein — geprüft wird unsere Logik, nicht seine.
+ */
+describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
+  const INIT_SCRIPT = join(ADDON_DIR, 'rootfs', 'etc', 'yapaja', 'init-yapaja-config.sh');
+
+  /** Führt das Skript mit den angegebenen Add-on-Optionen aus und liefert die
+   *  Container-Umgebung, die es geschrieben hat. */
+  function runInit(options: Record<string, string>): Record<string, string> {
+    const dir = mkdtempSync(join(tmpdir(), 'yapaja-init-'));
+    const envDir = join(dir, 'container_environment');
+    mkdirSync(envDir, { recursive: true });
+    const shareDir = join(dir, 'share');
+
+    const defaults: Record<string, string> = {
+      region: 'liechtenstein',
+      mqtt_prefix: 'yapaja',
+      photon_enabled: 'false',
+      gps_source: 'none',
+      ha_device_tracker: '',
+      log_level: 'info',
+      photon_xmx_mb: '1024',
+      valhalla_memory_mb: '2048',
+      ...options,
+    };
+
+    const stub = [
+      '#!/usr/bin/env bash',
+      // bashio::config gibt die Option aus; alles andere ist ein No-op bzw.
+      // meldet "kein MQTT" (der Zweig, der ohne Broker läuft).
+      'bashio::config() {',
+      ...Object.entries(defaults).map(
+        ([key, value]) => `  if [ "$1" = "${key}" ]; then printf '%s' ${JSON.stringify(value)}; return 0; fi`,
+      ),
+      '  printf ""',
+      '}',
+      'bashio::log.info() { :; }',
+      'bashio::log.warning() { :; }',
+      'bashio::services.available() { return 1; }',
+      `source ${JSON.stringify(INIT_SCRIPT)}`,
+    ].join('\n');
+
+    const stubPath = join(dir, 'run.sh');
+    writeFileSync(stubPath, stub);
+
+    // `DATA_ROOT` im Skript ist /share/yapaja -- im Test nicht schreibbar.
+    // Deshalb wird `mkdir` so umgebogen, dass es unter dem Tempverzeichnis
+    // landet: geprüft werden die Exporte, nicht das Anlegen von Ordnern.
+    const binDir = join(dir, 'bin');
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(
+      join(binDir, 'mkdir'),
+      `#!/usr/bin/env bash\nexec /bin/mkdir "\${@/#\\/share/${shareDir.replace(/\//g, '\\/')}}"\n`,
+      { mode: 0o755 },
+    );
+
+    execFileSync('bash', [stubPath], {
+      env: {
+        ...process.env,
+        PATH: `${binDir}:${process.env.PATH ?? ''}`,
+        S6_CONTAINER_ENVIRONMENT_DIR: envDir,
+      },
+      stdio: 'pipe',
+    });
+
+    const result: Record<string, string> = {};
+    for (const name of readdirSync(envDir)) {
+      result[name] = readFileSync(join(envDir, name), 'utf-8');
+    }
+    return result;
+  }
+
+  it('schaltet gpsd bei "usb" ein', () => {
+    const env = runInit({ gps_source: 'usb' });
+    expect(env.GPSD_ENABLED).toBe('true');
+    expect(env.GPS_SOURCE).toBe('usb');
+  });
+
+  // Der eigentliche Punkt: eine Installation ohne USB-Empfänger soll nicht
+  // dauerhaft melden, dass ein Gerät nicht antwortet, das es nie gab.
+  it('schaltet gpsd bei "ha_tracker" AUS und reicht die Quelle an den Core weiter', () => {
+    const env = runInit({ gps_source: 'ha_tracker' });
+    expect(env.GPSD_ENABLED).toBe('false');
+    expect(env.GPS_SOURCE).toBe('ha_tracker');
+  });
+
+  it('schaltet gpsd bei "none" aus', () => {
+    expect(runInit({ gps_source: 'none' }).GPSD_ENABLED).toBe('false');
+  });
+
+  /** `str?` liefert bei leerer Option den String "null". Das ist KEINE
+   *  Entity-ID -- ohne diese Umsetzung sucht der Core eine Entität namens
+   *  "null" und findet nie eine Position. */
+  it('macht aus bashios "null" eine leere Entity-ID', () => {
+    expect(runInit({ ha_device_tracker: 'null' }).HA_DEVICE_TRACKER).toBe('');
+    expect(runInit({ ha_device_tracker: 'device_tracker.telefon' }).HA_DEVICE_TRACKER).toBe(
+      'device_tracker.telefon',
+    );
   });
 });
