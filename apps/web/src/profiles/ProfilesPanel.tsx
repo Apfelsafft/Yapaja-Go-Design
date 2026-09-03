@@ -130,12 +130,14 @@ export default function ProfilesPanel(): React.ReactElement {
   }, []);
 
   return (
-    // Top-LEFT, right of the "Yapaja Go" brand badge. The whole top-right +
-    // right edge is taken (MapLibre's own zoom/compass NavigationControl at
-    // top-right, RegionsPanel below it, the FABs bottom-right) -- placing the
-    // chip at top-right made it overlap and swallow clicks meant for the
-    // zoom-in button (gestures.spec). left-44 clears the brand badge.
-    <div className="fixed top-4 left-44 z-10 pointer-events-none">
+    // Sitzt in der Kopfzeile (shell/TopBar.tsx) und positioniert sich NICHT
+    // mehr selbst. Bis 0.3.2 stand hier `fixed top-4 left-44 z-10`: eine
+    // absolute Position, die nichts von der Suchleiste daneben wusste. Sobald
+    // deren `w-[min(92vw,26rem)]` auf einem schmaleren Fenster die 92 vw zog,
+    // lag sie mit z-20 ueber diesem Chip -- das Fahrzeugprofil war schlicht
+    // nicht mehr zu finden. `relative` + `flex-shrink-0`: die Zeile teilt den
+    // Platz auf, statt dass zwei Elemente um dieselbe Stelle streiten.
+    <div className="relative flex-shrink-0 pointer-events-none">
       {/* Chip in header (always visible) */}
       <div className="pointer-events-auto">
         <ProfileChip activeProfile={activeProfile} onClick={handleToggleOpen} />

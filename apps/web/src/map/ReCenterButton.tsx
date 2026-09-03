@@ -1,22 +1,35 @@
 /**
  * Re-Center Button (E01-T3)
  *
- * Appears only when Follow-Me is paused (after user pan).
- * Click: resumes Follow-Me immediately and centers map on current position.
+ * ─── GEÄNDERT NACH EINER RÜCKMELDUNG AUS DEM BETRIEB ────────────────────────
+ * Bis 0.3.2 erschien dieser Knopf NUR, wenn Follow-Me pausiert war — also nur
+ * nach einem manuellen Schwenk mit dem Finger. Eine Suche bewegt die Karte
+ * aber programmatisch (`flyTo`), und das pausiert Follow-Me absichtlich
+ * nicht. Nach einer Suche war der Knopf deshalb nicht da, und die Karte kam
+ * erst beim nächsten eintreffenden Fix zurück — bei der Companion App als
+ * Quelle können das Minuten sein.
+ *
+ * Der Betreiber hat genau danach gefragt: „Bitte baue noch einen Button ein
+ * der nach einem suchen auf der Karte mich schnell wieder an die aktuelle
+ * Position bringt."
+ *
+ * Der Knopf ist jetzt immer da, SOLANGE es eine Position gibt. Ohne Position
+ * bleibt er weg — ein Knopf, der sicher nichts tut, ist schlechter als
+ * keiner, und „zurück zu nichts" ist kein Ziel.
  */
 
 import React, { useCallback } from 'react';
-import { useFollowMeIsPaused, useResumeFollowMe } from './followMe';
+import { recenterOnPosition } from './followMe';
+import { usePositionStore } from '../position/positionStore';
 
 export default function ReCenterButton(): React.ReactElement | null {
-  const isPaused = useFollowMeIsPaused();
-  const resume = useResumeFollowMe();
+  const hasPosition = usePositionStore((state) => state.position !== null);
 
   const handleClick = useCallback(() => {
-    resume();
-  }, [resume]);
+    recenterOnPosition();
+  }, []);
 
-  if (!isPaused) {
+  if (!hasPosition) {
     return null;
   }
 

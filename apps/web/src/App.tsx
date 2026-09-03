@@ -1,14 +1,13 @@
 import React from 'react';
 import MapView from './map/MapView';
 import PositionInitializer from './position/PositionInitializer';
-import ProfilesPanel from './profiles/ProfilesPanel.js';
 import RoutingInitializer from './routing/RoutingInitializer.js';
-import SearchBar from './search/SearchBar.js';
 import FavoritesDrawer from './favorites/FavoritesDrawer.js';
 import DriveOverlay from './drive/DriveOverlay.js';
 import ThemeController from './theme/ThemeController.js';
 import DriveLockController from './drive/DriveLockController.js';
 import HandednessController from './shell/HandednessController.js';
+import TopBar from './shell/TopBar.js';
 import UpdatePrompt from './pwa/UpdatePrompt.js';
 import OnboardingWizard from './onboarding/OnboardingWizard.js';
 import AddonHost from './addons/AddonHost.js';
@@ -21,14 +20,11 @@ export default function App(): React.ReactElement {
       <HandednessController />
       <MapView />
       <PositionInitializer />
-      <header className="absolute top-0 left-0 p-3 pointer-events-none">
-        <h1 className="inline-block pointer-events-auto bg-white/90 dark:bg-slate-900/90 rounded px-3 py-1 text-lg font-bold text-slate-900 dark:text-white shadow-md">
-          Yapaja Go
-        </h1>
-      </header>
-      <ProfilesPanel />
+      {/* Marke, Fahrzeugprofil und Suche liegen in EINER Flex-Zeile
+          (shell/TopBar.tsx). Vorher positionierte sich jedes der drei selbst
+          -- und ueberlagerte die anderen, je nach Fensterbreite. */}
+      <TopBar />
       <RoutingInitializer />
-      <SearchBar />
       <FavoritesDrawer />
       <DriveOverlay />
       <UpdatePrompt />

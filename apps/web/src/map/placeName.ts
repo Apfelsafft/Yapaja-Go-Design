@@ -43,8 +43,24 @@
 
 import type { GeoJSONFeature, Map as MapLibreMap } from 'maplibre-gl';
 
-/** Die Quelle, die `apps/core/src/map/styles/constants.ts` im Stil anlegt. */
-export const REGION_SOURCE_ID = 'region';
+/**
+ * Die Quelle, die `apps/core/src/map/styles/constants.ts` im Stil anlegt.
+ *
+ * ─── DIESER STRING WAR FALSCH, UND ZWAR STILL ───────────────────────────────
+ * In 0.3.2 stand hier `'region'`. Die Quelle heisst aber `'yapaja-region'`.
+ * `querySourceFeatures` wirft bei einer unbekannten Quelle, der `catch`
+ * unten hat das geschluckt, und `resolvePlaceName` lieferte AUSNAHMSLOS
+ * `null` — jedes angetippte Ziel blieb bei seinen Koordinaten. Die Funktion
+ * war da, der Weg war nie begehbar.
+ *
+ * Die Tests haben es nicht gemerkt, weil sie die ID selbst hereingaben: ihre
+ * gefaelschte Karte antwortete auf jeden Namen. Ein Test, der seinen eigenen
+ * Parameter setzt, prueft die Verdrahtung nicht. Deshalb haelt
+ * `placeName.sourceId.test.ts` diesen Wert jetzt gegen die Konstante im
+ * Core — die beiden koennen nicht mehr auseinanderlaufen, ohne dass ein Test
+ * umfaellt.
+ */
+export const REGION_SOURCE_ID = 'yapaja-region';
 
 /**
  * In welcher Reihenfolge gefragt wird. Eine Straße ist die genaueste Auskunft
@@ -73,6 +89,9 @@ export interface LatLon {
   lat: number;
   lon: number;
 }
+
+/** Damit die Warnung unten einmal pro Quelle faellt und nicht bei jedem Tippen. */
+const warnedMissingSources = new Set<string>();
 
 /** Quadrat des Abstands in Grad — Wurzeln braucht ein Vergleich nicht. */
 function squaredDegDistance(a: LatLon, b: LatLon): number {
@@ -154,6 +173,26 @@ export function resolvePlaceName({
   preferredLang,
   sourceId = REGION_SOURCE_ID,
 }: ResolvePlaceNameInput): string | null {
+  // ─── EINE FEHLENDE QUELLE IST EIN PROGRAMMFEHLER, KEIN BETRIEBSZUSTAND ────
+  // Eine fehlende Ebene ist normal (nicht jedes Archiv fuehrt `poi`) und wird
+  // unten still uebersprungen. Eine fehlende QUELLE dagegen heisst: hier
+  // steht der falsche Name, und dann liefert diese Funktion fuer immer
+  // `null`, ohne dass irgendetwas darauf hinweist. Genau so ist der Tippfehler
+  // `'region'` statt `'yapaja-region'` durch 0.3.2 gekommen. Einmal ins
+  // Protokoll, damit der naechste Fall in einer Minute statt in einer Version
+  // gefunden wird.
+  if (typeof map.getSource === 'function' && !map.getSource(sourceId)) {
+    if (!warnedMissingSources.has(sourceId)) {
+      warnedMissingSources.add(sourceId);
+      // eslint-disable-next-line no-console -- siehe oben: genau dafuer da.
+      console.warn(
+        `[placeName] Vektorquelle "${sourceId}" gibt es in diesem Stil nicht — ` +
+          'angetippte Ziele bleiben deshalb ohne Namen.',
+      );
+    }
+    return null;
+  }
+
   for (const sourceLayer of LOOKUP_LAYERS) {
     const limit =
       sourceLayer === 'place' ? MAX_PLACE_DISTANCE_DEG : MAX_NAME_DISTANCE_DEG;

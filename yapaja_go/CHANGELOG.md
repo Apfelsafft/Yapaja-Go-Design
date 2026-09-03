@@ -10,6 +10,36 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.3.3
+
+**Angetippte Ziele bekommen jetzt wirklich einen Namen.** In 0.3.2 stand das
+schon hier — es hat nur nie funktioniert. Die Abfrage nannte die Vektorquelle
+`region`, sie heißt aber `yapaja-region`; der Fehler wurde stillschweigend
+verschluckt, und jedes Ziel blieb bei seinen Koordinaten. Ein zugesagtes
+Verhalten, das nie eintrat. Jetzt steht dort ein Straßen- oder Ortsname.
+
+**Das Fahrzeugprofil ist wieder zu finden.** Auf schmaleren Fenstern — etwa
+einem iPad neben der Home-Assistant-Seitenleiste — wuchs die Suchleiste über
+den Profil-Chip und verdeckte ihn vollständig. Marke, Profil und Suche liegen
+jetzt in **einer** Zeile, die den Platz aufteilt, statt in drei Elementen, die
+sich unabhängig voneinander an dieselbe Stelle setzen. Die Suche schrumpft
+jetzt, statt sich über die anderen zu legen.
+
+Das war die dritte Überlagerung derselben Art (nach der GPS-Warnung in 0.3.2).
+Deshalb wurde diesmal nicht das Symptom verschoben, sondern die Ursache
+beseitigt — und eine Prüfung ergänzt, die bei mehreren Fensterbreiten
+nachsieht, was an der Stelle jedes Bedienelements tatsächlich obenauf liegt.
+
+**Der Knopf zurück zur eigenen Position ist jetzt immer da.** Bisher erschien
+er nur nach einem Schwenk mit dem Finger. Eine Suche bewegt die Karte aber
+programmatisch, und das zählte nicht als Schwenk — nach einer Suche gab es also
+keinen Weg zurück außer selbst hinzuscrollen. Der Knopf sitzt unten rechts
+(Fadenkreuz) und erscheint, sobald eine Position bekannt ist.
+
+**Noch nicht behoben:** die Ortssuche. Was ins Suchfeld getippt wird, findet
+weiterhin nichts — dafür fehlt der Suchindex, und der ist der nächste Schritt.
+Navigieren zu einem angetippten Punkt und zu Favoriten funktioniert wie bisher.
+
 ## 0.3.2
 
 **Die Karte zeigt jetzt die Region, in der du bist.** Wer mehr als eine Region

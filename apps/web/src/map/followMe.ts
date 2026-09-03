@@ -74,6 +74,24 @@ export const useFollowMeStore = create<FollowMeState>((set, get) => {
   };
 });
 
+declare global {
+  interface Window {
+    /**
+     * Debug/E2E-Zugriff, wie `__yapajaMapController` (map/MapView.tsx) und
+     * `__yapajaPositionStore` (position/positionStore.ts): damit Playwright
+     * den Pausen-Zustand direkt lesen kann, statt ihn aus der Sichtbarkeit
+     * eines Knopfes zu erschliessen. Seit der Re-Center-Knopf nicht mehr an
+     * der Pause haengt (0.3.3), waere dieser Umweg schlicht falsch.
+     * Nur lesend gedacht -- Produktionscode geht weiter ueber die Hooks.
+     */
+    __yapajaFollowMeStore?: typeof useFollowMeStore;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.__yapajaFollowMeStore = useFollowMeStore;
+}
+
 /**
  * Hooks
  */
@@ -119,6 +137,33 @@ export function initializeFollowMe(): () => void {
     mapController.off('dragstart', handleUserInteraction);
     mapController.off('movestart', handleUserInteraction);
   };
+}
+
+/**
+ * Zurück zur aktuellen Position — auf ausdrücklichen Wunsch, nicht als
+ * Nebenwirkung.
+ *
+ * ─── WARUM DAS NICHT SCHON DA WAR ──────────────────────────────────────────
+ * `updateFollowMePosition` zieht die Karte nur mit, wenn eine NEUE Position
+ * eintrifft. Wer nach einer Suche über die Karte gewandert ist, wartet also
+ * auf den nächsten Fix — bei der Companion App können das Minuten sein. Und
+ * der Re-Center-Knopf erschien bis 0.3.2 nur nach einem MANUELLEN Schwenk:
+ * `flyTo` aus der Suche ist eine programmatische Bewegung und pausiert
+ * Follow-Me gerade nicht, der Knopf blieb also aus. Wer suchte, hatte keinen
+ * Weg zurück außer selbst hinzuscrollen.
+ *
+ * Diese Funktion tut beides auf einmal: Pause aufheben UND sofort zentrieren.
+ * `false`, wenn es gar keine Position gibt — dann gibt es auch nichts, wohin
+ * man zurückkehren könnte, und der Knopf wird gar nicht erst angeboten.
+ */
+export function recenterOnPosition(): boolean {
+  useFollowMeStore.getState().resume();
+  const position = usePositionStore.getState().position;
+  if (!position) {
+    return false;
+  }
+  mapController.setCamera({ center: [position.lon, position.lat] });
+  return true;
 }
 
 /**
