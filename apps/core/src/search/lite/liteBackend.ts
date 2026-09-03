@@ -15,7 +15,7 @@
  * No network involved at all -- this is local SQLite I/O only, consistent
  * with the app's fully-offline design.
  */
-import { existsSync } from 'fs';
+import { existsSync, statSync } from 'fs';
 import type { SearchResult } from '@yapaja/shared';
 import { GeocoderBackendError } from '../errors.js';
 import type { GeocoderBackend, ReverseQuery, SearchLogger, SearchQuery } from '../types.js';
@@ -59,11 +59,17 @@ export class LiteBackend implements GeocoderBackend {
   private readonly dbPath: string;
   private readonly logger: SearchLogger;
   private reader?: LiteIndexReader;
+  /** Gesetzt, wenn der Leser von aussen hereingereicht wurde (Test-Naht).
+   *  Ein solcher Leser gehoert nicht uns und wird nie ausgetauscht. */
+  private readonly injectedReader: boolean;
+  /** Welche Datei der offene Leser tatsaechlich liest -- siehe `getReader()`. */
+  private openedFile: string | null = null;
 
   constructor(opts: LiteBackendOptions) {
     this.dbPath = opts.dbPath;
     this.logger = opts.logger ?? noopLogger;
     this.reader = opts.reader;
+    this.injectedReader = opts.reader !== undefined;
   }
 
   async search(query: SearchQuery): Promise<SearchResult[]> {
@@ -90,9 +96,49 @@ export class LiteBackend implements GeocoderBackend {
       .map(candidateToResult);
   }
 
+  /**
+   * Kennzeichnet die Datei, die gerade unter `dbPath` liegt.
+   *
+   * Die Inode-Nummer ist der entscheidende Teil: der Neubau schreibt in eine
+   * temporaere Datei und benennt sie ueber die alte (`cli.ts`, W-17). Damit
+   * steht am selben PFAD eine ANDERE Datei -- gleicher Name, neue Inode.
+   * Groesse und Zeitstempel kommen dazu, falls ein Bauweg jemals in dieselbe
+   * Datei schreiben sollte.
+   */
+  private static fileIdentity(path: string): string {
+    const s = statSync(path);
+    return `${s.ino}:${s.size}:${s.mtimeMs}`;
+  }
+
+  /**
+   * ─── WARUM HIER NACHGESEHEN WIRD, STATT EINMAL ZU OEFFNEN ─────────────────
+   * Ein einmal geoeffneter SQLite-Handle liest die Datei, die er beim
+   * Oeffnen bekommen hat -- und zwar auch dann noch, wenn sie inzwischen
+   * durch `rename(2)` ersetzt und aus dem Verzeichnis geloescht wurde. Der
+   * Kernel haelt die alte Inode am Leben, solange jemand sie offen hat.
+   *
+   * Genau das ist beim Betreiber passiert: Suchindex fuer Liechtenstein
+   * gebaut, gesucht (damit war der Leser offen), danach den Index fuer
+   * Rheinland-Pfalz gebaut. Die Oberflaeche meldete „ab sofort nutzbar --
+   * ohne Neustart", der Server beantwortete aber weiter JEDE Suche aus dem
+   * Liechtensteiner Index. „Beethovenstraße" stand deutlich sichtbar auf der
+   * Karte und war trotzdem nicht zu finden -- und ein erneuter Neubau half
+   * nie, weil er den Handle nicht anfasst, sondern nur wieder die Datei
+   * ersetzt.
+   *
+   * Ein `stat` pro Abfrage ist dagegen nichts: eine Suche entsteht durch
+   * Tippen mit Entprellung, nicht in Schleifen.
+   *
+   * Bewusst NICHT ueber eine Benachrichtigung vom Bau-Job geloest: gebaut
+   * wird in einem EIGENEN Prozess, und der Weg ueber die Oberflaeche ist nur
+   * einer von mehreren. Wer die Datei austauscht, geht diesen Prozess nichts
+   * an -- die Datei selbst ist die einzige verlaessliche Auskunft.
+   */
   private getReader(): LiteIndexReader {
-    if (this.reader) return this.reader;
+    if (this.injectedReader && this.reader) return this.reader;
+
     if (!existsSync(this.dbPath)) {
+      this.closeReader();
       this.logger.warn('Lite-Suchindex nicht gefunden -- build-lite-index.sh wurde noch nicht ausgefuehrt', {
         dbPath: this.dbPath,
       });
@@ -102,8 +148,31 @@ export class LiteBackend implements GeocoderBackend {
         `Lite-Suchindex fehlt unter ${this.dbPath} (build-lite-index.sh noch nicht ausgefuehrt)`,
       );
     }
+
+    const identity = LiteBackend.fileIdentity(this.dbPath);
+    if (this.reader && this.openedFile === identity) return this.reader;
+
+    if (this.reader) {
+      this.logger.info('Lite-Suchindex wurde neu gebaut -- oeffne die neue Datei', { dbPath: this.dbPath });
+      this.closeReader();
+    }
+
     this.reader = new LiteIndexReader(this.dbPath);
+    this.openedFile = identity;
     return this.reader;
+  }
+
+  private closeReader(): void {
+    if (this.reader && !this.injectedReader) {
+      try {
+        this.reader.close();
+      } catch {
+        // Ein Handle, der sich nicht schliessen laesst, darf die naechste
+        // Suche nicht verhindern -- er wird ohnehin gerade weggeworfen.
+      }
+    }
+    this.reader = undefined;
+    this.openedFile = null;
   }
 
   private withErrorMapping<T>(op: 'search' | 'reverse', fn: () => T): T {
