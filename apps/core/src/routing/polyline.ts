@@ -14,6 +14,8 @@
  * auditable in isolation.
  */
 
+import { appendAll } from '@yapaja/shared';
+
 export interface LatLon {
   lat: number;
   lon: number;
@@ -123,12 +125,17 @@ export function joinLegShapes(shapes: readonly string[]): JoinedShape {
     const pts = decodePolyline6(shapes[i]);
     if (i === 0) {
       offsets.push(0);
-      joined.push(...pts);
+      // NICHT `push(...pts)` -- dieselbe Falle wie im Suchindex-Bauer: der
+      // Spread macht aus jedem Punkt ein Argument. Ein einzelner Abschnitt
+      // einer langen Route kann Zehntausende Punkte haben; oberhalb der
+      // V8-Grenze bricht das mit „Maximum call stack size exceeded" ab --
+      // mitten in einer Routenberechnung.
+      appendAll(joined, pts);
     } else {
       // Leg i's local index 0 is the junction, which is already present as the
       // previous leg's last point -> the new base offset points at it.
       offsets.push(joined.length - 1);
-      joined.push(...pts.slice(1));
+      appendAll(joined, pts.slice(1));
     }
   }
 

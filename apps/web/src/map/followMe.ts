@@ -15,6 +15,16 @@ import { usePositionStore } from '../position/positionStore';
 
 const PAUSE_DURATION = 10_000; // 10 seconds
 
+/**
+ * Mindest-Zoomstufe, auf die der Zurück-zur-Position-Knopf heranholt.
+ *
+ * 15 ist eine Stufe näher als die Zielsuche (`SEARCH_FLY_TO_ZOOM = 14`, dort
+ * geht es um „wo liegt der Ort"), denn hier geht es um „wo stehe ich" — auf
+ * 15 sind einzelne Straßen und ihre Namen zu erkennen. Weiter heran wäre für
+ * eine Übersicht der nächsten Abzweigung schon zu eng.
+ */
+export const RECENTER_MIN_ZOOM = 15;
+
 interface FollowMeState {
   /** Is Follow-Me actively enabled */
   isFollowing: boolean;
@@ -162,7 +172,23 @@ export function recenterOnPosition(): boolean {
   if (!position) {
     return false;
   }
-  mapController.setCamera({ center: [position.lon, position.lat] });
+
+  // ─── ZOOM: HERAN, ABER NIE WEG ────────────────────────────────────────────
+  // Nur zu zentrieren war zu wenig: wer über die Karte gewandert ist, hat
+  // meist auch herausgezoomt und landet dann zwar an der richtigen Stelle,
+  // aber in einer Übersicht, in der die eigene Straße nicht zu erkennen ist.
+  //
+  // `Math.max` und nicht ein fester Wert: wer bereits NÄHER dran ist, würde
+  // sonst beim Zurückkehren hinausgezoomt — eine Bewegung, die niemand
+  // angefordert hat und die im Fahrzeug besonders stört. Der Knopf holt also
+  // heran, wenn nötig, und lässt sonst in Ruhe.
+  const current = mapController.getMap()?.getZoom();
+  const zoom =
+    typeof current === 'number' && Number.isFinite(current)
+      ? Math.max(current, RECENTER_MIN_ZOOM)
+      : RECENTER_MIN_ZOOM;
+
+  mapController.setCamera({ center: [position.lon, position.lat], zoom });
   return true;
 }
 
