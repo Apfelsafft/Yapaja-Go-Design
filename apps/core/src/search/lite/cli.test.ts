@@ -10,8 +10,9 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { pathToFileURL } from 'url';
 import Database from 'better-sqlite3';
-import { runCli } from './cli.js';
+import { runCli, isDirectRun } from './cli.js';
 
 function point(lon: number, lat: number): unknown {
   return { type: 'Point', coordinates: [lon, lat] };
@@ -119,5 +120,54 @@ describe('runCli', () => {
     } finally {
       db.close();
     }
+  });
+});
+
+/**
+ * Der Wächter, der entscheidet, ob dieses Modul ALS Programm läuft.
+ *
+ * Er hing bis 0.3.3 am DATEINAMEN (`endsWith('cli.js')`). Im Quelltext und
+ * unter `tsx` stimmte das. Der Produktionsbau bündelt die Datei aber als
+ * `dist/lite-index.js` — dort war die Bedingung falsch, und das Programm tat
+ * nichts. Es beendete sich mit Code 0.
+ *
+ * Das ist die gefährlichste Sorte Fehler in dieser Kette: der Aufrufer
+ * bekommt „erfolgreich beendet" und keinen Index. Der Bau hätte gemeldet, er
+ * sei fertig, die Suche wäre leer geblieben, und niemand hätte einen
+ * Anhaltspunkt gehabt, wo es fehlt.
+ *
+ * Gefunden wurde er nur, weil das GEBAUTE Artefakt ausgeführt wurde statt
+ * angenommen, der Build genüge. Diese Tests halten den Pfadvergleich fest,
+ * der beide Dateinamen überlebt.
+ */
+describe('isDirectRun — läuft die Datei als Programm?', () => {
+  it('erkennt den Direktaufruf unabhängig vom Dateinamen', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'yapaja-entry-'));
+    // Genau die zwei Namen, um die es geht: der Quelltext und das Bündel.
+    for (const name of ['cli.ts', 'lite-index.js']) {
+      const file = join(dir, name);
+      writeFileSync(file, '');
+      expect(
+        isDirectRun(file, pathToFileURL(file).href),
+        `Ein Direktaufruf von ${name} muss als solcher erkannt werden — sonst ` +
+          'tut das Werkzeug nichts und meldet trotzdem Erfolg.',
+      ).toBe(true);
+    }
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('erkennt den Import (argv[1] ist ein anderer Pfad) als NICHT direkt', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'yapaja-entry-'));
+    const module = join(dir, 'lite-index.js');
+    const runner = join(dir, 'vitest.js');
+    writeFileSync(module, '');
+    writeFileSync(runner, '');
+    expect(isDirectRun(runner, pathToFileURL(module).href)).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('kommt ohne argv[1] und mit unauflösbaren Pfaden ohne Absturz aus', () => {
+    expect(isDirectRun(undefined, 'file:///nirgends/lite-index.js')).toBe(false);
+    expect(isDirectRun('/gibt/es/nicht', 'file:///auch/nicht.js')).toBe(false);
   });
 });

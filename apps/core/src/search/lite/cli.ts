@@ -15,8 +15,9 @@
  * Run via `services/valhalla/build-lite-index.sh`, never invoked directly
  * by the app itself.
  */
-import { createReadStream, existsSync, renameSync, unlinkSync } from 'fs';
+import { createReadStream, existsSync, realpathSync, renameSync, unlinkSync } from 'fs';
 import { createInterface } from 'readline';
+import { fileURLToPath } from 'url';
 import { normalizeGeoJsonSeqLine, type NormalizedRecord } from './extract.js';
 import { buildLiteIndexFile } from './buildIndex.js';
 
@@ -98,9 +99,41 @@ export async function runCli(argv: string[]): Promise<void> {
   console.warn(`Lite-Suchindex gebaut: ${args.out} (${allRecords.length} Datensaetze insgesamt)`);
 }
 
-// Only run when this module is the actual CLI entry point, not when
-// imported by a test.
-if (process.argv[1]?.endsWith('cli.ts') || process.argv[1]?.endsWith('cli.js')) {
+/**
+ * Laeuft dieses Modul gerade ALS Programm, oder wurde es importiert?
+ *
+ * ─── WARUM DAS NICHT MEHR AM DATEINAMEN HAENGT ──────────────────────────────
+ * Hier stand bis 0.3.3:
+ *
+ *     if (process.argv[1]?.endsWith('cli.ts') || process.argv[1]?.endsWith('cli.js'))
+ *
+ * Das stimmte, solange die Datei `cli.ts` hiess -- also im Quelltext und
+ * unter `tsx`. Sobald der Produktionsbau sie als `dist/lite-index.js`
+ * buendelt, endet `argv[1]` auf `lite-index.js`, die Bedingung ist falsch,
+ * und das Programm TUT NICHTS. Es beendet sich mit Code 0.
+ *
+ * Das ist die gefaehrlichste Sorte Fehler in dieser Kette: ein Aufrufer
+ * bekommt „erfolgreich beendet" und keinen Index. Der Bau haette gemeldet,
+ * er sei fertig, die Suche waere leer geblieben, und niemand haette einen
+ * Anhaltspunkt gehabt.
+ *
+ * Der Vergleich laeuft jetzt ueber den PFAD statt ueber den Namen: ist die
+ * Datei, die Node gestartet hat, dieselbe wie diese? Das gilt fuer den
+ * Quelltext, fuer das Buendel und unter jedem Dateinamen. Beim Import aus
+ * einem Test zeigt `argv[1]` auf vitest -- also `false`, wie gehabt.
+ */
+export function isDirectRun(entryPath: string | undefined, moduleUrl: string): boolean {
+  if (!entryPath) {
+    return false;
+  }
+  try {
+    return realpathSync(entryPath) === realpathSync(fileURLToPath(moduleUrl));
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun(process.argv[1], import.meta.url)) {
   runCli(process.argv.slice(2)).catch((err) => {
     console.error('build-lite-index CLI fehlgeschlagen:', err instanceof Error ? err.message : err);
     process.exitCode = 1;

@@ -810,6 +810,50 @@ jobs:
           test -s "$DB_PATH" || { echo "::error::$DB_PATH fehlt oder ist leer"; exit 1; }
           ls -la "$DB_PATH"
 
+      # ─── UND DASSELBE MIT DEM GEBUENDELTEN WERKZEUG ─────────────────────
+      # Der Schritt darueber laeuft ueber `tsx src/search/lite/cli.ts`. Auf dem
+      # GERAET laeuft aber `dist/lite-index.js` -- das Buendel, das der
+      # Produktionsbau erzeugt. Und genau dort steckte der Fehler, der 0.3.3
+      # ueberlebt hat: der Waechter „laeuft diese Datei als Programm?" verglich
+      # den DATEINAMEN gegen `cli.js`. Gebuendelt heisst sie `lite-index.js`,
+      # die Bedingung war falsch, und das Werkzeug TAT NICHTS -- mit
+      # Rueckgabewert 0.
+      #
+      # Ein Aufrufer haette also „fertig" gemeldet und keinen Index gebaut. Das
+      # ist die teuerste Sorte Fehler in dieser Kette, und keine Pruefung
+      # gegen den Quelltext kann sie sehen. Deshalb wird hier das ARTEFAKT
+      # ausgefuehrt, das ausgeliefert wird.
+      - name: Der ausgelieferte Index-Bauer (dist/lite-index.js) baut denselben Index
+        run: |
+          pnpm --filter @yapaja/core build
+          test -f apps/core/dist/lite-index.js \
+            || { echo "::error::apps/core/dist/lite-index.js fehlt -- fuehrt tsup den Einstiegspunkt 'lite-index'?"; exit 1; }
+
+          # Ohne Argumente MUSS es sich beschweren. Tut es das nicht, ist der
+          # Einstiegspunkt-Waechter wieder tot und das Werkzeug eine Attrappe.
+          if node apps/core/dist/lite-index.js >/dev/null 2>&1; then
+            echo "::error::dist/lite-index.js endet ohne Argumente mit Erfolg -- der Einstiegspunkt-Waechter greift nicht, das Werkzeug tut nichts."
+            exit 1
+          fi
+
+          # Und dann echt bauen, aus denselben GeoJSONSeq-Dateien.
+          WORK="$(mktemp -d)"
+          osmium tags-filter --overwrite -o "$WORK/places.osm.pbf" li.osm.pbf n/place=city,town,village
+          osmium tags-filter --overwrite -o "$WORK/streets.osm.pbf" li.osm.pbf w/highway
+          osmium export --overwrite --geometry-types=point -f geojsonseq \
+            -o "$WORK/places.geojsonseq" "$WORK/places.osm.pbf"
+          osmium export --overwrite --geometry-types=linestring,polygon -f geojsonseq \
+            -o "$WORK/streets.geojsonseq" "$WORK/streets.osm.pbf"
+
+          node apps/core/dist/lite-index.js \
+            --places "$WORK/places.geojsonseq" \
+            --streets "$WORK/streets.geojsonseq" \
+            --out "$WORK/lite_search.db"
+
+          test -s "$WORK/lite_search.db" \
+            || { echo "::error::Das gebuendelte Werkzeug meldete Erfolg, hat aber keinen Index hinterlassen."; exit 1; }
+          ls -la "$WORK/lite_search.db"
+
       # Beweist Akzeptanz #1 ("findet 'Vaduz' und eine Strasse") direkt gegen
       # die gebaute SQLite-Datei -- unabhaengig von apps/core, damit dieser
       # Job auch isoliert aussagekraeftig bleibt (der volle Backend-Pfad ist

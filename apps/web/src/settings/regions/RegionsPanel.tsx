@@ -27,6 +27,7 @@ import {
   startDownload,
   startBuild,
   startGraphBuild,
+  startSearchIndexBuild,
   RegionApiError,
   type CatalogRegion,
   type InstalledRegion,
@@ -277,6 +278,24 @@ export default function RegionsPanel(): React.ReactElement {
     }
   }, []);
 
+  // Dritter Bau-Weg neben Kacheln und Routinggraph. Bis 0.3.3 gab es ihn
+  // nicht -- die Oberflaeche sagte stattdessen, der Index lasse sich nur auf
+  // einem anderen Rechner bauen. Das war eine Verpackungsentscheidung, keine
+  // Grenze (siehe yapaja_go/Dockerfile, KORREKTUR 0.3.4).
+  const handleSearchIndexBuild = useCallback(async (regionId: string) => {
+    setErrorByRegion((prev) => ({ ...prev, [regionId]: '' }));
+    try {
+      const jobId = await startSearchIndexBuild(regionId);
+      setDownloads((prev) => ({ ...prev, [regionId]: { jobId, job: null } }));
+    } catch (err) {
+      const message =
+        err instanceof RegionApiError
+          ? formatApiError(err)
+          : 'Bau des Suchindex konnte nicht gestartet werden.';
+      setErrorByRegion((prev) => ({ ...prev, [regionId]: message }));
+    }
+  }, []);
+
   const handleDelete = useCallback(
     async (regionId: string) => {
       setErrorByRegion((prev) => ({ ...prev, [regionId]: '' }));
@@ -360,6 +379,16 @@ export default function RegionsPanel(): React.ReactElement {
                           {isActive ? 'Baut…' : 'Routing bauen'}
                         </button>
                       ) : null}
+                      {catalogEntry?.pbfUrl ? (
+                        <button
+                          onClick={() => void handleSearchIndexBuild(region.region)}
+                          disabled={isActive}
+                          className="px-2 py-1 rounded-md border border-sky-300 text-sky-700 dark:border-sky-700 dark:text-sky-400 text-xs hover:bg-sky-50 dark:hover:bg-sky-900/30 disabled:opacity-50"
+                          data-testid={`search-index-build-button-${region.region}`}
+                        >
+                          {isActive ? 'Baut…' : 'Suche bauen'}
+                        </button>
+                      ) : null}
                       <button
                         onClick={() => void handleDelete(region.region)}
                         className="px-2 py-1 rounded-md border border-red-300 text-red-600 dark:border-red-700 dark:text-red-400 text-xs hover:bg-red-50 dark:hover:bg-red-900/30"
@@ -440,6 +469,21 @@ export default function RegionsPanel(): React.ReactElement {
                           data-testid={`graph-build-button-${entry.id}`}
                         >
                           Routing bauen
+                        </button>
+                      ) : null}
+                      {/* Und der Suchindex als drittes -- ebenfalls aus
+                          derselben PBF, ebenfalls separat: er ist die
+                          Voraussetzung fuer die Adresssuche und sonst nichts.
+                          Wer nur zu angetippten Punkten und Favoriten faehrt,
+                          braucht ihn nie. */}
+                      {entry.pbfUrl ? (
+                        <button
+                          onClick={() => void handleSearchIndexBuild(entry.id)}
+                          disabled={isActive}
+                          className="shrink-0 px-2 py-1 rounded-md border border-sky-300 text-sky-700 dark:border-sky-700 dark:text-sky-400 text-xs hover:bg-sky-50 dark:hover:bg-sky-900/30 disabled:opacity-50"
+                          data-testid={`search-index-build-button-${entry.id}`}
+                        >
+                          Suche bauen
                         </button>
                       ) : null}
                     </div>

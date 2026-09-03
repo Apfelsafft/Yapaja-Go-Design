@@ -223,6 +223,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     default-jre-headless \
     gpsd \
     jq \
+    osmium-tool \
   && rm -rf /var/lib/apt/lists/*
 
 # ---- Node.js: official prebuilt tarball (works regardless of the base ----
@@ -322,12 +323,32 @@ COPY --from=core-build /app/apps/web/dist ./apps/core/public
 #     dieses Skript gebaut, sondern ueber `yapaja-build-graph` (rootfs), das
 #     die Bau-Werkzeuge benutzt, die in diesem Image ohnehin schon liegen --
 #     siehe den Abschnitt „/custom_files" weiter unten.
-#   * `services/valhalla/build-lite-index.sh` braucht `osmium` (nicht
-#     installiert) und ruft `pnpm exec tsx src/...` aus dem Repository auf,
-#     das hier nicht liegt. Dieses eine bleibt also ein Weg „auf einem anderen
-#     Rechner bauen und die Datei ablegen" (docs/installation.md §C.5).
+#   * `services/valhalla/build-lite-index.sh` ruft `pnpm exec tsx src/...` aus
+#     dem Repository auf, das hier nicht liegt. Der SUCHINDEX wird deshalb
+#     nicht ueber dieses Skript gebaut, sondern ueber
+#     `yapaja-build-lite-index` (rootfs) gegen das gebaute Werkzeug
+#     `/app/apps/core/dist/lite-index.js`.
+#
+#     KORREKTUR 0.3.4: hier stand bis dahin, dieses eine bleibe „ein Weg auf
+#     einem anderen Rechner bauen und die Datei ablegen", weil `osmium` nicht
+#     installiert sei. Das beschrieb keine Grenze, sondern zwei Auslassungen:
+#     `osmium-tool` ist ein gewoehnliches Ubuntu-Paket (steht jetzt oben in
+#     der apt-Zeile), und das Index-Werkzeug fehlte nur, weil
+#     `apps/core/tsup.config.ts` allein `src/index.ts` als Einstiegspunkt
+#     fuehrte. Der Satz hat den Betreiber die Adresssuche gekostet, obwohl
+#     der Quelltext dafuer seit E05-T5 fertig war.
 COPY --from=core-build /app/services/tiles/build-pmtiles.sh /opt/yapaja/bin/build-pmtiles.sh
 RUN chmod +x /opt/yapaja/bin/build-pmtiles.sh && test -x /opt/yapaja/bin/build-pmtiles.sh
+
+# ---- Nachweis, dass die drei Bau-Wege im Image WIRKLICH begehbar sind ------
+# Kein Kommentar, sondern ein Abbruch: fehlt eines dieser Stuecke, faellt der
+# BAU um, nicht erst der Betreiber beim Draufdruecken. Genau diese Sorte
+# Luecke -- Werkzeug dokumentiert, aber nicht im Image -- hat diese Serie
+# dreimal gekostet (planetiler-JAR-Modus, Routinggraph, Suchindex).
+RUN set -eux; \
+    command -v osmium; \
+    test -f /app/apps/core/dist/lite-index.js; \
+    node /app/apps/core/dist/lite-index.js 2>&1 | grep -q 'Usage:'
 
 # ---- /custom_files: die eine Zeile, ohne die kein Routinggraph laeuft ------
 #

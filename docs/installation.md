@@ -384,30 +384,39 @@ die bisherige Kartendatei unangetastet. Ein Neustart ist danach **nicht**
 nötig — der Core liest das Verzeichnis bei jeder Anfrage frisch; in der App
 genügt ein Reload.
 
-### C.3a Routinggraph und Suchindex — nur auf einem anderen Rechner
+### C.3a Routinggraph und Suchindex — auf dem Gerät, per Knopfdruck
 
 Für Routing und Suche braucht es zwei weitere Erzeugnisse aus **derselben**
-`.osm.pbf`. Beide lassen sich **nicht auf dem Gerät bauen**, und das ist keine
-Bequemlichkeitsfrage:
+`.osm.pbf`. Beide werden **direkt auf dem Gerät gebaut**: „Kartenregionen
+verwalten" (🗺️ rechts oben) öffnen, dann bei der Region
 
-| Erzeugnis | Werkzeug | Warum nicht im Add-on |
+| Knopf | Erzeugnis | Ohne das … |
 |---|---|---|
-| Routinggraph | `services/valhalla/build-tiles.sh` | braucht einen **Docker-Socket** — den hat ein HA-Add-on nicht |
-| Lite-Suchindex | `services/valhalla/build-lite-index.sh` | braucht **osmium** und einen Repository-Checkout |
+| **Routing bauen** | Valhalla-Graph | keine Routenberechnung |
+| **Suche bauen** | Lite-Suchindex | Adresssuche bleibt leer |
 
-Deshalb liegen diese beiden Skripte bewusst **nicht** im Add-on-Image: ein
-mitgeliefertes Werkzeug, das beim ersten Aufruf abbricht, ist schlimmer als
-keines.
+Es läuft immer nur **ein** schwerer Bau gleichzeitig — zwei davon nebeneinander
+sprengen den Speicher einer 8-GB-VM, auf der auch Home Assistant läuft.
 
-Auf einem Rechner mit Docker und dem Repository:
+> **Korrektur (0.3.4).** Hier stand bis 0.3.3 das Gegenteil: beides lasse sich
+> „nicht auf dem Gerät bauen", der Routinggraph brauche einen Docker-Socket und
+> der Suchindex `osmium` plus einen Repository-Checkout. Für unsere *Skripte*
+> stimmte das — für die *Werkzeuge* nicht. Das Add-on setzt auf dem
+> Valhalla-Image auf, das die Bau-Werkzeuge ohnehin mitbringt; und `osmium-tool`
+> ist ein gewöhnliches Ubuntu-Paket, das nur niemand ins Image gelegt hatte.
+> Der Absatz hat Betreiber an einen zweiten Rechner geschickt, den es nie
+> gebraucht hätte.
+
+Die Skripte unter `services/` bleiben für die Entwicklung und für den Fall, dass
+jemand eine sehr große Region auf stärkerer Hardware vorbauen will:
 
 ```bash
 services/valhalla/build-tiles.sh      data/pbf/rheinland-pfalz-latest.osm.pbf
 services/valhalla/build-lite-index.sh data/pbf/rheinland-pfalz-latest.osm.pbf
 ```
 
-Die Ergebnisse danach per **„Samba share"**- oder **„File editor"**-Add-on
-ablegen:
+Die Ergebnisse lassen sich weiterhin per **„Samba share"**- oder
+**„File editor"**-Add-on ablegen:
 
 | Datei | Ziel auf der HAOS-VM |
 |---|---|

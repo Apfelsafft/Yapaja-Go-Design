@@ -10,6 +10,31 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.3.4
+
+**Die Adresssuche lässt sich jetzt auf dem Gerät einrichten.** Bis hierher
+stand an drei Stellen — Installationsprüfung, Dokumentation, Dockerfile —
+derselbe Satz: der Suchindex lasse sich hier nicht bauen, dafür brauche es
+einen zweiten Rechner. Das war nie eine technische Grenze, sondern zwei
+Auslassungen bei uns: das Filterwerkzeug `osmium` lag nicht im Image, und das
+Index-Werkzeug wurde vom Bau des Add-ons schlicht nicht mitgenommen. Der
+Quelltext dafür ist seit Monaten fertig.
+
+Unter **„Kartenregionen verwalten"** (🗺️ rechts oben) steht bei jeder Region
+jetzt ein dritter Knopf: **„Suche bauen"**. Liechtenstein braucht Minuten, ein
+Bundesland länger; der Fortschritt steht im Panel, und der bereits
+heruntergeladene Kartenextrakt wird wiederverwendet statt erneut geladen.
+
+Danach findet das Suchfeld Orte und Straßennamen — offline, ohne Photon und
+ohne mehrere GB Arbeitsspeicher. Ein Neustart ist nicht nötig.
+
+Wie bei Kacheln und Routing gilt: es läuft **immer nur ein** schwerer Bau
+gleichzeitig, damit sich zwei davon auf einem 8-GB-Gerät nicht gegenseitig
+den Speicher wegnehmen.
+
+**Was der Index nicht kann:** Hausnummern. Gesucht wird nach Orten und
+Straßennamen; die genaue Hausnummer steht in diesem Index nicht.
+
 ## 0.3.3
 
 **Angetippte Ziele bekommen jetzt wirklich einen Namen.** In 0.3.2 stand das

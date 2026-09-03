@@ -723,6 +723,46 @@ describe('die Installation kann tatsaechlich durchlaufen', () => {
     expect(mode & 0o111, 'yapaja-build-graph ist nicht ausfuehrbar').toBeGreaterThan(0);
   });
 
+  /**
+   * Der Suchindex-Bauer -- dieselbe Absicherung wie fuer den Routinggraphen.
+   *
+   * Bis 0.3.3 sagten Installationspruefung, Dockerfile und Doku
+   * uebereinstimmend, der Index lasse sich auf dem Geraet nicht bauen. Das
+   * beschrieb keine Grenze, sondern zwei Auslassungen: `osmium-tool` lag
+   * nicht im Image, und das Werkzeug fehlte, weil der Core-Build nur
+   * `src/index.ts` als Einstiegspunkt fuehrte. Beides muss zusammen
+   * vorhanden sein, sonst ist der Knopf „Suche bauen" wieder ein Versprechen.
+   */
+  it('der Wrapper fuer den Suchindex liegt im rootfs und ist ausfuehrbar', () => {
+    const wrapper = join(ROOTFS_DIR, 'usr/bin/yapaja-build-lite-index');
+    expect(existsSync(wrapper), `${wrapper} fehlt`).toBe(true);
+    const mode = statSync(wrapper).mode;
+    // eslint-disable-next-line no-bitwise -- Ausfuehrbar-Bit pruefen
+    expect(mode & 0o111, 'yapaja-build-lite-index ist nicht ausfuehrbar').toBeGreaterThan(0);
+  });
+
+  it('das Image installiert osmium-tool -- ohne das ist der Wrapper eine Attrappe', () => {
+    const dockerfile = readFileSync(join(ADDON_DIR, 'Dockerfile'), 'utf-8');
+    expect(
+      /^\s*osmium-tool\s*\\?$/m.test(dockerfile),
+      'Im Dockerfile fehlt `osmium-tool` in der apt-Zeile. Der Wrapper ' +
+        '`yapaja-build-lite-index` bricht dann bei jedem Aufruf ab, und die ' +
+        'Adresssuche bleibt leer.',
+    ).toBe(true);
+  });
+
+  /** Der Core-Build muss das Index-Werkzeug ueberhaupt erzeugen. Ohne diesen
+   *  Einstiegspunkt liegt `dist/lite-index.js` nicht im Image -- der Wrapper
+   *  bricht ab, und wir waeren wieder bei „geht auf dem Geraet nicht". */
+  it('der Core-Build fuehrt den Einstiegspunkt fuer das Index-Werkzeug', () => {
+    const tsup = readFileSync(join(ADDON_DIR, '../apps/core/tsup.config.ts'), 'utf-8');
+    expect(
+      tsup.includes("'lite-index': 'src/search/lite/cli.ts'"),
+      'apps/core/tsup.config.ts fuehrt keinen Einstiegspunkt `lite-index` mehr. ' +
+        'Dann fehlt dist/lite-index.js im Add-on-Image.',
+    ).toBe(true);
+  });
+
   /** `build_from` muss jede unter `arch:` genannte Architektur abdecken --
    *  sonst schlaegt der Bau genau auf der Hardware fehl, fuer die das Add-on
    *  sich zustaendig erklaert. */
