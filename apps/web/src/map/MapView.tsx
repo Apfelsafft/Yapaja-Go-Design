@@ -16,7 +16,10 @@ import { useStyleStore } from '../state/styleStore';
 import { useDegradationStore } from '../perf/degrade';
 import { useViewModeStore, syncHeadingToBearing } from './viewMode';
 import { initializeFollowMe, updateFollowMePosition } from './followMe';
-import { usePosition } from '../position/positionStore';
+import { usePosition, usePositionStore } from '../position/positionStore';
+import { pickActiveRegion } from './activeRegion';
+import { useRegionStore } from './regionStore';
+import RegionCoverageNotice from './RegionCoverageNotice';
 import CompassButton from './CompassButton';
 import ViewModeButton from './ViewModeButton';
 import ReCenterButton from './ReCenterButton';
@@ -27,11 +30,16 @@ import PreflightPanel from '../settings/preflight/PreflightPanel';
 import PerfOverlay from '../perf/PerfOverlay';
 import { startPerfWatchdog } from '../perf/perfWatchdog';
 
-/** Identifies which (styleId, options) combination is currently applied to
- *  the live map, so the live-switch effect can tell "this is the style we
- *  just initialized with" apart from "the user picked something new". */
-function styleKey(styleId: string, options: StyleOptions): string {
-  return `${styleId}|${options.lang}|${options.labelScale}|${options.poi}`;
+/** Identifies which (styleId, options, region) combination is currently
+ *  applied to the live map, so the live-switch effect can tell "this is the
+ *  style we just initialized with" apart from "something new is needed".
+ *
+ *  Die REGION gehoert mit in diesen Schluessel. Ohne sie war ein Wechsel der
+ *  Region fuer diesen Vergleich unsichtbar: der Stil-Tausch wurde als
+ *  „schon angewendet" uebersprungen, und die Karte behielt den alten
+ *  Kachelsatz — also genau die leere Flaeche, die behoben werden soll. */
+function styleKey(styleId: string, options: StyleOptions, region: string | null): string {
+  return `${styleId}|${options.lang}|${options.labelScale}|${options.poi}|${region ?? ''}`;
 }
 
 // Register the `pmtiles://` protocol once per page load. MapLibre's protocol
@@ -77,8 +85,16 @@ export default function MapView(): React.ReactElement {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const setMap = useMapStore((state) => state.setMap);
   const [status, setStatus] = useState<MapViewStatus>('loading');
-  const [region, setRegion] = useState<MapRegionSummary | null>(null);
+  // NUR die Region, mit der die Karte ERZEUGT wurde (fuer `bounds`). Sie wird
+  // nach dem ersten Setzen nie wieder veraendert — sie steckt in den
+  // Abhaengigkeiten von Schritt 2, und ein Wechsel dort wuerde die Karte
+  // zerstoeren und neu bauen. Ein Regionswechsel im Betrieb laeuft
+  // stattdessen ueber den Stil-Tausch in Schritt 3, der die Kamera behaelt.
+  const [initialRegion, setInitialRegion] = useState<MapRegionSummary | null>(null);
   const [initialStyle, setInitialStyle] = useState<InitialStyle | null>(null);
+  const installedRegions = useRegionStore((state) => state.regions);
+  const manualRegion = useRegionStore((state) => state.manual);
+  const setInstalledRegions = useRegionStore((state) => state.setRegions);
   const restoreViewMode = useViewModeStore((state) => state.restoreMode);
   const position = usePosition();
   const styleId = useStyleStore((state) => state.styleId);
@@ -93,10 +109,23 @@ export default function MapView(): React.ReactElement {
     poi: poiCap,
     labelScale: labelScaleCap,
   });
-  // Tracks the (styleId, options) combination already applied to the live
-  // map, so the live-switch effect below can skip the redundant re-fetch
+  // Tracks the (styleId, options, region) combination already applied to the
+  // live map, so the live-switch effect below can skip the redundant re-fetch
   // right after mount (the map was just initialized with exactly this style).
   const appliedStyleKeyRef = useRef<string | null>(null);
+
+  // ─── WELCHE REGION GERADE GILT ────────────────────────────────────────────
+  // Wird bei jedem Rendern neu bestimmt, damit eine neue Position (oder eine
+  // Wahl im Kartenmenue) sofort zaehlt. Nur der NAME geht in die
+  // Abhaengigkeiten des Stil-Effekts: `pickActiveRegion` liefert bei jedem
+  // Aufruf ein neues Objekt, ein Objektvergleich wuerde also bei jedem
+  // Positions-Tick einen Stil-Neuaufbau ausloesen.
+  const activeChoice = pickActiveRegion({
+    regions: installedRegions,
+    point: position,
+    manual: manualRegion,
+  });
+  const activeRegionName = activeChoice.region?.region ?? null;
   // Reactively track the live Map instance from the store. All map-dependent
   // effects (view-mode restore, follow-me, bearing sync) depend on `[map]` so
   // they (re)attach their listeners as soon as the map is registered — never
@@ -118,7 +147,19 @@ export default function MapView(): React.ReactElement {
         setStatus('no-region');
         return;
       }
-      setRegion(regions[0]);
+      setInstalledRegions(regions);
+
+      // Schon beim ersten Stil die Region benennen, statt sie dem Core zu
+      // ueberlassen: liegt eine Position vor (etwa aus einer HA-Entitaet, die
+      // sofort da ist), soll die Karte gar nicht erst mit der falschen Region
+      // aufgehen und dann umschalten.
+      const initialChoice = pickActiveRegion({
+        regions,
+        point: usePositionStore.getState().position,
+        manual: useRegionStore.getState().manual,
+      });
+      const initialRegion = initialChoice.region ?? regions[0];
+      setInitialRegion(initialRegion);
 
       const { styleId: initialStyleId, options: userOptions } = useStyleStore.getState();
       const { poiCap: initialPoiCap, labelScaleCap: initialLabelScaleCap } =
@@ -127,13 +168,13 @@ export default function MapView(): React.ReactElement {
         poi: initialPoiCap,
         labelScale: initialLabelScaleCap,
       });
-      const fetched = await fetchStyle(initialStyleId, initialOptions);
+      const fetched = await fetchStyle(initialStyleId, initialOptions, initialRegion.region);
       if (cancelled) {
         return;
       }
       setInitialStyle({
         style: fetched ?? buildFallbackStyle(),
-        key: styleKey(initialStyleId, initialOptions),
+        key: styleKey(initialStyleId, initialOptions, initialRegion.region),
       });
       setStatus('ready');
     })();
@@ -148,7 +189,7 @@ export default function MapView(): React.ReactElement {
   // cleanup below, so React 18 dev StrictMode's mount -> cleanup -> mount
   // cycle still only ever has at most one live instance.
   useEffect(() => {
-    if (status !== 'ready' || !region || !initialStyle || !containerRef.current) {
+    if (status !== 'ready' || !initialRegion || !initialStyle || !containerRef.current) {
       return;
     }
 
@@ -157,7 +198,7 @@ export default function MapView(): React.ReactElement {
       style: initialStyle.style,
       // Fits the initial viewport to the installed region's bounds so the
       // start viewport is plausible (never [0, 0]).
-      bounds: region.bounds,
+      bounds: initialRegion.bounds,
       attributionControl: { customAttribution: '© OpenStreetMap contributors' },
       // Enables reading back rendered pixels (gl.readPixels) after a frame
       // for pixel-sample assertions (E01-T4 e2e: dark vs light background).
@@ -189,7 +230,7 @@ export default function MapView(): React.ReactElement {
     // `setMap` is a stable zustand action reference and intentionally
     // omitted from the dependency array (no react-hooks/exhaustive-deps
     // lint rule is configured in this repo).
-  }, [status, region, initialStyle]);
+  }, [status, initialRegion, initialStyle]);
 
   // Step 3: live style switching. Whenever the effective styleId/options
   // change to something other than what's currently applied, fetch the new
@@ -200,16 +241,22 @@ export default function MapView(): React.ReactElement {
   // Deps are the primitive effective fields (not the `styleOptions` object,
   // which `applyDegradationCaps` rebuilds every render) so this fires only on a
   // real change.
+  //
+  // Seit 2026-09-03 loest das AUCH einen Regionswechsel aus (die Region ist
+  // Teil von `styleKey`). Bewusst hier und nicht in Schritt 2: ein
+  // Stil-Tausch behaelt Kamera und eigene Layer, ein Neuaufbau der Karte
+  // wuerde beides verlieren — waehrend der Fahrt ueber eine Regionsgrenze
+  // waere das ein Sprung mitten in der Navigation.
   useEffect(() => {
     if (!map) {
       return;
     }
-    const key = styleKey(styleId, styleOptions);
+    const key = styleKey(styleId, styleOptions, activeRegionName);
     if (appliedStyleKeyRef.current === key) {
       return;
     }
     let cancelled = false;
-    void fetchStyle(styleId, styleOptions).then((style) => {
+    void fetchStyle(styleId, styleOptions, activeRegionName ?? undefined).then((style) => {
       if (cancelled) {
         return;
       }
@@ -219,7 +266,14 @@ export default function MapView(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [map, styleId, styleOptions.poi, styleOptions.labelScale, styleOptions.lang]);
+  }, [
+    map,
+    styleId,
+    styleOptions.poi,
+    styleOptions.labelScale,
+    styleOptions.lang,
+    activeRegionName,
+  ]);
 
   // Restore persisted view mode once the map is registered. Depends on `[map]`
   // so the persisted mode is applied to the camera as soon as the map exists —
@@ -335,6 +389,7 @@ export default function MapView(): React.ReactElement {
           <StorePanel />
           <PreflightPanel />
           <PerfOverlay />
+          <RegionCoverageNotice />
         </>
       )}
     </div>

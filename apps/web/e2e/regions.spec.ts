@@ -149,3 +149,36 @@ test('ein Katalogeintrag MIT Download-Quelle bekommt weiterhin einen Download-Kn
   await expect(page.getByTestId('download-button-ohnequelle')).toHaveCount(0);
   await expect(page.getByTestId('build-button-ohnequelle')).toBeVisible();
 });
+
+/**
+ * Die Karte muss SAGEN, welche Region sie will.
+ *
+ * Bis 2026-09-03 tat sie das nicht: `fetchStyle` schickte nur Stil und
+ * Optionen, und der Core setzte die Kachel-URL aus SEINER Vorgabe zusammen —
+ * der ersten installierten Region (`listRegions` sortiert alphabetisch). Mit
+ * Liechtenstein und Rheinland-Pfalz installiert gewann damit immer
+ * Liechtenstein, während Follow-Me die Kamera auf die eigene Position nach
+ * Rheinland-Pfalz zog. Ergebnis: eine leere Karte, ohne Fehler, ohne Hinweis.
+ *
+ * Diese Prüfung braucht dafür keine zweite Region. Sie prüft die Ursache: ob
+ * die Anfrage die Region überhaupt benennt. Tut sie es nicht, entscheidet
+ * wieder der Core allein — und der Fehler ist zurück.
+ */
+test('die Stil-Anfrage benennt die anzuzeigende Region', async ({ page }) => {
+  const tracker = await trackRequests(page, CORE_BASE_URL);
+
+  await page.goto(CORE_BASE_URL + '/');
+  await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
+
+  const styleRequests = tracker.getAllUrls().filter((url) => url.includes('/api/v1/map/styles/'));
+  expect(styleRequests.length, 'es wurde gar kein Stil geladen').toBeGreaterThan(0);
+
+  for (const url of styleRequests) {
+    const region = new URL(url).searchParams.get('region');
+    expect(
+      region,
+      `Die Stil-Anfrage ${url} nennt keine Region — dann entscheidet wieder der Core, ` +
+        'und bei mehreren installierten Regionen gewinnt die alphabetisch erste.',
+    ).toBe(FIXTURE_REGION);
+  }
+});

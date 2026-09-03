@@ -72,6 +72,9 @@ export interface RoutingState {
    * ausschliesslich die Bedienung.
    */
   startPoint: LatLng | null;
+  /** Name des gewaehlten Startpunkts, falls die Kacheln einen hergaben
+   *  (`map/placeName.ts`). `null` = nur Koordinaten anzeigen. */
+  startPointName: string | null;
   /** Worauf sich der naechste Kartenklick bezieht. Nach dem Setzen eines
    *  Startpunkts faellt es auf `'destination'` zurueck -- ein Modus, in dem
    *  man versehentlich haengen bleibt, ist schlimmer als ein Klick zu viel. */
@@ -100,7 +103,7 @@ export interface RoutingState {
    *  previous route result and the per-route avoid overrides. */
   setDestination: (destination: LatLng | null, name?: string | null) => void;
   /** Setzt (oder loescht, mit `null`) den ausdruecklichen Startpunkt. */
-  setStartPoint: (startPoint: LatLng | null) => void;
+  setStartPoint: (startPoint: LatLng | null, name?: string | null) => void;
   setPickTarget: (target: 'destination' | 'origin') => void;
   /** Requests routes for the current `destination`, including any active `avoidOverrides`/`tempAvoidances`. No-ops (no request sent) if there is no destination or no `profileId`. */
   requestRoute: (params: RequestRouteParams) => Promise<void>;
@@ -128,6 +131,7 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
   destination: null,
   destinationName: null,
   startPoint: null,
+  startPointName: null,
   pickTarget: 'destination',
   routes: [],
   activeRouteId: null,
@@ -148,8 +152,15 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
     });
   },
 
-  setStartPoint: (startPoint) => {
-    set({ startPoint, routes: [], activeRouteId: null, status: 'idle', error: null });
+  setStartPoint: (startPoint, name = null) => {
+    set({
+      startPoint,
+      startPointName: startPoint === null ? null : name,
+      routes: [],
+      activeRouteId: null,
+      status: 'idle',
+      error: null,
+    });
   },
 
   setPickTarget: (pickTarget) => {

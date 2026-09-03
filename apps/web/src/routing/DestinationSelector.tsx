@@ -29,6 +29,8 @@ import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { useMapStore } from '../state/mapStore.js';
 import { useProfileStore } from '../profiles/store.js';
 import { useRoutingStore } from './store.js';
+import { useStyleStore } from '../state/styleStore.js';
+import { resolvePlaceName } from '../map/placeName.js';
 import { buildAvoidSquare } from './exclusionGeometry.js';
 import {
   ALT_ROUTE_LAYER_ID,
@@ -89,12 +91,29 @@ export default function DestinationSelector(): null {
       // Kartenlistener nicht bei jeder Zustandsaenderung ab- und wieder
       // angemeldet werden. Ein Hook-Wert waere in diesem Closure eingefroren.
       if (useRoutingStore.getState().pickTarget === 'origin') {
-        setStartPoint(point);
+        const startLang = useStyleStore.getState().options.lang;
+        setStartPoint(
+          point,
+          resolvePlaceName({
+            map,
+            point,
+            preferredLang: startLang === 'name' ? undefined : startLang,
+          }),
+        );
         setPickTarget('destination');
         return;
       }
 
-      setDestination(point);
+      // Namen aus den bereits geladenen Vektorkacheln holen (placeName.ts).
+      // Ohne das stand im Panel nur „Ziel" und zwei Zahlen — die Wahrheit,
+      // aber keine Auskunft darüber, wohin die Fahrt geht. Findet sich kein
+      // Name nah genug, bleibt es bei den Koordinaten; ein erfundener Name
+      // wäre schlimmer, weil man ihm glauben würde.
+      const lang = useStyleStore.getState().options.lang;
+      setDestination(
+        point,
+        resolvePlaceName({ map, point, preferredLang: lang === 'name' ? undefined : lang }),
+      );
     };
 
     const handleContextMenu = (e: MapMouseEvent): void => {
