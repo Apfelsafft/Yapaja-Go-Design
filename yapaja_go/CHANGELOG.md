@@ -10,6 +10,33 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.2.0
+
+**Der Routinggraph lässt sich jetzt auf dem Gerät bauen — neuer Knopf
+„Routing bauen" im Regionen-Panel.**
+
+Bisher stand in der Installationsprüfung, das ginge nicht: das Bauwerkzeug
+brauche einen Docker-Socket, den ein Home-Assistant-Add-on nicht hat. Das
+galt für unser *Skript*, nicht für die *Werkzeuge*. Dieses Add-on setzt auf
+dem Valhalla-Image auf, und dessen Bau-Werkzeuge liegen längst im Container —
+`valhalla_build_tiles` und Geschwister, samt komplettem Bau-Rezept. Der
+Hinweis schickte also an einen zweiten Rechner, obwohl alles Nötige schon da
+war.
+
+Bei Liechtenstein dauert der Bau Minuten. Danach startet der Routing-Dienst
+binnen 30 Sekunden von allein — **kein Neustart des Add-ons nötig.**
+
+**Ein Graph, der woanders gebaut wurde, funktioniert jetzt auch.** Das ist
+kein Nebeneffekt, sondern ein eigener Fehler: Valhalla schreibt absolute
+Pfade in seine Konfiguration, die auf ein Verzeichnis zeigten, das es in
+diesem Add-on gar nicht gab. Eine hereinkopierte Datei wäre also ebenso ins
+Leere gelaufen. Behoben.
+
+**Nur ein schwerer Bau gleichzeitig.** Kachelbau und Routingbau teilen sich
+Platte und Arbeitsspeicher derselben Maschine, auf der auch Home Assistant
+läuft. Wer den zweiten startet, während der erste läuft, bekommt jetzt eine
+Meldung statt zweier Läufe, die sich gegenseitig aushungern.
+
 ## 0.1.9
 
 **Zwei Kachelbauten gleichzeitig gehen nicht mehr — und das ist eine
