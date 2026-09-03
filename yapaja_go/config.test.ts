@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { basename, dirname, join } from 'node:path';
 import { load } from 'js-yaml';
@@ -659,6 +659,37 @@ describe('die Installation kann tatsaechlich durchlaufen', () => {
         'diese Datei beim Update an -- ohne Eintrag erfaehrt der Betreiber nicht, ' +
         'was sich aendert.',
     ).toMatch(heading);
+  });
+
+  /**
+   * Ohne diesen Symlink laedt KEIN Routinggraph.
+   *
+   * `valhalla_build_config` backt absolute Pfade in die valhalla.json, und
+   * das gis-ops-Image setzt sie hart unter `/custom_files`
+   * (`scripts/helpers.sh`). `valhalla_service` startet hier aber mit
+   * `/share/yapaja/valhalla/tiles/valhalla.json`. Zeigt `/custom_files`
+   * nicht auf genau dieses Verzeichnis, findet der Dienst seine Kacheln
+   * nicht -- und zwar unabhaengig davon, ob der Graph hier gebaut oder
+   * anderswo gebaut und hereinkopiert wurde.
+   */
+  it('Dockerfile legt /custom_files als Symlink auf das Valhalla-Verzeichnis an', () => {
+    const dockerfile = readFileSync(join(ADDON_DIR, 'Dockerfile'), 'utf-8');
+    expect(
+      dockerfile,
+      'Ohne den Symlink /custom_files -> /share/yapaja/valhalla/tiles zeigen die ' +
+        'absoluten Pfade in der von Valhalla erzeugten valhalla.json ins Leere.',
+    ).toMatch(/ln\s+-s\s+\/share\/yapaja\/valhalla\/tiles\s+\/custom_files/);
+  });
+
+  /** Der Core startet dieses Werkzeug per Pfad (`GRAPH_BUILD_COMMAND`).
+   *  Fehlt es im Image, scheitert der Knopf „Routing bauen" beim ersten
+   *  Druck -- genau die Sorte Versprechen, die diese Datei verhindern soll. */
+  it('der Wrapper fuer den Routinggraphen liegt im rootfs und ist ausfuehrbar', () => {
+    const wrapper = join(ROOTFS_DIR, 'usr/bin/yapaja-build-graph');
+    expect(existsSync(wrapper), `${wrapper} fehlt`).toBe(true);
+    const mode = statSync(wrapper).mode;
+    // eslint-disable-next-line no-bitwise -- Ausfuehrbar-Bit pruefen
+    expect(mode & 0o111, 'yapaja-build-graph ist nicht ausfuehrbar').toBeGreaterThan(0);
   });
 
   /** `build_from` muss jede unter `arch:` genannte Architektur abdecken --

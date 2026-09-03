@@ -279,21 +279,29 @@ async function checkRouting(
     severity: 'required' as const,
   };
   const url = env.VALHALLA_URL || 'http://localhost:8002';
-  // Hier stand „er wird beim Bau einer Region miterzeugt". Das war schlicht
-  // FALSCH: `build-pmtiles.sh` baut ausschließlich Kacheln, und
-  // `services/valhalla/build-tiles.sh` verlangt einen Docker-Socket, den es
-  // im Add-on-Container nicht gibt. Auf diesem Gerät kann der Graph derzeit
-  // gar nicht gebaut werden — das gehört gesagt, statt auf einen Automatismus
-  // zu verweisen, auf den man sonst wartet.
+  // ZWEI FRUEHERE FASSUNGEN DIESES TEXTES WAREN FALSCH.
+  //
+  // Zuerst stand hier „er wird beim Bau einer Region miterzeugt" -- das tut
+  // `build-pmtiles.sh` nicht, es baut ausschliesslich Kacheln.
+  //
+  // Danach stand hier, der Graph koenne auf dem Geraet „NICHT gebaut werden:
+  // das Bauwerkzeug braucht einen Docker-Socket". Das galt fuer unser SKRIPT
+  // (`services/valhalla/build-tiles.sh` faehrt ein Image von aussen an), aber
+  // nicht fuer die WERKZEUGE: das Add-on-Image setzt mit `FROM` auf
+  // `gis-ops/docker-valhalla` auf, dessen Dockerfile `valhalla_build_tiles`,
+  // `valhalla_build_config` und Geschwister ausdruecklich aufbewahrt -- samt
+  // dem Bau-Rezept unter /valhalla/scripts/. Der Text schickte den Betreiber
+  // also an einen zweiten Rechner, obwohl alles Noetige im Container lag.
+  //
+  // Dieselbe Fehlerklasse wie der JAR-Modus bei planetiler, und derselbe
+  // Preis: eine Anweisung, die aus dem vorgesehenen Bedienweg hinausfuehrt.
   const remedy =
     'Valhalla läuft als Teil des Add-ons, braucht aber einen fertigen Routinggraphen; ' +
-    'ohne ihn startet der Dienst nicht. Dieser Graph kann auf dem Gerät selbst NICHT ' +
-    'gebaut werden: das Bauwerkzeug braucht einen Docker-Socket, den ein ' +
-    'Home-Assistant-Add-on nicht hat. Bauen Sie ihn auf einem anderen Rechner mit ' +
-    'services/valhalla/build-tiles.sh <pfad-zur.osm.pbf> aus diesem Repository und ' +
-    'legen Sie das Ergebnis per „Samba share" nach /share/yapaja/valhalla/tiles/. ' +
-    'Ohne Graph funktionieren Karte, Position und Favoriten weiterhin — nur das ' +
-    'Berechnen von Routen nicht. Ausführlich: docs/installation.md §C.';
+    'ohne ihn startet der Dienst nicht. Bauen Sie ihn mit dem Knopf „Routing bauen" ' +
+    'im Regionen-Panel (🗺️ rechts oben) — bei einer kleinen Region dauert das Minuten. ' +
+    'Der Dienst startet danach binnen 30 Sekunden von allein, ein Neustart des Add-ons ' +
+    'ist nicht nötig. Ohne Graph funktionieren Karte, Position und Favoriten weiterhin — ' +
+    'nur das Berechnen von Routen nicht. Ausführlich: docs/installation.md §C.';
 
   const reachable = await httpProbe(`${url}/status`, PROBE_TIMEOUT_MS);
   return reachable

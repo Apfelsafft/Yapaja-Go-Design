@@ -43,10 +43,50 @@ import type { JobRegistry } from './jobs.js';
  *  beim ersten Lauf planetiler.jar und ruft dann das eigentliche Skript. */
 export const BUILD_COMMAND = '/usr/bin/yapaja-build-pmtiles';
 
-/** Job-Art des Kachelbaus. Die Route erkennt daran einen bereits laufenden
- *  Bau -- zwei gleichzeitige Laeufe teilen sich das Quellenverzeichnis und
- *  zerstoeren einander (siehe `JobRegistry.findUnfinished`). */
-export const BUILD_JOB_KIND = 'tile-build';
+/** Der Wrapper fuer den ROUTINGGRAPHEN. Er benutzt die
+ *  `valhalla_build_*`-Werkzeuge, die im Add-on-Image ohnehin schon liegen
+ *  (das Image setzt auf `gis-ops/docker-valhalla` auf). */
+export const GRAPH_BUILD_COMMAND = '/usr/bin/yapaja-build-graph';
+
+/**
+ * Job-Art aller schweren Bauten. BEWUSST EINE einzige Art fuer Kacheln UND
+ * Routinggraph, nicht zwei:
+ *
+ *  * Der Kachelbau und der Graphbau teilen sich Platte und Arbeitsspeicher
+ *    derselben 8-GB-VM. Nebeneinander laufen sie ihr gegenseitig -- und den
+ *    Rest von Home Assistant -- in den OOM-Killer.
+ *  * Zwei Kachelbauten zerstoeren einander zusaetzlich ueber das gemeinsame
+ *    planetiler-Quellenverzeichnis (siehe `JobRegistry.findUnfinished`).
+ *
+ * Eine gemeinsame Art heisst: es laeuft immer hoechstens EIN schwerer Bau.
+ */
+export const BUILD_JOB_KIND = 'heavy-build';
+
+/** Was einen Bau-Lauf von einem anderen unterscheidet: das Werkzeug und die
+ *  Woerter, mit denen ueber ihn geredet wird. Der Ablauf drumherum
+ *  (Vorpruefungen, Ausgabe spiegeln, Abbruch, atomarer Swap) ist derselbe. */
+export interface BuildVariant {
+  command: string;
+  /** Praefix der gespiegelten Ausgabezeilen im Add-on-Protokoll. */
+  logPrefix: string;
+  /** Wie der Lauf in einer Fehlermeldung heisst. */
+  humanName: string;
+  doneNote: string;
+}
+
+export const TILE_BUILD: BuildVariant = {
+  command: BUILD_COMMAND,
+  logPrefix: 'Kachelbau',
+  humanName: 'Der Kachelbau',
+  doneNote: 'Kacheln fertig eingewechselt.',
+};
+
+export const GRAPH_BUILD: BuildVariant = {
+  command: GRAPH_BUILD_COMMAND,
+  logPrefix: 'Routingbau',
+  humanName: 'Der Bau des Routinggraphen',
+  doneNote: 'Routinggraph fertig eingewechselt. Der Dienst startet binnen 30 Sekunden von allein.',
+};
 
 /** JVM-Heap fuer planetiler. 2 GB ist der Wert, mit dem eine kleine bis
  *  mittlere Region (Liechtenstein bis Bundesland) durchlaeuft, ohne eine
@@ -125,6 +165,7 @@ export function runBuildJob(
   entry: CatalogEntry,
   tilesDir: string,
   deps: BuildJobDeps = {},
+  variant: BuildVariant = TILE_BUILD,
 ): void {
   const logger = deps.logger;
   const spawnFn: SpawnBuildFn =
@@ -148,7 +189,7 @@ export function runBuildJob(
 
   let child: SpawnedBuild;
   try {
-    child = spawnFn(BUILD_COMMAND, [source, entry.id], {
+    child = spawnFn(variant.command, [source, entry.id], {
       TILES_DIR: tilesDir,
       PLANETILER_XMX: `${Math.round(BUILD_HEAP_BYTES / 1024 ** 3)}g`,
     });
@@ -202,7 +243,7 @@ export function runBuildJob(
     for (const raw of text.split(/\r?\n|\r/)) {
       const line = raw.trim();
       if (line.length > 0) {
-        logger?.(`[Kachelbau ${entry.id}] ${line}`);
+        logger?.(`[${variant.logPrefix} ${entry.id}] ${line}`);
       }
     }
     const last = lastMeaningfulLine(text);
@@ -218,7 +259,7 @@ export function runBuildJob(
       code: 'BUILD_START_FAILED',
       message:
         `Der Bau konnte nicht gestartet werden: ${err.message}. ` +
-        `Erwartet wurde das Werkzeug ${BUILD_COMMAND} — es gehört zum Add-on-Image.`,
+        `Erwartet wurde das Werkzeug ${variant.command} — es gehört zum Add-on-Image.`,
     });
   });
 
@@ -233,7 +274,7 @@ export function runBuildJob(
       return;
     }
     if (code === 0) {
-      jobs.setNote(jobId, 'Kacheln fertig eingewechselt.');
+      jobs.setNote(jobId, variant.doneNote);
       jobs.markDone(jobId);
       return;
     }
@@ -245,10 +286,10 @@ export function runBuildJob(
     jobs.markError(jobId, {
       code: 'BUILD_FAILED',
       message:
-        `Der Kachelbau ist mit Code ${code ?? 'unbekannt'} fehlgeschlagen. ` +
+        `${variant.humanName} ist mit Code ${code ?? 'unbekannt'} fehlgeschlagen. ` +
         (lastLine ? `Zuletzt: „${lastLine}". ` : '') +
         'Die vollständige Ausgabe steht im Add-on-Protokoll (Zeilen mit ' +
-        `„[Kachelbau ${entry.id}]"). Die bisherige Kartendatei ist unverändert.`,
+        `„[${variant.logPrefix} ${entry.id}]"). Der bisherige Stand ist unverändert.`,
     });
   });
 }

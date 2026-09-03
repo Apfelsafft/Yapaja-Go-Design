@@ -1,0 +1,192 @@
+#!/command/with-contenv bash
+# ==============================================================================
+# yapaja-build-graph -- Routinggraph fuer eine Region bauen, VON INNEN.
+#
+# ─── WARUM ES DIESEN WEG GIBT ───────────────────────────────────────────────
+# Bis hierher galt: der Routinggraph lasse sich auf dem Geraet nicht bauen,
+# das Werkzeug brauche einen Docker-Socket. Das stimmte fuer unser SKRIPT
+# (`services/valhalla/build-tiles.sh` faehrt das gis-ops-Image von aussen an),
+# aber nicht fuer die WERKZEUGE: dieses Add-on setzt mit `FROM` auf genau
+# jenem Image auf, und dessen Dockerfile bewahrt sie ausdruecklich auf --
+#
+#   preserve="valhalla_service valhalla_build_tiles valhalla_build_config
+#             valhalla_build_admins valhalla_build_timezones ..."
+#
+# -- samt dem kompletten Bau-Rezept unter /valhalla/scripts/. Alles Noetige
+# liegt also bereits im Container. Es fehlte nur der Aufruf.
+#
+# Das ist dieselbe Fehlerklasse wie der JAR-Modus bei planetiler: der Weg war
+# da, das Skript fand ihn nicht -- und die Oberflaeche schickte den Betreiber
+# an einen zweiten Rechner, den es nicht braucht.
+#
+# ─── WARUM IN EINEM STAGING-VERZEICHNIS GEBAUT WIRD ─────────────────────────
+# W-17: ein abgebrochener Lauf darf keinen halben Graphen im Live-Pfad
+# hinterlassen. Gebaut wird deshalb unter `/custom_files/<staging>`, und erst
+# ein vollstaendiger, gepruefter Graph wird eingewechselt.
+#
+# ─── UND WARUM DANACH EIN sed NOETIG IST ────────────────────────────────────
+# `valhalla_build_config` schreibt ABSOLUTE Pfade in die valhalla.json. Baut
+# man unter `/custom_files/<staging>`, stehen sie danach auch dort drin --
+# nach dem Einwechseln nach `/custom_files` waeren sie falsch. Ersetzt wird
+# deshalb genau EIN Praefix: `/custom_files/<staging>/` -> `/custom_files/`.
+# Das trifft ausschliesslich Pfad-Zeichenketten und laesst die Struktur der
+# Config unberuehrt -- anders als ein Merge fremder Schluessel, der frueher
+# schon einmal in „No such node (service_limits...)" endete.
+#
+# `/custom_files` selbst ist ein Symlink auf das Live-Verzeichnis (siehe
+# Dockerfile) -- damit stimmen die Pfade in der Config sowohl fuer einen hier
+# gebauten als auch fuer einen anderswo gebauten und hereinkopierten Graphen.
+#
+# ─── VERWENDUNG ─────────────────────────────────────────────────────────────
+#   yapaja-build-graph <pbf-url-oder-pfad> [region-id]
+# ==============================================================================
+set -euo pipefail
+
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+  cat >&2 <<'EOF'
+Usage: yapaja-build-graph <pbf-url-oder-pfad> [region-id]
+
+Beispiel:
+  yapaja-build-graph https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+
+Env-Overrides:
+  VALHALLA_TILES_DIR  Live-Verzeichnis des Graphen
+                      (Default: /share/yapaja/valhalla/tiles)
+EOF
+  exit 1
+fi
+
+PBF_ARG="$1"
+REGION_ARG="${2:-}"
+
+LIVE_DIR="${VALHALLA_TILES_DIR:-/share/yapaja/valhalla/tiles}"
+export TMPDIR="${TMPDIR:-$(dirname "$(dirname "$LIVE_DIR")")/tmp}"
+mkdir -p "$LIVE_DIR" "$TMPDIR"
+
+# Der Symlink aus dem Dockerfile MUSS auf das Live-Verzeichnis zeigen, sonst
+# stimmen die Pfade in der erzeugten Config nicht. Lieber hier hart abbrechen
+# als einen Graphen bauen, der hinterher nicht laedt.
+if [ ! -d /custom_files ]; then
+  echo "FEHLER: /custom_files fehlt oder zeigt ins Leere." >&2
+  echo "Es muss ein Symlink auf $LIVE_DIR sein (wird im Add-on-Image angelegt)." >&2
+  exit 1
+fi
+
+derive_region_id() {
+  local base
+  base="$(basename "$1")"
+  base="${base%%\?*}"
+  base="${base%.pbf}"
+  base="${base%.osm}"
+  base="${base%-latest}"
+  printf '%s' "$base"
+}
+REGION_ID="${REGION_ARG:-$(derive_region_id "$PBF_ARG")}"
+if ! [[ "$REGION_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+  echo "FEHLER: ungueltige Regions-ID \"$REGION_ID\"." >&2
+  exit 1
+fi
+
+STAGING_NAME="build-$REGION_ID.$$"
+STAGING_DIR="/custom_files/$STAGING_NAME"
+rm -rf "$STAGING_DIR"
+mkdir -p "$STAGING_DIR"
+
+cleanup() {
+  rm -rf "$STAGING_DIR"
+}
+trap cleanup EXIT
+
+# --- PBF beschaffen ---------------------------------------------------------
+INPUT="$STAGING_DIR/$REGION_ID.osm.pbf"
+if [[ "$PBF_ARG" =~ ^https?:// ]]; then
+  echo "Lade OSM-Extrakt herunter: $PBF_ARG"
+  curl -fL --retry 3 --retry-delay 5 -o "$INPUT" "$PBF_ARG"
+else
+  if [ ! -f "$PBF_ARG" ]; then
+    echo "FEHLER: lokale PBF-Datei nicht gefunden: $PBF_ARG" >&2
+    exit 1
+  fi
+  cp "$PBF_ARG" "$INPUT"
+fi
+
+# --- Bauen ------------------------------------------------------------------
+# Die Umgebung entspricht dem, was `services/valhalla/build-tiles.sh` dem
+# gis-ops-Container per `-e` mitgibt -- derselbe Graph, nur ohne den Umweg
+# ueber einen zweiten Container.
+#
+#   build_elevation=False   Hoehendaten sind ein separater, sehr grosser
+#                           Download; ohne sie routet Valhalla vollstaendig.
+#   build_admins=True       Laendergrenzen -- ohne sie fehlen
+#                           Grenzuebertritte in der Abbiegeansage.
+#   build_time_zones=False  fuer Ankunftszeiten nicht noetig.
+export path_extension="$STAGING_NAME"
+export build_elevation=False
+export build_admins=True
+export build_time_zones=False
+export build_transit=False
+export force_rebuild=True
+export use_tiles_ignore_pbf=False
+export server_threads="${VALHALLA_BUILD_THREADS:-1}"
+
+echo "== Baue Routinggraph fuer \"$REGION_ID\" (Staging: $STAGING_DIR) =="
+echo "Das dauert bei Liechtenstein Minuten, bei einem Bundesland deutlich laenger."
+
+/valhalla/scripts/configure_valhalla.sh
+
+CONFIG="$STAGING_DIR/valhalla.json"
+if [ ! -s "$CONFIG" ]; then
+  echo "FEHLER: der Bau hat keine valhalla.json erzeugt ($CONFIG)." >&2
+  exit 1
+fi
+if [ ! -d "$STAGING_DIR/valhalla_tiles" ]; then
+  echo "FEHLER: der Bau hat kein valhalla_tiles/ erzeugt." >&2
+  echo "Ohne Kacheln waere der Graph leer -- es wird nichts eingewechselt." >&2
+  exit 1
+fi
+
+# Pfade vom Staging- auf das Live-Verzeichnis umbiegen (siehe Kopfkommentar).
+sed -i "s|/custom_files/${STAGING_NAME}/|/custom_files/|g" "$CONFIG"
+if grep -q "/custom_files/${STAGING_NAME}" "$CONFIG"; then
+  echo "FEHLER: in der Config stehen noch Staging-Pfade -- nicht eingewechselt." >&2
+  exit 1
+fi
+
+# --- Atomar einwechseln (W-17) ---------------------------------------------
+# Erst das Alte beiseite, dann das Neue an seinen Platz, dann das Alte weg.
+# Schlaegt der mittlere Schritt fehl, wird zurueckgeschoben.
+OLD_DIR="$TMPDIR/valhalla-old.$$"
+echo "Wechsle Graph ein -> $LIVE_DIR"
+if [ -n "$(ls -A "$LIVE_DIR" 2>/dev/null | grep -v "^$STAGING_NAME$" || true)" ]; then
+  mkdir -p "$OLD_DIR"
+  for item in "$LIVE_DIR"/*; do
+    [ -e "$item" ] || continue
+    [ "$(basename "$item")" = "$STAGING_NAME" ] && continue
+    mv "$item" "$OLD_DIR/" || true
+  done
+fi
+
+moved=0
+for item in "$STAGING_DIR"/*; do
+  [ -e "$item" ] || continue
+  mv "$item" "$LIVE_DIR/"
+  moved=1
+done
+if [ "$moved" -eq 0 ]; then
+  echo "FEHLER: im Staging lag nichts zum Einwechseln." >&2
+  if [ -d "$OLD_DIR" ]; then
+    mv "$OLD_DIR"/* "$LIVE_DIR/" 2>/dev/null || true
+    echo "Der vorherige Graph wurde zurueckgeschoben." >&2
+  fi
+  exit 1
+fi
+rm -rf "$OLD_DIR"
+
+# Die PBF wird nicht mit eingewechselt -- sie liegt im Staging und faellt mit
+# ihm weg. Der Graph traegt sie nicht, und ein liegengebliebener Extrakt
+# wuerde beim naechsten Start des gis-ops-Rezepts einen Neubau ausloesen.
+rm -f "$LIVE_DIR/$REGION_ID.osm.pbf"
+
+echo "== Routinggraph fertig eingewechselt =="
+echo "Der Valhalla-Dienst prueft alle 30 Sekunden auf $LIVE_DIR/valhalla.json"
+echo "und startet dann von allein -- ein Neustart des Add-ons ist nicht noetig."

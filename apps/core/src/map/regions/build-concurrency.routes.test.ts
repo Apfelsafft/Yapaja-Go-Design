@@ -149,6 +149,84 @@ describe('POST /api/v1/map/regions/:id/build -- nur ein Bau gleichzeitig', () =>
     expect(details?.jobId).toBe(firstJobId);
   });
 
+  it('lehnt einen ROUTINGBAU ab, solange ein Kachelbau laeuft (gemeinsame Sperre)', async () => {
+    // Kachel- und Routingbau teilen sich absichtlich EINE Job-Art: sie
+    // konkurrieren um Platte und Arbeitsspeicher derselben 8-GB-VM, auf der
+    // auch Home Assistant laeuft. Zwei getrennte Sperren waeren die
+    // naheliegende, falsche Aufteilung.
+    await setUp();
+
+    const tiles = await app.inject({
+      method: 'POST',
+      url: '/api/v1/map/regions/liechtenstein/build',
+    });
+    expect(tiles.statusCode).toBe(202);
+
+    const graph = await app.inject({
+      method: 'POST',
+      url: '/api/v1/map/regions/liechtenstein/build-graph',
+    });
+    expect(graph.statusCode).toBe(409);
+    expect((graph.json() as { error: { code: string } }).error.code).toBe('BUILD_IN_PROGRESS');
+  });
+
+  it('lehnt einen KACHELBAU ab, solange ein Routingbau laeuft (Gegenrichtung)', async () => {
+    await setUp();
+
+    const graph = await app.inject({
+      method: 'POST',
+      url: '/api/v1/map/regions/liechtenstein/build-graph',
+    });
+    expect(graph.statusCode).toBe(202);
+
+    const tiles = await app.inject({
+      method: 'POST',
+      url: '/api/v1/map/regions/liechtenstein/build',
+    });
+    expect(tiles.statusCode).toBe(409);
+  });
+
+  it('startet den Routingbau mit dem Graph-Werkzeug, nicht mit dem Kachel-Werkzeug', async () => {
+    // Ohne diese Zusicherung koennte die Route versehentlich denselben
+    // Wrapper starten wie der Kachelbau -- und wieder Kacheln bauen, waehrend
+    // die Oberflaeche „Routing" behauptet.
+    const commands: string[] = [];
+    const tilesDir = mkdtempSync(join(tmpdir(), 'yapaja-graphcmd-tiles-'));
+    const catalogDir = mkdtempSync(join(tmpdir(), 'yapaja-graphcmd-catalog-'));
+    tempDirs.push(tilesDir, catalogDir);
+    const catalogPath = join(catalogDir, 'catalog.json');
+    writeFileSync(
+      catalogPath,
+      JSON.stringify([
+        {
+          id: 'liechtenstein',
+          name: 'Liechtenstein',
+          pbfUrl: 'http://127.0.0.1:1/li.osm.pbf',
+          sizeBytes: 1000,
+          bounds: [9.4, 47.0, 9.7, 47.3],
+        },
+      ]),
+    );
+    process.env.TILES_DIR = tilesDir;
+    process.env.MAP_REGIONS_CATALOG_FILE = catalogPath;
+
+    app = Fastify({ logger: false });
+    await app.register(regionsPlugin, {
+      statfsImpl: async () => ({ bavail: 10_000_000, bsize: 4096 }),
+      buildDeps: {
+        spawnFn: (command) => {
+          commands.push(command);
+          return neverEndingChild();
+        },
+        freeMemFn: () => 8 * 1024 ** 3,
+        logger: () => undefined,
+      },
+    });
+
+    await app.inject({ method: 'POST', url: '/api/v1/map/regions/liechtenstein/build-graph' });
+    expect(commands).toEqual(['/usr/bin/yapaja-build-graph']);
+  });
+
   it('erlaubt einen neuen Bau, sobald der laufende abgebrochen wurde', async () => {
     // Ohne diesen Fall waere die Sperre eine Falle: ein Bau, der einmal
     // haengt, wuerde jeden weiteren bis zum Neustart des Add-ons blockieren.

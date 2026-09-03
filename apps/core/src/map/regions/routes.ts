@@ -24,6 +24,7 @@ import { checkDiskSpace, type StatfsFn } from './disk.js';
 import { computeRemainingBytes, existingPartBytes, finalFilePath, partFilePath, runDownloadJob } from './download.js';
 import {
   BUILD_JOB_KIND,
+  GRAPH_BUILD,
   buildRequiredBytes,
   buildRequiredFreeMemory,
   defaultFreeMem,
@@ -282,6 +283,99 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
         ...opts.buildDeps,
         logger: opts.buildDeps?.logger ?? ((line) => fastify.log.info(line)),
       });
+      return reply.code(202).send({ job_id: jobId });
+    },
+  );
+
+  // POST /api/v1/map/regions/:id/build-graph -- baut den ROUTINGGRAPHEN aus
+  // demselben OSM-Extrakt.
+  //
+  // Bis 2026-09-03 hiess es, das ginge auf dem Geraet nicht: das Werkzeug
+  // brauche einen Docker-Socket. Das galt fuer unser SKRIPT
+  // (`services/valhalla/build-tiles.sh` faehrt ein Image von aussen an),
+  // nicht fuer die WERKZEUGE -- dieses Add-on setzt mit `FROM` auf genau
+  // jenem Image auf, dessen Dockerfile `valhalla_build_tiles` und
+  // Geschwister ausdruecklich aufbewahrt. Dieselbe Fehlerklasse wie beim
+  // JAR-Modus von planetiler: der Weg war da, das Skript fand ihn nicht --
+  // und die Oberflaeche schickte den Betreiber an einen zweiten Rechner,
+  // den es nicht braucht.
+  fastify.post<{ Params: IdParams; Reply: PostRegionsReply | ApiError }>(
+    '/api/v1/map/regions/:id/build-graph',
+    async (request, reply) => {
+      const regionId = request.params.id;
+      if (!REGION_NAME_PATTERN.test(regionId)) {
+        return reply
+          .code(400)
+          .send(createErrorResponse('INVALID_REGION', 'id must be a valid region slug'));
+      }
+
+      let catalog: CatalogEntry[];
+      try {
+        catalog = await loadCatalog();
+      } catch (err) {
+        fastify.log.error({ error: (err as Error).message }, 'Failed to load regions catalog');
+        return reply
+          .code(500)
+          .send(createErrorResponse('CATALOG_UNAVAILABLE', 'Regions catalog could not be loaded'));
+      }
+
+      const entry = catalog.find((candidate) => candidate.id === regionId);
+      if (!entry) {
+        return reply
+          .code(404)
+          .send(createErrorResponse('NOT_FOUND', `Unknown catalog region '${regionId}'`));
+      }
+
+      if (!entry.pbfUrl) {
+        return reply
+          .code(409)
+          .send(
+            createErrorResponse(
+              'NO_BUILD_SOURCE',
+              `Für die Region '${regionId}' ist kein OSM-Extrakt hinterlegt (pbfUrl).`,
+            ),
+          );
+      }
+
+      // Dieselbe Sperre wie beim Kachelbau, und aus einem zusaetzlichen
+      // Grund: Kachel- und Graphbau nebeneinander sprengen den Speicher der
+      // 8-GB-VM, auf der auch Home Assistant laeuft.
+      const running = jobs.findUnfinished(BUILD_JOB_KIND);
+      if (running) {
+        return reply.code(409).send(
+          createErrorResponse(
+            'BUILD_IN_PROGRESS',
+            'Es läuft bereits ein Bau. Zwei schwere Bauten gleichzeitig überlasten ' +
+              'das Gerät — warten Sie das Ende ab oder brechen Sie den laufenden Bau ab.',
+            { jobId: running.id },
+          ),
+        );
+      }
+
+      const freeMemFn = opts.buildDeps?.freeMemFn ?? defaultFreeMem;
+      const requiredMemory = buildRequiredFreeMemory();
+      const freeMemory = freeMemFn();
+      if (freeMemory < requiredMemory) {
+        return reply.code(409).send(
+          createErrorResponse(
+            'INSUFFICIENT_MEMORY',
+            'Zu wenig freier Arbeitsspeicher für den Bau des Routinggraphen. Schalten ' +
+              'Sie Photon in der Add-on-Konfiguration ab („photon_enabled: false") und ' +
+              'versuchen Sie es erneut.',
+            { requiredBytes: requiredMemory, freeBytes: freeMemory },
+          ),
+        );
+      }
+
+      const jobId = jobs.create(BUILD_JOB_KIND);
+      runBuildJob(
+        jobId,
+        jobs,
+        entry,
+        tilesDir,
+        { ...opts.buildDeps, logger: opts.buildDeps?.logger ?? ((line) => fastify.log.info(line)) },
+        GRAPH_BUILD,
+      );
       return reply.code(202).send({ job_id: jobId });
     },
   );

@@ -317,20 +317,41 @@ COPY --from=core-build /app/apps/web/dist ./apps/core/public
 # Build-Kontext (der ist `yapaja_go/`, siehe Kopfkommentar).
 #
 # NUR `build-pmtiles.sh` -- und das ist Absicht, keine Nachlaessigkeit.
-# Die beiden Geschwisterskripte sind in diesem Container NICHT lauffaehig:
-#   * `services/valhalla/build-tiles.sh` bricht mit
-#     „FEHLER: docker nicht im PATH gefunden" ab. In einem HA-Add-on gibt es
-#     keinen Docker-Socket (dieselbe Einschraenkung, wegen der
-#     build-pmtiles.sh ueberhaupt einen JAR-Modus hat).
+#   * `services/valhalla/build-tiles.sh` braucht einen Docker-Socket, den es
+#     in einem HA-Add-on nicht gibt. Der ROUTINGGRAPH wird deshalb NICHT ueber
+#     dieses Skript gebaut, sondern ueber `yapaja-build-graph` (rootfs), das
+#     die Bau-Werkzeuge benutzt, die in diesem Image ohnehin schon liegen --
+#     siehe den Abschnitt „/custom_files" weiter unten.
 #   * `services/valhalla/build-lite-index.sh` braucht `osmium` (nicht
 #     installiert) und ruft `pnpm exec tsx src/...` aus dem Repository auf,
-#     das hier nicht liegt.
-# Sie mitzuliefern wuerde genau den Fehler wiederholen, den dieser Abschnitt
-# behebt: ein Werkzeug bereitstellen, das beim ersten Aufruf scheitert.
-# Beide Wege stehen stattdessen ehrlich in `docs/installation.md` §C.5 als
-# „auf einem anderen Rechner bauen und die Datei ablegen".
+#     das hier nicht liegt. Dieses eine bleibt also ein Weg „auf einem anderen
+#     Rechner bauen und die Datei ablegen" (docs/installation.md §C.5).
 COPY --from=core-build /app/services/tiles/build-pmtiles.sh /opt/yapaja/bin/build-pmtiles.sh
 RUN chmod +x /opt/yapaja/bin/build-pmtiles.sh && test -x /opt/yapaja/bin/build-pmtiles.sh
+
+# ---- /custom_files: die eine Zeile, ohne die kein Routinggraph laeuft ------
+#
+# `valhalla_build_config` backt ABSOLUTE Pfade in die erzeugte
+# `valhalla.json` -- `--mjolnir-tile-dir ${TILE_DIR}` und Geschwister, wobei
+# TILE_DIR beim gis-ops-Image immer unter `/custom_files` liegt
+# (`scripts/helpers.sh` setzt es hart). Im Compose-Stack stimmt das, weil
+# dort das Datenverzeichnis GENAU dorthin gemountet ist.
+#
+# In diesem Add-on gibt es kein solches Mount: `valhalla_service` startet mit
+# `/share/yapaja/valhalla/tiles/valhalla.json`. Ein Graph, dessen Config auf
+# `/custom_files/valhalla_tiles` zeigt, findet seine Kacheln dort also nicht.
+# Das betraf BEIDE Wege zu einem Graphen -- den Bau im Add-on ebenso wie den
+# dokumentierten „woanders bauen und per Samba ablegen": eine anderswo
+# erzeugte valhalla.json trug denselben Pfad und waere hier ebenso ins Leere
+# gelaufen.
+#
+# Der Symlink loest beides auf einmal, ohne eine einzige Zeile in der von
+# Valhalla erzeugten Config anzufassen (was frueher schon einmal in
+# „No such node (service_limits...)" endete, siehe
+# services/valhalla/build-tiles.sh). Er zeigt ins Leere, bis der Supervisor
+# /share einhaengt -- das ist bei einem Symlink kein Problem, er wird erst
+# beim Zugriff aufgeloest.
+RUN rm -rf /custom_files && ln -s /share/yapaja/valhalla/tiles /custom_files
 
 # ---- Our rootfs overlay: s6-rc.d service tree + init script (see ----
 # ---- rootfs/etc/s6-overlay/s6-rc.d/ and rootfs/etc/yapaja/) ----

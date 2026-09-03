@@ -158,6 +158,23 @@ export async function startBuild(regionId: string): Promise<string> {
   return body.job_id;
 }
 
+/** Startet den Bau des ROUTINGGRAPHEN für `regionId`. Gegenpart zu
+ *  `startBuild`: dieselbe Job-Maschinerie, anderes Erzeugnis. Ohne Graph
+ *  zeigt die App zwar die Karte und die Position, kann aber keine Route
+ *  berechnen. Wirft RegionApiError bei 409 (BUILD_IN_PROGRESS /
+ *  INSUFFICIENT_MEMORY / NO_BUILD_SOURCE) oder 404. */
+export async function startGraphBuild(regionId: string): Promise<string> {
+  const response = await fetch(
+    apiUrl(`api/v1/map/regions/${encodeURIComponent(regionId)}/build-graph`),
+    { method: 'POST' },
+  );
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+  const body = (await response.json()) as { job_id: string };
+  return body.job_id;
+}
+
 /** Fetches one job's current status. Returns null (never throws) on
  *  network/parse failure or an unknown job id, so pollers can just skip a
  *  beat rather than crash. */

@@ -26,6 +26,7 @@ import {
   fetchJob,
   startDownload,
   startBuild,
+  startGraphBuild,
   RegionApiError,
   type CatalogRegion,
   type InstalledRegion,
@@ -85,12 +86,17 @@ function formatApiError(err: RegionApiError): string {
   }
   if (err.code === 'BUILD_IN_PROGRESS') {
     // Der Grund gehoert in die Meldung. „Geht gerade nicht" liest sich wie
-    // eine Schikane; dass zwei Bauten sich dieselben Basisdaten teilen und
-    // der zweite auf halb geladene Dateien traefe, erklaert das Verbot.
+    // eine Schikane; die beiden echten Gruende erklaeren das Verbot.
+    //
+    // Die Sperre gilt fuer Kachel- UND Routingbau gemeinsam, deshalb nennt
+    // der Text keinen der beiden beim Namen: zwei Kachelbauten zerstoeren
+    // einander ueber die gemeinsamen Basisdaten, und ein Kachel- neben einem
+    // Routingbau sprengt den Speicher der 8-GB-VM, auf der auch Home
+    // Assistant laeuft.
     return (
-      'Es läuft bereits ein Kachelbau. Zwei gleichzeitig gehen nicht, weil beide ' +
-      'dieselben Basisdaten verwenden — der zweite träfe auf halb geladene Dateien. ' +
-      'Warte das Ende ab oder brich den laufenden Bau ab.'
+      'Es läuft bereits ein Bau. Zwei gleichzeitig gehen nicht: sie teilen sich ' +
+      'dieselben Basisdaten und denselben Arbeitsspeicher. Warte das Ende ab oder ' +
+      'brich den laufenden Bau ab.'
     );
   }
   return err.message || 'Unbekannter Fehler.';
@@ -190,6 +196,23 @@ export default function RegionsPanel(): React.ReactElement {
     } catch (err) {
       const message =
         err instanceof RegionApiError ? formatApiError(err) : 'Bau konnte nicht gestartet werden.';
+      setErrorByRegion((prev) => ({ ...prev, [regionId]: message }));
+    }
+  }, []);
+
+  // Der Routinggraph ist ein EIGENES Erzeugnis aus derselben PBF. Er teilt
+  // sich Job-Maschinerie und Sperre mit dem Kachelbau -- zwei schwere Bauten
+  // nebeneinander sprengen den Speicher der 8-GB-VM.
+  const handleGraphBuild = useCallback(async (regionId: string) => {
+    setErrorByRegion((prev) => ({ ...prev, [regionId]: '' }));
+    try {
+      const jobId = await startGraphBuild(regionId);
+      setDownloads((prev) => ({ ...prev, [regionId]: { jobId, job: null } }));
+    } catch (err) {
+      const message =
+        err instanceof RegionApiError
+          ? formatApiError(err)
+          : 'Bau des Routinggraphen konnte nicht gestartet werden.';
       setErrorByRegion((prev) => ({ ...prev, [regionId]: message }));
     }
   }, []);
@@ -314,6 +337,20 @@ export default function RegionsPanel(): React.ReactElement {
                           {isActive ? 'Baut…' : 'Kacheln bauen'}
                         </button>
                       )}
+                      {/* Der Routinggraph ist ein zweites Erzeugnis aus
+                          derselben PBF und wird SEPARAT gebaut: viele
+                          Betreiber wollen erst die Karte sehen, und der
+                          Graph kostet noch einmal Zeit und Speicher. */}
+                      {entry.pbfUrl ? (
+                        <button
+                          onClick={() => void handleGraphBuild(entry.id)}
+                          disabled={isActive}
+                          className="shrink-0 px-2 py-1 rounded-md border border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 text-xs hover:bg-emerald-50 dark:hover:bg-emerald-900/30 disabled:opacity-50"
+                          data-testid={`graph-build-button-${entry.id}`}
+                        >
+                          Routing bauen
+                        </button>
+                      ) : null}
                     </div>
                     {/* Ein Eintrag ohne `url` hat keine fertige Datei zum
                         Herunterladen -- die Kacheln entstehen aus dem
