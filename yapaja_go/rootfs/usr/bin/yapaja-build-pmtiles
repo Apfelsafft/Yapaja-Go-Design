@@ -99,6 +99,30 @@ fi
 
 export PLANETILER_JAR="$JAR_PATH"
 
+# ─── ANGEBROCHENE BASISDATEN AUSSORTIEREN ───────────────────────────────────
+# planetilers `--download` laedt nur, was NICHT existiert. Eine abgebrochene
+# Uebertragung hinterlaesst aber eine Datei, die existiert -- und wird damit
+# nie wieder erneuert. Der naechste Bau liest sie und stirbt an:
+#
+#   java.util.zip.ZipException: zip END header not found
+#
+# Ohne Gegenmassnahme ist das eine Sackgasse: die Datei liegt in /share, und
+# der vorgesehene Bedienweg (nur GUI) hat kein Mittel, sie zu loeschen. Ein
+# einziger abgebrochener erster Bau haette den Kachelbau dauerhaft
+# unbrauchbar gemacht.
+#
+# Geprueft wird die Signatur des ZIP-Zentralverzeichnisses (PK\x05\x06) im
+# letzten Stueck der Datei -- sie steht per Format am Ende, fehlt also genau
+# dann, wenn die Uebertragung abbrach. Das braucht kein `unzip` und kein
+# Python, die im Image beide nicht sicher vorhanden sind.
+for src in "$PLANETILER_SOURCES_DIR"/*.zip; do
+  [ -e "$src" ] || continue
+  if ! tail -c 131072 "$src" | LC_ALL=C grep -qa $'PK\x05\x06'; then
+    echo "== Unvollstaendige Basisdatei wird verworfen und neu geladen: $(basename "$src") =="
+    rm -f "$src"
+  fi
+done
+
 echo "== Baue Kacheln nach $TILES_DIR (Heap $PLANETILER_XMX, JAR $PLANETILER_JAR) =="
 if [ -z "$(ls -A "$PLANETILER_SOURCES_DIR" 2>/dev/null)" ]; then
   echo "== Erster Bau: die gemeinsamen Basisdaten (Wasserflaechen, Natural Earth,"

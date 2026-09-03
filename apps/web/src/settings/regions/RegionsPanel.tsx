@@ -83,6 +83,16 @@ function formatApiError(err: RegionApiError): string {
   if (err.code === 'NO_BUILD_SOURCE') {
     return 'Für diese Region ist kein OpenStreetMap-Extrakt hinterlegt — es gibt nichts zu bauen.';
   }
+  if (err.code === 'BUILD_IN_PROGRESS') {
+    // Der Grund gehoert in die Meldung. „Geht gerade nicht" liest sich wie
+    // eine Schikane; dass zwei Bauten sich dieselben Basisdaten teilen und
+    // der zweite auf halb geladene Dateien traefe, erklaert das Verbot.
+    return (
+      'Es läuft bereits ein Kachelbau. Zwei gleichzeitig gehen nicht, weil beide ' +
+      'dieselben Basisdaten verwenden — der zweite träfe auf halb geladene Dateien. ' +
+      'Warte das Ende ab oder brich den laufenden Bau ab.'
+    );
+  }
   return err.message || 'Unbekannter Fehler.';
 }
 

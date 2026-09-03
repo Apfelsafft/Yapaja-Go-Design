@@ -23,6 +23,7 @@ import { loadCatalog, type CatalogEntry } from './catalog.js';
 import { checkDiskSpace, type StatfsFn } from './disk.js';
 import { computeRemainingBytes, existingPartBytes, finalFilePath, partFilePath, runDownloadJob } from './download.js';
 import {
+  BUILD_JOB_KIND,
   buildRequiredBytes,
   buildRequiredFreeMemory,
   defaultFreeMem,
@@ -212,6 +213,38 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
           .send(createErrorResponse('ALREADY_INSTALLED', `Region '${regionId}' is already installed`));
       }
 
+      // ZWEI KACHELBAUTEN GLEICHZEITIG ZERSTOEREN EINANDER.
+      //
+      // Beide planetiler-Prozesse benutzen DASSELBE Verzeichnis fuer die
+      // gemeinsamen Basisdaten (Wasserflaechen, Natural Earth,
+      // Seen-Mittellinien). Der zweite Lauf liest dann eine Datei, die der
+      // erste noch herunterlaedt, und stirbt an:
+      //
+      //   java.util.zip.ZipException: zip END header not found
+      //
+      // Das sieht aus wie ein kaputter Download und ist in Wahrheit ein
+      // Wettlauf. Genau so ist es im Betrieb passiert: der Knopf wurde ein
+      // zweites Mal gedrueckt, waehrend der erste Lauf noch bei 66 % des
+      // Wasserflaechen-Downloads stand. Im Protokoll standen daraufhin zwei
+      // Laufzeituhren nebeneinander (0:03:17 und 0:01:52) -- der einzige
+      // sichtbare Hinweis darauf, dass es zwei Prozesse waren.
+      //
+      // Die Sperre gilt bewusst UEBER ALLE REGIONEN, nicht je Region: geteilt
+      // ist das Quellenverzeichnis, nicht die Region.
+      const running = jobs.findUnfinished(BUILD_JOB_KIND);
+      if (running) {
+        return reply.code(409).send(
+          createErrorResponse(
+            'BUILD_IN_PROGRESS',
+            'Es läuft bereits ein Kachelbau. Zwei Bauten gleichzeitig sind nicht ' +
+              'möglich, weil beide dieselben Basisdaten verwenden — der zweite würde ' +
+              'auf halb geladene Dateien treffen. Warten Sie das Ende ab oder brechen ' +
+              'Sie den laufenden Bau ab.',
+            { jobId: running.id },
+          ),
+        );
+      }
+
       const requiredBytes = buildRequiredBytes(entry);
       const diskCheck = await checkDiskSpace(tilesDir, requiredBytes, statfsImpl);
       if (!diskCheck.ok) {
@@ -241,7 +274,7 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
         );
       }
 
-      const jobId = jobs.create();
+      const jobId = jobs.create(BUILD_JOB_KIND);
       // Der Logger wird hier verdrahtet, nicht in `build.ts`: nur die Route
       // kennt die Fastify-Instanz, und deren stdout ist das, was im
       // Add-on-Protokoll erscheint.
