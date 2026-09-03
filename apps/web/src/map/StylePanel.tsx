@@ -16,6 +16,9 @@ import ThemeToggle from '../theme/ThemeToggle.js';
 import DriveLockGate from '../drive/DriveLockGate.js';
 import HandednessToggle from '../shell/HandednessToggle.js';
 import { useOnboardingStore } from '../onboarding/store.js';
+import { useRegionStore } from './regionStore.js';
+import { pickActiveRegion } from './activeRegion.js';
+import { usePosition } from '../position/positionStore.js';
 
 const LANG_OPTIONS: Array<{ value: StyleLang; label: string }> = [
   { value: 'name', label: 'Original' },
@@ -44,6 +47,13 @@ export default function StylePanel(): React.ReactElement {
   const setLabelScale = useStyleStore((state) => state.setLabelScale);
   const setPoi = useStyleStore((state) => state.setPoi);
   const reopenOnboardingWizard = useOnboardingStore((state) => state.reopen);
+  const installedRegions = useRegionStore((state) => state.regions);
+  const manualRegion = useRegionStore((state) => state.manual);
+  const setManualRegion = useRegionStore((state) => state.setManual);
+  const position = usePosition();
+  const activeRegionName =
+    pickActiveRegion({ regions: installedRegions, point: position, manual: manualRegion }).region
+      ?.region ?? null;
 
   useEffect(() => {
     if (!isOpen || styles.length > 0) {
@@ -82,6 +92,56 @@ export default function StylePanel(): React.ReactElement {
           <ThemeToggle />
 
           <HandednessToggle />
+
+          {/* ─── ANGEZEIGTE REGION ──────────────────────────────────────────
+              Sichtbar nur mit mehr als einer installierten Region — bei einer
+              einzigen gibt es nichts zu waehlen, und ein Bedienelement ohne
+              Wirkung ist schlimmer als keines.
+
+              „Automatisch" ist die Vorgabe und richtig: sie zeigt die Region,
+              in der man sich befindet. Die feste Wahl ist fuer die Planung
+              gedacht — eine Gegend aufschlagen, in der man gerade nicht ist.
+              Sie ueberlebt einen Neustart absichtlich nicht (siehe
+              regionStore.ts). */}
+          {installedRegions.length > 1 && (
+            <section>
+              <h2 className="font-semibold mb-2">Angezeigte Region</h2>
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => setManualRegion(null)}
+                  aria-pressed={manualRegion === null}
+                  data-testid="region-option-auto"
+                  className={`text-left px-3 py-2 rounded-lg border text-xs ${
+                    manualRegion === null
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/40 font-semibold'
+                      : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  Automatisch
+                  {activeRegionName !== null && manualRegion === null && (
+                    <span className="block font-normal text-slate-500 dark:text-slate-400">
+                      derzeit: {activeRegionName}
+                    </span>
+                  )}
+                </button>
+                {installedRegions.map((entry) => (
+                  <button
+                    key={entry.region}
+                    onClick={() => setManualRegion(entry.region)}
+                    aria-pressed={entry.region === manualRegion}
+                    data-testid={`region-option-${entry.region}`}
+                    className={`text-left px-3 py-2 rounded-lg border text-xs ${
+                      entry.region === manualRegion
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/40 font-semibold'
+                        : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {entry.region}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section>
             <h2 className="font-semibold mb-2">Kartenstil</h2>

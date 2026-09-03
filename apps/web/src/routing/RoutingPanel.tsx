@@ -60,6 +60,7 @@ export default function RoutingPanel(): React.ReactElement | null {
   const removeAvoidance = useRoutingStore((state) => state.removeAvoidance);
   const activeProfile = useProfileStore((state) => state.activeProfile);
   const startPoint = useRoutingStore((state) => state.startPoint);
+  const startPointName = useRoutingStore((state) => state.startPointName);
   const pickTarget = useRoutingStore((state) => state.pickTarget);
   const setStartPoint = useRoutingStore((state) => state.setStartPoint);
   const setPickTarget = useRoutingStore((state) => state.setPickTarget);
@@ -271,6 +272,19 @@ export default function RoutingPanel(): React.ReactElement | null {
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="text-xs font-medium text-slate-600 dark:text-slate-300">Start</div>
+            {/* Der Name kommt aus den geladenen Vektorkacheln
+                (map/placeName.ts). Er ERSETZT die Koordinaten nicht, er
+                stellt sich davor: „Bergstrasse" sagt, wohin es geht, die
+                Zahlen sagen, welche Stelle genau gemeint ist — und nur die
+                zweite Auskunft laesst sich nachpruefen. */}
+            {startPoint && startPointName && (
+              <p
+                className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate"
+                data-testid="route-start-name"
+              >
+                {startPointName}
+              </p>
+            )}
             <p className="text-xs text-slate-500 dark:text-slate-400" data-testid="route-start-value">
               {startPoint
                 ? `${startPoint.lat.toFixed(5)}, ${startPoint.lon.toFixed(5)}`

@@ -106,18 +106,33 @@ export async function fetchStyleSummaries(): Promise<StyleSummary[]> {
 export async function fetchStyle(
   styleId: string,
   options: StyleOptions,
+  /**
+   * Fuer welche Kartenregion die Kachel-URL im Stil gebaut werden soll.
+   *
+   * Ohne diesen Parameter nimmt der Core seine eigene Vorgabe — die ERSTE
+   * installierte Region (`apps/core/src/map/routes.ts`), und `listRegions`
+   * sortiert alphabetisch. Genau daran lag die leere Karte: mit
+   * Liechtenstein und Rheinland-Pfalz installiert gewann immer
+   * Liechtenstein, waehrend Follow-Me die Kamera nach Rheinland-Pfalz zog.
+   * Wer eine Region anzeigen will, muss sie also benennen; siehe
+   * `activeRegion.ts` fuer die Auswahl.
+   */
+  region?: string,
 ): Promise<StyleSpecification | null> {
   const params = new URLSearchParams({
     lang: options.lang,
     labelScale: options.labelScale,
     poi: options.poi,
   });
+  if (region) {
+    params.set('region', region);
+  }
 
   try {
     const response = await fetch(`${stylesBaseUrl()}/${encodeURIComponent(styleId)}?${params.toString()}`);
     if (!response.ok) {
       if (styleId !== DEFAULT_STYLE_ID) {
-        return fetchStyle(DEFAULT_STYLE_ID, options);
+        return fetchStyle(DEFAULT_STYLE_ID, options, region);
       }
       return null;
     }

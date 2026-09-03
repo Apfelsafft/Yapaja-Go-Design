@@ -10,6 +10,45 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.3.2
+
+**Die Karte zeigt jetzt die Region, in der du bist.** Wer mehr als eine Region
+gebaut hatte, bekam immer dieselbe — die alphabetisch erste. Follow-Me zog die
+Karte danach auf die eigene Position, und dort hatte der geladene Kachelsatz
+keine Daten: **eine leere Fläche**, ohne Fehler, ohne Hinweis, ununterscheidbar
+von einem fehlgeschlagenen Kachelbau. Wer Liechtenstein und Rheinland-Pfalz
+gebaut hatte und in Rheinland-Pfalz saß, sah nichts.
+
+Ab jetzt entscheidet die Position. Überlappen sich Regionen (Rheinland-Pfalz
+und Deutschland über demselben Ort), gewinnt die kleinere — weniger Speicher,
+mehr Detail. Im Kartenmenü (🗺️) steht bei mehr als einer Region zusätzlich
+**„Angezeigte Region"**: „Automatisch" ist voreingestellt, eine feste Wahl ist
+für die Planung gedacht und gilt absichtlich nur bis zum Neustart.
+
+**Und wenn es für deine Position gar keine Karte gibt, steht das jetzt da.**
+Bisher war dieser Zustand von einem kaputten Kachelbau nicht zu unterscheiden.
+
+**Die GPS-Warnung ist wieder lesbar.** „GPS-Signal verloren" lag auf derselben
+Zeile wie Titel, Profil-Auswahl und Suchleiste — und unter allen dreien. Die
+Meldung war da, nur eben verdeckt. Sie hat jetzt eine eigene Zeile darunter.
+
+**Und sie leuchtet nicht mehr dauerhaft.** Mit der Companion App als Quelle war
+sie praktisch immer an: gemessen wurde gegen 3 Sekunden, aber die App meldet in
+Intervallen von Sekunden bis Minuten. Für Quellen, die in Intervallen melden,
+gelten jetzt fünf Minuten — dieselbe Grenze, ab der eine Position ohnehin
+verworfen wird. Für USB-GPS und Browser-Standort bleibt es bei 3 Sekunden.
+
+**Ziele haben jetzt Namen statt nur Koordinaten.** Tippst du einen Punkt auf
+der Karte an, steht dort „Bergstrasse" statt `47.14103, 9.52104` — gelesen aus
+den Kacheln, die ohnehin schon geladen sind. Kein Photon, kein Suchindex, kein
+Netz. Die Koordinaten bleiben zusätzlich stehen: der Name sagt, wohin es geht,
+die Zahlen sagen, welche Stelle genau gemeint ist.
+
+Zwei Grenzen dabei: es sind Straßen- und Ortsnamen, **keine Hausnummern**, und
+findet sich kein Name nah genug, bleibt es bei den Koordinaten. Ein Name aus
+30 km Entfernung wäre schlimmer als eine Zahl — man würde ihm glauben. Die
+Suche nach einer **getippten** Adresse braucht weiterhin einen Suchindex.
+
 ## 0.3.1
 
 **Die Companion App lässt sich jetzt auch auswählen.** 0.3.0 hat die

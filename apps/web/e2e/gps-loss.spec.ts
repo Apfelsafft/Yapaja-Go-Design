@@ -135,6 +135,45 @@ test.describe('GPS loss (W-01)', () => {
     // comfortably inside it.
     await expect(page.getByText(BANNER_TEXT)).toBeVisible({ timeout: 20_000 });
 
+    // ─── UND ES IST AUCH LESBAR ──────────────────────────────────────────
+    // `toBeVisible()` sagt nur, dass das Element gerendert und nicht
+    // `display:none` ist. Es sagt NICHT, dass man es sehen kann: bis
+    // 2026-09-03 lag dieses Banner ohne z-index auf derselben Zeile wie der
+    // Titel, die Profil-Auswahl und die Suchleiste, und alle drei malten
+    // darueber. Der Betreiber berichtete genau das -- „Bekomme aber auch eine
+    // Fehlermeldung am oberen Rand des screens. Kann sie nicht lesen da
+    // andere Objekte sie verdecken." Der bisherige Test war dabei gruen.
+    //
+    // Diese Pruefung fragt den Browser, WAS an der Stelle des Banners
+    // tatsaechlich obenauf liegt. Nur wenn dort das Banner selbst (oder ein
+    // Kind davon) sitzt, ist die Meldung auch zu lesen.
+    const hitTest = await page.evaluate(() => {
+      const banner = document.querySelector('[data-testid="gps-loss-banner"]');
+      if (!banner) {
+        return { found: false } as const;
+      }
+      const box = banner.getBoundingClientRect();
+      const samples: Array<{ x: number; y: number }> = [
+        { x: box.left + box.width * 0.5, y: box.top + box.height * 0.5 },
+        { x: box.left + box.width * 0.2, y: box.top + box.height * 0.5 },
+        { x: box.left + box.width * 0.8, y: box.top + box.height * 0.5 },
+      ];
+      const covered = samples
+        .map(({ x, y }) => document.elementFromPoint(x, y))
+        .filter((el) => el !== null && !banner.contains(el) && el !== banner)
+        .map((el) => {
+          const e = el as Element;
+          const owner = e.closest('[data-testid]');
+          return owner?.getAttribute('data-testid') ?? e.tagName.toLowerCase();
+        });
+      return { found: true, covered } as const;
+    });
+    expect(hitTest.found).toBe(true);
+    expect(
+      hitTest.covered,
+      'Das GPS-Banner wird von anderen Bedienelementen verdeckt und ist damit nicht lesbar',
+    ).toEqual([]);
+
     // While lost, the store must reflect a REAL signal loss, not a
     // dead-reckoned guess -- with no active route (noopDeadReckoningProvider,
     // E04-T6 ships the real math), `pos/extrapolated` must never have fired.
