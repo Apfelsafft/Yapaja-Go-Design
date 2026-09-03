@@ -51,6 +51,13 @@ REGION="$(bashio::config 'region')"
 MQTT_PREFIX="$(bashio::config 'mqtt_prefix')"
 PHOTON_ENABLED="$(bashio::config 'photon_enabled')"
 GPS_SOURCE="$(bashio::config 'gps_source')"
+# B-05. `str?` liefert bei leerer Option den String "null"; das ist KEINE
+# Entity-ID und muss zu leer werden, sonst startet der Core eine Quelle, die
+# eine Entitaet namens "null" sucht.
+HA_DEVICE_TRACKER="$(bashio::config 'ha_device_tracker')"
+if [ "${HA_DEVICE_TRACKER}" = "null" ]; then
+  HA_DEVICE_TRACKER=""
+fi
 LOG_LEVEL="$(bashio::config 'log_level')"
 PHOTON_XMX_MB="$(bashio::config 'photon_xmx_mb')"
 VALHALLA_MEMORY_MB="$(bashio::config 'valhalla_memory_mb')"
@@ -156,6 +163,9 @@ export_env "PHOTON_DATA_DIR" "${DATA_ROOT}/photon/photon_data"
 
 # ---- GPS source (docs/04 §3 "GPS-Quelle") ----
 export_env "GPS_SOURCE" "${GPS_SOURCE}"
+# B-05: Position aus einer HA-`device_tracker`-Entitaet (Companion App).
+# Leer = aus; der Core startet die Quelle dann gar nicht erst.
+export_env "HA_DEVICE_TRACKER" "${HA_DEVICE_TRACKER:-}"
 if [ "${GPS_SOURCE}" = "usb" ] || [ "${GPS_SOURCE}" = "network" ]; then
   export_env "GPSD_ENABLED" "true"
   export_env "GPSD_HOST" "127.0.0.1"

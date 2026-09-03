@@ -20,12 +20,16 @@ import type { HaConnection } from './config.js';
 export interface HaHttpResponseLike {
   readonly ok: boolean;
   readonly status: number;
+  /** Nur die LESENDEN Aufrufe (`fetchHaStates`) brauchen den Rumpf. Optional,
+   *  damit bestehende Test-Stubs fuer `callHaService` unveraendert gelten. */
+  json?: () => Promise<unknown>;
 }
 
 export interface HaHttpRequestInitLike {
   method: string;
   headers: Record<string, string>;
-  body: string;
+  /** Bei GET-Aufrufen gibt es keinen Rumpf. */
+  body?: string;
   signal: AbortSignal;
 }
 
@@ -105,6 +109,86 @@ export async function callHaService(
       reason: err instanceof Error ? err.message : String(err),
     });
     return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Ein Zustand aus Home Assistant, auf das reduziert, was hier gebraucht
+ *  wird. HA liefert deutlich mehr Attribute; alles Weitere wird ignoriert. */
+export interface HaEntityState {
+  entity_id: string;
+  state: string;
+  attributes: Record<string, unknown>;
+  /** Wann Home Assistant diesen Zustand zuletzt gesehen hat (ISO-8601).
+   *  Optional, weil ein Zustand ihn theoretisch nicht tragen kann -- wer ihn
+   *  auswertet, muss den Fall behandeln. */
+  last_updated?: string;
+}
+
+export interface FetchHaStatesDeps {
+  fetch?: HaFetchLike;
+  logger: HaClientLogger;
+  timeoutMs?: number;
+}
+
+/**
+ * Liest `GET {apiBase}/states` -- ALLE Zustaende auf einmal.
+ *
+ * Warum alle statt gezielt einer: der Betreiber muss die Entitaet erst
+ * FINDEN. Eine Liste der vorhandenen `device_tracker.*` ist die einzige
+ * Angabe, mit der er den richtigen Namen eintragen kann, ohne in den
+ * Entwicklerwerkzeugen zu suchen -- und dieselbe Antwort liefert danach den
+ * Positions-Fix. Zwei Zwecke, ein Aufruf.
+ *
+ * Dieselbe harte Regel wie bei `callHaService`: hartes Zeitlimit, jeder
+ * Fehler wird geloggt und GESCHLUCKT. Ein ausgefallenes oder langsames Home
+ * Assistant darf die Navigation nie blockieren -- deshalb `[]` statt eines
+ * Fehlers.
+ */
+export async function fetchHaStates(
+  connection: HaConnection,
+  deps: FetchHaStatesDeps,
+): Promise<HaEntityState[]> {
+  const fetchImpl = deps.fetch ?? defaultHaFetch;
+  const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetchImpl(`${connection.apiBase}/states`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${connection.token}`,
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      // Niemals den Authorization-Header / das Token mitloggen.
+      deps.logger.warn('HA states request returned an error status', { status: res.status });
+      return [];
+    }
+    const body = res.json ? await res.json() : null;
+    if (!Array.isArray(body)) {
+      deps.logger.warn('HA states response was not an array');
+      return [];
+    }
+    return body.filter(
+      (entry): entry is HaEntityState =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        typeof (entry as HaEntityState).entity_id === 'string' &&
+        typeof (entry as HaEntityState).attributes === 'object' &&
+        (entry as HaEntityState).attributes !== null,
+    );
+  } catch (err) {
+    const aborted = err instanceof Error && err.name === 'AbortError';
+    deps.logger.warn('HA states request failed', {
+      aborted,
+      reason: err instanceof Error ? err.message : String(err),
+    });
+    return [];
   } finally {
     clearTimeout(timer);
   }

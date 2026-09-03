@@ -2490,7 +2490,8 @@
             "enum": [
               "gpsd",
               "browser",
-              "simulator"
+              "simulator",
+              "ha_tracker"
             ],
             "description": "Source of position data"
           },

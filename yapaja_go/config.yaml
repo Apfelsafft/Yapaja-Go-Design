@@ -10,7 +10,7 @@
 name: "Yapaja Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.2.2"
+version: "0.3.0"
 url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
 
 # amd64 covers typical Mini-PC/NUC installs; aarch64 covers Raspberry Pi
@@ -97,6 +97,20 @@ homeassistant_api: true
 # Any future change here is a widening of privileges and must be argued for
 # explicitly by ADDING the key with a comment saying why.
 
+# `ha_device_tracker` (B-05): Entity-ID einer Home-Assistant-
+# `device_tracker`-Entitaet, z. B. `device_tracker.mein_telefon`. Leer = aus.
+#
+# Der Weg fuer Telefon/Tablet/Autoradio, wenn der Browser den GPS-Sensor gar
+# nicht freigibt -- ohne HTTPS tut er das nie, und Home Assistant laeuft in
+# vielen Installationen ueber einfaches HTTP (docs/gps-endgeraete.md). Die
+# Companion App meldet an Home Assistant statt an den Browser und liefert auch
+# bei gesperrtem Bildschirm weiter.
+#
+# Welche Entitaeten in Frage kommen, sagt die Installationspruefung (🩺):
+# sie listet alle gefundenen `device_tracker.*` MIT Koordinaten auf. Einer
+# ohne Koordinaten (nur „home"/„not home" per WLAN) taugt nicht als
+# Positionsquelle und wird deshalb gar nicht erst angeboten.
+#
 # Options (docs/04 §3 "Kartenregion, MQTT-Prefix, Photon an/aus, GPS-Quelle,
 # Log-Level" + memory tuning). `region: ""` (empty) is a VALID, EXPECTED
 # state: the Core starts into onboarding (E08-T5 builds the wizard UI; T4
@@ -107,6 +121,7 @@ options:
   mqtt_prefix: "yapaja"
   photon_enabled: true
   gps_source: "usb"
+  ha_device_tracker: ""
   log_level: "info"
   photon_xmx_mb: 1024
   valhalla_memory_mb: 2048
@@ -116,6 +131,7 @@ schema:
   mqtt_prefix: "str"
   photon_enabled: "bool"
   gps_source: "list(usb|network|none)"
+  ha_device_tracker: "str?"
   log_level: "list(debug|info|warn|error)"
   photon_xmx_mb: "int(256,4096)"
   valhalla_memory_mb: "int(512,8192)"

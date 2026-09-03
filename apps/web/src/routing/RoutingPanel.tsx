@@ -59,6 +59,10 @@ export default function RoutingPanel(): React.ReactElement | null {
   const tempAvoidances = useRoutingStore((state) => state.tempAvoidances);
   const removeAvoidance = useRoutingStore((state) => state.removeAvoidance);
   const activeProfile = useProfileStore((state) => state.activeProfile);
+  const startPoint = useRoutingStore((state) => state.startPoint);
+  const pickTarget = useRoutingStore((state) => state.pickTarget);
+  const setStartPoint = useRoutingStore((state) => state.setStartPoint);
+  const setPickTarget = useRoutingStore((state) => state.setPickTarget);
   // Needed only to know whether the map is ready; the map instance itself
   // isn't touched here (RouteLayer/DestinationSelector own all map access).
   const map = useMapStore((state) => state.map);
@@ -248,6 +252,63 @@ export default function RoutingPanel(): React.ReactElement | null {
         >
           Abbrechen
         </button>
+      </div>
+
+      {/* ─── START ────────────────────────────────────────────────────────
+          Bis 2026-09-03 gab es diese Zeile nicht: die Oberflaeche konnte nur
+          ein ZIEL setzen, der Start war zwangsweise die Live-GPS-Position.
+          Wer keine Position hatte -- etwa weil der Browser den Sensor ohne
+          HTTPS gar nicht freigibt -- konnte damit keine einzige Route
+          berechnen, obwohl Karte und Routinggraph fertig waren.
+
+          Die Voreinstellung bleibt bewusst „aktuelle Position": das ist der
+          Normalfall im Fahrzeug, und ein Startpunkt, den man bei jeder Fahrt
+          neu setzen muesste, waere eine Verschlechterung. */}
+      <div
+        className="rounded-md border border-slate-200 dark:border-slate-700 p-2 space-y-1"
+        data-testid="route-start-section"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-slate-600 dark:text-slate-300">Start</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400" data-testid="route-start-value">
+              {startPoint
+                ? `${startPoint.lat.toFixed(5)}, ${startPoint.lon.toFixed(5)}`
+                : 'Aktuelle Position (GPS)'}
+            </p>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setPickTarget(pickTarget === 'origin' ? 'destination' : 'origin')}
+              aria-pressed={pickTarget === 'origin'}
+              className={
+                pickTarget === 'origin'
+                  ? 'text-xs px-2 py-1 rounded-md bg-blue-600 text-white'
+                  : 'text-xs px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+              }
+              data-testid="pick-start-button"
+            >
+              {pickTarget === 'origin' ? 'Auf Karte tippen…' : 'Start wählen'}
+            </button>
+            {startPoint && (
+              <button
+                type="button"
+                onClick={() => setStartPoint(null)}
+                className="text-xs px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                data-testid="reset-start-button"
+              >
+                GPS
+              </button>
+            )}
+          </div>
+        </div>
+        {pickTarget === 'origin' && (
+          <p className="text-xs text-blue-700 dark:text-blue-400" data-testid="pick-start-hint">
+            Tippe auf die Karte, um den Startpunkt zu setzen. Der nächste Tipp danach
+            wählt wieder ein Ziel.
+          </p>
+        )}
       </div>
 
       <div data-testid="save-favorite-section">

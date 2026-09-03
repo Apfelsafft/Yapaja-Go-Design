@@ -397,4 +397,65 @@ describe('routing store', () => {
       expect(useRoutingStore.getState().tempAvoidances).toEqual([avoidance]);
     });
   });
+
+  describe('ausdruecklich gewaehlter Startpunkt (Start/Ziel-Eingabe)', () => {
+    // Bis 2026-09-03 konnte die Oberflaeche NUR ein Ziel setzen; der Start war
+    // zwangsweise die Live-GPS-Position. Wer keine Position hatte -- etwa weil
+    // der Browser den Sensor ohne HTTPS nicht freigibt -- konnte damit keine
+    // einzige Route berechnen, obwohl Karte und Routinggraph fertig waren.
+    // Der Core konnte einen expliziten Startpunkt seit jeher; es fehlte allein
+    // die Bedienung.
+
+    it('ohne gesetzten Startpunkt geht weiterhin "current" an den Core', async () => {
+      useRoutingStore.getState().setDestination({ lat: 47.1, lon: 9.5 });
+      await useRoutingStore.getState().requestRoute({ origin: 'current', profileId: 'profile-1' });
+      expect(requestRoutesMock).toHaveBeenCalledWith(
+        expect.objectContaining({ origin: 'current' }),
+      );
+    });
+
+    it('ein gesetzter Startpunkt wird statt "current" gesendet', async () => {
+      useRoutingStore.getState().setDestination({ lat: 47.1, lon: 9.5 });
+      useRoutingStore.getState().setStartPoint({ lat: 47.14, lon: 9.52 });
+      await useRoutingStore.getState().requestRoute({ origin: 'current', profileId: 'profile-1' });
+      expect(requestRoutesMock).toHaveBeenCalledWith(
+        expect.objectContaining({ origin: { lat: 47.14, lon: 9.52 } }),
+      );
+    });
+
+    it('der Startpunkt gilt auch fuer Aufrufer, die "current" uebergeben', async () => {
+      // Das ist der Punkt, an dem es leicht auseinanderlaeuft: „zu diesem
+      // Favoriten navigieren" uebergibt fest `'current'`. Ohne Vorrang haette
+      // die Wahl des Betreibers je nach Einstiegspunkt gegolten oder nicht.
+      useRoutingStore.getState().setDestination({ lat: 47.2, lon: 9.6 });
+      useRoutingStore.getState().setStartPoint({ lat: 47.05, lon: 9.47 });
+      await useRoutingStore.getState().requestRoute({ origin: 'current', profileId: 'profile-1' });
+      expect(requestRoutesMock).toHaveBeenCalledWith(
+        expect.objectContaining({ origin: { lat: 47.05, lon: 9.47 } }),
+      );
+    });
+
+    it('Zuruecksetzen auf null fuehrt wieder zur GPS-Position', async () => {
+      useRoutingStore.getState().setDestination({ lat: 47.1, lon: 9.5 });
+      useRoutingStore.getState().setStartPoint({ lat: 47.14, lon: 9.52 });
+      useRoutingStore.getState().setStartPoint(null);
+      await useRoutingStore.getState().requestRoute({ origin: 'current', profileId: 'profile-1' });
+      expect(requestRoutesMock).toHaveBeenCalledWith(
+        expect.objectContaining({ origin: 'current' }),
+      );
+    });
+
+    it('ein neuer Startpunkt verwirft das alte Ergebnis', () => {
+      // Sonst zeigt die Karte eine Route, die von woanders losfaehrt als das,
+      // was in der Oberflaeche als Start steht.
+      useRoutingStore.setState({
+        routes: [{ id: 'r1' } as never],
+        activeRouteId: 'r1',
+        status: 'success',
+      });
+      useRoutingStore.getState().setStartPoint({ lat: 47.14, lon: 9.52 });
+      expect(useRoutingStore.getState().routes).toEqual([]);
+      expect(useRoutingStore.getState().activeRouteId).toBeNull();
+    });
+  });
 });

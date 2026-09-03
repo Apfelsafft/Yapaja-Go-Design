@@ -412,6 +412,20 @@ async function checkPosition(
     };
   }
 
+  // B-05: eine konfigurierte Companion-App-Entitaet ist der Weg, der OHNE
+  // HTTPS funktioniert -- und damit fuer viele Aufbauten der einzige, der
+  // ueberhaupt eine Position liefert. Steht sie, ist hier nichts mehr offen.
+  const haTracker = (env.HA_DEVICE_TRACKER ?? '').trim();
+  if (haTracker.length > 0) {
+    return {
+      ...base,
+      status: 'ok',
+      detail:
+        `Position aus der Home-Assistant-Entität „${haTracker}" (Companion App). ` +
+        'Ein Browser-Standort hat weiterhin Vorrang, wenn er verfügbar ist.',
+    };
+  }
+
   // Kein gpsd konfiguriert ist KEIN Fehler: der Browser ist ein vollwertiger,
   // ausdrücklich vorgesehener Weg (ADR-007), und für viele Aufbauten der
   // einzige. Es ist aber ein Hinweis wert, weil er eine Bedingung hat (HTTPS)
@@ -426,7 +440,13 @@ async function checkPosition(
       'Wenn das so gewollt ist, ist nichts zu tun: erlauben Sie beim ersten Öffnen ' +
       'der Karte den Standortzugriff. Damit der Browser überhaupt fragt, muss die ' +
       'Seite über HTTPS erreichbar sein (bei Home-Assistant-Ingress ist das der Fall, ' +
-      'sofern Home Assistant selbst über HTTPS läuft). Für einen fest eingebauten ' +
+      'sofern Home Assistant selbst über HTTPS läuft — läuft es über http://, gibt ' +
+      'der Browser den Sensor NICHT frei, und daran kann Yapaja nichts ändern). ' +
+      'Ohne HTTPS ist der Weg über die Home-Assistant-Companion-App der richtige: ' +
+      'App installieren, Ortung erlauben, und in der Add-on-Konfiguration unter ' +
+      '„ha_device_tracker" die Entität eintragen (z. B. device_tracker.mein_telefon; ' +
+      'die vorhandenen stehen in Home Assistant unter Entwicklerwerkzeuge → Zustände). ' +
+      'Für einen fest eingebauten ' +
       'USB-Empfänger stattdessen in der Add-on-Konfiguration „gpsd_enabled" ' +
       'einschalten und „gps_device" setzen.',
   };

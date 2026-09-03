@@ -10,6 +10,44 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.3.0
+
+**Start und Ziel sind jetzt beide wählbar.** Bisher konnte man nur ein Ziel
+setzen — der Start war zwangsweise die aktuelle GPS-Position. Wer keine
+Position hatte, konnte damit **keine einzige Route berechnen**, obwohl Karte
+und Routinggraph fertig waren.
+
+Im Routing-Fenster steht jetzt oben eine Zeile „Start". Voreingestellt bleibt
+„Aktuelle Position (GPS)" — das ist der Normalfall im Fahrzeug. Mit „Start
+wählen" tippst du stattdessen einen Punkt auf der Karte an; mit „GPS" geht es
+zurück auf die Live-Position. Der gewählte Start gilt auch dann, wenn du
+später über einen Favoriten losfährst.
+
+**Neu: Position aus der Home-Assistant-Companion-App.**
+
+Der Browser gibt seinen GPS-Sensor nur über HTTPS frei. Läuft Home Assistant
+über `http://`, bekommt Yapaja vom Telefon, Tablet oder Autoradio also gar
+keine Position — daran kann das Add-on nichts ändern. Die Companion App
+umgeht das: sie meldet an Home Assistant, nicht an den Browser, und liefert
+auch bei gesperrtem Bildschirm weiter.
+
+Einrichten in der Add-on-Konfiguration unter **`ha_device_tracker`**, z. B.
+`device_tracker.mein_telefon`. Welche Entität du hast, steht in Home
+Assistant unter Entwicklerwerkzeuge → Zustände. Leer lassen = aus.
+
+Die Reihenfolge der Quellen ist `USB-GPS > Browser > Companion App >
+Simulator`: die App meldet in Intervallen und ist damit träger als ein
+laufender Browser-Standort — sie ist die Quelle, die es **gibt**, wenn der
+Browser keine liefert, nicht ihr Ersatz.
+
+Zwei Dinge, die dabei bewusst so sind: ein Zustand, der älter als fünf
+Minuten ist, wird **verworfen** statt als aktuelle Position ausgegeben (eine
+alte Position, die aussieht wie eine Messung, ist die gefährlichste
+Falschaussage in einer Navigation). Und der Zeitstempel kommt von Home
+Assistant, nicht von der Uhr des Add-ons — nur so erkennt die
+Sprungerkennung einen Tracker, der nach einer Funklücke 300 km weiter wieder
+auftaucht.
+
 ## 0.2.2
 
 **Nach einem Bau steht jetzt da, dass er geklappt hat.** Bisher verschwand

@@ -15,7 +15,9 @@ const logger: HaClientLogger = { info: () => {}, warn: () => {}, error: () => {}
 describe('callHaService', () => {
   it('POSTs to /services/<domain>/<service> with the bearer token + JSON body', async () => {
     let capturedUrl = '';
-    let capturedInit: { method: string; headers: Record<string, string>; body: string } | null = null;
+    // `body` ist seit dem lesenden GET-Zweig optional; diese Faelle senden
+    // weiterhin immer einen.
+    let capturedInit: { method: string; headers: Record<string, string>; body?: string } | null = null;
     const fetch: HaFetchLike = (url, init) => {
       capturedUrl = url;
       capturedInit = init;
@@ -32,7 +34,7 @@ describe('callHaService', () => {
     expect(capturedInit!.method).toBe('POST');
     expect(capturedInit!.headers.Authorization).toBe('Bearer llt');
     expect(capturedInit!.headers['Content-Type']).toBe('application/json');
-    expect(JSON.parse(capturedInit!.body)).toEqual({ message: 'hallo' });
+    expect(JSON.parse(capturedInit!.body ?? 'null')).toEqual({ message: 'hallo' });
   });
 
   it('returns false (never throws) on an HTTP error status', async () => {
