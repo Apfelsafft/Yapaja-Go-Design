@@ -16,9 +16,40 @@
 import { POI_LAYER_ID_PREFIX, REDUCED_POI_CLASSES } from './constants.js';
 import type { MapStyleDocument, StyleLayer, SymbolLayer } from './types.js';
 
-export type StyleLang = 'name' | 'name:de' | 'name:en';
+/**
+ * Das Feld, aus dem die Beschriftung kommt.
+ *
+ * ─── WARUM `name_de` UND NICHT `name:de` ────────────────────────────────────
+ * Bis 0.3.6 standen hier `name:de` und `name:en`. Diese Felder gibt es in
+ * unseren Kacheln NICHT. Das OpenMapTiles-Profil schreibt an jedes
+ * beschriftbare Element genau diesen Satz (`OmtLanguageUtils.getNames`):
+ *
+ *   name, name_en, name_de, name:latin, name:nonlatin, name_int
+ *
+ * `name:de` entsteht nur, wenn planetiler mit `--languages=…` laeuft — unser
+ * Kachelbau tut das nicht (siehe `services/tiles/build-pmtiles.sh`,
+ * DEFAULT_ARGS). Wer also „Deutsch" waehlte, bekam `['get', 'name:de']` auf
+ * JEDER Symbol-Ebene, und damit eine Karte OHNE jede Beschriftung: kein Ort,
+ * keine Strasse, kein Gewaesser. MapLibre meldet das nicht — ein fehlendes
+ * Feld ist kein Fehler, sondern ein leerer Text.
+ *
+ * `name_de` ist ausserdem das bessere Feld: es faellt im Profil selbst auf
+ * `name` zurueck, wenn kein deutscher Name getaggt ist. Eine Strasse ohne
+ * `name:de`-Tag verschwindet also nicht, sondern behaelt ihren Namen.
+ */
+export type StyleLang = 'name' | 'name_de' | 'name_en';
 export type StyleLabelScale = '1.0' | '1.2';
 export type StylePoiDensity = 'full' | 'reduced' | 'off';
+
+/**
+ * Was frueher ausgeliefert wurde, bleibt gueltig — gespeicherte Einstellungen
+ * im Browser und Lesezeichen auf eine Stil-URL sollen nicht ins Leere laufen.
+ * Sie zeigen jetzt auf das Feld, das es wirklich gibt.
+ */
+const LANG_ALIASES: Readonly<Record<string, StyleLang>> = {
+  'name:de': 'name_de',
+  'name:en': 'name_en',
+};
 
 export interface StyleOptions {
   lang?: StyleLang;
@@ -26,7 +57,7 @@ export interface StyleOptions {
   poi?: StylePoiDensity;
 }
 
-const VALID_LANG: readonly StyleLang[] = ['name', 'name:de', 'name:en'];
+const VALID_LANG: readonly StyleLang[] = ['name', 'name_de', 'name_en'];
 const VALID_LABEL_SCALE: readonly StyleLabelScale[] = ['1.0', '1.2'];
 const VALID_POI: readonly StylePoiDensity[] = ['full', 'reduced', 'off'];
 
@@ -54,8 +85,11 @@ export function parseStyleOptions(query: RawStyleQuery): StyleOptions {
   const options: StyleOptions = {};
 
   const lang = firstValue(query.lang);
-  if (lang && (VALID_LANG as readonly string[]).includes(lang)) {
-    options.lang = lang as StyleLang;
+  if (lang) {
+    const resolved = LANG_ALIASES[lang] ?? lang;
+    if ((VALID_LANG as readonly string[]).includes(resolved)) {
+      options.lang = resolved as StyleLang;
+    }
   }
 
   const labelScale = firstValue(query.labelScale);

@@ -10,7 +10,10 @@
 
 import type { StyleSpecification } from 'maplibre-gl';
 
-export type StyleLang = 'name' | 'name:de' | 'name:en';
+/** Siehe `apps/core/src/map/styles/options.ts`: unsere Kacheln fuehren
+ *  `name`, `name_de` und `name_en` — `name:de` gibt es dort NICHT, und die
+ *  Wahl „Deutsch" liess deshalb bis 0.3.6 jede Beschriftung verschwinden. */
+export type StyleLang = 'name' | 'name_de' | 'name_en';
 export type StyleLabelScale = '1.0' | '1.2';
 export type StylePoiDensity = 'full' | 'reduced' | 'off';
 

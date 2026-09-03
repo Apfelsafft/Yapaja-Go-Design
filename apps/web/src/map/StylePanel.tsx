@@ -22,8 +22,8 @@ import { usePosition } from '../position/positionStore.js';
 
 const LANG_OPTIONS: Array<{ value: StyleLang; label: string }> = [
   { value: 'name', label: 'Original' },
-  { value: 'name:de', label: 'Deutsch' },
-  { value: 'name:en', label: 'English' },
+  { value: 'name_de', label: 'Deutsch' },
+  { value: 'name_en', label: 'English' },
 ];
 
 const LABEL_SCALE_OPTIONS: Array<{ value: StyleLabelScale; label: string }> = [

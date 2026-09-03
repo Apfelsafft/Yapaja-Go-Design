@@ -136,7 +136,7 @@ export function nearestVertexDistanceSquared(
 }
 
 /** Der Name eines Features, falls es einen trägt. OpenMapTiles legt ihn unter
- *  `name` ab; lokalisierte Varianten (`name:de`) sind je nach Kachelbau da
+ *  `name` ab; lokalisierte Varianten (`name_de`) sind je nach Kachelbau da
  *  oder nicht, deshalb nur als Ergänzung. */
 export function featureName(feature: GeoJSONFeature, preferredLang?: string): string | null {
   const props = feature.properties ?? {};
@@ -153,7 +153,7 @@ export function featureName(feature: GeoJSONFeature, preferredLang?: string): st
 export interface ResolvePlaceNameInput {
   map: MapLibreMap;
   point: LatLon;
-  /** z. B. `'name:de'` aus den Stil-Optionen. */
+  /** z. B. `'name_de'` aus den Stil-Optionen. */
   preferredLang?: string;
   sourceId?: string;
 }
@@ -184,7 +184,6 @@ export function resolvePlaceName({
   if (typeof map.getSource === 'function' && !map.getSource(sourceId)) {
     if (!warnedMissingSources.has(sourceId)) {
       warnedMissingSources.add(sourceId);
-      // eslint-disable-next-line no-console -- siehe oben: genau dafuer da.
       console.warn(
         `[placeName] Vektorquelle "${sourceId}" gibt es in diesem Stil nicht — ` +
           'angetippte Ziele bleiben deshalb ohne Namen.',

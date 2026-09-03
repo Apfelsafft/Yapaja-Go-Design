@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useStyleStore } from './styleStore';
+import { useStyleStore, normalizeStoredOptions } from './styleStore';
 import { DEFAULT_STYLE_ID, DEFAULT_STYLE_OPTIONS } from '../map/styleClient';
 
 describe('styleStore', () => {
@@ -28,8 +28,8 @@ describe('styleStore', () => {
 
   it('setLang updates only the lang option, leaving others untouched', () => {
     useStyleStore.getState().setLabelScale('1.2');
-    useStyleStore.getState().setLang('name:de');
-    expect(useStyleStore.getState().options).toEqual({ lang: 'name:de', labelScale: '1.2', poi: 'full' });
+    useStyleStore.getState().setLang('name_de');
+    expect(useStyleStore.getState().options).toEqual({ lang: 'name_de', labelScale: '1.2', poi: 'full' });
   });
 
   it('setLabelScale updates only the labelScale option', () => {
@@ -46,5 +46,33 @@ describe('styleStore', () => {
 
   it('setStyleId does not throw when window/localStorage is unavailable (Node test env)', () => {
     expect(() => useStyleStore.getState().setStyleId('yapaja-contrast')).not.toThrow();
+  });
+
+  /**
+   * ─── DIE ALTE, KAPUTTE WAHL ───────────────────────────────────────────────
+   * Bis 0.3.6 speicherte „Deutsch" den Wert `name:de` — ein Feld, das es in
+   * den Kacheln nicht gibt (siehe `apps/core/src/map/styles/options.ts`). Wer
+   * es gewaehlt hatte, sah eine Karte ganz ohne Beschriftung. Beim Update
+   * steht dieser Wert weiter im Browser: er muss auf das echte Feld zeigen
+   * und nicht wortlos auf „Original" zurueckfallen — sonst waere die
+   * Einstellung nach dem Update einfach verschwunden.
+   */
+  it('biegt eine vor 0.3.7 gespeicherte Sprachwahl auf das echte Feld um', () => {
+    expect(normalizeStoredOptions({ lang: 'name:de' as never }).lang).toBe('name_de');
+    expect(normalizeStoredOptions({ lang: 'name:en' as never }).lang).toBe('name_en');
+  });
+
+  it('laesst die uebrigen gespeicherten Optionen dabei unangetastet', () => {
+    expect(normalizeStoredOptions({ lang: 'name:de' as never, labelScale: '1.2', poi: 'off' })).toEqual({
+      lang: 'name_de',
+      labelScale: '1.2',
+      poi: 'off',
+    });
+  });
+
+  it('faellt bei unbrauchbar Gespeichertem auf die Vorgaben zurueck', () => {
+    expect(normalizeStoredOptions({ lang: 'name:fr' as never, poi: 'viele' as never })).toEqual(
+      DEFAULT_STYLE_OPTIONS,
+    );
   });
 });

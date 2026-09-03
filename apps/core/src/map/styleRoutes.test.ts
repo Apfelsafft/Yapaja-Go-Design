@@ -26,12 +26,21 @@ describe('Map / style routes integration', () => {
   });
 
   describe('GET /api/v1/map/styles', () => {
-    it('lists the three built-in styles', async () => {
+    it('lists every built-in style', async () => {
       const response = await server.inject({ method: 'GET', url: '/api/v1/map/styles' });
       expect(response.statusCode).toBe(200);
 
       const body = response.json() as { data: Array<{ id: string; name: string }> };
-      expect(body.data.map((s) => s.id).sort()).toEqual(['yapaja-contrast', 'yapaja-dark', 'yapaja-light']);
+      // Seit 0.3.7 fuenf: die Auswahl, nach der der Betreiber gefragt hat.
+      // Diese Liste ist das, was im Kartenmenue erscheint -- ein Stil, der in
+      // der Registry steht, aber hier fehlt, waere fuer den Nutzer nicht da.
+      expect(body.data.map((s) => s.id).sort()).toEqual([
+        'yapaja-contrast',
+        'yapaja-dark',
+        'yapaja-light',
+        'yapaja-minimal',
+        'yapaja-outdoor',
+      ]);
       for (const style of body.data) {
         expect(style.name).toBeTruthy();
       }
@@ -95,14 +104,31 @@ describe('Map / style routes integration', () => {
     });
 
     describe('style options', () => {
-      it('?lang=name:de rewrites label text-field', async () => {
+      it('?lang=name_de rewrites label text-field', async () => {
         const response = await server.inject({
           method: 'GET',
-          url: '/api/v1/map/styles/yapaja-light?lang=name:de',
+          url: '/api/v1/map/styles/yapaja-light?lang=name_de',
         });
         const style = response.json() as { layers: Array<{ id: string; layout?: { 'text-field'?: unknown } }> };
         const placeLabels = style.layers.find((l) => l.id === 'place-labels');
-        expect(placeLabels?.layout?.['text-field']).toEqual(['get', 'name:de']);
+        expect(placeLabels?.layout?.['text-field']).toEqual(['get', 'name_de']);
+      });
+
+      /**
+       * Ein Lesezeichen oder ein Browser, der noch die alte Einstellung
+       * gespeichert hat, schickt `?lang=name:de` — ein Feld, das es in den
+       * Kacheln nicht gibt. Es MUSS auf `name_de` umgebogen werden: sonst
+       * wuerde die Antwort eine formal gueltige, aber vollstaendig
+       * unbeschriftete Karte enthalten, und niemand saehe, warum.
+       */
+      it('biegt das alte ?lang=name:de auf das Feld um, das die Kacheln fuehren', async () => {
+        const response = await server.inject({
+          method: 'GET',
+          url: '/api/v1/map/styles/yapaja-light?lang=name%3Ade',
+        });
+        const style = response.json() as { layers: Array<{ id: string; layout?: { 'text-field'?: unknown } }> };
+        const placeLabels = style.layers.find((l) => l.id === 'place-labels');
+        expect(placeLabels?.layout?.['text-field']).toEqual(['get', 'name_de']);
       });
 
       it('?labelScale=1.2 increases text-size', async () => {
