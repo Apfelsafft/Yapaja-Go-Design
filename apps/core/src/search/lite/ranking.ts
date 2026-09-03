@@ -26,18 +26,40 @@
  * (E05-T5 acceptance note "keine Hausnummern").
  */
 
-export type LiteKind = 'city' | 'town' | 'village' | 'street';
+/**
+ * ─── EINE LISTE, AUS DER ALLES ANDERE FOLGT ────────────────────────────────
+ * Die Arten standen bis 0.3.6 an DREI Stellen: als Typ hier, als Typ in
+ * `extract.ts` und als Laufzeit-Menge `KNOWN_KINDS` in `reader.ts`. Beim
+ * Hinzufuegen von `poi` habe ich die ersten beiden gepflegt und die dritte
+ * uebersehen -- mit dem Ergebnis, dass die Sonderziele zwar korrekt im Index
+ * standen und die Volltextsuche sie auch FAND, `reader.ts` sie danach aber
+ * stillschweigend wegwarf. Die Suche lieferte „nichts", und nichts wies
+ * darauf hin, wo es fehlte.
+ *
+ * Jetzt gibt es eine Liste. Der Typ folgt aus ihr, `KIND_RANK` erzwingt per
+ * `Record<LiteKind, number>` Vollstaendigkeit, und `reader.ts` baut seine
+ * Menge daraus. Eine neue Art kann nicht mehr an einer Stelle fehlen.
+ */
+export const LITE_KINDS = ['city', 'town', 'village', 'poi', 'street'] as const;
+
+export type LiteKind = (typeof LITE_KINDS)[number];
 
 const KIND_RANK: Record<LiteKind, number> = {
   city: 0,
   town: 1,
   village: 2,
-  street: 3,
+  // Sonderziele VOR Strassen: wer „Camping" tippt, meint den Campingplatz
+  // und nicht den „Campingweg". Unter den Orten bleiben sie, weil eine
+  // gleichnamige Stadt fast immer das groebere, gemeinte Ziel ist.
+  poi: 3,
+  street: 4,
 };
 
 export interface LiteCandidate {
   name: string;
   kind: LiteKind;
+  /** Nur bei POIs: der OSM-Tag-Wert, der das Symbol bestimmt. */
+  category?: string | null;
   lat: number;
   lon: number;
   /** SQLite FTS5 `bm25()` value for this row against the query that produced

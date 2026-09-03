@@ -120,6 +120,18 @@ osmium tags-filter --overwrite -o "$WORK_DIR/places.osm.pbf" "$INPUT" n/place=ci
 echo "== Filtere Strassen (highway=*) =="
 osmium tags-filter --overwrite -o "$WORK_DIR/streets.osm.pbf" "$INPUT" w/highway
 
+# Die Filterausdruecke kommen aus apps/core/src/search/lite/poiCategories.ts --
+# dieselbe Liste, die spaeter die deutschen Suchbegriffe vergibt. Wuerden sie
+# hier von Hand gepflegt, liefe `osmium` frueher oder spaeter Daten heraus, die
+# niemand einordnet, oder der Normalisierer wartete auf Daten, die nie kommen.
+echo "== Filtere Sonderziele (amenity/shop/tourism/leisure) =="
+mapfile -t POI_FILTERS < <(node "$CLI" --print-osmium-filters)
+if [ "${#POI_FILTERS[@]}" -eq 0 ]; then
+  echo "FEHLER: keine POI-Filter erhalten -- das Index-Werkzeug ist nicht das erwartete." >&2
+  exit 1
+fi
+osmium tags-filter --overwrite -o "$WORK_DIR/pois.osm.pbf" "$INPUT" "${POI_FILTERS[@]}"
+
 # --- 2/3: nach GeoJSONSeq exportieren --------------------------------------
 # Orte sind Nodes -> Points. Strassen sind Ways; `osmium export` reduziert sie
 # NICHT auf einen Punkt, mit `--geometry-types=point` fielen sie komplett weg.
@@ -130,12 +142,19 @@ osmium export --overwrite --geometry-types=point -f geojsonseq \
 osmium export --overwrite --geometry-types=linestring,polygon -f geojsonseq \
   -o "$WORK_DIR/streets.geojsonseq" "$WORK_DIR/streets.osm.pbf"
 
+# Sonderziele kommen als Knoten UND als Flaechen (ein Supermarkt ist meist ein
+# Gebaeude). Beide Geometriearten muessen exportiert werden; den Zentroid einer
+# Flaeche berechnet extract.ts selbst.
+osmium export --overwrite --geometry-types=point,linestring,polygon -f geojsonseq \
+  -o "$WORK_DIR/pois.geojsonseq" "$WORK_DIR/pois.osm.pbf"
+
 # --- 3/3: Index bauen (atomarer Tausch im Werkzeug) -------------------------
 echo "== Baue $OUT_DB =="
 cd /app
 node "$CLI" \
   --places "$WORK_DIR/places.geojsonseq" \
   --streets "$WORK_DIR/streets.geojsonseq" \
+  --pois "$WORK_DIR/pois.geojsonseq" \
   --out "$OUT_DB"
 
 # Und nachsehen, statt es zu glauben: ein Werkzeug, das „fertig" meldet und

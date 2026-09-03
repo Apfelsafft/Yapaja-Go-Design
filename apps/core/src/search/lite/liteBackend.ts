@@ -46,7 +46,10 @@ function candidateToResult(candidate: LiteCandidate): SearchResult {
     name: candidate.name,
     label: candidate.name,
     latlng: { lat: candidate.lat, lon: candidate.lon },
-    type: candidate.kind,
+    // Bei einem POI ist die KATEGORIE die nuetzlichere Auskunft: sie waehlt
+    // das Symbol (⛽ 🏕️ statt eines allgemeinen 📌) und sagt in der Liste,
+    // WAS der Treffer ist -- „REWE" allein verraet das nicht.
+    type: candidate.category ?? candidate.kind,
     source: 'lite',
   };
 }

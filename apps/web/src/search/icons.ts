@@ -22,6 +22,46 @@ const TYPE_ICONS: Record<string, string> = {
   campsite: '🏕️',
   fuel: '⛽',
   parking: '🅿️',
+
+  // ─── Sonderziele aus dem Offline-Index (0.3.6) ──────────────────────────
+  // Die Schluessel sind die OSM-Tag-Werte aus
+  // `apps/core/src/search/lite/poiCategories.ts` -- der Lite-Backend setzt
+  // `SearchResult.type` auf genau diesen Wert. Fehlt hier einer, faellt er
+  // auf 📍 zurueck; das ist haesslich, aber nie kaputt.
+  camp_site: '🏕️',
+  caravan_site: '🚐',
+  charging_station: '🔌',
+  toilets: '🚻',
+  drinking_water: '🚰',
+  sanitary_dump_station: '♻️',
+  waste_disposal: '🗑️',
+  pharmacy: '💊',
+  doctors: '🩺',
+  hospital: '🏥',
+  veterinary: '🐾',
+  restaurant: '🍽️',
+  cafe: '☕',
+  fast_food: '🍔',
+  bank: '🏦',
+  atm: '💶',
+  post_office: '📮',
+  supermarket: '🛒',
+  convenience: '🏪',
+  bakery: '🥐',
+  butcher: '🥩',
+  greengrocer: '🥕',
+  doityourself: '🔨',
+  hardware: '🔧',
+  laundry: '🧺',
+  gas: '🔥',
+  hotel: '🏨',
+  guest_house: '🛏️',
+  viewpoint: '🔭',
+  information: 'ℹ️',
+  attraction: '🎡',
+  swimming_pool: '🏊',
+  sports_centre: '🤸',
+  playground: '🛝',
 };
 
 export function iconForSearchResultType(type: string): string {

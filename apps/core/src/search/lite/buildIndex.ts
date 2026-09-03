@@ -44,11 +44,18 @@ export function buildLiteIndexFile(records: readonly NormalizedRecord[], dbPath:
         kind TEXT NOT NULL,
         lat REAL NOT NULL,
         lon REAL NOT NULL,
-        population INTEGER
+        population INTEGER,
+        -- Nur bei POIs gesetzt: der OSM-Tag-Wert (supermarket, camp_site, ...).
+        category TEXT,
+        -- Name PLUS deutsche Kategoriebegriffe. Diese Spalte -- nicht name --
+        -- speist die Volltextsuche, damit „Supermarkt" den Laden findet, der
+        -- in den Daten „REWE" heisst. Bei Orten und Strassen steht hier
+        -- schlicht der Name, das Verhalten bleibt dort unveraendert.
+        search_text TEXT NOT NULL
       );
 
       CREATE VIRTUAL TABLE lite_search USING fts5(
-        name,
+        search_text,
         tokenize = 'trigram',
         content = 'places',
         content_rowid = 'id'
@@ -56,7 +63,8 @@ export function buildLiteIndexFile(records: readonly NormalizedRecord[], dbPath:
     `);
 
     const insertPlace = db.prepare(
-      'INSERT INTO places (name, kind, lat, lon, population) VALUES (@name, @kind, @lat, @lon, @population)',
+      'INSERT INTO places (name, kind, lat, lon, population, category, search_text) ' +
+        'VALUES (@name, @kind, @lat, @lon, @population, @category, @search_text)',
     );
 
     const insertAll = db.transaction((rows: readonly NormalizedRecord[]) => {
@@ -67,6 +75,10 @@ export function buildLiteIndexFile(records: readonly NormalizedRecord[], dbPath:
           lat: row.lat,
           lon: row.lon,
           population: row.population ?? null,
+          category: row.category ?? null,
+          // Der Name gehoert IMMER hinein -- sonst faende „REWE" den Laden
+          // nicht mehr, sobald er Kategoriebegriffe hat.
+          search_text: row.searchTerms ? `${row.name} ${row.searchTerms}` : row.name,
         });
       }
     });
@@ -76,7 +88,7 @@ export function buildLiteIndexFile(records: readonly NormalizedRecord[], dbPath:
     // in one pass -- cheaper than a trigger-per-row for a build-once,
     // read-many index (there are never any updates to an already-built
     // lite_search.db; a rebuild always starts from a fresh file).
-    db.exec('INSERT INTO lite_search(rowid, name) SELECT id, name FROM places;');
+    db.exec('INSERT INTO lite_search(rowid, search_text) SELECT id, search_text FROM places;');
     db.exec("INSERT INTO lite_search(lite_search) VALUES('optimize');");
   } finally {
     db.close();

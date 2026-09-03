@@ -10,7 +10,8 @@
  * half-written one).
  *
  * Usage:
- *   tsx src/search/lite/cli.ts --places places.geojsonseq --streets streets.geojsonseq --out data/lite-search/lite_search.db
+ *   tsx src/search/lite/cli.ts --places places.geojsonseq --streets streets.geojsonseq \
+ *                              --pois pois.geojsonseq --out data/lite-search/lite_search.db
  *
  * Run via `services/valhalla/build-lite-index.sh`, never invoked directly
  * by the app itself.
@@ -20,11 +21,13 @@ import { createInterface } from 'readline';
 import { fileURLToPath } from 'url';
 import { normalizeGeoJsonSeqLine, type NormalizedRecord } from './extract.js';
 import { buildLiteIndexFile } from './buildIndex.js';
+import { osmiumFilters } from './poiCategories.js';
 import { appendAll } from '@yapaja/shared';
 
 interface CliArgs {
   places?: string;
   streets?: string;
+  pois?: string;
   out: string;
 }
 
@@ -34,17 +37,20 @@ function parseArgs(argv: string[]): CliArgs {
     const arg = argv[i];
     if (arg === '--places') args.places = argv[++i];
     else if (arg === '--streets') args.streets = argv[++i];
+    else if (arg === '--pois') args.pois = argv[++i];
     else if (arg === '--out') args.out = argv[++i];
   }
   if (!args.out) {
-    throw new Error('Usage: cli.ts --places <geojsonseq> --streets <geojsonseq> --out <lite_search.db path>');
+    throw new Error(
+      'Usage: cli.ts --places <geojsonseq> --streets <geojsonseq> --pois <geojsonseq> --out <lite_search.db path>',
+    );
   }
   return args as CliArgs;
 }
 
 async function readNormalizedFile(
   path: string,
-  sourceKind: 'place' | 'street',
+  sourceKind: 'place' | 'street' | 'poi',
 ): Promise<{ records: NormalizedRecord[]; skipped: number; total: number }> {
   const records: NormalizedRecord[] = [];
   let skipped = 0;
@@ -63,6 +69,19 @@ async function readNormalizedFile(
 }
 
 export async function runCli(argv: string[]): Promise<void> {
+  // ─── EINE QUELLE FUER DIE KATEGORIEN ──────────────────────────────────────
+  // Das Bau-Skript fragt die osmium-Filter HIER ab, statt sie zu wiederholen.
+  // Zwei gepflegte Listen laufen sonst auseinander -- und zwar lautlos: der
+  // Filter liefert dann Daten, die der Normalisierer verwirft, oder umgekehrt.
+  // Das Ergebnis waere ein Index ohne Sonderziele, ohne eine einzige
+  // Fehlermeldung.
+  if (argv.includes('--print-osmium-filters')) {
+    for (const filter of osmiumFilters()) {
+      console.log(filter);
+    }
+    return;
+  }
+
   const args = parseArgs(argv);
   const allRecords: NormalizedRecord[] = [];
 
@@ -78,6 +97,12 @@ export async function runCli(argv: string[]): Promise<void> {
   if (args.streets) {
     const { records, skipped, total } = await readNormalizedFile(args.streets, 'street');
     console.warn(`Strassen: ${records.length}/${total} uebernommen (${skipped} uebersprungen) aus ${args.streets}`);
+    appendAll(allRecords, records);
+  }
+
+  if (args.pois) {
+    const { records, skipped, total } = await readNormalizedFile(args.pois, 'poi');
+    console.warn(`Sonderziele: ${records.length}/${total} uebernommen (${skipped} uebersprungen) aus ${args.pois}`);
     appendAll(allRecords, records);
   }
 

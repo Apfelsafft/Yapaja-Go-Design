@@ -845,14 +845,54 @@ jobs:
           osmium export --overwrite --geometry-types=linestring,polygon -f geojsonseq \
             -o "$WORK/streets.geojsonseq" "$WORK/streets.osm.pbf"
 
+          # Sonderziele: die Filter kommen aus dem Werkzeug selbst, damit
+          # Filter und Normalisierer nicht auseinanderlaufen koennen.
+          mapfile -t POI_FILTERS < <(node apps/core/dist/lite-index.js --print-osmium-filters)
+          test "${#POI_FILTERS[@]}" -gt 0 \
+            || { echo "::error::--print-osmium-filters lieferte nichts"; exit 1; }
+          osmium tags-filter --overwrite -o "$WORK/pois.osm.pbf" li.osm.pbf "${POI_FILTERS[@]}"
+          osmium export --overwrite --geometry-types=point,linestring,polygon -f geojsonseq \
+            -o "$WORK/pois.geojsonseq" "$WORK/pois.osm.pbf"
+
           node apps/core/dist/lite-index.js \
             --places "$WORK/places.geojsonseq" \
             --streets "$WORK/streets.geojsonseq" \
+            --pois "$WORK/pois.geojsonseq" \
             --out "$WORK/lite_search.db"
 
           test -s "$WORK/lite_search.db" \
             || { echo "::error::Das gebuendelte Werkzeug meldete Erfolg, hat aber keinen Index hinterlassen."; exit 1; }
           ls -la "$WORK/lite_search.db"
+
+          # ─── UND DIE SONDERZIELE SIND AUCH WIRKLICH FINDBAR ──────────────
+          # Nicht „stehen im Index", sondern „kommen aus der Suche zurueck".
+          # Genau dazwischen lag der Fehler beim Einbau: die Eintraege waren
+          # da, die Volltextsuche fand sie, und der Arten-Filter in reader.ts
+          # warf sie danach lautlos weg.
+          python3 - "$WORK/lite_search.db" <<'PY'
+          import sqlite3, sys
+          con = sqlite3.connect(sys.argv[1])
+          cur = con.cursor()
+
+          cur.execute("SELECT COUNT(*) FROM places WHERE kind = 'poi'")
+          total = cur.fetchone()[0]
+          print("Sonderziele im Index:", total)
+          assert total > 0, "kein einziges Sonderziel im Index"
+
+          # Ueber die KATEGORIE gefunden -- der Fall, um den es dem Betreiber
+          # ging: der Laden heisst „REWE", gesucht wird „Supermarkt".
+          for term in ("Supermarkt", "Tankstelle", "Apotheke"):
+              cur.execute(
+                  "SELECT p.name, p.category FROM lite_search "
+                  "JOIN places p ON p.id = lite_search.rowid "
+                  "WHERE lite_search MATCH ? AND p.kind = 'poi' LIMIT 5",
+                  (f'"{term}"',),
+              )
+              rows = cur.fetchall()
+              print(f"  {term}: {rows}")
+              assert rows, f"{term} findet kein Sonderziel"
+          print("PLAUSIBEL - Sonderziele sind ueber ihre deutsche Kategorie auffindbar")
+          PY
 
       # Beweist Akzeptanz #1 ("findet 'Vaduz' und eine Strasse") direkt gegen
       # die gebaute SQLite-Datei -- unabhaengig von apps/core, damit dieser

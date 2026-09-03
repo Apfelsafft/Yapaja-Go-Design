@@ -10,6 +10,30 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.3.6
+
+**Die Suche findet jetzt auch Sonderziele — über den Namen und über die Art.**
+Bisher kannte der Index nur Orte und Straßen. Wer „Supermarkt" tippte, fand
+nichts, denn der Laden heißt in den Kartendaten „REWE"; wer „Arzt" tippte,
+fand nichts, denn die Praxis heißt „Dr. Müller".
+
+Ab jetzt führen **beide** Wege zum Ziel: der Name **und** das deutsche Wort
+für die Art. Aufgenommen ist, was auf einer Wohnmobilfahrt zählt —
+Campingplatz, Wohnmobilstellplatz, Entsorgungsstation, Trinkwasser, Toilette,
+Tankstelle, Ladesäule, Supermarkt, Bäckerei, Apotheke, Arzt, Krankenhaus,
+Tierarzt, Restaurant, Bank, Baumarkt, Gasflaschen und einiges mehr. Auch
+umgangssprachlich: „Klo" findet die Toilette, „Sprit" die Tankstelle.
+
+Ein Campingplatz **ohne Namen** in den Daten wird trotzdem gefunden — er
+heißt dann schlicht „Campingplatz". Und in der Ergebnisliste steht jetzt ein
+passendes Symbol davor: 🏕️ 🚐 ⛽ 🛒 💊 🩺 statt eines allgemeinen Stiftes.
+
+Dafür muss der Suchindex **einmal neu gebaut** werden: „Kartenregionen
+verwalten" (🗺️) → „Suche bauen". Ohne Neubau bleibt es beim bisherigen Stand
+aus Orten und Straßen.
+
+Was der Index weiterhin nicht kann: **Hausnummern**.
+
 ## 0.3.5
 
 **Der Suchindex lässt sich jetzt auch für große Regionen bauen.** Für

@@ -6,7 +6,7 @@
  * `apps/core/src/db/index.ts`'s singleton-with-explicit-close shape).
  */
 import Database from 'better-sqlite3';
-import type { LiteCandidate, LiteKind } from './ranking.js';
+import { LITE_KINDS, type LiteCandidate, type LiteKind } from './ranking.js';
 
 interface LiteSearchRow {
   name: string;
@@ -23,7 +23,11 @@ interface LiteAllRow {
   lon: number;
 }
 
-const KNOWN_KINDS: ReadonlySet<string> = new Set(['city', 'town', 'village', 'street']);
+// Aus der EINEN Liste abgeleitet (ranking.ts), nicht abgeschrieben. Die
+// abgeschriebene Fassung hier hat beim Hinzufuegen von `poi` genau eine
+// Aenderung verpasst und damit alle Sonderziele lautlos aus jedem
+// Suchergebnis entfernt.
+const KNOWN_KINDS: ReadonlySet<string> = new Set<string>(LITE_KINDS);
 
 function isLiteKind(kind: string): kind is LiteKind {
   return KNOWN_KINDS.has(kind);
@@ -69,7 +73,7 @@ export class LiteIndexReader {
     const overfetch = Math.max(limit * 4, 20);
     const rows = db
       .prepare(
-        `SELECT p.name as name, p.kind as kind, p.lat as lat, p.lon as lon, bm25(lite_search) as ftsRank
+        `SELECT p.name as name, p.kind as kind, p.lat as lat, p.lon as lon, p.category as category, bm25(lite_search) as ftsRank
          FROM lite_search
          JOIN places p ON p.id = lite_search.rowid
          WHERE lite_search MATCH ?
@@ -95,7 +99,7 @@ export class LiteIndexReader {
     const boxDeg = 0.5;
     const rows = db
       .prepare(
-        `SELECT name, kind, lat, lon FROM places
+        `SELECT name, kind, lat, lon, category FROM places
          WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?`,
       )
       .all(lat - boxDeg, lat + boxDeg, lon - boxDeg, lon + boxDeg) as LiteAllRow[];

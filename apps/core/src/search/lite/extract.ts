@@ -22,13 +22,33 @@
  * tag-filtering/normalization rules".
  */
 
-export type LiteKind = 'city' | 'town' | 'village' | 'street';
+import {
+  findPoiCategory,
+  searchTermsFor,
+  type PoiCategory,
+  type PoiTagKey,
+} from './poiCategories.js';
+
+/** Die vier OSM-Schluessel, unter denen POI_CATEGORIES Kategorien fuehrt. */
+const POI_TAG_KEYS: readonly PoiTagKey[] = ['amenity', 'shop', 'tourism', 'leisure'];
+
+// NICHT hier noch einmal definieren -- siehe ranking.ts (LITE_KINDS).
+export type { LiteKind } from './ranking.js';
+import type { LiteKind } from './ranking.js';
 
 export interface NormalizedRecord {
   kind: LiteKind;
   name: string;
   lat: number;
   lon: number;
+  /** Nur bei `kind: 'poi'`: der OSM-Tag-Wert (`supermarket`, `camp_site`, …).
+   *  Er wird zum `type` im Suchergebnis und damit zum Symbol in der Liste. */
+  category?: string;
+  /** Zusaetzliche Woerter, unter denen dieser Eintrag gefunden werden soll --
+   *  bei POIs die deutschen Kategoriebegriffe („Supermarkt", „Lebensmittel").
+   *  Ohne sie fuehrt die Eingabe „Supermarkt" auf nichts, weil der Laden in
+   *  den Daten „REWE" heisst. */
+  searchTerms?: string;
   /** Raw rank input, best-effort (E05-T5: "raw rank inputs" in the
    *  companion metadata table). OSM's `population` tag, when present, as an
    *  integer. Currently NOT consulted by `ranking.ts` (kind alone decides
@@ -183,6 +203,49 @@ export function normalizeStreetFeature(feature: OsmFeature): NormalizedRecord | 
 }
 
 /**
+ * Normalisiert ein Sonderziel (POI) in einen `kind: 'poi'`-Datensatz.
+ *
+ * Zwei Dinge, die hier anders laufen als bei Orten und Strassen:
+ *
+ * 1. EIN NAME IST NICHT PFLICHT. Ein Campingplatz ohne `name` ist immer noch
+ *    ein Campingplatz, und wer „Campingplatz" tippt, will ihn finden. Fehlt
+ *    der Name, tritt die deutsche Kategoriebezeichnung an seine Stelle
+ *    („Campingplatz", „Tankstelle"). Das ist ehrlich -- der Eintrag behauptet
+ *    keinen Namen, den es nicht gibt -- und nuetzlicher als ihn wegzulassen.
+ * 2. ES WERDEN SUCHBEGRIFFE MITGEGEBEN. Sonst waere die Kategorie nur ueber
+ *    den Namen auffindbar, und genau das ist der Fall, der nicht funktioniert.
+ */
+export function normalizePoiFeature(feature: OsmFeature): NormalizedRecord | null {
+  const props = feature.properties ?? {};
+
+  let category: PoiCategory | undefined;
+  for (const key of POI_TAG_KEYS) {
+    const value = props[key];
+    if (typeof value === 'string' && value.length > 0) {
+      category = findPoiCategory(key, value);
+      if (category) break;
+    }
+  }
+  if (!category) return null;
+
+  const point = coordsFromGeometry(feature);
+  if (!point) return null;
+
+  const rawName = props.name;
+  const name =
+    typeof rawName === 'string' && rawName.trim().length > 0 ? rawName.trim() : category.label;
+
+  return {
+    kind: 'poi',
+    name,
+    lat: point.lat,
+    lon: point.lon,
+    category: category.value,
+    searchTerms: searchTermsFor(category),
+  };
+}
+
+/**
  * Normalizes one line of `osmium export -f geojsonseq` output (a single
  * JSON object, NOT wrapped in a FeatureCollection -- geojsonseq is
  * newline-delimited). `sourceKind` tells the parser which extraction rule
@@ -194,7 +257,7 @@ export function normalizeStreetFeature(feature: OsmFeature): NormalizedRecord | 
  */
 export function normalizeGeoJsonSeqLine(
   line: string,
-  sourceKind: 'place' | 'street',
+  sourceKind: 'place' | 'street' | 'poi',
 ): NormalizedRecord | null {
   // `osmium export -f geojsonseq` emits RFC 8142 GeoJSON Text Sequences: each
   // record is PREFIXED with an ASCII Record Separator (U+001E). `String.trim()`
@@ -217,5 +280,12 @@ export function normalizeGeoJsonSeqLine(
   if (typeof feature !== 'object' || feature === null) return null;
   const f = feature as OsmFeature;
 
-  return sourceKind === 'place' ? normalizePlaceFeature(f) : normalizeStreetFeature(f);
+  switch (sourceKind) {
+    case 'place':
+      return normalizePlaceFeature(f);
+    case 'poi':
+      return normalizePoiFeature(f);
+    default:
+      return normalizeStreetFeature(f);
+  }
 }

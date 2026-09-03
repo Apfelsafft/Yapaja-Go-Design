@@ -20,7 +20,7 @@
 #   services/valhalla/build-lite-index.sh li.osm.pbf
 #
 # Ablauf:
-#   1. `osmium tags-filter` extrahiert zwei Teilmengen aus der PBF:
+#   1. `osmium tags-filter` extrahiert DREI Teilmengen aus der PBF:
 #        - Orte:     Nodes mit place=city,town,village
 #        - Strassen:  Ways mit einem highway-Tag (Namensfilter passiert im
 #                      Node-Normalizer, apps/core/src/search/lite/extract.ts
@@ -104,6 +104,18 @@ osmium tags-filter --overwrite -o "$WORK_DIR/places.osm.pbf" "$PBF" n/place=city
 echo "== Filtere Strassen (highway=*) aus $PBF =="
 osmium tags-filter --overwrite -o "$WORK_DIR/streets.osm.pbf" "$PBF" w/highway
 
+# Sonderziele (POIs). Die Filterausdruecke kommen aus dem Index-Werkzeug
+# selbst (apps/core/src/search/lite/poiCategories.ts) -- dieselbe Liste, die
+# spaeter die deutschen Suchbegriffe vergibt. Von Hand gepflegt wuerden die
+# beiden frueher oder spaeter auseinanderlaufen, und zwar lautlos.
+echo "== Filtere Sonderziele (amenity/shop/tourism/leisure) aus $PBF =="
+mapfile -t POI_FILTERS < <(pnpm --silent --filter @yapaja/core exec tsx src/search/lite/cli.ts --print-osmium-filters)
+if [ "${#POI_FILTERS[@]}" -eq 0 ]; then
+  echo "FEHLER: keine POI-Filter erhalten." >&2
+  exit 1
+fi
+osmium tags-filter --overwrite -o "$WORK_DIR/pois.osm.pbf" "$PBF" "${POI_FILTERS[@]}"
+
 echo "== Exportiere GeoJSONSeq =="
 # Orte sind Nodes -> Points.
 osmium export --overwrite --geometry-types=point -f geojsonseq -o "$WORK_DIR/places.geojsonseq" "$WORK_DIR/places.osm.pbf"
@@ -115,12 +127,17 @@ osmium export --overwrite --geometry-types=point -f geojsonseq -o "$WORK_DIR/pla
 # Zentroid selbst -- genau dafuer ist dessen LineString/Polygon-Zweig da.
 osmium export --overwrite --geometry-types=linestring,polygon -f geojsonseq -o "$WORK_DIR/streets.geojsonseq" "$WORK_DIR/streets.osm.pbf"
 
+# Sonderziele kommen als Knoten UND als Flaechen (ein Supermarkt ist meist ein
+# Gebaeude, ein Campingplatz fast immer) -- beide Geometriearten exportieren.
+osmium export --overwrite --geometry-types=point,linestring,polygon -f geojsonseq -o "$WORK_DIR/pois.geojsonseq" "$WORK_DIR/pois.osm.pbf"
+
 echo "== Baue lite_search.db (tsx-CLI, atomarer Swap nach $OUT_DB) =="
 (
   cd "$REPO_ROOT"
   pnpm --filter @yapaja/core exec tsx src/search/lite/cli.ts \
     --places "$WORK_DIR/places.geojsonseq" \
     --streets "$WORK_DIR/streets.geojsonseq" \
+    --pois "$WORK_DIR/pois.geojsonseq" \
     --out "$OUT_DB"
 )
 
