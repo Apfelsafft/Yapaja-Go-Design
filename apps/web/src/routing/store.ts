@@ -33,7 +33,17 @@ export interface RoutingError {
 }
 
 export interface RequestRouteParams {
-  /** Always `'current'` in this app -- the Core resolves it via the live GPS position. */
+  /**
+   * Der vom Aufrufer gewuenschte Start. In der Regel `'current'` -- der Core
+   * loest das dann ueber die Live-GPS-Position auf.
+   *
+   * ACHTUNG: ein im Store gesetzter `startPoint` hat VORRANG (siehe dort).
+   * Das ist Absicht und kein Sonderfall, den man uebersehen darf: waehlt ein
+   * Betreiber einen Startpunkt auf der Karte, soll das fuer JEDEN Weg gelten,
+   * der eine Route anfordert -- auch fuer „zu diesem Favoriten navigieren",
+   * das hier `'current'` uebergibt. Andernfalls haette die Wahl je nach
+   * Einstiegspunkt gegolten oder nicht.
+   */
   origin: LatLng | 'current';
   /** `activeProfile.id`, or `undefined`/empty if no profile is active. */
   profileId: string | undefined;
@@ -49,6 +59,23 @@ export interface TempAvoidance {
 
 export interface RoutingState {
   destination: LatLng | null;
+  /**
+   * Ausdruecklich gewaehlter Startpunkt, oder `null` fuer „aktuelle
+   * Position" (der Normalfall und die Voreinstellung).
+   *
+   * Bis 2026-09-03 gab es diesen Zustand nicht: die Oberflaeche konnte NUR
+   * ein Ziel setzen, der Start war zwangsweise die Live-GPS-Position. Wer
+   * keine Position hatte -- etwa weil der Browser den Sensor ohne HTTPS gar
+   * nicht freigibt -- konnte damit ueberhaupt keine Route berechnen, obwohl
+   * Karte und Routinggraph fertig waren. Der Core kann einen expliziten
+   * Startpunkt seit jeher (`RoutingService.resolveOrigin`); es fehlte
+   * ausschliesslich die Bedienung.
+   */
+  startPoint: LatLng | null;
+  /** Worauf sich der naechste Kartenklick bezieht. Nach dem Setzen eines
+   *  Startpunkts faellt es auf `'destination'` zurueck -- ein Modus, in dem
+   *  man versehentlich haengen bleibt, ist schlimmer als ein Klick zu viel. */
+  pickTarget: 'destination' | 'origin';
   /**
    * E05-T2 addition: the human-readable name of the destination, when it was
    * picked via search (`SearchResult.name`) rather than a raw map click/tap
@@ -72,6 +99,9 @@ export interface RoutingState {
    *  a display `name` (E05-T2, search result selection). Always resets any
    *  previous route result and the per-route avoid overrides. */
   setDestination: (destination: LatLng | null, name?: string | null) => void;
+  /** Setzt (oder loescht, mit `null`) den ausdruecklichen Startpunkt. */
+  setStartPoint: (startPoint: LatLng | null) => void;
+  setPickTarget: (target: 'destination' | 'origin') => void;
   /** Requests routes for the current `destination`, including any active `avoidOverrides`/`tempAvoidances`. No-ops (no request sent) if there is no destination or no `profileId`. */
   requestRoute: (params: RequestRouteParams) => Promise<void>;
   /** Makes `routeId` the active (highlighted) route; the previously-active one becomes a gray alternative. No-ops if `routeId` isn't among the current `routes`. */
@@ -97,6 +127,8 @@ function nextAvoidanceId(): string {
 export const useRoutingStore = create<RoutingState>((set, get) => ({
   destination: null,
   destinationName: null,
+  startPoint: null,
+  pickTarget: 'destination',
   routes: [],
   activeRouteId: null,
   status: 'idle',
@@ -116,8 +148,20 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
     });
   },
 
+  setStartPoint: (startPoint) => {
+    set({ startPoint, routes: [], activeRouteId: null, status: 'idle', error: null });
+  },
+
+  setPickTarget: (pickTarget) => {
+    set({ pickTarget });
+  },
+
   requestRoute: async ({ origin, profileId }) => {
-    const { destination, avoidOverrides, tempAvoidances } = get();
+    const { destination, avoidOverrides, tempAvoidances, startPoint } = get();
+    // Ein ausdruecklich gewaehlter Startpunkt schlaegt den Wunsch des
+    // Aufrufers. Ohne ihn bleibt alles wie bisher: `'current'` geht an den
+    // Core, der die Live-Position einsetzt.
+    const effectiveOrigin = startPoint ?? origin;
     if (!destination) {
       return;
     }
@@ -135,7 +179,7 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
     try {
       const excludePolygons = tempAvoidances.map((a) => a.polygon);
       const routes = await client.requestRoutes({
-        origin,
+        origin: effectiveOrigin,
         destination,
         waypoints: [],
         profile_id: profileId,

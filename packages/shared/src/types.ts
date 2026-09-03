@@ -17,7 +17,7 @@ export interface Position {
   speed: number | null; // m/s über Grund (over ground)
   heading: number | null; // Grad (degrees), 0 = Nord (North), range 0-360
   accuracy: number | null; // Meter (HDOP-based for gpsd)
-  source: 'gpsd' | 'browser' | 'simulator';
+  source: 'gpsd' | 'browser' | 'simulator' | 'ha_tracker';
   fix: 'none' | '2d' | '3d';
   ts: string; // ISO 8601 UTC
 }

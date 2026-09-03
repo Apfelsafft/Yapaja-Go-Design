@@ -14,6 +14,8 @@ import { DeadReckoningController } from './position/deadReckoning.js';
 import { SimulatorSource } from './position/simulator/index.js';
 import { simulatorPlugin } from './position/simulator/routes.js';
 import { GpsdSource } from './position/gpsd/index.js';
+import { HaTrackerSource } from './position/haTracker/index.js';
+import { resolveHaConnection } from './ha/config.js';
 import { mapPlugin } from './map/routes.js';
 import { routingPlugin, buildRoutingService } from './routing/routes.js';
 import { navigationPlugin } from './navigation/routes.js';
@@ -211,6 +213,27 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   positionService.registerSource(gpsdSource);
   if (isGpsdEnabled()) {
     gpsdSource.start();
+  }
+
+  // Position aus einer Home-Assistant-`device_tracker`-Entitaet (B-05).
+  // Der Weg fuer Telefon/Tablet/Autoradio, wenn der Browser den GPS-Sensor
+  // nicht freigibt -- ohne HTTPS tut er das naemlich nie. Aus genau demselben
+  // Grund wie bei gpsd gilt: eine nicht konfigurierte oder unerreichbare
+  // Quelle bleibt still inaktiv und laesst PositionService auf die naechste
+  // Prioritaet zurueckfallen.
+  const haTrackerSource = new HaTrackerSource({
+    positionService,
+    resolveConnection: () => resolveHaConnection({ settings: settingsService }),
+    entityId: process.env.HA_DEVICE_TRACKER ?? '',
+    logger: {
+      info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+      warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+      error: (msg, meta) => fastify.log.error(meta ?? {}, msg),
+    },
+  });
+  positionService.registerSource(haTrackerSource);
+  if (haTrackerSource.isConfigured()) {
+    haTrackerSource.start();
   }
 
   await fastify.register(busWebsocketPlugin, {

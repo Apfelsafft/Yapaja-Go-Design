@@ -186,7 +186,7 @@ Ausführlich in `docs/gps-endgeraete.md` §5.
 
 ---
 
-## B-05 🟠 Position aus der Home-Assistant-App (`device_tracker`)
+## B-05 ✅ Position aus der Home-Assistant-App — ERLEDIGT 2026-09-03
 
 **Status:** offen, aufgenommen am 2026-09-02.
 **Betrifft:** `apps/core/src/position/service.ts`, `apps/core/src/ha/client.ts`,
@@ -238,6 +238,8 @@ Eine Rückmeldung, welche `device_tracker`-Entität die App tatsächlich liefert
 und in welchem Intervall. Die Priorität gegenüber dem Browser lässt sich
 sonst nur raten, und eine geratene Zahl in einer Prioritätskette ist genau
 die Sorte Behauptung, die hier nichts zu suchen hat.
+
+</details>
 
 ---
 

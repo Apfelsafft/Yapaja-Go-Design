@@ -186,7 +186,9 @@ describe('PositionService', () => {
 
     const sources = service.getSources();
     const names = sources.map((s) => s.name).sort();
-    expect(names).toEqual<PositionSourceName[]>(['browser', 'gpsd', 'simulator'].sort() as PositionSourceName[]);
+    expect(names).toEqual<PositionSourceName[]>(
+      ['browser', 'gpsd', 'ha_tracker', 'simulator'].sort() as PositionSourceName[],
+    );
 
     const simulator = sources.find((s) => s.name === 'simulator');
     expect(simulator?.active).toBe(true);

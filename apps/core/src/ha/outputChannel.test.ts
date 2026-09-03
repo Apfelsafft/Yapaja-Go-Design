@@ -34,7 +34,7 @@ function recordingFetch(response: Partial<HaHttpResponseLike> = { ok: true, stat
   const fetch: HaFetchLike = (url, init) => {
     calls.push({
       url,
-      body: JSON.parse(init.body) as unknown,
+      body: JSON.parse(init.body ?? 'null') as unknown,
       auth: init.headers.Authorization,
     });
     return Promise.resolve({ ok: true, status: 200, ...response } as HaHttpResponseLike);

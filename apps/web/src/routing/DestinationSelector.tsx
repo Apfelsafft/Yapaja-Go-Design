@@ -59,6 +59,8 @@ export default function DestinationSelector(): null {
   const setDestination = useRoutingStore((state) => state.setDestination);
   const selectRoute = useRoutingStore((state) => state.selectRoute);
   const addSectionAvoidance = useRoutingStore((state) => state.addSectionAvoidance);
+  const setStartPoint = useRoutingStore((state) => state.setStartPoint);
+  const setPickTarget = useRoutingStore((state) => state.setPickTarget);
   const activeProfile = useProfileStore((state) => state.activeProfile);
 
   useEffect(() => {
@@ -75,7 +77,24 @@ export default function DestinationSelector(): null {
         return;
       }
 
-      setDestination({ lat: e.lngLat.lat, lon: e.lngLat.lng });
+      const point = { lat: e.lngLat.lat, lon: e.lngLat.lng };
+
+      // Ist der Startpunkt-Modus aktiv, meint dieser Klick den START.
+      // Danach faellt der Modus sofort zurueck: ein Zustand, in dem jeder
+      // weitere Klick still den Start verschiebt, statt ein Ziel zu setzen,
+      // waere aus der Karte heraus nicht erkennbar.
+      //
+      // `pickTarget` wird hier ueber `getState()` gelesen, nicht ueber einen
+      // Hook: dieser Effekt haengt bewusst nur an `map`, damit die
+      // Kartenlistener nicht bei jeder Zustandsaenderung ab- und wieder
+      // angemeldet werden. Ein Hook-Wert waere in diesem Closure eingefroren.
+      if (useRoutingStore.getState().pickTarget === 'origin') {
+        setStartPoint(point);
+        setPickTarget('destination');
+        return;
+      }
+
+      setDestination(point);
     };
 
     const handleContextMenu = (e: MapMouseEvent): void => {

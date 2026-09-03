@@ -58,12 +58,12 @@ describe('Position Routes Integration', () => {
   });
 
   describe('GET /api/v1/position/sources', () => {
-    it('lists all three known sources with inactive defaults', async () => {
+    it('lists all known sources with inactive defaults', async () => {
       const response = await server.inject({ method: 'GET', url: '/api/v1/position/sources' });
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       const names = body.sources.map((s: { name: string }) => s.name).sort();
-      expect(names).toEqual(['browser', 'gpsd', 'simulator']);
+      expect(names).toEqual(['browser', 'gpsd', 'ha_tracker', 'simulator']);
       expect(body.active).toBeNull();
       expect(body.forced).toBeNull();
     });

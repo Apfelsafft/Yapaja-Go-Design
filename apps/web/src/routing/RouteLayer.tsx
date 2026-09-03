@@ -80,6 +80,7 @@ export default function RouteLayer(): null {
   const routes = useRoutingStore((state) => state.routes);
   const activeRouteId = useRoutingStore((state) => state.activeRouteId);
   const destination = useRoutingStore((state) => state.destination);
+  const startPoint = useRoutingStore((state) => state.startPoint);
   const tempAvoidances = useRoutingStore((state) => state.tempAvoidances);
   // Incremented whenever the route sources/layers are (re)created, so the
   // geometry effect below immediately paints the CURRENT route into the
@@ -232,6 +233,17 @@ export default function RouteLayer(): null {
       if (coords.length > 0) {
         markerFeatures.push({ type: 'Feature', properties: { kind: 'start' }, geometry: { type: 'Point', coordinates: coords[0] } });
       }
+    } else if (startPoint) {
+      // Ein AUSDRUECKLICH gewaehlter Startpunkt muss schon sichtbar sein,
+      // BEVOR eine Route existiert -- sonst waehlt man auf der Karte einen
+      // Punkt und sieht nicht, welchen. Sobald eine Route da ist, zeigt deren
+      // erster Stuetzpunkt ohnehin denselben Ort, und der ist genauer (er
+      // liegt auf der Strasse, nicht dort, wo der Finger hingetippt hat).
+      markerFeatures.push({
+        type: 'Feature',
+        properties: { kind: 'start' },
+        geometry: { type: 'Point', coordinates: [startPoint.lon, startPoint.lat] },
+      });
     }
     if (destination) {
       markerFeatures.push({
@@ -241,7 +253,7 @@ export default function RouteLayer(): null {
       });
     }
     markersSource.setData({ type: 'FeatureCollection', features: markerFeatures });
-  }, [map, routes, activeRouteId, destination, tempAvoidances, styleEpoch]);
+  }, [map, routes, activeRouteId, destination, startPoint, tempAvoidances, styleEpoch]);
 
   // Auto-fit the camera to the union of all currently displayed routes
   // (active + alternatives) whenever the route set changes.

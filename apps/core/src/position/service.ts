@@ -18,11 +18,12 @@ import type { EventBus } from '../bus/index.js';
  * vi.useFakeTimers() patches globalThis, not the 'node:timers' module
  * exports, and this service's tests rely on fake timers. */
 
-export type PositionSourceName = 'gpsd' | 'browser' | 'simulator';
+export type PositionSourceName = 'gpsd' | 'browser' | 'simulator' | 'ha_tracker';
 
 export const POSITION_SOURCE_NAMES: readonly PositionSourceName[] = [
   'gpsd',
   'browser',
+  'ha_tracker',
   'simulator',
 ];
 
@@ -47,7 +48,16 @@ export interface PositionServiceLogger {
 
 export interface PositionServiceOptions {
   bus: EventBus;
-  /** Highest priority first. Default: gpsd > browser > simulator (ADR-007). */
+  /**
+   * Highest priority first. Default: gpsd > browser > ha_tracker > simulator
+   * (ADR-007, um `ha_tracker` erweitert).
+   *
+   * WARUM `ha_tracker` UNTER `browser` STEHT: die Home-Assistant-Companion-App
+   * meldet in Intervallen, nicht fortlaufend. Fuer eine Abbiegeansage in
+   * 200 m ist das zu traege. Sie ist die Quelle, die es GIBT, wenn der
+   * Browser keine liefert -- etwa weil er den GPS-Sensor ohne HTTPS gar nicht
+   * freigibt -- und nicht die, die einen laufenden Browser-Fix ersetzt.
+   */
   priority?: PositionSourceName[];
   /** A source counts as "active" if it delivered a fix within this window. */
   activeWindowMs?: number;
@@ -63,7 +73,7 @@ interface SourceState {
   lastFixTs: number | null;
 }
 
-const DEFAULT_PRIORITY: PositionSourceName[] = ['gpsd', 'browser', 'simulator'];
+const DEFAULT_PRIORITY: PositionSourceName[] = ['gpsd', 'browser', 'ha_tracker', 'simulator'];
 const DEFAULT_ACTIVE_WINDOW_MS = 5000;
 const DEFAULT_CHECK_INTERVAL_MS = 250;
 const DEFAULT_RATE_HZ = 1;

@@ -40,7 +40,7 @@ export const positionSchema = {
     },
     source: {
       type: 'string',
-      enum: ['gpsd', 'browser', 'simulator'],
+      enum: ['gpsd', 'browser', 'simulator', 'ha_tracker'],
       description: 'Source of position data',
     },
     fix: {
