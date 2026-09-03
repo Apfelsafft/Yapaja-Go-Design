@@ -27,6 +27,8 @@ import { buildBaseLayers } from './baseLayers';
 import { LIGHT_PALETTE, DARK_PALETTE, CONTRAST_PALETTE, OUTDOOR_PALETTE } from './palette';
 import { REGION_SOURCE_ID } from './constants';
 import { POI_LAYER_ID_PREFIX } from './constants';
+import { OMITTED_LAYER_IDS, buildYapajaMinimalStyle } from './yapaja-minimal';
+import { buildYapajaContrastStyle } from './yapaja-contrast';
 
 /** Die `source-layer`-Namen, die das OpenMapTiles-Profil erzeugt. */
 const OMT_LAYERS: ReadonlySet<string> = new Set([
@@ -154,6 +156,38 @@ describe('buildBaseLayers — Ebenen gegen das echte Kachelschema', () => {
           'die POI-Dichte-Einstellung würde diese Ebene nicht erfassen.',
       ).toBe(true);
     }
+  });
+
+  /**
+   * ─── EINE ID, DIE NIEMANDEN MEHR TRIFFT ───────────────────────────────────
+   * Zwei Stile greifen Ebenen über ihre ID heraus: „Reduziert" lässt eine
+   * Liste weg, „Kontrast" hängt der POI-Ebene einen Filter an. Wird eine ID in
+   * `baseLayers.ts` umbenannt, trifft der Zugriff ins Leere — und zwar
+   * lautlos: „Reduziert" zeigt dann plötzlich Gebäude, „Kontrast" alle POIs.
+   * Kein Fehler, nur ein Stil, der nicht mehr das tut, was sein Name sagt.
+   */
+  it('lässt „Reduziert" nur Ebenen weg, die es wirklich gibt', () => {
+    const baseIds = new Set(buildBaseLayers(LIGHT_PALETTE).map((l) => l.id));
+    for (const omitted of OMITTED_LAYER_IDS) {
+      expect(
+        baseIds.has(omitted),
+        `"Reduziert" laesst "${omitted}" weg — diese Ebene gibt es aber nicht (mehr). ` +
+          'Die Auslassung ist damit wirkungslos, ohne dass es auffiele.',
+      ).toBe(true);
+    }
+    expect(buildYapajaMinimalStyle().layers.length).toBe(baseIds.size - OMITTED_LAYER_IDS.size);
+  });
+
+  it('hängt „Kontrast" den POI-Filter an eine Ebene, die es wirklich gibt', () => {
+    const filtered = buildYapajaContrastStyle().layers.filter(
+      (l) => l.type === 'symbol' && Array.isArray((l as { filter?: unknown[] }).filter),
+    );
+    const poiFiltered = filtered.filter((l) => l.id.startsWith(POI_LAYER_ID_PREFIX));
+    expect(
+      poiFiltered.length,
+      'im Kontraststil traegt keine POI-Ebene den reduzierten Filter — der Zugriff ' +
+        'ueber die Ebenen-ID geht ins Leere.',
+    ).toBeGreaterThan(0);
   });
 
   it('vergibt jede Ebenen-ID nur einmal', () => {

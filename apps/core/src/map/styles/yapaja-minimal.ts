@@ -28,7 +28,7 @@ export const YAPAJA_MINIMAL_STYLE_NAME = 'Yapaja Reduziert';
 /** Was in diesem Stil nicht gezeichnet wird. Als Liste von Ebenen-IDs, damit
  *  eine neue Ebene in `baseLayers.ts` hier sichtbar auftaucht, statt
  *  stillschweigend mitzukommen. */
-const OMITTED_LAYER_IDS: ReadonlySet<string> = new Set([
+export const OMITTED_LAYER_IDS: ReadonlySet<string> = new Set([
   'landcover-farmland',
   'landcover-sand',
   'landcover-rock',
