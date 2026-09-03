@@ -257,7 +257,56 @@ test('re-center: bringt die Karte nach einem Schwenk zurück zur Position', asyn
     )
     .toEqual({ lat: expect.closeTo(HOME.lat, 2), lon: expect.closeTo(HOME.lon, 2) });
 
+  // ... UND herangeholt. Nur zu zentrieren war zu wenig: wer ueber die Karte
+  // gewandert ist, hat meist auch herausgezoomt und stand danach zwar richtig,
+  // aber in einer Uebersicht ohne erkennbare Strassen.
+  await expect
+    .poll(() => page.evaluate(() => window.__yapajaMapController?.getMap()?.getZoom() ?? null), {
+      timeout: 5_000,
+    })
+    .toBeGreaterThanOrEqual(15);
+
   expect(tracker.getForeignUrls()).toEqual([]);
+});
+
+/**
+ * Der Knopf holt HERAN, aber er zoomt nie WEG. Wer bereits naeher dran ist,
+ * wuerde sonst beim Zurueckkehren hinausgezoomt -- eine Bewegung, die niemand
+ * angefordert hat und die im Fahrzeug besonders stoert.
+ */
+test('re-center: zoomt nicht heraus, wenn man bereits naeher dran ist', async ({ page }) => {
+  await page.goto(CORE_BASE_URL + '/');
+  await waitForMapReady(page);
+
+  const HOME = { lat: 47.141, lon: 9.521 };
+  await page.evaluate((home) => {
+    window.__yapajaPositionStore?.getState().setRealPosition({
+      lat: home.lat,
+      lon: home.lon,
+      alt: null,
+      speed: null,
+      heading: null,
+      accuracy: 10,
+      source: 'gpsd',
+      fix: '2d',
+      ts: new Date().toISOString(),
+    });
+  }, HOME);
+
+  const reCenterBtn = page.locator('[data-testid="recenter-button"]');
+  await expect(reCenterBtn).toBeVisible({ timeout: 5_000 });
+
+  // Deutlich naeher als die Mindeststufe, und woanders.
+  await page.evaluate(() => {
+    window.__yapajaMapController?.getMap()?.jumpTo({ center: [8.25, 49.22], zoom: 18 });
+  });
+
+  await reCenterBtn.click();
+  await expect
+    .poll(() => page.evaluate(() => window.__yapajaMapController?.getMap()?.getZoom() ?? null), {
+      timeout: 5_000,
+    })
+    .toBeGreaterThanOrEqual(18);
 });
 
 /** Der Schwenk-pausiert-Follow-Me-Teil bleibt geprueft -- nur eben am

@@ -20,6 +20,7 @@ import { createInterface } from 'readline';
 import { fileURLToPath } from 'url';
 import { normalizeGeoJsonSeqLine, type NormalizedRecord } from './extract.js';
 import { buildLiteIndexFile } from './buildIndex.js';
+import { appendAll } from '@yapaja/shared';
 
 interface CliArgs {
   places?: string;
@@ -68,13 +69,16 @@ export async function runCli(argv: string[]): Promise<void> {
   if (args.places) {
     const { records, skipped, total } = await readNormalizedFile(args.places, 'place');
     console.warn(`Orte: ${records.length}/${total} uebernommen (${skipped} uebersprungen) aus ${args.places}`);
-    allRecords.push(...records);
+    // NICHT `push(...records)` -- siehe appendAll: der Spread macht aus jedem
+    // Datensatz ein Argument, und Rheinland-Pfalz hat mehr davon, als V8
+    // zulaesst („Maximum call stack size exceeded"). Liechtenstein lief durch.
+    appendAll(allRecords, records);
   }
 
   if (args.streets) {
     const { records, skipped, total } = await readNormalizedFile(args.streets, 'street');
     console.warn(`Strassen: ${records.length}/${total} uebernommen (${skipped} uebersprungen) aus ${args.streets}`);
-    allRecords.push(...records);
+    appendAll(allRecords, records);
   }
 
   if (allRecords.length === 0) {

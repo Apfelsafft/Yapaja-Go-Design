@@ -99,6 +99,7 @@ export {
 
 // Utilities
 export { formatDistance } from './utils';
+export { appendAll } from './appendAll';
 export { formatEta, type FormatEtaOptions } from './formatEta';
 
 // Sun position (E07-T3): offline sunrise/sunset, NOAA-derived, pure.

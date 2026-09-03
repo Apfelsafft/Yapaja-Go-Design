@@ -10,6 +10,34 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.3.5
+
+**Der Suchindex lässt sich jetzt auch für große Regionen bauen.** Für
+Liechtenstein lief er, für Rheinland-Pfalz brach er ab:
+
+> Fehler: Der Bau des Suchindex ist mit Code 1 fehlgeschlagen. Zuletzt:
+> „build-lite-index CLI fehlgeschlagen: Maximum call stack size exceeded".
+
+Die Ursache war eine Zeile, die zwei Listen zusammenhängte und dabei aus jedem
+Datensatz ein Funktionsargument machte. Bei Liechtenstein sind das 3 189 —
+kein Problem. Rheinland-Pfalz hat ein Vielfaches davon, und oberhalb einer
+Grenze bricht das ab. Der Fehler hing also an der **Datenmenge**, weshalb er
+in jedem Test mit einer kleinen Beispielregion unsichtbar war.
+
+Nachgestellt und behoben: mit einem Datensatz in der Größenordnung von
+Rheinland-Pfalz läuft der Bau jetzt durch (500 000 Einträge in vier Sekunden).
+Dieselbe Zeile stand auch im Routing, wo sie eine sehr lange Route hätte
+treffen können — dort ebenfalls behoben, bevor es jemandem passiert.
+
+Dein bisheriger Stand blieb bei dem Fehlschlag übrigens unberührt: der Index
+wird erst nach vollständigem Bau eingewechselt.
+
+**Der Knopf „zurück zur Position" holt jetzt auch heran.** Nur zu zentrieren
+war zu wenig — wer über die Karte gewandert ist, hat meist auch herausgezoomt
+und stand danach zwar richtig, aber in einer Übersicht ohne erkennbare
+Straßen. Er zoomt dabei nie **weg**: wer bereits näher dran ist, behält seine
+Ansicht.
+
 ## 0.3.4
 
 **Die Adresssuche lässt sich jetzt auf dem Gerät einrichten.** Bis hierher
