@@ -82,7 +82,7 @@ function FavoritesQuickSelect({ thresholdKmh }: { thresholdKmh: number }): React
   );
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-20 w-[min(92vw,26rem)] pointer-events-none">
+    <div className="relative flex-1 min-w-0 max-w-[26rem] pointer-events-none">
       <div className="pointer-events-auto">
         <div
           className="flex items-center gap-2 overflow-x-auto rounded-full bg-white/95 dark:bg-slate-800/95 shadow-md px-3 py-2"
@@ -256,7 +256,7 @@ export default function SearchBar(): React.ReactElement {
   }
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-20 w-[min(92vw,26rem)] pointer-events-none">
+    <div className="relative flex-1 min-w-0 max-w-[26rem] pointer-events-none">
       <div className="pointer-events-auto relative">
         <div className="relative">
           <input

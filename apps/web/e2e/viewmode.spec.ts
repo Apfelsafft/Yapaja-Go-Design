@@ -187,19 +187,87 @@ test('2d-north: bearing stays locked at 0 despite rotation', async ({ page }) =>
   expect(tracker.getForeignUrls()).toEqual([]);
 });
 
-test('follow-me: manual pan pauses follow, re-center resumes', async ({ page }) => {
+/**
+ * ─── GEÄNDERTE ERWARTUNG (0.3.3) ───────────────────────────────────────────
+ * Diese Prüfung verlangte vorher, dass der Re-Center-Knopf VERSTECKT ist,
+ * solange Follow-Me nicht pausiert — und nach dem Klick wieder verschwindet.
+ * Das war die damalige Produktentscheidung, und sie hatte eine Lücke, die
+ * erst im Betrieb aufgefallen ist: eine Suche bewegt die Karte
+ * programmatisch (`flyTo`), was Follow-Me absichtlich NICHT pausiert. Der
+ * Knopf blieb also genau dann aus, wenn man ihn braucht.
+ *
+ * Neue Regel: der Knopf ist da, solange es eine Position gibt. Statt „Knopf
+ * erscheint / verschwindet" prüft dieser Test jetzt, was der Knopf TUT —
+ * die Kamera kehrt zur Position zurück. Das ist die Zusage, auf die es
+ * ankommt; die Sichtbarkeit war nur ihr Stellvertreter.
+ */
+test('re-center: bringt die Karte nach einem Schwenk zurück zur Position', async ({ page }) => {
   const tracker = await trackRequests(page, CORE_BASE_URL);
 
   await page.goto(CORE_BASE_URL + '/');
   await waitForMapReady(page);
 
   const reCenterBtn = page.locator('[data-testid="recenter-button"]');
-  const mapCanvas = page.locator('canvas.maplibregl-canvas');
 
-  // Not paused initially -> re-center hidden.
+  // Ohne Position gibt es nichts, wohin man zurueckkehren koennte -- der
+  // Knopf wird dann bewusst gar nicht erst angeboten.
   await expect(reCenterBtn).toBeHidden();
 
-  // Simulate a real user pan (mouse drag) -> fires dragstart with originalEvent.
+  // Eine Position setzen (dieser Core hat keine eigene Quelle).
+  const HOME = { lat: 47.141, lon: 9.521 };
+  await page.evaluate((home) => {
+    window.__yapajaPositionStore?.getState().setRealPosition({
+      lat: home.lat,
+      lon: home.lon,
+      alt: null,
+      speed: null,
+      heading: null,
+      accuracy: 10,
+      source: 'gpsd',
+      fix: '2d',
+      ts: new Date().toISOString(),
+    });
+  }, HOME);
+
+  // Jetzt ist der Knopf da -- und zwar OHNE dass jemand geschwenkt haette.
+  // Genau das war die Luecke: nach einer Suche pausiert Follow-Me nicht.
+  await expect(reCenterBtn).toBeVisible({ timeout: 5_000 });
+
+  // Kamera wegbewegen, wie es eine Suche tut (programmatisch, kein Schwenk).
+  await page.evaluate(() => {
+    window.__yapajaMapController?.getMap()?.jumpTo({ center: [8.25, 49.22], zoom: 12 });
+  });
+  const movedAway = await page.evaluate(() => {
+    const c = window.__yapajaMapController?.getMap()?.getCenter();
+    return c ? { lat: c.lat, lon: c.lng } : null;
+  });
+  expect(movedAway).not.toBeNull();
+  expect(Math.abs((movedAway as { lat: number }).lat - HOME.lat)).toBeGreaterThan(1);
+
+  // Klick -> zurueck zur Position.
+  await reCenterBtn.click();
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          const c = window.__yapajaMapController?.getMap()?.getCenter();
+          return c ? { lat: c.lat, lon: c.lng } : null;
+        }),
+      { timeout: 5_000 },
+    )
+    .toEqual({ lat: expect.closeTo(HOME.lat, 2), lon: expect.closeTo(HOME.lon, 2) });
+
+  expect(tracker.getForeignUrls()).toEqual([]);
+});
+
+/** Der Schwenk-pausiert-Follow-Me-Teil bleibt geprueft -- nur eben am
+ *  Zustand, statt an der Sichtbarkeit eines Knopfes, die inzwischen etwas
+ *  anderes bedeutet. */
+test('follow-me: manueller Schwenk pausiert das Mitziehen', async ({ page }) => {
+  await page.goto(CORE_BASE_URL + '/');
+  await waitForMapReady(page);
+
+  const mapCanvas = page.locator('canvas.maplibregl-canvas');
   const box = await mapCanvas.boundingBox();
   expect(box).not.toBeNull();
   if (box) {
@@ -211,14 +279,11 @@ test('follow-me: manual pan pauses follow, re-center resumes', async ({ page }) 
     await page.mouse.up();
   }
 
-  // Follow pauses -> re-center button appears.
-  await expect(reCenterBtn).toBeVisible({ timeout: 5_000 });
-
-  // Click re-center -> resumes -> button disappears.
-  await reCenterBtn.click();
-  await expect(reCenterBtn).toBeHidden({ timeout: 5_000 });
-
-  expect(tracker.getForeignUrls()).toEqual([]);
+  await expect
+    .poll(() => page.evaluate(() => window.__yapajaFollowMeStore?.getState().isPaused ?? null), {
+      timeout: 5_000,
+    })
+    .toBe(true);
 });
 
 test('fully offline, no foreign requests', async ({ page }) => {
