@@ -99,6 +99,26 @@ export default defineConfig({
             urlPattern: new RegExp(NEVER_CACHE_PATH_SEGMENTS.join('|')),
             handler: 'NetworkOnly',
           },
+          // Kartenschrift (`/fonts/<schnitt>/<bereich>.pbf`, siehe
+          // `apps/web/public/fonts/README.md`). NICHT im Precache: das waeren
+          // 1,4 MB, die beim Installieren des Service Workers auf einmal
+          // geladen wuerden, obwohl ein Fahrzeug in Mitteleuropa den
+          // kyrillischen Bereich nie anfragt. CacheFirst legt genau die
+          // Bereiche ab, die wirklich gebraucht werden -- danach kostet die
+          // Beschriftung keine Anfrage mehr.
+          //
+          // Unbedenklich zwischenzuspeichern: der Inhalt einer Datei aendert
+          // sich nicht, ohne dass sich der Schnitt aendert -- anders als bei
+          // `/api/` und `/tiles/`, wo eine alte Kopie falsche Daten waere.
+          {
+            urlPattern: /\/fonts\/.*\.pbf$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'yapaja-map-glyphs',
+              expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
     }),

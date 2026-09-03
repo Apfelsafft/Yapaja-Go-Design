@@ -19,7 +19,20 @@ import {
 const STYLE_ID_KEY = 'yapaja.styleId';
 const STYLE_OPTIONS_KEY = 'yapaja.styleOptions';
 
-const VALID_LANG: readonly StyleLang[] = ['name', 'name:de', 'name:en'];
+const VALID_LANG: readonly StyleLang[] = ['name', 'name_de', 'name_en'];
+
+/**
+ * Wer vor 0.3.7 „Deutsch" oder „English" gewaehlt hat, hat `name:de` bzw.
+ * `name:en` im Browser gespeichert — Felder, die es in den Kacheln nicht gibt
+ * (siehe `apps/core/src/map/styles/options.ts`). Die Wahl bleibt erhalten und
+ * zeigt jetzt auf das Feld, das wirklich existiert; ohne diese Umschreibung
+ * faende die Pruefung unten einen unbekannten Wert und saesse still auf
+ * „Original" zurueck — die Einstellung waere ohne Vorwarnung weg.
+ */
+const LANG_ALIASES: Readonly<Record<string, StyleLang>> = {
+  'name:de': 'name_de',
+  'name:en': 'name_en',
+};
 const VALID_LABEL_SCALE: readonly StyleLabelScale[] = ['1.0', '1.2'];
 const VALID_POI: readonly StylePoiDensity[] = ['full', 'reduced', 'off'];
 
@@ -34,6 +47,30 @@ function readInitialStyleId(): string {
   }
 }
 
+/**
+ * Macht aus dem, was im Browser steht, eine gueltige Optionsmenge.
+ *
+ * Eigene, exportierte Funktion, damit sie geprueft werden kann: die
+ * Umschreibung alter Sprachwerte greift nur beim ERSTEN Laden mit einem
+ * bereits gefuellten localStorage — genau der Fall, den ein Test sonst nicht
+ * erreicht, weil diese Datei ihren Anfangszustand beim Import festlegt.
+ */
+export function normalizeStoredOptions(parsed: Partial<StyleOptions>): StyleOptions {
+  const storedLang = parsed.lang ?? '';
+  const lang = LANG_ALIASES[storedLang] ?? storedLang;
+  return {
+    lang: (VALID_LANG as readonly string[]).includes(lang)
+      ? (lang as StyleLang)
+      : DEFAULT_STYLE_OPTIONS.lang,
+    labelScale: (VALID_LABEL_SCALE as readonly string[]).includes(parsed.labelScale ?? '')
+      ? (parsed.labelScale as StyleLabelScale)
+      : DEFAULT_STYLE_OPTIONS.labelScale,
+    poi: (VALID_POI as readonly string[]).includes(parsed.poi ?? '')
+      ? (parsed.poi as StylePoiDensity)
+      : DEFAULT_STYLE_OPTIONS.poi,
+  };
+}
+
 function readInitialOptions(): StyleOptions {
   if (typeof window === 'undefined') {
     return DEFAULT_STYLE_OPTIONS;
@@ -43,18 +80,7 @@ function readInitialOptions(): StyleOptions {
     if (!raw) {
       return DEFAULT_STYLE_OPTIONS;
     }
-    const parsed = JSON.parse(raw) as Partial<StyleOptions>;
-    return {
-      lang: (VALID_LANG as readonly string[]).includes(parsed.lang ?? '')
-        ? (parsed.lang as StyleLang)
-        : DEFAULT_STYLE_OPTIONS.lang,
-      labelScale: (VALID_LABEL_SCALE as readonly string[]).includes(parsed.labelScale ?? '')
-        ? (parsed.labelScale as StyleLabelScale)
-        : DEFAULT_STYLE_OPTIONS.labelScale,
-      poi: (VALID_POI as readonly string[]).includes(parsed.poi ?? '')
-        ? (parsed.poi as StylePoiDensity)
-        : DEFAULT_STYLE_OPTIONS.poi,
-    };
+    return normalizeStoredOptions(JSON.parse(raw) as Partial<StyleOptions>);
   } catch {
     return DEFAULT_STYLE_OPTIONS;
   }

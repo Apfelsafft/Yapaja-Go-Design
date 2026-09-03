@@ -301,12 +301,12 @@ test.describe('style options', () => {
     await expect.poll(() => currentPlaceLabelSize()).toBeCloseTo(baseSize as number, 1);
   });
 
-  test('lang=name:de rewrites the label text-field expression on the live style', async ({ page }) => {
+  test('lang=name_de rewrites the label text-field expression on the live style', async ({ page }) => {
     await page.goto(CORE_BASE_URL + '/');
     await waitForMapReady(page);
     await openStylePanel(page);
 
-    await page.locator('[data-testid="lang-option-name:de"]').click();
+    await page.locator('[data-testid="lang-option-name_de"]').click();
 
     await expect
       .poll(() =>
@@ -319,7 +319,7 @@ test.describe('style options', () => {
           return JSON.stringify(layout?.['text-field']);
         }),
       )
-      .toBe(JSON.stringify(['get', 'name:de']));
+      .toBe(JSON.stringify(['get', 'name_de']));
   });
 
   test('style id + options persist across reload', async ({ page }) => {
@@ -330,7 +330,7 @@ test.describe('style options', () => {
     await selectStyle(page, 'yapaja-dark');
     await page.locator('[data-testid="poi-option-off"]').click();
     await page.locator('[data-testid="labelscale-option-1.2"]').click();
-    await page.locator('[data-testid="lang-option-name:en"]').click();
+    await page.locator('[data-testid="lang-option-name_en"]').click();
 
     // 10s (not 5s): the dark-style render can lag under CI CPU contention --
     // this poll was the source of a recurring styles.spec flake. Matches the
@@ -350,7 +350,7 @@ test.describe('style options', () => {
       labelScale: string;
       poi: string;
     };
-    expect(parsedOptions).toEqual({ lang: 'name:en', labelScale: '1.2', poi: 'off' });
+    expect(parsedOptions).toEqual({ lang: 'name_en', labelScale: '1.2', poi: 'off' });
 
     await page.reload();
     await waitForMapReady(page);
@@ -362,7 +362,7 @@ test.describe('style options', () => {
       .toBeLessThan(0.3);
 
     // The re-fetched/re-applied live style still carries the persisted
-    // options (poi off, labelScale 1.2, lang name:en).
+    // options (poi off, labelScale 1.2, lang name_en).
     // 10s (not the default 5s): after a reload the style is re-fetched and
     // re-applied asynchronously, so the poi-labels visibility can still read
     // 'visible' for a moment under CI CPU contention before the persisted
@@ -400,7 +400,7 @@ test.describe('offline / same-origin', () => {
       .toBeLessThan(0.3);
     await selectStyle(page, 'yapaja-contrast');
     await page.locator('[data-testid="poi-option-reduced"]').click();
-    await page.locator('[data-testid="lang-option-name:de"]').click();
+    await page.locator('[data-testid="lang-option-name_de"]').click();
     await selectStyle(page, 'yapaja-light');
     await expect
       .poll(async () => relativeLuminance(await readCenterPixel(page)), { timeout: 5_000 })

@@ -10,6 +10,76 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.3.7
+
+**Die Karte sieht jetzt wie eine Karte aus — und es gibt fünf Stile zur
+Auswahl.**
+
+> „Die Karten sehen irgendwie langweilig aus. Die von Maps oder Karten sind
+> viel ansprechender."
+
+Das lag nicht am Geschmack, sondern an zwei Lücken. Beide waren still: nichts
+war kaputt, es fehlte einfach.
+
+**Erstens wurde fast nichts gezeichnet.** Die Kacheln enthalten sechzehn
+Ebenen — Wasser, Wald, Wiesen, Äcker, Parks, Gebäude, Bahnlinien, Grenzen,
+die ganze Straßenhierarchie. Gezeichnet wurden **drei**: eine graue Linie für
+jede Straße, Ortsnamen, POI-Namen. Der Rest der Daten lag ungenutzt im
+Archiv. Jetzt sind sie da: Flüsse und Seen, Wald und Grünflächen, Gebäude,
+Autobahn bis Feldweg in eigenen Farben und Breiten, Wege gestrichelt,
+Bahnstrecken, Landesgrenzen — und **Straßennamen**, die bisher ganz fehlten.
+
+**Zweitens stand auf der Karte kein einziges Wort.** Ohne eine Schriftquelle
+zeichnet die Kartenbibliothek keinen Buchstaben — die Ebenen für Ortsnamen
+gab es, sichtbar wurde davon nie etwas, und gemeldet wurde es nirgends. Die
+Schriftzeichen sind jetzt im Add-on enthalten (Noto Sans, dieselbe Schrift
+wie auf üblichen Karten), inklusive Umlaute, Akzente, Griechisch und
+Kyrillisch. Nichts davon wird nachgeladen: es funktioniert ohne Netz.
+
+**Die fünf Stile** stehen unter ⚙️ → „Kartenstil":
+
+| | |
+|---|---|
+| **Yapaja Hell** | heller Tagesstil |
+| **Yapaja Dunkel** | für die Nacht, eigene Farben statt einfach invertiert |
+| **Yapaja Natur** | Landschaft und Wege treten hervor — für die Suche nach Stell- und Campingplätzen |
+| **Yapaja Kontrast** | kräftige Straßen, ruhige Flächen, große Beschriftung |
+| **Yapaja Reduziert** | nur das Nötige, für lange Fahrten ohne Ablenkung |
+
+**Behoben: „Deutsch" bei der Beschriftung löschte die ganze Beschriftung.**
+Unter ⚙️ → „Sprache der Labels" führte die Wahl „Deutsch" oder „English" dazu,
+dass **gar kein** Name mehr erschien — die Einstellung fragte ein Feld ab, das
+es in den Kacheln nicht gibt. Wer sie eingestellt hatte, behält seine Wahl;
+sie wirkt jetzt richtig. Deutsche Namen fallen dabei auf den Originalnamen
+zurück, statt zu verschwinden.
+
+Ein Neubau von Karten oder Suchindex ist **nicht** nötig — die Änderungen
+betreffen nur die Darstellung.
+
+## 0.3.6
+
+**Die Suche findet jetzt auch Sonderziele — über den Namen und über die Art.**
+Bisher kannte der Index nur Orte und Straßen. Wer „Supermarkt" tippte, fand
+nichts, denn der Laden heißt in den Kartendaten „REWE"; wer „Arzt" tippte,
+fand nichts, denn die Praxis heißt „Dr. Müller".
+
+Ab jetzt führen **beide** Wege zum Ziel: der Name **und** das deutsche Wort
+für die Art. Aufgenommen ist, was auf einer Wohnmobilfahrt zählt —
+Campingplatz, Wohnmobilstellplatz, Entsorgungsstation, Trinkwasser, Toilette,
+Tankstelle, Ladesäule, Supermarkt, Bäckerei, Apotheke, Arzt, Krankenhaus,
+Tierarzt, Restaurant, Bank, Baumarkt, Gasflaschen und einiges mehr. Auch
+umgangssprachlich: „Klo" findet die Toilette, „Sprit" die Tankstelle.
+
+Ein Campingplatz **ohne Namen** in den Daten wird trotzdem gefunden — er
+heißt dann schlicht „Campingplatz". Und in der Ergebnisliste steht jetzt ein
+passendes Symbol davor: 🏕️ 🚐 ⛽ 🛒 💊 🩺 statt eines allgemeinen Stiftes.
+
+Dafür muss der Suchindex **einmal neu gebaut** werden: „Kartenregionen
+verwalten" (🗺️) → „Suche bauen". Ohne Neubau bleibt es beim bisherigen Stand
+aus Orten und Straßen.
+
+Was der Index weiterhin nicht kann: **Hausnummern**.
+
 ## 0.3.5
 
 **Der Suchindex lässt sich jetzt auch für große Regionen bauen.** Für

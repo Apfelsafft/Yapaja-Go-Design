@@ -60,7 +60,7 @@ describe('style spec validation', () => {
     });
 
     it(`${id}: validates for every lang/labelScale/poi option combination`, () => {
-      const langs = ['name', 'name:de', 'name:en'] as const;
+      const langs = ['name', 'name_de', 'name_en'] as const;
       const scales = ['1.0', '1.2'] as const;
       const densities = ['full', 'reduced', 'off'] as const;
       for (const lang of langs) {
@@ -99,13 +99,46 @@ describe('plausibility: dark vs light background luminance', () => {
 });
 
 describe('yapaja-contrast: reduced POI, thick roads, high contrast baseline', () => {
-  it('roads are thicker than in yapaja-light', () => {
-    const contrastRoad = buildYapajaContrastStyle().layers.find((l) => l.id === 'region-transportation');
-    const lightRoad = buildYapajaLightStyle().layers.find((l) => l.id === 'region-transportation');
-    expect(contrastRoad?.type).toBe('line');
-    expect(lightRoad?.type).toBe('line');
-    if (contrastRoad?.type === 'line' && lightRoad?.type === 'line') {
-      expect(contrastRoad.paint['line-width'] as number).toBeGreaterThan(lightRoad.paint['line-width'] as number);
+  /**
+   * Die ZUSAGE ist unveraendert -- im Kontraststil muessen Strassen kraeftiger
+   * gezeichnet sein. Nur ihre Pruefung folgt der neuen Struktur: seit 0.3.7
+   * gibt es nicht mehr eine Ebene `region-transportation` fuer jede Strasse,
+   * sondern eine Hierarchie (Autobahn ... Wohnstrasse), und die Breite ist ein
+   * Zoom-Ausdruck statt einer Zahl. Verglichen werden deshalb die
+   * Breiten-Stuetzstellen, und zwar fuer JEDE Strassenklasse.
+   */
+  it('roads are thicker than in yapaja-light, across every road class', () => {
+    const contrast = buildYapajaContrastStyle().layers;
+    const light = buildYapajaLightStyle().layers;
+
+    // `type === 'line'` schliesst `road-labels` aus (eine Symbolebene), und
+    // `road-path` ist bewusst NICHT skaliert: der Kontraststil soll befahrbare
+    // Strassen betonen, nicht Trampelpfade.
+    const roadIds = light
+      .filter((l) => l.type === 'line' && l.id.startsWith('road-') && l.id !== 'road-path')
+      .map((l) => l.id);
+    expect(roadIds.length, 'Vorbedingung: es gibt Strassenebenen zu vergleichen').toBeGreaterThan(4);
+
+    /** Die Zahlen aus einem `['interpolate', ..., zoom, breite, ...]`-Ausdruck. */
+    const widths = (layers: typeof light, id: string): number[] => {
+      const layer = layers.find((l) => l.id === id);
+      expect(layer?.type, `${id} fehlt oder ist keine Linie`).toBe('line');
+      const expr = (layer as { paint: Record<string, unknown> }).paint['line-width'];
+      expect(Array.isArray(expr), `${id}: line-width ist kein Ausdruck`).toBe(true);
+      return (expr as unknown[]).filter((v): v is number => typeof v === 'number');
+    };
+
+    for (const id of roadIds) {
+      const c = widths(contrast, id);
+      const l = widths(light, id);
+      expect(c.length).toBe(l.length);
+      // Jede Stuetzstelle: Zoomstufen gleich, Breiten groesser.
+      for (let i = 0; i < c.length; i += 2) {
+        expect(c[i], `${id}: Zoomstufe verschoben`).toBe(l[i]);
+        expect(c[i + 1], `${id}: bei Zoom ${c[i]} nicht dicker als im hellen Stil`).toBeGreaterThan(
+          l[i + 1],
+        );
+      }
     }
   });
 
@@ -117,9 +150,19 @@ describe('yapaja-contrast: reduced POI, thick roads, high contrast baseline', ()
 });
 
 describe('registry', () => {
-  it('lists exactly the three required styles', () => {
+  /** Seit 0.3.7 fuenf statt drei -- auf Wunsch des Betreibers („Koennen wir
+   *  eine Auswahl verschiedener Kartenstile anbieten?"). Die Liste steht hier
+   *  fest, damit ein Stil nicht versehentlich verschwindet: die Oberflaeche
+   *  zeigt genau das, was die Registry meldet. */
+  it('lists exactly the five shipped styles', () => {
     const summaries = listStyleSummaries();
-    expect(summaries.map((s) => s.id).sort()).toEqual(['yapaja-contrast', 'yapaja-dark', 'yapaja-light']);
+    expect(summaries.map((s) => s.id).sort()).toEqual([
+      'yapaja-contrast',
+      'yapaja-dark',
+      'yapaja-light',
+      'yapaja-minimal',
+      'yapaja-outdoor',
+    ]);
     for (const summary of summaries) {
       expect(summary.name).toBeTruthy();
     }
@@ -172,8 +215,8 @@ describe('rewriteSourceUrls', () => {
 
 describe('parseStyleOptions', () => {
   it('parses all three valid options', () => {
-    expect(parseStyleOptions({ lang: 'name:de', labelScale: '1.2', poi: 'reduced' })).toEqual({
-      lang: 'name:de',
+    expect(parseStyleOptions({ lang: 'name_de', labelScale: '1.2', poi: 'reduced' })).toEqual({
+      lang: 'name_de',
       labelScale: '1.2',
       poi: 'reduced',
     });
@@ -185,22 +228,22 @@ describe('parseStyleOptions', () => {
 
   it('omits keys entirely absent from the query', () => {
     expect(parseStyleOptions({})).toEqual({});
-    expect(parseStyleOptions({ lang: 'name:en' })).toEqual({ lang: 'name:en' });
+    expect(parseStyleOptions({ lang: 'name_en' })).toEqual({ lang: 'name_en' });
   });
 });
 
 describe('applyStyleOptions: lang', () => {
   it('rewrites text-field on every label layer to ["get", lang]', () => {
-    const style = applyStyleOptions(buildYapajaLightStyle(), { lang: 'name:de' });
+    const style = applyStyleOptions(buildYapajaLightStyle(), { lang: 'name_de' });
     const placeLabels = style.layers.find((l) => l.id === 'place-labels') as SymbolLayer;
     const poiLabels = style.layers.find((l) => l.id === 'poi-labels') as SymbolLayer;
-    expect(placeLabels.layout['text-field']).toEqual(['get', 'name:de']);
-    expect(poiLabels.layout['text-field']).toEqual(['get', 'name:de']);
+    expect(placeLabels.layout['text-field']).toEqual(['get', 'name_de']);
+    expect(poiLabels.layout['text-field']).toEqual(['get', 'name_de']);
   });
 
   it('does not touch non-symbol layers', () => {
     const before = buildYapajaLightStyle();
-    const after = applyStyleOptions(before, { lang: 'name:en' });
+    const after = applyStyleOptions(before, { lang: 'name_en' });
     const beforeRoad = before.layers.find((l) => l.id === 'region-transportation');
     const afterRoad = after.layers.find((l) => l.id === 'region-transportation');
     expect(afterRoad).toEqual(beforeRoad);

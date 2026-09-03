@@ -70,12 +70,12 @@ describe('fetchStyle', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(styleDoc));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const result = await fetchStyle('yapaja-dark', { lang: 'name:de', labelScale: '1.2', poi: 'reduced' });
+    const result = await fetchStyle('yapaja-dark', { lang: 'name_de', labelScale: '1.2', poi: 'reduced' });
 
     expect(result).toEqual(styleDoc);
     const requestedUrl = fetchMock.mock.calls[0][0] as string;
     expect(requestedUrl).toContain('api/v1/map/styles/yapaja-dark');
-    expect(requestedUrl).toContain('lang=name%3Ade');
+    expect(requestedUrl).toContain('lang=name_de');
     expect(requestedUrl).toContain('labelScale=1.2');
     expect(requestedUrl).toContain('poi=reduced');
     expect(requestedUrl).not.toMatch(/^https?:\/\//);
@@ -118,7 +118,7 @@ describe('buildFallbackStyle', () => {
 });
 
 describe('applyDegradationCaps', () => {
-  const user: StyleOptions = { lang: 'name:en', labelScale: '1.2', poi: 'full' };
+  const user: StyleOptions = { lang: 'name_en', labelScale: '1.2', poi: 'full' };
 
   it('is a no-op when there are no caps (user choice passes through)', () => {
     expect(applyDegradationCaps(user, NO_STYLE_QUALITY_CAPS)).toEqual(user);
@@ -141,6 +141,6 @@ describe('applyDegradationCaps', () => {
     expect(applyDegradationCaps(user, { poi: null, labelScale: '1.0' }).labelScale).toBe('1.0');
     const smallUser: StyleOptions = { ...user, labelScale: '1.0' };
     expect(applyDegradationCaps(smallUser, { poi: null, labelScale: '1.0' }).labelScale).toBe('1.0');
-    expect(applyDegradationCaps(user, { poi: 'off', labelScale: '1.0' }).lang).toBe('name:en');
+    expect(applyDegradationCaps(user, { poi: 'off', labelScale: '1.0' }).lang).toBe('name_en');
   });
 });

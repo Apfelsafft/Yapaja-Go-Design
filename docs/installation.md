@@ -316,7 +316,7 @@ austauschbar in der Reihenfolge, brauchen aber alle dieselbe Eingabedatei:
 |---|---|---|
 | Kartenkacheln (`.pmtiles`) | `services/tiles/build-pmtiles.sh` | die Karte, die man sieht |
 | Routing-Graph | `services/valhalla/build-tiles.sh` | Routen berechnen |
-| Lite-Suchindex | `services/valhalla/build-lite-index.sh` | Ortssuche ohne Photon (W-12) |
+| Lite-Suchindex | `services/valhalla/build-lite-index.sh` | Orts-, Straßen- und Sonderzielsuche ohne Photon (W-12) |
 
 ### C.2 Was fehlt mir gerade? — die Prüfung in der App
 
@@ -393,7 +393,7 @@ verwalten" (🗺️ rechts oben) öffnen, dann bei der Region
 | Knopf | Erzeugnis | Ohne das … |
 |---|---|---|
 | **Routing bauen** | Valhalla-Graph | keine Routenberechnung |
-| **Suche bauen** | Lite-Suchindex | Adresssuche bleibt leer |
+| **Suche bauen** | Lite-Suchindex | Suche bleibt leer (Orte, Straßen, Sonderziele) |
 
 Es läuft immer nur **ein** schwerer Bau gleichzeitig — zwei davon nebeneinander
 sprengen den Speicher einer 8-GB-VM, auf der auch Home Assistant läuft.

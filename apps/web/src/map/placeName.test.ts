@@ -54,14 +54,14 @@ describe('featureName', () => {
 
   it('bevorzugt die gewünschte Sprache, wenn sie vorhanden ist', () => {
     const feature = {
-      properties: { name: 'Vaduz', 'name:de': 'Vaduz (DE)' },
+      properties: { name: 'Vaduz', 'name_de': 'Vaduz (DE)' },
       geometry: { type: 'Point', coordinates: [0, 0] },
     };
-    expect(featureName(feature as never, 'name:de')).toBe('Vaduz (DE)');
+    expect(featureName(feature as never, 'name_de')).toBe('Vaduz (DE)');
   });
 
   it('fällt auf `name` zurück, wenn die Sprachvariante fehlt', () => {
-    expect(featureName(place('Vaduz', 0, 0) as never, 'name:de')).toBe('Vaduz');
+    expect(featureName(place('Vaduz', 0, 0) as never, 'name_de')).toBe('Vaduz');
   });
 
   it('liefert null bei fehlendem oder leerem Namen', () => {
