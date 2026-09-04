@@ -15,19 +15,21 @@
  * No network involved at all -- this is local SQLite I/O only, consistent
  * with the app's fully-offline design.
  */
-import { existsSync, statSync } from 'fs';
+import { statSync } from 'fs';
 import type { SearchResult } from '@yapaja/shared';
 import { GeocoderBackendError } from '../errors.js';
 import type { GeocoderBackend, ReverseQuery, SearchLogger, SearchQuery } from '../types.js';
 import { LiteIndexReader } from './reader.js';
+import { listLiteSearchDbFiles } from './paths.js';
 import { rankLiteCandidates, type LiteCandidate } from './ranking.js';
 
 const noopLogger: SearchLogger = { info: () => {}, warn: () => {}, error: () => {} };
 
 export interface LiteBackendOptions {
-  dbPath: string;
+  /** Verzeichnis mit den Suchindizes -- seit 0.5.0 einer JE REGION. */
+  dbDir: string;
   logger?: SearchLogger;
-  /** Test seam: a pre-built reader wins over constructing one from `dbPath`. */
+  /** Test-Naht: ein fertiger Leser gewinnt gegen alles auf der Platte. */
   reader?: LiteIndexReader;
 }
 
@@ -62,37 +64,70 @@ function candidateToResult(candidate: LiteCandidate): SearchResult {
   };
 }
 
+/**
+ * Schluessel, unter dem zwei Treffer als DERSELBE gelten.
+ *
+ * ─── WARUM ENTDOPPELT WERDEN MUSS ─────────────────────────────────────────
+ * Landesextrakte ueberlappen an den Grenzen: Basel steckt im Schweizer UND im
+ * deutschen Extrakt, Strassburg im franzoesischen und im deutschen. Ohne
+ * Entdopplung stuende jede Grenzstadt zweimal in der Vorschlagsliste --
+ * derselbe Ort, dieselben Koordinaten, zwei Zeilen.
+ *
+ * Fuenf Nachkommastellen sind rund ein Meter. Es ist DASSELBE OSM-Objekt in
+ * beiden Extrakten, die Koordinaten sind also identisch; gerundet wird nur,
+ * damit eine Gleitkomma-Abweichung nicht zwei Zeilen erzeugt.
+ */
+function dedupeKey(candidate: LiteCandidate): string {
+  return `${candidate.name}|${candidate.kind}|${candidate.lat.toFixed(5)}|${candidate.lon.toFixed(5)}`;
+}
+
+function dedupe(candidates: readonly LiteCandidate[]): LiteCandidate[] {
+  const seen = new Set<string>();
+  const out: LiteCandidate[] = [];
+  for (const candidate of candidates) {
+    const key = dedupeKey(candidate);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(candidate);
+  }
+  return out;
+}
+
 export class LiteBackend implements GeocoderBackend {
   readonly source = 'lite' as const;
-  private readonly dbPath: string;
+  private readonly dbDir: string;
   private readonly logger: SearchLogger;
-  private reader?: LiteIndexReader;
-  /** Gesetzt, wenn der Leser von aussen hereingereicht wurde (Test-Naht).
-   *  Ein solcher Leser gehoert nicht uns und wird nie ausgetauscht. */
-  private readonly injectedReader: boolean;
-  /** Welche Datei der offene Leser tatsaechlich liest -- siehe `getReader()`. */
-  private openedFile: string | null = null;
+  /** Ein Leser JE INDEXDATEI, mit der Kennung der Datei, die er offen hat. */
+  private readonly readers = new Map<string, { reader: LiteIndexReader; identity: string }>();
+  /** Test-Naht: ein hereingereichter Leser gewinnt und wird nie ausgetauscht. */
+  private readonly injected?: LiteIndexReader;
 
   constructor(opts: LiteBackendOptions) {
-    this.dbPath = opts.dbPath;
+    this.dbDir = opts.dbDir;
     this.logger = opts.logger ?? noopLogger;
-    this.reader = opts.reader;
-    this.injectedReader = opts.reader !== undefined;
+    this.injected = opts.reader;
   }
 
   async search(query: SearchQuery): Promise<SearchResult[]> {
-    const reader = this.getReader();
-    const candidates = this.withErrorMapping('search', () => reader.searchByPrefix(query.q, query.limit));
+    const readers = this.getReaders();
+    // JEDER Index wird gefragt, nicht nur der der aktuellen Region. Wer an
+    // der Grenze steht, sucht regelmaessig etwas auf der anderen Seite -- und
+    // welche Region gerade „die richtige" ist, waere ohnehin eine Annahme.
+    const candidates = this.withErrorMapping('search', () =>
+      readers.flatMap((reader) => reader.searchByPrefix(query.q, query.limit)),
+    );
     const origin = query.lat !== undefined && query.lon !== undefined ? { lat: query.lat, lon: query.lon } : undefined;
-    return rankLiteCandidates(candidates, query.q, origin)
+    return rankLiteCandidates(dedupe(candidates), query.q, origin)
       .slice(0, query.limit)
       .map(candidateToResult);
   }
 
   async reverse(query: ReverseQuery): Promise<SearchResult[]> {
-    const reader = this.getReader();
-    const candidates = this.withErrorMapping('reverse', () =>
-      reader.nearest(query.lat, query.lon, query.limit),
+    const readers = this.getReaders();
+    const candidates = dedupe(
+      this.withErrorMapping('reverse', () =>
+        readers.flatMap((reader) => reader.nearest(query.lat, query.lon, query.limit)),
+      ),
     );
     // No text query for a reverse lookup -- rank purely by distance
     // (reader.nearest already sorted by distance; rankLiteCandidates with an
@@ -142,45 +177,83 @@ export class LiteBackend implements GeocoderBackend {
    * einer von mehreren. Wer die Datei austauscht, geht diesen Prozess nichts
    * an -- die Datei selbst ist die einzige verlaessliche Auskunft.
    */
-  private getReader(): LiteIndexReader {
-    if (this.injectedReader && this.reader) return this.reader;
+  /**
+   * Ein Leser je vorhandener Indexdatei -- frisch, wenn sie neu gebaut wurde.
+   *
+   * Die Dateiliste wird bei JEDER Abfrage neu gelesen. Das kostet ein
+   * `readdir` und ein `stat` je Datei (bei einer Handvoll Regionen nichts)
+   * und ist die einzige verlaessliche Auskunft: gebaut wird in einem EIGENEN
+   * Prozess, und eine neu hinzugekommene Region soll sofort durchsuchbar
+   * sein, ohne Neustart -- so, wie die Oberflaeche es zusagt.
+   */
+  private getReaders(): LiteIndexReader[] {
+    if (this.injected) return [this.injected];
 
-    if (!existsSync(this.dbPath)) {
-      this.closeReader();
-      this.logger.warn('Lite-Suchindex nicht gefunden -- build-lite-index.sh wurde noch nicht ausgefuehrt', {
-        dbPath: this.dbPath,
+    const files = listLiteSearchDbFiles(this.dbDir);
+    if (files.length === 0) {
+      this.closeAll();
+      this.logger.warn('Kein Suchindex gefunden -- „Suche bauen" wurde noch nicht ausgefuehrt', {
+        dbDir: this.dbDir,
       });
       throw new GeocoderBackendError(
         'lite',
         'UNAVAILABLE',
-        `Lite-Suchindex fehlt unter ${this.dbPath} (build-lite-index.sh noch nicht ausgefuehrt)`,
+        `Kein Suchindex unter ${this.dbDir} (\u201eSuche bauen\u201c noch nicht ausgefuehrt)`,
       );
     }
 
-    const identity = LiteBackend.fileIdentity(this.dbPath);
-    if (this.reader && this.openedFile === identity) return this.reader;
-
-    if (this.reader) {
-      this.logger.info('Lite-Suchindex wurde neu gebaut -- oeffne die neue Datei', { dbPath: this.dbPath });
-      this.closeReader();
-    }
-
-    this.reader = new LiteIndexReader(this.dbPath);
-    this.openedFile = identity;
-    return this.reader;
-  }
-
-  private closeReader(): void {
-    if (this.reader && !this.injectedReader) {
-      try {
-        this.reader.close();
-      } catch {
-        // Ein Handle, der sich nicht schliessen laesst, darf die naechste
-        // Suche nicht verhindern -- er wird ohnehin gerade weggeworfen.
+    // Leser zu Dateien, die es nicht mehr gibt (Region entfernt), schliessen.
+    for (const path of [...this.readers.keys()]) {
+      if (!files.includes(path)) {
+        this.closeOne(path);
       }
     }
-    this.reader = undefined;
-    this.openedFile = null;
+
+    const open: LiteIndexReader[] = [];
+    for (const path of files) {
+      let identity: string;
+      try {
+        identity = LiteBackend.fileIdentity(path);
+      } catch {
+        // Zwischen readdir und stat verschwunden -- kein Fehler, nur weg.
+        this.closeOne(path);
+        continue;
+      }
+
+      const existing = this.readers.get(path);
+      if (existing && existing.identity === identity) {
+        open.push(existing.reader);
+        continue;
+      }
+      if (existing) {
+        this.logger.info('Suchindex wurde neu gebaut -- oeffne die neue Datei', { path });
+        this.closeOne(path);
+      }
+      const reader = new LiteIndexReader(path);
+      this.readers.set(path, { reader, identity });
+      open.push(reader);
+    }
+
+    if (open.length === 0) {
+      throw new GeocoderBackendError('lite', 'UNAVAILABLE', `Kein lesbarer Suchindex unter ${this.dbDir}`);
+    }
+    return open;
+  }
+
+  private closeOne(path: string): void {
+    const entry = this.readers.get(path);
+    if (!entry) return;
+    try {
+      entry.reader.close();
+    } catch {
+      // Ein Handle, der sich nicht schliessen laesst, darf die naechste Suche
+      // nicht verhindern -- er wird ohnehin gerade weggeworfen.
+    }
+    this.readers.delete(path);
+  }
+
+  private closeAll(): void {
+    for (const path of [...this.readers.keys()]) this.closeOne(path);
   }
 
   private withErrorMapping<T>(op: 'search' | 'reverse', fn: () => T): T {

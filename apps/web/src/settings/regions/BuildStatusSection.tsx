@@ -29,14 +29,14 @@ function ArtifactRow({
   title,
   status,
   testId,
-  singleWarning,
+  regions,
 }: {
   icon: string;
   title: string;
   status: ArtifactStatus;
   testId: string;
-  /** Text für den Hinweis, dass es dieses Erzeugnis nur EINMAL gibt. */
-  singleWarning?: string;
+  /** Alle Regionen, die in diesem einen Erzeugnis stecken. */
+  regions?: string[];
 }): React.ReactElement {
   const when = formatBuiltAt(status.built_at);
   return (
@@ -49,7 +49,7 @@ function ArtifactRow({
         ) : (
           <>
             <span className="block text-slate-600 dark:text-slate-300">
-              {status.region ?? 'Region unbekannt'}
+              {(regions && regions.length > 0 ? regions[0] : status.region) ?? 'Region unbekannt'}
               {when ? ` · ${when}` : ''}
             </span>
             {(status.record_count !== undefined || status.size_bytes !== undefined) && (
@@ -64,8 +64,10 @@ function ArtifactRow({
                   .join(' · ')}
               </span>
             )}
-            {singleWarning && (
-              <span className="block text-amber-700 dark:text-amber-400">{singleWarning}</span>
+            {regions && regions.length > 1 && (
+              <span className="block text-slate-500 dark:text-slate-400">
+                enthält: {regions.join(', ')}
+              </span>
             )}
           </>
         )}
@@ -101,7 +103,7 @@ export default function BuildStatusSection(): React.ReactElement | null {
   }
 
   const nothingBuilt =
-    status.tiles.length === 0 && !status.routing.present && !status.search.present;
+    status.tiles.length === 0 && !status.routing.present && status.search.length === 0;
 
   return (
     <section data-testid="build-status">
@@ -149,20 +151,44 @@ export default function BuildStatusSection(): React.ReactElement | null {
             )}
           </li>
 
+          {/* Routing: EIN Graph, aber seit 0.5.0 ueber mehrere Laender
+              gebaut. Das ist absichtlich so -- nur wer beide Seiten einer
+              Grenze im selben Graphen hat, kann ueber sie hinweg routen. */}
           <ArtifactRow
             icon="🧭"
             title="Routing"
             status={status.routing}
             testId="build-status-routing"
-            singleWarning="Es gibt nur einen Routinggraphen — ein neuer Bau ersetzt diesen."
+            regions={status.routing.regions}
           />
-          <ArtifactRow
-            icon="🔎"
-            title="Suche"
-            status={status.search}
-            testId="build-status-search"
-            singleWarning="Es gibt nur einen Suchindex — ein neuer Bau ersetzt diesen."
-          />
+
+          <li data-testid="build-status-search">
+            <span className="font-medium">🔎 Suche</span>
+            {status.search.length === 0 ? (
+              <span className="block text-slate-500 dark:text-slate-400 ml-6">
+                noch nicht gebaut
+              </span>
+            ) : (
+              <ul className="ml-6 space-y-0.5">
+                {status.search.map((index, i) => {
+                  const when = formatBuiltAt(index.built_at);
+                  return (
+                    <li
+                      key={index.region ?? `index-${i}`}
+                      className="text-slate-600 dark:text-slate-300"
+                      data-testid={`build-status-search-${index.region ?? 'unbekannt'}`}
+                    >
+                      {index.region ?? 'Region unbekannt'}
+                      {when ? ` · ${when}` : ''}
+                      {index.record_count !== undefined
+                        ? ` · ${index.record_count.toLocaleString('de-DE')} Einträge`
+                        : ''}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </li>
         </ul>
       )}
     </section>

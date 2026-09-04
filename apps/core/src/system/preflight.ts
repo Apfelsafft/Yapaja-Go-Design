@@ -63,7 +63,7 @@ import { readdir, stat } from 'fs/promises';
 import { totalmem } from 'os';
 import { createConnection } from 'net';
 import { resolveTilesDir } from '../map/paths.js';
-import { resolveLiteSearchDbPath } from '../search/lite/paths.js';
+import { listLiteSearchDbFiles, resolveLiteSearchDir } from '../search/lite/paths.js';
 import { resolveHaConnection } from '../ha/config.js';
 import { fetchHaStates } from '../ha/client.js';
 import { listGpsTrackers } from '../position/haTracker/index.js';
@@ -128,6 +128,13 @@ export type ListHaTrackersFn = () => Promise<string[] | null>;
 export interface PreflightDeps {
   listDir?: ListDirFn;
   fileSize?: FileSizeFn;
+  /** Die vorhandenen Suchindizes (seit 0.5.0 einer je Region).
+   *
+   *  Eigene Naht, damit die Pruefung testbar bleibt: sie las die Platte
+   *  vorher ausschliesslich ueber `fileSize`. Ein direkter Verzeichnis-
+   *  zugriff daneben haette jeden Test still an der echten Platte messen
+   *  lassen -- und genau das ist beim Einbau passiert. */
+  listSearchIndexes?: (dir: string) => string[];
   tcpProbe?: TcpProbeFn;
   httpProbe?: HttpProbeFn;
   listHaTrackers?: ListHaTrackersFn;
@@ -360,6 +367,7 @@ async function checkSearch(
   env: Record<string, string | undefined>,
   httpProbe: HttpProbeFn,
   fileSize: FileSizeFn,
+  listSearchIndexes: (dir: string) => string[],
 ): Promise<PreflightCheck> {
   const base = {
     id: 'search' as const,
@@ -369,13 +377,22 @@ async function checkSearch(
 
   const photonEnabled = env.PHOTON_ENABLED !== 'false';
   const photonUrl = env.PHOTON_URL || 'http://localhost:2322';
-  const liteDbPath = env.LITE_SEARCH_DB_PATH || resolveLiteSearchDbPath();
+  // ─── SEIT 0.5.0 GIBT ES MEHRERE INDIZES ──────────────────────────────────
+  // Einen je Region. Wer hier nur die eine alte Datei prueft, meldet „kein
+  // Lite-Index" auf einem Geraet, das drei hat -- und die Installations-
+  // pruefung ist genau der Ort, an dem so eine Falschaussage am meisten
+  // schadet: sie ist die Stelle, an der man nachsieht, wenn etwas klemmt.
+  const liteDbDir = resolveLiteSearchDir();
+  const liteFiles = listSearchIndexes(liteDbDir);
 
-  const [photonUp, liteBytes] = await Promise.all([
+  const [photonUp, liteSizes] = await Promise.all([
     photonEnabled ? httpProbe(`${photonUrl}/status`, PROBE_TIMEOUT_MS) : Promise.resolve(false),
-    fileSize(liteDbPath),
+    Promise.all(liteFiles.map((file) => fileSize(file))),
   ]);
-  const liteReady = liteBytes !== null && liteBytes > 0;
+  const liteBytes = liteSizes.reduce((sum: number, size) => sum + (size ?? 0), 0);
+  const liteCount = liteSizes.filter((size) => size !== null && size > 0).length;
+  const liteReady = liteCount > 0;
+  const liteDbPath = liteCount === 1 ? liteFiles[0] : `${liteCount} Indizes in ${liteDbDir}`;
 
   // Die Suche ist ODER-verknüpft, und das ist der Kern von W-12: ein Gerät
   // ohne genug RAM für Photon ist nicht suchunfähig, es sucht über den
@@ -759,7 +776,7 @@ export async function runPreflight(deps: PreflightDeps = {}): Promise<PreflightR
   const settled = await Promise.allSettled([
     checkTiles(tilesDir, listDir),
     checkRouting(env, httpProbe),
-    checkSearch(env, httpProbe, fileSize),
+    checkSearch(env, httpProbe, fileSize, deps.listSearchIndexes ?? listLiteSearchDbFiles),
     checkPosition(env, tcpProbe, listHaTrackers),
     Promise.resolve(checkMemory(env, totalMem)),
     checkDisk(tilesDir, diskFree),

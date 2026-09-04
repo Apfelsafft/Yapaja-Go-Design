@@ -18,12 +18,15 @@
  */
 import { createReadStream, existsSync, realpathSync, renameSync, unlinkSync } from 'fs';
 import { createInterface } from 'readline';
+import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { normalizeGeoJsonSeqLine, type NormalizedRecord } from './extract.js';
 import { buildLiteIndexFile } from './buildIndex.js';
 import { osmiumFilters } from './poiCategories.js';
 import { appendAll } from '@yapaja/shared';
 import { PlaceLocator, type PlacePoint } from './placeLocator.js';
+import { LEGACY_LITE_SEARCH_DB, liteSearchDbPathForRegion } from './paths.js';
+import { readLiteIndexMeta } from './reader.js';
 
 interface CliArgs {
   places?: string;
@@ -148,7 +151,17 @@ export async function runCli(argv: string[]): Promise<void> {
     throw new Error('Keine Datensaetze extrahiert -- Build abgebrochen (leerer Index waere nutzlos).');
   }
 
-  const tmpPath = `${args.out}.tmp-${process.pid}`;
+  // ─── SEIT 0.5.0: EINE DATEI JE REGION ─────────────────────────────────────
+  // `--out` bezeichnet weiterhin einen Pfad, aber der eigentliche Zielname
+  // haengt an der Region. Vorher ersetzte "Suche bauen" bei einer Region den
+  // Index der anderen -- wer Deutschland und Frankreich installiert hat, will
+  // in beiden suchen koennen.
+  //
+  // Ohne `--region` bleibt es beim genannten Pfad: der Weg fuer Aufrufer, die
+  // genau eine Datei erwarten (aeltere Skripte, Tests).
+  const outPath = args.region ? liteSearchDbPathForRegion(dirname(args.out), args.region) : args.out;
+
+  const tmpPath = `${outPath}.tmp-${process.pid}`;
   if (existsSync(tmpPath)) unlinkSync(tmpPath);
 
   try {
@@ -157,13 +170,41 @@ export async function runCli(argv: string[]): Promise<void> {
     // atomic -- a concurrent reader of `args.out` (the running Core
     // process) sees either the complete old file or the complete new file,
     // never a partial write.
-    renameSync(tmpPath, args.out);
+    renameSync(tmpPath, outPath);
   } catch (err) {
     if (existsSync(tmpPath)) unlinkSync(tmpPath);
     throw err;
   }
 
-  console.warn(`Lite-Suchindex gebaut: ${args.out} (${allRecords.length} Datensaetze insgesamt)`);
+  console.warn(`Lite-Suchindex gebaut: ${outPath} (${allRecords.length} Datensaetze insgesamt)`);
+
+  // ─── DEN UEBERHOLTEN SAMMELINDEX AUFRAEUMEN ──────────────────────────────
+  // Vor 0.5.0 lag alles in EINER Datei ohne Regionsnamen. Die bleibt nach dem
+  // Update absichtlich liegen (sonst waere die Suche bis zum naechsten Bau
+  // weg, und der dauert bei einem grossen Extrakt Stunden). Sobald aber
+  // DIESELBE Region als eigene Datei vorliegt, ist sie doppelt -- und wird
+  // entfernt.
+  //
+  // Nur bei belegter Uebereinstimmung: traegt die alte Datei eine ANDERE
+  // Region oder gar keine Auskunft (vor 0.3.9 gab es keine `meta`-Tabelle),
+  // bleibt sie stehen. Lieber ein Index zu viel -- die Entdopplung im Backend
+  // faengt Doppeltreffer ohnehin ab -- als eine geloeschte Suche, die
+  // stundenlanges Neubauen kostet.
+  if (args.region) {
+    const legacy = join(dirname(args.out), LEGACY_LITE_SEARCH_DB);
+    if (legacy !== outPath && existsSync(legacy)) {
+      const meta = readLiteIndexMeta(legacy);
+      if (meta.region === args.region) {
+        unlinkSync(legacy);
+        console.warn(`Alten Sammelindex entfernt (war dieselbe Region): ${legacy}`);
+      } else {
+        console.warn(
+          `Hinweis: ${legacy} stammt aus einer anderen bzw. unbekannten Region ` +
+            `(${meta.region ?? 'unbekannt'}) und bleibt erhalten.`,
+        );
+      }
+    }
+  }
 }
 
 /**

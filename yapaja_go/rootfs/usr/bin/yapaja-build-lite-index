@@ -160,8 +160,13 @@ node "$CLI" \
 
 # Und nachsehen, statt es zu glauben: ein Werkzeug, das „fertig" meldet und
 # nichts hinterlaesst, hat es in dieser Kette schon gegeben.
-if [ ! -s "$OUT_DB" ]; then
-  echo "FEHLER: $OUT_DB fehlt oder ist leer, obwohl der Bau ohne Fehler endete." >&2
+# Seit 0.5.0 schreibt das Werkzeug EINE DATEI JE REGION -- `$OUT_DB` ist nur
+# noch der Pfad, aus dem das Verzeichnis abgeleitet wird. Geprueft wird
+# deshalb die Datei, die wirklich entstanden ist. Stuende hier weiter
+# `$OUT_DB`, meldete jeder erfolgreiche Bau einen Fehler.
+REGION_DB="$(dirname "$OUT_DB")/lite_search-${REGION_ID}.db"
+if [ ! -s "$REGION_DB" ]; then
+  echo "FEHLER: $REGION_DB fehlt oder ist leer, obwohl der Bau ohne Fehler endete." >&2
   exit 1
 fi
 

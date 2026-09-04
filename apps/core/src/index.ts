@@ -294,7 +294,6 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     photonUrl: process.env.PHOTON_URL,
     onlineFallback: process.env.SEARCH_ONLINE_FALLBACK === 'true',
     photonEnabled: process.env.PHOTON_ENABLED !== 'false',
-    liteDbPath: process.env.LITE_SEARCH_DB_PATH,
     lang: process.env.SEARCH_LANG,
   });
 

@@ -30,7 +30,7 @@ function paths() {
   return {
     tilesDir: join(root, 'tiles'),
     graphDir: join(root, 'valhalla', 'tiles'),
-    liteSearchDbPath: join(root, 'lite-search', 'lite_search.db'),
+    liteSearchDir: join(root, 'lite-search'),
   };
 }
 
@@ -39,7 +39,7 @@ describe('collectBuildStatus', () => {
     const status = await collectBuildStatus(paths(), noMeta);
     expect(status.tiles).toEqual([]);
     expect(status.routing.present).toBe(false);
-    expect(status.search.present).toBe(false);
+    expect(status.search).toEqual([]);
   });
 
   it('nennt jede gebaute Karte mit Zeitpunkt und Groesse', async () => {
@@ -83,18 +83,45 @@ describe('collectBuildStatus', () => {
 
   it('nennt beim Suchindex Region, Zeitpunkt und Anzahl aus dem Index selbst', async () => {
     const p = paths();
-    mkdirSync(join(root, 'lite-search'), { recursive: true });
-    writeFileSync(p.liteSearchDbPath, 'x'.repeat(512));
+    mkdirSync(p.liteSearchDir, { recursive: true });
+    writeFileSync(join(p.liteSearchDir, 'lite_search-liechtenstein.db'), 'x'.repeat(512));
 
     const status = await collectBuildStatus(p, () => ({
       region: 'liechtenstein',
       built_at: '2026-09-04T07:30:00Z',
       record_count: 4711,
     }));
-    expect(status.search.present).toBe(true);
-    expect(status.search.region).toBe('liechtenstein');
-    expect(status.search.built_at).toBe('2026-09-04T07:30:00Z');
-    expect(status.search.record_count).toBe(4711);
+    expect(status.search).toHaveLength(1);
+    expect(status.search[0].present).toBe(true);
+    expect(status.search[0].region).toBe('liechtenstein');
+    expect(status.search[0].built_at).toBe('2026-09-04T07:30:00Z');
+    expect(status.search[0].record_count).toBe(4711);
+  });
+
+  /** ─── DER GRUND FUER DIE GANZE UMSTELLUNG ────────────────────────────────
+   *  Vier Laender installieren und in dreien nicht suchen koennen -- das war
+   *  der Zustand bis 0.4.0. Die Uebersicht muss jetzt JEDE Region zeigen. */
+  it('nennt jede Region einzeln', async () => {
+    const p = paths();
+    mkdirSync(p.liteSearchDir, { recursive: true });
+    for (const region of ['deutschland', 'frankreich', 'schweiz']) {
+      writeFileSync(join(p.liteSearchDir, `lite_search-${region}.db`), 'x'.repeat(128));
+    }
+
+    // Ohne `meta` -- die Region muss dann aus dem DATEINAMEN kommen.
+    const status = await collectBuildStatus(p, noMeta);
+    expect(status.search.map((s) => s.region)).toEqual(['deutschland', 'frankreich', 'schweiz']);
+  });
+
+  it('nennt beim Routing alle Regionen, die im einen Graphen stecken', async () => {
+    const p = paths();
+    mkdirSync(p.graphDir, { recursive: true });
+    writeFileSync(
+      join(root, 'valhalla', 'build-info.json'),
+      JSON.stringify({ region: 'deutschland', regions: ['deutschland', 'schweiz'], built_at: '2026-09-04T08:00:00Z' }),
+    );
+    const status = await collectBuildStatus(p, noMeta);
+    expect(status.routing.regions).toEqual(['deutschland', 'schweiz']);
   });
 
   /**
@@ -106,16 +133,17 @@ describe('collectBuildStatus', () => {
   it('behauptet keine Region, wenn der Stand keine mitbringt', async () => {
     const p = paths();
     mkdirSync(p.graphDir, { recursive: true });
-    mkdirSync(join(root, 'lite-search'), { recursive: true });
-    writeFileSync(p.liteSearchDbPath, 'alt');
+    mkdirSync(p.liteSearchDir, { recursive: true });
+    writeFileSync(join(p.liteSearchDir, 'lite_search.db'), 'alt');
 
     const status = await collectBuildStatus(p, noMeta);
     expect(status.routing.present).toBe(true);
     expect(status.routing.region).toBeUndefined();
     expect(status.routing.built_at).toBeTruthy();
-    expect(status.search.present).toBe(true);
-    expect(status.search.region).toBeUndefined();
-    expect(status.search.built_at).toBeTruthy();
+    expect(status.search).toHaveLength(1);
+    expect(status.search[0].present).toBe(true);
+    expect(status.search[0].region).toBeUndefined();
+    expect(status.search[0].built_at).toBeTruthy();
   });
 
   it('faellt nicht ueber eine unlesbare build-info.json', async () => {
