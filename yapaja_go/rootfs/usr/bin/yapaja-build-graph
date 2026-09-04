@@ -213,6 +213,19 @@ if [ "$moved" -eq 0 ]; then
 fi
 rm -rf "$OLD_DIR"
 
+# --- Festhalten, WORAUS gebaut wurde ---------------------------------------
+# Es gibt EINEN Routinggraphen fuer alle Regionen: dieser Bau hat den
+# vorherigen soeben ersetzt. Ohne diese Notiz sieht niemand, welche Region
+# gerade geladen ist -- genau das war gemeldet ("ich sehe nicht, dass bereits
+# etwas erstellt wurde und wann").
+#
+# NEBEN das Kachelverzeichnis, nicht hinein: was unter $LIVE_DIR liegt, liest
+# Valhalla, und dort gehoert nichts hin, was kein Graph ist.
+BUILD_INFO="$(dirname "$LIVE_DIR")/build-info.json"
+printf '{"region":"%s","built_at":"%s"}\n' \
+  "$REGION_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$BUILD_INFO.tmp" \
+  && mv "$BUILD_INFO.tmp" "$BUILD_INFO"
+
 # Die PBF wird nicht mit eingewechselt -- sie liegt im Staging und faellt mit
 # ihm weg. Der Graph traegt sie nicht, und ein liegengebliebener Extrakt
 # wuerde beim naechsten Start des gis-ops-Rezepts einen Neubau ausloesen.

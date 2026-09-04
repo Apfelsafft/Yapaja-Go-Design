@@ -55,6 +55,34 @@ export interface NormalizedRecord {
    *  city/town/village ordering) -- captured for a future refinement
    *  without needing another index rebuild/schema change. */
   population?: number;
+  /** Strasse und Hausnummer aus den Daten (`addr:street`, `addr:housenumber`),
+   *  sofern getaggt. Bei mehreren gleichnamigen Treffern -- „welcher REWE?" --
+   *  ist das die Auskunft, die sie unterscheidbar macht. */
+  address?: string;
+  /** Der Ort, in dem der Eintrag liegt. Bevorzugt aus `addr:city`; sonst wird
+   *  er beim Bauen aus dem naechsten Ort abgeleitet (`placeLocator.ts`). */
+  locality?: string;
+}
+
+/** Liest ein Tag als nicht-leere Zeichenkette, sonst `undefined`. */
+function tagString(props: Record<string, unknown>, key: string): string | undefined {
+  const value = props[key];
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+/**
+ * „Beethovenstraße 12" aus `addr:street` + `addr:housenumber`.
+ *
+ * Ohne Strasse keine Adresse: eine Hausnummer allein („12") sagt niemandem
+ * etwas und saehe in der Vorschlagsliste aus wie ein Fehler.
+ */
+function addressFromTags(props: Record<string, unknown>): string | undefined {
+  const street = tagString(props, 'addr:street');
+  if (!street) return undefined;
+  const houseNumber = tagString(props, 'addr:housenumber');
+  return houseNumber ? `${street} ${houseNumber}` : street;
 }
 
 /** The subset of a `osmium export --geometry-types=point -f geojsonseq`
@@ -199,7 +227,14 @@ export function normalizeStreetFeature(feature: OsmFeature): NormalizedRecord | 
   const point = coordsFromGeometry(feature);
   if (!point) return null;
 
-  return { kind: 'street', name: name.trim(), lat: point.lat, lon: point.lon };
+  const locality = tagString(props, 'addr:city');
+  return {
+    kind: 'street',
+    name: name.trim(),
+    lat: point.lat,
+    lon: point.lon,
+    ...(locality ? { locality } : {}),
+  };
 }
 
 /**
@@ -235,6 +270,9 @@ export function normalizePoiFeature(feature: OsmFeature): NormalizedRecord | nul
   const name =
     typeof rawName === 'string' && rawName.trim().length > 0 ? rawName.trim() : category.label;
 
+  const address = addressFromTags(props);
+  const locality = tagString(props, 'addr:city');
+
   return {
     kind: 'poi',
     name,
@@ -242,6 +280,8 @@ export function normalizePoiFeature(feature: OsmFeature): NormalizedRecord | nul
     lon: point.lon,
     category: category.value,
     searchTerms: searchTermsFor(category),
+    ...(address ? { address } : {}),
+    ...(locality ? { locality } : {}),
   };
 }
 

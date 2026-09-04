@@ -14,6 +14,9 @@ interface LiteSearchRow {
   lat: number;
   lon: number;
   ftsRank: number;
+  category: string | null;
+  address: string | null;
+  locality: string | null;
 }
 
 interface LiteAllRow {
@@ -21,6 +24,9 @@ interface LiteAllRow {
   kind: string;
   lat: number;
   lon: number;
+  category: string | null;
+  address: string | null;
+  locality: string | null;
 }
 
 // Aus der EINEN Liste abgeleitet (ranking.ts), nicht abgeschrieben. Die
@@ -73,7 +79,8 @@ export class LiteIndexReader {
     const overfetch = Math.max(limit * 4, 20);
     const rows = db
       .prepare(
-        `SELECT p.name as name, p.kind as kind, p.lat as lat, p.lon as lon, p.category as category, bm25(lite_search) as ftsRank
+        `SELECT p.name as name, p.kind as kind, p.lat as lat, p.lon as lon, p.category as category,
+                p.address as address, p.locality as locality, bm25(lite_search) as ftsRank
          FROM lite_search
          JOIN places p ON p.id = lite_search.rowid
          WHERE lite_search MATCH ?
@@ -99,7 +106,7 @@ export class LiteIndexReader {
     const boxDeg = 0.5;
     const rows = db
       .prepare(
-        `SELECT name, kind, lat, lon, category FROM places
+        `SELECT name, kind, lat, lon, category, address, locality FROM places
          WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?`,
       )
       .all(lat - boxDeg, lat + boxDeg, lon - boxDeg, lon + boxDeg) as LiteAllRow[];
@@ -113,7 +120,16 @@ export class LiteIndexReader {
     // ftsRank has no meaning for a reverse lookup (there was no text query);
     // 0 keeps every candidate on equal footing for that ranking tier so
     // `rankLiteCandidates` falls straight through to the distance-bias tier.
-    return withDistance.map((r) => ({ name: r.name, kind: r.kind, lat: r.lat, lon: r.lon, ftsRank: 0 }));
+    return withDistance.map((r) => ({
+      name: r.name,
+      kind: r.kind,
+      lat: r.lat,
+      lon: r.lon,
+      ftsRank: 0,
+      category: r.category,
+      address: r.address,
+      locality: r.locality,
+    }));
   }
 
   close(): void {
@@ -132,4 +148,37 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Liest die `meta`-Tabelle eines gebauten Index (Region, Bauzeitpunkt,
+ * Anzahl). Wirft nie: ein Index von vor 0.3.9 hat diese Tabelle nicht, und
+ * das ist kein Fehler, sondern schlicht „unbekannt". Die Übersicht meldet
+ * dann den Zeitstempel der Datei und keine Region -- statt eine zu raten.
+ */
+export function readLiteIndexMeta(dbPath: string): {
+  region?: string;
+  built_at?: string;
+  record_count?: number;
+} {
+  let db: Database.Database | null = null;
+  try {
+    db = new Database(dbPath, { readonly: true, fileMustExist: true });
+    const rows = db.prepare('SELECT key, value FROM meta').all() as Array<{
+      key: string;
+      value: string;
+    }>;
+    const map = new Map(rows.map((r) => [r.key, r.value]));
+    const count = map.get('record_count');
+    const parsedCount = count !== undefined ? Number.parseInt(count, 10) : NaN;
+    return {
+      ...(map.get('region') ? { region: map.get('region') as string } : {}),
+      ...(map.get('built_at') ? { built_at: map.get('built_at') as string } : {}),
+      ...(Number.isFinite(parsedCount) ? { record_count: parsedCount } : {}),
+    };
+  } catch {
+    return {};
+  } finally {
+    db?.close();
+  }
 }

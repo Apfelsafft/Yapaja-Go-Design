@@ -24,9 +24,12 @@ import { createReadStream } from 'fs';
 import { stat as fsStat } from 'fs/promises';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import type { ApiError } from '@yapaja/shared';
-import { parseRegionParam, resolveRegionFilePath, resolveTilesDir } from './paths.js';
+import { parseRegionParam, resolveGraphDir, resolveRegionFilePath, resolveTilesDir } from './paths.js';
 import { parseRange } from './range.js';
 import { listRegions, type MapRegionInfo } from './regions.js';
+import { collectBuildStatus } from './buildStatus.js';
+import { readLiteIndexMeta } from '../search/lite/reader.js';
+import { resolveLiteSearchDbPath } from '../search/lite/paths.js';
 import { regionsPlugin } from './regions/routes.js';
 import {
   applyStyleOptions,
@@ -188,6 +191,23 @@ export const mapPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Reply: RegionsReply }>('/api/v1/map/regions', async (_request, reply) => {
     const regions = await listRegions(tilesDir, fastify.log);
     return reply.code(200).send({ data: regions });
+  });
+
+  // GET /api/v1/map/build-status -- was ist gebaut, und wann?
+  //
+  // Gemeldet: „Nach der (erfolgreichen) Erstellung sehe ich nicht, dass
+  // bereits etwas erstellt wurde und wann." Bei einem Bau, der fuer
+  // Deutschland Stunden laeuft, ist das die wichtigste Auskunft ueberhaupt.
+  fastify.get('/api/v1/map/build-status', async (_request, reply) => {
+    const status = await collectBuildStatus(
+      {
+        tilesDir,
+        graphDir: resolveGraphDir(),
+        liteSearchDbPath: resolveLiteSearchDbPath(),
+      },
+      readLiteIndexMeta,
+    );
+    return reply.code(200).send({ data: status });
   });
 
   // GET /api/v1/map/styles -- available styles (id, name, preview?).

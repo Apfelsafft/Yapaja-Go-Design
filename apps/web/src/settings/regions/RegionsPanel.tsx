@@ -19,6 +19,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useUiStore } from '../../ui/store.js';
 import DriveLockGate from '../../drive/DriveLockGate.js';
+import BuildStatusSection from './BuildStatusSection.js';
 import {
   deleteRegion,
   fetchCatalog,
@@ -328,7 +329,9 @@ export default function RegionsPanel(): React.ReactElement {
               reachable-FAB-while-locked rationale. */}
           <DriveLockGate controlId="store">
           <section>
-            <h2 className="font-semibold mb-2">Installierte Regionen</h2>
+            <BuildStatusSection />
+
+            <h2 className="font-semibold mb-2 mt-4">Installierte Regionen</h2>
             {installed.length === 0 && (
               <p
                 className="text-slate-500 dark:text-slate-400 text-xs"

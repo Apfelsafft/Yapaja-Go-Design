@@ -11,8 +11,8 @@
 # Dieser Wrapper setzt genau die drei Dinge, die dort anders sind:
 #   * TILES_DIR      -> das persistente Add-on-Verzeichnis unter /share
 #   * PLANETILER_JAR -> schaltet das Skript vom Docker- in den JAR-Modus
-#   * PLANETILER_XMX -> Heap, aus der Add-on-Option `valhalla_memory_mb`
-#                       abgeleitet bzw. konservativ gedeckelt
+#   * PLANETILER_XMX -> Heap, aus dem tatsaechlich vorhandenen Arbeitsspeicher
+#                       abgeleitet (siehe unten)
 #
 # ─── WARUM DIE JAR NICHT IM IMAGE LIEGT ─────────────────────────────────────
 # ~100 MB, die jeder Betreiber mitschleppen wuerde, auch wenn er nie eine
@@ -59,7 +59,40 @@ fi
 # rootfs/etc/yapaja/init-yapaja-config.sh). Der Default hier ist nur der
 # Rueckfall, wenn jemand den Wrapper ausserhalb des s6-Kontexts aufruft.
 export TILES_DIR="${TILES_DIR:-/share/yapaja/tiles}"
-export PLANETILER_XMX="${PLANETILER_XMX:-2g}"
+# ─── HEAP: AUS DEM VORHANDENEN SPEICHER, NICHT AUS EINER FESTEN ZAHL ───────
+# Hier stand fest "2g". Das passte, solange die HAOS-VM 8 GB hatte und
+# Liechtenstein das Ziel war. Fuer einen grossen Extrakt ist es zu wenig:
+# planetiler laeuft dann entweder ewig oder bricht mit OutOfMemory ab -- nach
+# Stunden, und ohne dass vorher irgendetwas darauf hingewiesen haette.
+#
+# (Der Kopfkommentar behauptete ausserdem, der Wert stamme aus der Option
+# `valhalla_memory_mb`. Das tat er nie -- es gibt keine Stelle, die ihn
+# gesetzt haette. Wieder ein beschriebener Weg, den es nicht gab.)
+#
+# Genommen werden 40 % des Arbeitsspeichers, hoechstens 8 GB.
+#
+# Bewusst NICHT mehr: planetiler legt seine Zwischenstaende als Dateien ab
+# (`--nodemap-type=sortedtable`) und liest sie ueber den Dateisystem-Cache.
+# Ein grosser Heap nimmt genau diesem Cache den Platz weg -- ab einem Punkt
+# wird der Bau durch mehr Heap also LANGSAMER, nicht schneller. Dazu laufen im
+# selben Container noch Valhalla, Photon und der Core.
+#
+# Bei 16 GB sind das rund 6,4 GB Heap und knapp 10 GB fuer Cache und den Rest.
+#
+# Wer es genau wissen will, setzt PLANETILER_XMX selbst -- das gewinnt.
+if [ -z "${PLANETILER_XMX:-}" ]; then
+  MEM_TOTAL_KB="$(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+  if [ "${MEM_TOTAL_KB:-0}" -gt 0 ]; then
+    XMX_MB=$(( MEM_TOTAL_KB / 1024 * 40 / 100 ))
+    [ "$XMX_MB" -lt 2048 ] && XMX_MB=2048
+    [ "$XMX_MB" -gt 8192 ] && XMX_MB=8192
+    PLANETILER_XMX="${XMX_MB}m"
+  else
+    PLANETILER_XMX="2g"
+  fi
+  echo "Heap fuer planetiler automatisch gewaehlt: $PLANETILER_XMX (RAM: $(( ${MEM_TOTAL_KB:-0} / 1024 )) MB)"
+fi
+export PLANETILER_XMX
 
 # ─── ARBEITSVERZEICHNIS GEHOERT AUF DIESELBE PLATTE WIE DAS ERGEBNIS ────────
 # `build-pmtiles.sh` legt sein Arbeitsverzeichnis unter ${TMPDIR:-/tmp} an --

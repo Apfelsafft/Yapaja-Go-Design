@@ -42,6 +42,7 @@ import { formatDistance } from '../routing/format.js';
 import { useSearchStore, SEARCH_MIN_CHARS } from './store.js';
 import { haversineMeters } from './distance.js';
 import { iconForSearchResultType } from './icons.js';
+import { secondaryLine } from './secondaryLine.js';
 import { friendlySearchErrorMessage } from './errors.js';
 import { useFavoritesStore } from '../favorites/store.js';
 import { navigateToFavorite } from '../favorites/navigate.js';
@@ -370,9 +371,14 @@ export default function SearchBar(): React.ReactElement {
                       </span>
                       <span className="flex-1 min-w-0">
                         <span className="block font-medium truncate">{result.name}</span>
-                        <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">
-                          {result.label}
-                        </span>
+                        {secondaryLine(result) && (
+                          <span
+                            className="block text-xs text-slate-500 dark:text-slate-400 truncate"
+                            data-testid={`search-result-detail-${index}`}
+                          >
+                            {secondaryLine(result)}
+                          </span>
+                        )}
                         {result.out_of_coverage && (
                           <span
                             className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300"
