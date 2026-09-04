@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Yapaja Go Core API",
-    "version": "0.0.0",
+    "version": "0.0.1",
     "description": "Automatisch generiert aus den tatsächlich registrierten Fastify-Routen (apps/core/src/index.ts, onRouteHook) und den @yapaja/shared-JSON-Schemas (packages/shared/src/schemas/). Quelle der Wahrheit ist der Code, nicht dieses Dokument -- bei Verdacht auf Abweichung: `pnpm openapi:check` (CI-Gate \"Spec aktuell\") bzw. docs/03-api-spec.md für den erzählenden Überblick. WebSocket (/ws/v1) und MQTT sind hier NICHT modelliert (OpenAPI eignet sich dafür nicht) -- siehe docs/03-api-spec.md §3/§4."
   },
   "servers": [

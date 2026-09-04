@@ -34,7 +34,7 @@ import { authPlugin } from './auth/plugin.js';
 import { HaOutputChannel } from './ha/outputChannel.js';
 import { serveIndexHtml } from './static/ingressHtml.js';
 import { systemPlugin } from './system/routes.js';
-import { readPackageVersion } from './version.js';
+import { readAddonVersion, readPackageVersion } from './version.js';
 import { addonsPlugin } from './addons/routes.js';
 import { addonRegistryPlugin } from './addons/registryRoutes.js';
 import { addonUiHostPlugin } from './addons/ui-host.js';
@@ -113,7 +113,16 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // (see `security/headers.ts`).
   await fastify.register(securityHeadersPlugin);
 
-  const version = await readPackageVersion();
+  // ZWEI Versionen, absichtlich getrennt (siehe `version.ts`):
+  //   `version`     -- was der Betreiber laeuft (Add-on-Version aus
+  //                    `config.yaml`, vom Supervisor als BUILD_VERSION
+  //                    hereingereicht). Das meldet `/api/v1/health`, das
+  //                    steht als `sw_version` in der HA-Discovery.
+  //   `coreVersion` -- der Core-API-Vertrag fuer `core_api` von Fremd-
+  //                    Add-ons. Der darf sich nicht mitbewegen, nur weil eine
+  //                    Kartenfunktion eine neue Add-on-Version bekommt.
+  const version = await readAddonVersion();
+  const coreVersion = await readPackageVersion();
 
   // Internal event bus (ADR-010) + WS-client presence tracker (E06-T3):
   // created BEFORE the profile service below so its `onProfileChanged` hook
@@ -400,9 +409,9 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   await fastify.register(settingsPlugin, { prefix: '/api/v1', service: settingsService });
 
   // Add-on manifest/install/lifecycle plugin (E09-T1, docs/05 §2/§5):
-  // additive, does not touch other plugins. `coreVersion: version` reuses
-  // the SAME `readPackageVersion()` result `/api/v1/health` reports above
-  // for the manifest `core_api` semver-range check (Wargame W-11) -- see
+  // additive, does not touch other plugins. `coreVersion` is the CORE's own
+  // version (`readPackageVersion()`), NOT the add-on version `/api/v1/health`
+  // reports -- for the manifest `core_api` semver-range check (Wargame W-11), see
   // `addons/installService.ts`. This task only covers manifest validation +
   // install/lifecycle + DB + tarball-extraction hardening; it does not start
   // any add-on service process or serve add-on UIs (E09-T2/T3).
@@ -440,7 +449,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
 
   await fastify.register(addonsPlugin, {
     prefix: '/api/v1',
-    coreVersion: version,
+    coreVersion,
     lifecycle: addonServiceHost,
   });
 
@@ -450,7 +459,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // installing FROM a registry entry reuses `POST /addons/install
   // {source:'url', ...}` above unchanged, so sha256/core_api enforcement
   // stays in the ONE place it already lived (`installService.ts`).
-  await fastify.register(addonRegistryPlugin, { prefix: '/api/v1', coreVersion: version });
+  await fastify.register(addonRegistryPlugin, { prefix: '/api/v1', coreVersion });
 
   // E09-T2 (docs/05 §1A, Wargame W-10): serve an ENABLED add-on's UI assets
   // under `/addons/{id}/ui/**` behind a strict CSP (no external hosts,
@@ -540,7 +549,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
           device: {
             identifiers: ['yapaja_go'],
             name: 'Yapaja Go',
-            // SAME version `/api/v1/health` reports (`readPackageVersion()` above).
+            // SAME version `/api/v1/health` reports (`readAddonVersion()` above).
             sw_version: version,
             configuration_url: discoveryConfig.configurationUrl,
           },
