@@ -74,6 +74,31 @@ auszugeben.
 Scheitert die Tempolimit-Abfrage, bleibt die Route trotzdem: ein fehlendes
 Schild darf keine fehlende Fahrt bedeuten.
 
+---
+
+**Besser lesbar: der Fortschritt beim Bauen.**
+
+> „Das ist irgendwie undurchsichtig."
+
+Auf der Regionskarte stand während des Downloads so etwas:
+
+```
+ 13 4607M   13  635M    0     0  8641k      0  0:09:06  0:01:15  0:07:51
+```
+
+Das ist die Fortschrittstabelle des Download-Werkzeugs, unverändert
+durchgereicht. Der Inhalt stimmte sogar — er war nur nicht zu lesen. Jetzt
+steht dort:
+
+> Kartendaten werden geladen: 635 MB von 4607 MB (13 %), noch etwa 7 Min.
+
+Die Zahlen kommen unverändert aus dem Download; geschätzt wird nichts. Kann
+das Werkzeug die Restzeit noch nicht abschätzen, steht auch keine da.
+
+Das ist erst ein Teil der Antwort: der Balken bleibt beim Kachel- und
+Suchbau unbestimmt, weil sich die Phasen nicht ehrlich in einen Prozentwert
+übersetzen lassen. Was gerade passiert, steht aber daneben.
+
 ## 0.5.0
 
 **Mehrere Länder gleichzeitig — Suche und Routing.**

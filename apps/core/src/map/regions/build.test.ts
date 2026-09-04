@@ -22,7 +22,11 @@ import {
   BUILD_RAM_OVERHEAD_BYTES,
   buildRequiredBytes,
   buildRequiredFreeMemory,
+  humanDuration,
+  humanSize,
   lastMeaningfulLine,
+  noteFromChunk,
+  parseCurlProgress,
   runBuildJob,
   truncateNote,
   type SpawnedBuild,
@@ -275,5 +279,95 @@ describe('Ausgabe-Aufbereitung', () => {
     expect(short.length).toBeLessThanOrEqual(160);
     expect(short.endsWith('…')).toBe(true);
     expect(truncateNote('kurz')).toBe('kurz');
+  });
+});
+
+/**
+ * Gemeldet als „das ist irgendwie undurchsichtig": auf der Regionskarte stand
+ * curls Fortschrittstabelle im Rohzustand.
+ *
+ * Die Zeilen hier sind NICHT ausgedacht — sie stammen aus einem echten
+ * `curl -L`-Lauf (`cat -A`, um die `\r` zu sehen) und aus dem Bildschirmfoto
+ * des Betreibers. Eine selbst erfundene Tabelle haette hier genau die eine
+ * Frage nicht beantwortet, auf die es ankommt: ob die Form stimmt, die curl
+ * wirklich schreibt.
+ */
+describe('curls Fortschrittstabelle wird lesbar gemacht', () => {
+  // Aus dem Bildschirmfoto des Betreibers: Deutschland-Extrakt, 4,6 GB.
+  const FROM_SCREENSHOT = ' 13 4607M   13  635M    0     0  8641k      0  0:09:06  0:01:15  0:07:51 8905k';
+  // Aus einem echten curl-Lauf in dieser Umgebung.
+  const REAL_START = '  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0';
+  const REAL_DONE = '100  285k  100  285k    0     0   597k      0 --:--:-- --:--:-- --:--:--  596k';
+
+  it('erkennt eine Datenzeile an ihrer Form', () => {
+    expect(parseCurlProgress(FROM_SCREENSHOT)).toEqual({
+      percent: 13,
+      total: '4607M',
+      received: '635M',
+      timeLeft: '0:07:51',
+    });
+  });
+
+  it('nennt keine Restzeit, solange curl keine schätzt', () => {
+    expect(parseCurlProgress(REAL_START)?.timeLeft).toBeNull();
+    expect(parseCurlProgress(REAL_DONE)?.timeLeft).toBeNull();
+  });
+
+  it('macht aus der Zeile des Betreibers einen Satz', () => {
+    expect(noteFromChunk(FROM_SCREENSHOT)).toBe(
+      'Kartendaten werden geladen: 635 MB von 4607 MB (13 %), noch etwa 7 Min.',
+    );
+  });
+
+  it('erfindet ohne Schätzung keine Restzeit', () => {
+    const note = noteFromChunk(REAL_DONE);
+    expect(note).toBe('Kartendaten werden geladen: 285 kB von 285 kB (100 %)');
+    expect(note).not.toContain('noch etwa');
+  });
+
+  it('hält die Kopfzeilen aus der Notiz heraus', () => {
+    // Genau so kommt der erste Klumpen aus curl: zwei Kopfzeilen, dann per
+    // \r die Datenzeilen.
+    const chunk =
+      '  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current\n' +
+      '                                 Dload  Upload   Total   Spent    Left  Speed\n';
+    expect(noteFromChunk(chunk)).toBeNull();
+
+    // Eine Kopfzeile am Ende darf die vorherige echte Meldung nicht verdrängen.
+    expect(noteFromChunk(`Lade Extrakt…\n% Total    % Received\n`)).toBe('Lade Extrakt…');
+  });
+
+  it('lässt Ausgaben von planetiler und osmium unangetastet', () => {
+    // Diese Zeilen sind der Grund, warum die Erkennung an der Form haengt und
+    // nicht daran, dass gerade heruntergeladen wird.
+    const planetiler =
+      '0:01:23 INF [osm_pass2] - read: [ 82M 42% 1.2M/s ] write: [ 12M 180k/s ] 1.9G';
+    expect(noteFromChunk(planetiler)).toBe(planetiler);
+    expect(parseCurlProgress(planetiler)).toBeNull();
+    expect(parseCurlProgress('[info] Wrote 5 tiles')).toBeNull();
+  });
+
+  it('verlangt Zeitspalten, nicht nur zwölf Felder', () => {
+    // Beim Mutationstest ueberlebte das Weglassen der Zeitpruefung: die Zeilen
+    // oben haben schlicht nie zwoelf Felder, also kam der Test dort nie an.
+    // Diese Zeile hat sie — und ist trotzdem kein Fortschritt. Ohne die
+    // Zeitpruefung wuerde daraus „5 kB von 12 MB (0 %)".
+    const twelve = '0 12M INF 5k build 7 osm 0 nodes ways tiles fertig';
+    expect(twelve.trim().split(/\s+/)).toHaveLength(12);
+    expect(parseCurlProgress(twelve)).toBeNull();
+    expect(noteFromChunk(twelve)).toBe(twelve);
+  });
+
+  it('rechnet Größen und Zeiten in etwas Lesbares um', () => {
+    expect(humanSize('4607M')).toBe('4607 MB');
+    expect(humanSize('10.2G')).toBe('10.2 GB');
+    expect(humanSize('4096')).toBe('4096 B');
+    // Was nicht in das Muster passt, bleibt stehen statt still zu verschwinden.
+    expect(humanSize('unklar')).toBe('unklar');
+
+    expect(humanDuration('0:07:51')).toBe('7 Min.');
+    expect(humanDuration('1:05:00')).toBe('1 Std. 5 Min.');
+    expect(humanDuration('0:00:42')).toBe('weniger als 1 Min.');
+    expect(humanDuration('--:--:--')).toBeNull();
   });
 });
