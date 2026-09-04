@@ -23,12 +23,17 @@ import { normalizeGeoJsonSeqLine, type NormalizedRecord } from './extract.js';
 import { buildLiteIndexFile } from './buildIndex.js';
 import { osmiumFilters } from './poiCategories.js';
 import { appendAll } from '@yapaja/shared';
+import { PlaceLocator, type PlacePoint } from './placeLocator.js';
 
 interface CliArgs {
   places?: string;
   streets?: string;
   pois?: string;
   out: string;
+  /** Nur fuer die Auskunft im Index (`meta`): aus welcher Region er stammt.
+   *  Es gibt EINEN Index fuer alle Regionen -- ohne diese Angabe sieht
+   *  niemand, welche gerade drin ist. */
+  region?: string;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -39,10 +44,12 @@ function parseArgs(argv: string[]): CliArgs {
     else if (arg === '--streets') args.streets = argv[++i];
     else if (arg === '--pois') args.pois = argv[++i];
     else if (arg === '--out') args.out = argv[++i];
+    else if (arg === '--region') args.region = argv[++i];
   }
   if (!args.out) {
     throw new Error(
-      'Usage: cli.ts --places <geojsonseq> --streets <geojsonseq> --pois <geojsonseq> --out <lite_search.db path>',
+      'Usage: cli.ts --places <geojsonseq> --streets <geojsonseq> --pois <geojsonseq> ' +
+        '--out <lite_search.db path> [--region <id>]',
     );
   }
   return args as CliArgs;
@@ -68,6 +75,30 @@ async function readNormalizedFile(
   return { records, skipped, total };
 }
 
+/**
+ * Traegt in jeden Datensatz ohne eigene Ortsangabe den naechsten Ort ein und
+ * meldet, wie viele am Ende einen haben.
+ *
+ * `addr:city` aus den Daten hat Vorrang: es ist die Angabe des Erfassers und
+ * damit besser als jede Naeherung. Abgeleitet wird nur, wo nichts steht --
+ * und das ist bei Strassen der Normalfall.
+ *
+ * Die Zahl wird ausgegeben, weil sie beim Bauen die einzige Gelegenheit ist
+ * zu sehen, ob der Ortsbezug ueberhaupt greift. Steht dort 0, waere die
+ * Vorschlagsliste wieder so nichtssagend wie vorher.
+ */
+export function fillLocalities(records: NormalizedRecord[], locator: PlaceLocator | null): number {
+  let withLocality = 0;
+  for (const record of records) {
+    if (!record.locality && locator) {
+      const nearest = locator.nearestName(record.lat, record.lon);
+      if (nearest) record.locality = nearest;
+    }
+    if (record.locality) withLocality += 1;
+  }
+  return withLocality;
+}
+
 export async function runCli(argv: string[]): Promise<void> {
   // ─── EINE QUELLE FUER DIE KATEGORIEN ──────────────────────────────────────
   // Das Bau-Skript fragt die osmium-Filter HIER ab, statt sie zu wiederholen.
@@ -85,6 +116,10 @@ export async function runCli(argv: string[]): Promise<void> {
   const args = parseArgs(argv);
   const allRecords: NormalizedRecord[] = [];
 
+  // Die Orte werden ZUERST gelesen -- Strassen und Sonderziele bekommen aus
+  // ihnen ihren Ortsbezug, und der muss vorliegen, bevor sie dran sind.
+  let locator: PlaceLocator | null = null;
+
   if (args.places) {
     const { records, skipped, total } = await readNormalizedFile(args.places, 'place');
     console.warn(`Orte: ${records.length}/${total} uebernommen (${skipped} uebersprungen) aus ${args.places}`);
@@ -92,17 +127,20 @@ export async function runCli(argv: string[]): Promise<void> {
     // Datensatz ein Argument, und Rheinland-Pfalz hat mehr davon, als V8
     // zulaesst („Maximum call stack size exceeded"). Liechtenstein lief durch.
     appendAll(allRecords, records);
+    locator = new PlaceLocator(records as readonly PlacePoint[]);
   }
 
   if (args.streets) {
     const { records, skipped, total } = await readNormalizedFile(args.streets, 'street');
     console.warn(`Strassen: ${records.length}/${total} uebernommen (${skipped} uebersprungen) aus ${args.streets}`);
+    console.warn(`  davon mit Ortsangabe: ${fillLocalities(records, locator)}`);
     appendAll(allRecords, records);
   }
 
   if (args.pois) {
     const { records, skipped, total } = await readNormalizedFile(args.pois, 'poi');
     console.warn(`Sonderziele: ${records.length}/${total} uebernommen (${skipped} uebersprungen) aus ${args.pois}`);
+    console.warn(`  davon mit Ortsangabe: ${fillLocalities(records, locator)}`);
     appendAll(allRecords, records);
   }
 
@@ -114,7 +152,7 @@ export async function runCli(argv: string[]): Promise<void> {
   if (existsSync(tmpPath)) unlinkSync(tmpPath);
 
   try {
-    buildLiteIndexFile(allRecords, tmpPath);
+    buildLiteIndexFile(allRecords, tmpPath, { region: args.region });
     // Atomic swap (W-17 discipline): rename(2) on the same filesystem is
     // atomic -- a concurrent reader of `args.out` (the running Core
     // process) sees either the complete old file or the complete new file,

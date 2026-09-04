@@ -92,6 +92,15 @@ if [ ! -f "$PBF" ]; then
 fi
 PBF="$(cd "$(dirname "$PBF")" && pwd)/$(basename "$PBF")"
 
+# Regions-ID aus dem Dateinamen: "liechtenstein-latest.osm.pbf" -> "liechtenstein".
+# Sie wird nur in den Index geschrieben (meta.region), damit spaeter ablesbar
+# ist, WORAUS er stammt -- es gibt einen Index fuer alle Regionen. Der
+# Add-on-Wrapper leitet sie genauso ab.
+REGION_ID="$(basename "$PBF")"
+REGION_ID="${REGION_ID%%.osm.pbf}"
+REGION_ID="${REGION_ID%%.pbf}"
+REGION_ID="${REGION_ID%-latest}"
+
 WORK_DIR="$(mktemp -d)"
 cleanup() { rm -rf "$WORK_DIR"; }
 trap cleanup EXIT
@@ -138,7 +147,8 @@ echo "== Baue lite_search.db (tsx-CLI, atomarer Swap nach $OUT_DB) =="
     --places "$WORK_DIR/places.geojsonseq" \
     --streets "$WORK_DIR/streets.geojsonseq" \
     --pois "$WORK_DIR/pois.geojsonseq" \
-    --out "$OUT_DB"
+    --out "$OUT_DB" \
+    --region "$REGION_ID"
 )
 
 test -s "$OUT_DB" || { echo "FEHLER: $OUT_DB fehlt oder ist leer nach dem Build." >&2; exit 1; }

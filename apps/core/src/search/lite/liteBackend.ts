@@ -42,9 +42,17 @@ export interface LiteBackendOptions {
  * corresponding index-schema change.
  */
 function candidateToResult(candidate: LiteCandidate): SearchResult {
+  const address = candidate.address ?? undefined;
+  const locality = candidate.locality ?? undefined;
+  // „REWE, Beethovenstraße 12, Worms" -- `label` ist laut Typ die VOLLE
+  // Bezeichnung. Bisher stand hier nur der Name noch einmal, weshalb die
+  // Vorschlagsliste jeden Treffer doppelt zeigte und nichts unterschied.
+  const label = [candidate.name, address, locality].filter(Boolean).join(', ');
   return {
     name: candidate.name,
-    label: candidate.name,
+    label,
+    ...(address ? { address } : {}),
+    ...(locality ? { locality } : {}),
     latlng: { lat: candidate.lat, lon: candidate.lon },
     // Bei einem POI ist die KATEGORIE die nuetzlichere Auskunft: sie waehlt
     // das Symbol (⛽ 🏕️ statt eines allgemeinen 📌) und sagt in der Liste,

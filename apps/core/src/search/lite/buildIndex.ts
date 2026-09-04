@@ -27,7 +27,17 @@ import { existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import type { NormalizedRecord } from './extract.js';
 
-export function buildLiteIndexFile(records: readonly NormalizedRecord[], dbPath: string): void {
+/** Was neben den Datensaetzen ueber diesen Index festgehalten wird. */
+export interface LiteIndexMeta {
+  /** Die Region, aus der er gebaut wurde. */
+  region?: string;
+}
+
+export function buildLiteIndexFile(
+  records: readonly NormalizedRecord[],
+  dbPath: string,
+  meta: LiteIndexMeta = {},
+): void {
   if (dbPath !== ':memory:') {
     const dir = dirname(dbPath);
     if (!existsSync(dir)) {
@@ -51,7 +61,22 @@ export function buildLiteIndexFile(records: readonly NormalizedRecord[], dbPath:
         -- speist die Volltextsuche, damit „Supermarkt" den Laden findet, der
         -- in den Daten „REWE" heisst. Bei Orten und Strassen steht hier
         -- schlicht der Name, das Verhalten bleibt dort unveraendert.
-        search_text TEXT NOT NULL
+        search_text TEXT NOT NULL,
+        -- Strasse und Hausnummer, sofern getaggt. Nur zum Anzeigen: sie
+        -- speisen die Volltextsuche NICHT, sonst faende "Beethoven" jeden
+        -- Laden in der Beethovenstrasse statt der Strasse selbst.
+        address TEXT,
+        -- Der Ort, in dem der Eintrag liegt (aus addr:city oder abgeleitet).
+        locality TEXT
+      );
+
+      -- Was in diesem Index steckt und wann er gebaut wurde. Es gibt EINEN
+      -- Index fuer alle Regionen -- "Suche bauen" ersetzt ihn. Ohne diese
+      -- Auskunft sieht niemand, welche Region gerade drin ist; genau das war
+      -- gemeldet ("ich sehe nicht, dass bereits etwas erstellt wurde").
+      CREATE TABLE meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
       );
 
       CREATE VIRTUAL TABLE lite_search USING fts5(
@@ -63,8 +88,8 @@ export function buildLiteIndexFile(records: readonly NormalizedRecord[], dbPath:
     `);
 
     const insertPlace = db.prepare(
-      'INSERT INTO places (name, kind, lat, lon, population, category, search_text) ' +
-        'VALUES (@name, @kind, @lat, @lon, @population, @category, @search_text)',
+      'INSERT INTO places (name, kind, lat, lon, population, category, search_text, address, locality) ' +
+        'VALUES (@name, @kind, @lat, @lon, @population, @category, @search_text, @address, @locality)',
     );
 
     const insertAll = db.transaction((rows: readonly NormalizedRecord[]) => {
@@ -79,6 +104,8 @@ export function buildLiteIndexFile(records: readonly NormalizedRecord[], dbPath:
           // Der Name gehoert IMMER hinein -- sonst faende „REWE" den Laden
           // nicht mehr, sobald er Kategoriebegriffe hat.
           search_text: row.searchTerms ? `${row.name} ${row.searchTerms}` : row.name,
+          address: row.address ?? null,
+          locality: row.locality ?? null,
         });
       }
     });
@@ -90,6 +117,14 @@ export function buildLiteIndexFile(records: readonly NormalizedRecord[], dbPath:
     // lite_search.db; a rebuild always starts from a fresh file).
     db.exec('INSERT INTO lite_search(rowid, search_text) SELECT id, search_text FROM places;');
     db.exec("INSERT INTO lite_search(lite_search) VALUES('optimize');");
+
+    // Beim Bauen festgehalten, nicht beim Lesen erraten: die Datei wandert
+    // per rename an ihren Platz, ihr Zeitstempel sagt also nichts Sicheres
+    // ueber den Bau aus.
+    const insertMeta = db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)');
+    insertMeta.run('built_at', new Date().toISOString());
+    insertMeta.run('record_count', String(records.length));
+    if (meta.region) insertMeta.run('region', meta.region);
   } finally {
     db.close();
   }

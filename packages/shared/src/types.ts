@@ -179,6 +179,13 @@ export interface SearchResult {
   type: string; // result category, e.g. "city", "street", "coordinates"
   source: 'photon' | 'nominatim' | 'coords' | 'lite'; // backend that produced this result; 'lite' = offline SQLite/FTS5 fallback used when Photon is down/disabled (E05-T5, W-12)
   out_of_coverage?: boolean; // true if outside all installed map regions (Vorgriff W-09)
+  /** Strasse und Hausnummer, sofern die Daten sie tragen ("Beethovenstraße 12").
+   *  Gemeldet: bei mehreren gleichnamigen Treffern ("welcher REWE?") ist das
+   *  die Auskunft, die sie unterscheidbar macht. */
+  address?: string;
+  /** Der Ort, in dem der Treffer liegt ("Worms"). Ohne ihn sind dreihundert
+   *  Beethovenstraßen in der Vorschlagsliste nicht auseinanderzuhalten. */
+  locality?: string;
 }
 
 // Favorite destination (E05-T3, docs/03 §2 "Favoriten")

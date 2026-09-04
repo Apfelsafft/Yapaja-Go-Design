@@ -155,7 +155,8 @@ node "$CLI" \
   --places "$WORK_DIR/places.geojsonseq" \
   --streets "$WORK_DIR/streets.geojsonseq" \
   --pois "$WORK_DIR/pois.geojsonseq" \
-  --out "$OUT_DB"
+  --out "$OUT_DB" \
+  --region "$REGION_ID"
 
 # Und nachsehen, statt es zu glauben: ein Werkzeug, das „fertig" meldet und
 # nichts hinterlaesst, hat es in dieser Kette schon gegeben.

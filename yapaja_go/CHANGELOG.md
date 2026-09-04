@@ -10,6 +10,76 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.3.9
+
+**Die Suchvorschläge sagen jetzt, welcher Treffer gemeint ist.**
+
+> „Wenn ich bspw Rewe eintippe und er mehrere Rewe in meinem Umkreis findet,
+> dann gib bitte die Adresse und ungefähre Entfernung mit an. Wenn ich bspw
+> Beethoven eintippe, gib bitte den Ort mit an."
+
+Unter jedem Vorschlag steht jetzt, **wo** er liegt — bei Sonderzielen die
+Adresse aus den Kartendaten, sonst der Ort. Rechts steht wie bisher die
+Entfernung von der eigenen Position.
+
+```
+🛒  REWE
+    Kaiserstraße 7, Worms                        1,2 km
+🛒  REWE
+    Mannheim                                    38,4 km
+
+🛣️  Beethovenstraße
+    Worms                                        0,8 km
+🛣️  Beethovenstraße
+    Mannheim                                    37,9 km
+```
+
+Vorher stand dort der Name ein zweites Mal — drei REWE-Filialen sahen aus wie
+dreimal dasselbe.
+
+Trägt ein Eintrag keinen Ort in den Daten (bei Straßen die Regel), wird der
+nächstgelegene Ort genommen. Ist keiner in der Nähe, bleibt die Zeile leer,
+statt einen Ort zu behaupten, der 80 km weg ist.
+
+**Dafür muss der Suchindex einmal neu gebaut werden** — die Ortsangaben
+entstehen beim Bauen.
+
+---
+
+**Neu: „Was ist gebaut?"**
+
+> „Nach der (erfolgreichen) Erstellung sehe ich nicht, dass bereits etwas
+> erstellt wurde und wann."
+
+In „Kartenregionen verwalten" (🗺️) steht jetzt ganz oben eine Übersicht:
+welche Karten es gibt, seit wann, und wie groß — dazu Routing und Suche mit
+Zeitpunkt und Anzahl der Einträge.
+
+Dabei wird eine Sache ausdrücklich benannt, die vorher niemand sehen konnte:
+**Routing und Suche gibt es nur je einmal, nicht pro Region.** Beide Bauwege
+ersetzen den vorherigen Stand vollständig. Wer Routing für Rheinland-Pfalz
+baut, hat danach kein Routing mehr für Liechtenstein. Die Übersicht sagt
+deshalb, aus welcher Region der jeweilige Stand kommt.
+
+---
+
+**Für große Karten: der Speicher für den Kartenbau richtet sich jetzt nach dem
+Gerät.**
+
+Er stand fest auf 2 GB — passend für eine 8-GB-Maschine und Liechtenstein, zu
+wenig für einen großen Extrakt. Jetzt werden 40 % des vorhandenen
+Arbeitsspeichers genommen, höchstens 8 GB (bei 16 GB also rund 6,5 GB). Der
+Rest bleibt bewusst frei: der Kartenbau legt seine Zwischenstände als Dateien
+ab und lebt vom Dateisystem-Cache — zu viel Speicher für das Programm macht
+den Bau *langsamer*.
+
+Wer es selbst festlegen will, setzt `PLANETILER_XMX`; das gewinnt.
+
+**Hinweis zum Platzbedarf:** die Vorabprüfung misst bisher nur, ob die
+*heruntergeladene* Datei passt — nicht, was beim Bauen zusätzlich anfällt.
+Für Deutschland ist das ein Vielfaches (Zwischenstände plus fertige Karte).
+Wer wenig freien Platz hat, sollte das im Blick behalten.
+
 ## 0.3.8
 
 **Behoben: die Suche fand nichts mehr — auch nach erneutem Bauen nicht.**

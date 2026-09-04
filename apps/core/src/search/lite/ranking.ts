@@ -56,6 +56,10 @@ const KIND_RANK: Record<LiteKind, number> = {
 };
 
 export interface LiteCandidate {
+  /** Strasse und Hausnummer, sofern in den Daten. Nur zum Anzeigen. */
+  address?: string | null;
+  /** Der Ort, in dem der Eintrag liegt. Nur zum Anzeigen. */
+  locality?: string | null;
   name: string;
   kind: LiteKind;
   /** Nur bei POIs: der OSM-Tag-Wert, der das Symbol bestimmt. */
