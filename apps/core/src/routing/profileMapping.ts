@@ -49,6 +49,11 @@ import type {
   ValhallaTruckCostingOptions,
 } from './types.js';
 
+/** Das Valhalla-Kostenmodell, mit dem gefahren wird. Steht hier EINMAL --
+ *  die Tempolimit-Abfrage (`speedLimits.ts`) muss dasselbe nennen, sonst
+ *  liefert sie Limits fuer ein anderes Fahrzeug als die Route. */
+export const VALHALLA_COSTING = 'truck';
+
 /**
  * Map a profile to `costing_options.truck`. Pure + exhaustively tested.
  *
@@ -154,7 +159,7 @@ export function buildValhallaRouteBody(
 
   const body: ValhallaRouteRequestBody = {
     locations,
-    costing: 'truck',
+    costing: VALHALLA_COSTING,
     costing_options: { truck: buildTruckCostingOptions(profile, excludeOptions?.avoidOverrides) },
     directions_options: { units: 'kilometers' },
     alternates: alternatives,

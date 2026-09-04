@@ -10,6 +10,70 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.5.1
+
+**Behoben: die Suche fand nichts — weil sie deinen Index nicht mehr lesen
+konnte.**
+
+> „Der Suchindex klappt nicht. Habe Speyer eingegeben, aber es wird nichts
+> angezeigt."
+
+Speyer stand in deinem Index. Gelesen wurde er trotzdem nicht: ich habe der
+Index-Tabelle mit 0.3.6 und 0.3.9 neue Spalten hinzugefügt, und die Abfrage
+verlangte sie ohne Rückfall. Gegen einen älteren Index brach sie ab —
+
+```
+no such column: p.category
+```
+
+— und daraus wurde nach oben ein „Nichts gefunden". Die Suche war also nach
+dem Update **vollständig tot**, für jeden mit einem älteren Index, ohne dass
+irgendwo stand, woran es lag. Jetzt wird gelesen, was da ist; fehlende
+Angaben sind leer statt tödlich. Kein Neubau nötig.
+
+---
+
+**Behoben: die Karte endete an einer unsichtbaren Grenze.**
+
+> „Wenn ich hier aus Rheinland-Pfalz rauszoome, ist nichts daneben."
+
+Bei mehreren installierten Regionen wurde die **kleinste** gewählt, die zur
+Position passt. Mit Deutschland *und* Rheinland-Pfalz gewann Rheinland-Pfalz,
+und die Karte hörte mitten im Land auf. Meine Begründung dafür war schlicht
+falsch: die kleinere Datei hat kein feineres Detail, sie deckt nur weniger ab.
+
+Jetzt gewinnt die **größte** passende Region — das gibt die zusammenhängende
+Karte. Und ohne Positionsfix startet die App ebenfalls in der größten Region
+statt in Liechtenstein.
+
+Wer eine bestimmte Region sehen will, wählt sie weiterhin unter ⚙️ →
+„Angezeigte Region" fest; diese Wahl gewinnt gegen alles.
+
+---
+
+**Neu: Tempoanzeige und Tempolimit-Schild.**
+
+> „Ich hätte gerne überhaupt eine Anzeige der Geschwindigkeit. Die Warnung für
+> eine Überschreitung kann auch gerne sein, dass die Anzeige im aktuellen
+> Tempolimit, als entsprechendes Verkehrsschild, rot wird."
+
+- **Tempo** steht unten links — immer, sobald es eine Position gibt, nicht
+  erst während einer Navigation.
+- **Das Tempolimit-Schild** gab es schon, es blieb nur immer leer: Valhallas
+  Routenabfrage liefert keine Limits. Sie werden jetzt über einen zweiten
+  Aufruf nachgetragen und erscheinen als rundes Schild.
+- **Zu schnell:** das Schild wird rot (mit 3 km/h Toleranz — ohne sie flackert
+  es bei konstanter Fahrt am Limit, und ein flackerndes Warnsignal wird
+  ignoriert).
+
+Zwei Ehrlichkeiten dazu: OSM-Tempolimits sind lückenhaft — wo keins getaggt
+ist, erscheint **kein** Schild statt einer geratenen Zahl. Und eine Autobahn
+ohne Limit zeigt ebenfalls keins, statt eine Richtgeschwindigkeit als Limit
+auszugeben.
+
+Scheitert die Tempolimit-Abfrage, bleibt die Route trotzdem: ein fehlendes
+Schild darf keine fehlende Fahrt bedeuten.
+
 ## 0.5.0
 
 **Mehrere Länder gleichzeitig — Suche und Routing.**

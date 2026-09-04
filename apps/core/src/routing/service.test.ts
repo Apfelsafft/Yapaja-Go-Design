@@ -100,9 +100,23 @@ function jsonResponse(json: unknown, status = 200): FetchResponseLike {
   };
 }
 
-/** fetch mock that records the outgoing request and returns a fixed response. */
+/**
+ * fetch mock that records the outgoing request and returns a fixed response.
+ *
+ * ─── NUR DER `/route`-AUFRUF WIRD FESTGEHALTEN ────────────────────────────
+ * Seit 0.5.0 fragt der Dienst nach der Route zusaetzlich `/trace_attributes`
+ * fuer die Tempolimits. Wuerde hier weiter der LETZTE Aufruf festgehalten,
+ * pruefte jeder Test unten den falschen Rumpf -- genau so sind diese Tests
+ * beim Einbau umgefallen (`expected '…/trace_attributes' to be '…/route'`).
+ *
+ * Die Tempolimit-Abfrage bekommt eine leere Antwort: sie ist hier nicht das
+ * Thema, und sie darf ein Routing-Ergebnis nicht veraendern.
+ */
 function recordingFetch(captured: Captured, response: FetchResponseLike): FetchLike {
   return async (url, init) => {
+    if (url.endsWith('/trace_attributes')) {
+      return jsonResponse({ edges: [] });
+    }
     captured.url = url;
     captured.body = JSON.parse(init.body) as Record<string, unknown>;
     return response;
@@ -135,6 +149,39 @@ function request(overrides: Partial<RouteRequest> = {}): RouteRequest {
 }
 
 // --- tests ---------------------------------------------------------------
+
+describe('Tempolimits (0.5.0)', () => {
+  /**
+   * ─── EINE ROUTE DARF NIE AN DEN LIMITS SCHEITERN ─────────────────────────
+   * Die Tempolimits sind ein Zusatz. Antwortet Valhalla darauf nicht, ist das
+   * ein fehlendes Schild -- keine fehlende Fahrt. Der umgekehrte Fall waere
+   * die schlechteste Abwaegung, die dieses Projekt treffen koennte.
+   */
+  it('liefert die Route auch dann, wenn die Tempolimit-Abfrage scheitert', async () => {
+    const service = serviceWith(async (url) => {
+      if (url.endsWith('/trace_attributes')) throw new Error('Valhalla antwortet nicht');
+      return jsonResponse(OK_RESPONSE);
+    });
+
+    const routes = await service.createRoutes(request());
+    expect(routes.length).toBeGreaterThan(0);
+    expect(routes[0].speed_limits).toEqual([]);
+  });
+
+  it('traegt gelieferte Tempolimits in die Route ein', async () => {
+    const service = serviceWith(async (url) => {
+      if (url.endsWith('/trace_attributes')) {
+        return jsonResponse({
+          edges: [{ begin_shape_index: 0, end_shape_index: 2, speed_limit: 50 }],
+        });
+      }
+      return jsonResponse(OK_RESPONSE);
+    });
+
+    const routes = await service.createRoutes(request());
+    expect(routes[0].speed_limits).toEqual([{ begin_shape_index: 0, end_shape_index: 2, kmh: 50 }]);
+  });
+});
 
 describe('RoutingService profile-mapping intercept', () => {
   it('sends the active profile as costing_options.truck (all fields, avoid=false omits use_*)', async () => {

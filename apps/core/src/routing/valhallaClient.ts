@@ -67,6 +67,9 @@ export interface ValhallaClientOptions {
 /** Structural contract the RoutingService depends on -- eases mocking. */
 export interface ValhallaClientLike {
   route(body: ValhallaRouteRequestBody): Promise<ValhallaRouteResponse>;
+  /** Tempolimits zu einer bereits berechneten Route. `null` = nicht zu haben;
+   *  das ist ein normaler Ausgang, keine Ausnahme (siehe Implementierung). */
+  traceAttributes?(body: Record<string, unknown>): Promise<unknown | null>;
 }
 
 /**
@@ -183,6 +186,44 @@ export class ValhallaClient implements ValhallaClientLike {
     }
 
     return json;
+  }
+
+  /**
+   * Tempolimits zu einer bereits berechneten Route (`/trace_attributes`).
+   *
+   * ─── WARUM DAS HIER NIE WIRFT ─────────────────────────────────────────────
+   * Diese Anreicherung ist ein ZUSATZ. Eine Route, die berechnet ist, muss
+   * ausgeliefert werden — auch wenn Valhalla auf `/trace_attributes` nicht
+   * antwortet, langsam ist oder etwas Unerwartetes schickt. Eine Fahrt an
+   * einem fehlenden Tempolimit scheitern zu lassen, waere die falsche
+   * Abwaegung. Deshalb: `null` zurueck, Grund ins Protokoll, weiter.
+   */
+  async traceAttributes(body: Record<string, unknown>): Promise<unknown | null> {
+    const url = `${this.baseUrl}/trace_attributes`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    try {
+      const res = await this.fetchImpl(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        this.logger.warn('Valhalla lieferte keine Tempolimits', { url, status: res.status });
+        return null;
+      }
+      return await res.json();
+    } catch (err) {
+      this.logger.warn('Tempolimit-Abfrage fehlgeschlagen -- Route bleibt ohne Limits', {
+        url,
+        reason: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }
 

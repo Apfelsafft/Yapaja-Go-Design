@@ -10,6 +10,15 @@ import type { NavState } from '@yapaja/shared';
 import { useNavState, useNavStore } from './navStore.js';
 import { isDriveActive } from './ManeuverPanel.js';
 
+/**
+ * Ab wie viel km/h ueber dem Limit das Schild rot wird.
+ *
+ * Die GPS-Geschwindigkeit schwankt um einige km/h. Ohne Toleranz flackerte
+ * das Schild bei konstanter Fahrt am Limit -- und ein Warnsignal, das
+ * flackert, wird weggesehen.
+ */
+export const SPEEDING_TOLERANCE_KMH = 3;
+
 export interface SpeedLimitSignProps {
   /** Explicit `NavState` (E07-T1 widget reuse -- see
    *  `ManeuverPanel.tsx`'s identical `ManeuverPanelProps.navState` doc
@@ -31,12 +40,30 @@ export default function SpeedLimitSign(props: SpeedLimitSignProps = {}): React.R
   const kmh = navState.speed_limit_kmh;
   if (kmh === null) return null;
 
+  // ─── ZU SCHNELL: DAS SCHILD WIRD ROT ──────────────────────────────────────
+  // Gewuenscht als Ueberschreitungswarnung: „dass bspw die Anzeige im
+  // aktuellen Tempolimit, als entsprechendes Verkehrsschild, rot wird."
+  //
+  // Bewusst mit Toleranz: GPS-Geschwindigkeit schwankt, und ein Schild, das
+  // bei 51 km/h in einer 50er-Zone flackert, wird ignoriert -- und ein
+  // ignoriertes Warnsignal ist schlimmer als keines.
+  const speed = navState.speed_kmh;
+  const speeding = speed !== null && speed > kmh + SPEEDING_TOLERANCE_KMH;
+
   return (
     <div
       data-testid="speed-limit-sign"
-      className="absolute top-3 right-3 z-20 flex items-center justify-center w-16 h-16 rounded-full bg-white border-4 border-red-600 shadow-lg"
+      data-speeding={speeding ? 'true' : 'false'}
+      className={`absolute top-3 right-3 z-20 flex items-center justify-center w-16 h-16 rounded-full border-4 shadow-lg ${
+        speeding ? 'bg-red-600 border-red-700' : 'bg-white border-red-600'
+      }`}
     >
-      <span data-testid="speed-limit-value" className="text-2xl font-extrabold text-slate-900 tabular-nums">
+      <span
+        data-testid="speed-limit-value"
+        className={`text-2xl font-extrabold tabular-nums ${
+          speeding ? 'text-white' : 'text-slate-900'
+        }`}
+      >
         {kmh}
       </span>
     </div>

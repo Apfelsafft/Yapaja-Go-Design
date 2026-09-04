@@ -4,6 +4,7 @@ import PositionInitializer from './position/PositionInitializer';
 import RoutingInitializer from './routing/RoutingInitializer.js';
 import FavoritesDrawer from './favorites/FavoritesDrawer.js';
 import DriveOverlay from './drive/DriveOverlay.js';
+import SpeedDisplay from './drive/SpeedDisplay.js';
 import ThemeController from './theme/ThemeController.js';
 import DriveLockController from './drive/DriveLockController.js';
 import HandednessController from './shell/HandednessController.js';
@@ -27,6 +28,8 @@ export default function App(): React.ReactElement {
       <RoutingInitializer />
       <FavoritesDrawer />
       <DriveOverlay />
+      {/* Tacho: haengt an der Position, also auch ohne laufende Navigation da. */}
+      <SpeedDisplay />
       <UpdatePrompt />
       <OnboardingWizard />
       {/* E09-T2: sandboxed UI add-on runtime (iframes + scope-checked bridge,

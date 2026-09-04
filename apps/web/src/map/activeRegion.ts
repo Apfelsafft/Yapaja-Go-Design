@@ -59,12 +59,24 @@ function boundsArea(region: MapRegionSummary): number {
 }
 
 /**
- * Alle Regionen, die den Punkt enthalten — die KLEINSTE zuerst.
+ * Alle Regionen, die den Punkt enthalten — die GROESSTE zuerst.
  *
- * Warum die kleinste: Regionen ueberlappen sich in der Praxis (wer
- * „Rheinland-Pfalz" und spaeter „Deutschland" installiert, hat beide ueber
- * demselben Ort). Die kleinere Datei deckt dieselbe Stelle mit weniger
- * Speicher und meist mehr Detail ab, also ist sie die bessere Wahl.
+ * ─── HIER STAND „DIE KLEINSTE ZUERST", MIT FALSCHER BEGRUENDUNG ────────────
+ * Der Grund war: „Die kleinere Datei deckt dieselbe Stelle mit weniger
+ * Speicher und meist mehr Detail ab." Der zweite Teil stimmt nicht. Beide
+ * Regionen werden mit demselben Profil und ohne `--maxzoom` gebaut
+ * (`services/tiles/build-pmtiles.sh`, DEFAULT_ARGS) — die kleinere Datei hat
+ * KEIN Detail mehr, sie deckt nur weniger ab.
+ *
+ * Und genau das war der gemeldete Effekt: „Wenn ich hier aus Rheinland-Pfalz
+ * rauszoome, ist nichts daneben. Der Rest bleibt leer." Mit installiertem
+ * Deutschland UND Rheinland-Pfalz gewann Rheinland-Pfalz, und die Karte
+ * endete an einer unsichtbaren Grenze mitten im Land.
+ *
+ * Die groesste Region, die den Punkt enthaelt, gibt die zusammenhaengende
+ * Karte — und das ist es, was man beim Fahren braucht. Wer trotzdem eine
+ * bestimmte Region sehen will, waehlt sie unter „Angezeigte Region" fest;
+ * diese Wahl gewinnt weiterhin gegen alles.
  */
 export function regionsContaining(
   regions: MapRegionSummary[],
@@ -72,7 +84,7 @@ export function regionsContaining(
 ): MapRegionSummary[] {
   return regions
     .filter((region) => regionContains(region, point))
-    .sort((a, b) => boundsArea(a) - boundsArea(b));
+    .sort((a, b) => boundsArea(b) - boundsArea(a));
 }
 
 export interface PickActiveRegionInput {
@@ -133,5 +145,11 @@ export function pickActiveRegion({
     return { region: covering[0], reason: 'position', positionOutsideAllRegions };
   }
 
-  return { region: regions[0], reason: 'fallback', positionOutsideAllRegions };
+  // Ohne Position: die GROESSTE installierte Region. Bis 0.5.0 war es
+  // schlicht die erste der Liste -- beim Start landete man deshalb in
+  // Liechtenstein, obwohl Deutschland installiert war, und die Karte sprang
+  // erst beim GPS-Fix um. Die groesste Region ist die, bei der die eigene
+  // Position am wahrscheinlichsten schon drin liegt.
+  const largestFirst = [...regions].sort((a, b) => boundsArea(b) - boundsArea(a));
+  return { region: largestFirst[0], reason: 'fallback', positionOutsideAllRegions };
 }

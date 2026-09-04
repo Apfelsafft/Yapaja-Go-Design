@@ -634,6 +634,63 @@ jobs:
           print("PLAUSIBEL - echtes Routing auf dem LI-Strassennetz")
           PY
 
+      - name: Tempolimits vom echten Valhalla (/trace_attributes)
+        run: |
+          # ─── WARUM DAS HIER STEHT ────────────────────────────────────────
+          # Die Anfrageform habe ich aus Valhallas Quelltext gelesen
+          # (`worker.cc`, `trace_serializer.cc`), aber gegen ein LAUFENDES
+          # Valhalla konnte ich sie beim Bauen nicht ausprobieren. Waere sie
+          # falsch, kaeme einfach nichts zurueck -- und das Tempolimit-Schild
+          # erschiene nie, ohne dass irgendwo ein Fehler stuende. Genau diese
+          # Sorte stiller Ausfall soll hier auffallen, nicht beim Betreiber.
+          #
+          # Geprueft wird die FORM der Antwort, nicht ein konkreter Wert:
+          # welche Strassen in Liechtenstein ein `maxspeed`-Tag tragen, ist
+          # Sache von OpenStreetMap und darf diesen Job nicht flaky machen.
+          SHAPE=$(python3 -c "
+          import json
+          d = json.load(open('route.json'))
+          print(d['trip']['legs'][0]['shape'])
+          ")
+
+          cat > trace-req.json <<JSON
+          {
+            "encoded_polyline": "$SHAPE",
+            "costing": "truck",
+            "shape_match": "edge_walk",
+            "units": "kilometers",
+            "filters": {
+              "attributes": ["edge.speed_limit", "edge.begin_shape_index", "edge.end_shape_index"],
+              "action": "include"
+            }
+          }
+          JSON
+
+          curl -sf http://localhost:8002/trace_attributes \
+            -H 'Content-Type: application/json' \
+            -d @trace-req.json | tee trace.json > /dev/null
+
+          python3 - <<'PY2'
+          import json
+          d = json.load(open("trace.json"))
+          edges = d.get("edges")
+          assert isinstance(edges, list) and edges, "keine Kanten in der Antwort -- die Anfrageform stimmt nicht"
+          print(f"Kanten: {len(edges)}")
+
+          # Die Felder, aus denen speedLimits.ts die Abschnitte baut. Fehlen
+          # sie, greift der Filter nicht so, wie der Core es annimmt.
+          with_bounds = [e for e in edges if "begin_shape_index" in e and "end_shape_index" in e]
+          assert with_bounds, "keine Kante nennt begin/end_shape_index -- der Filter wirkt anders als angenommen"
+          print(f"davon mit Grenzen: {len(with_bounds)}")
+
+          limits = [e["speed_limit"] for e in edges if "speed_limit" in e]
+          print(f"davon mit Tempolimit: {len(limits)}  Beispiele: {limits[:5]}")
+          for value in limits:
+              assert isinstance(value, (int, float)) or value == "unlimited", \
+                  f"unerwartete Form eines Tempolimits: {value!r}"
+          print("PLAUSIBEL - /trace_attributes antwortet in der Form, die speedLimits.ts erwartet")
+          PY2
+
       - name: Dump Valhalla logs on failure
         if: failure()
         run: docker logs valhalla 2>&1 | tail -150 || true
