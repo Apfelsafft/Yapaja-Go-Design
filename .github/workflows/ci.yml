@@ -647,28 +647,49 @@ jobs:
           # Geprueft wird die FORM der Antwort, nicht ein konkreter Wert:
           # welche Strassen in Liechtenstein ein `maxspeed`-Tag tragen, ist
           # Sache von OpenStreetMap und darf diesen Job nicht flaky machen.
-          SHAPE=$(python3 -c "
+          # Der Rumpf wird GESCHRIEBEN, nicht zusammengeklebt. Beim ersten
+          # Versuch stand hier ein Here-Doc mit "$SHAPE" darin -- und Valhalla
+          # antwortete `400::Failed to parse json request`. Grund: polyline6
+          # benutzt den Zeichenbereich '?'..'~', und darin liegt auch der
+          # Backslash. In dieser Route kamen drei davon vor; roh in eine
+          # JSON-Zeichenkette gesetzt ergibt das eine ungueltige Escape-Folge.
+          # `json.dump` maskiert sie -- genau das, was im Core `JSON.stringify`
+          # tut. Der Job prueft damit dieselbe Serialisierung wie der Betrieb.
+          python3 - <<'PY1'
           import json
-          d = json.load(open('route.json'))
-          print(d['trip']['legs'][0]['shape'])
-          ")
-
-          cat > trace-req.json <<JSON
-          {
-            "encoded_polyline": "$SHAPE",
-            "costing": "truck",
-            "shape_match": "edge_walk",
-            "units": "kilometers",
-            "filters": {
-              "attributes": ["edge.speed_limit", "edge.begin_shape_index", "edge.end_shape_index"],
-              "action": "include"
-            }
+          shape = json.load(open("route.json"))["trip"]["legs"][0]["shape"]
+          body = {
+              "encoded_polyline": shape,
+              "costing": "truck",
+              "shape_match": "edge_walk",
+              "units": "kilometers",
+              "filters": {
+                  "attributes": [
+                      "edge.speed_limit",
+                      "edge.begin_shape_index",
+                      "edge.end_shape_index",
+                  ],
+                  "action": "include",
+              },
           }
-          JSON
+          json.dump(body, open("trace-req.json", "w"))
+          print(f"Geometrie: {len(shape)} Zeichen, davon {shape.count(chr(92))} Backslashes")
+          PY1
 
-          curl -sf http://localhost:8002/trace_attributes \
+          # NICHT `curl -sf ... | tee`: in einer Pipeline zaehlt der Status des
+          # LETZTEN Befehls, also der von `tee`. Ein 400 von Valhalla ging so
+          # unter und tauchte erst weiter unten als ratloser JSON-Fehler auf.
+          # Hier wird der Status ausgelesen und die Antwort mit ausgegeben --
+          # Valhalla schreibt den Grund in den Rumpf.
+          STATUS=$(curl -s -o trace.json -w '%{http_code}' \
+            http://localhost:8002/trace_attributes \
             -H 'Content-Type: application/json' \
-            -d @trace-req.json | tee trace.json > /dev/null
+            -d @trace-req.json)
+          if [ "$STATUS" != "200" ]; then
+            echo "/trace_attributes antwortete mit HTTP $STATUS:"
+            cat trace.json
+            exit 1
+          fi
 
           python3 - <<'PY2'
           import json
