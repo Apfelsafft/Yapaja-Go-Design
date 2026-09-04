@@ -10,7 +10,7 @@
 name: "Yapaja Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.3.9"
+version: "0.4.0"
 url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
 
 # amd64 covers typical Mini-PC/NUC installs; aarch64 covers Raspberry Pi
@@ -65,6 +65,20 @@ ports: {}
 # writable layer. `share:rw` mounts HAOS's shared /share into the container.
 map:
   - share:rw
+  # ─── WOFUER SCHREIBZUGRIFF AUF DIE HA-KONFIGURATION ───────────────────────
+  # Ausschliesslich, um die Lovelace-Karte (`lovelace/yapaja-map-card.js`) beim
+  # Start nach `www/yapaja/` zu legen. Home Assistant liefert alles unter `www/`
+  # als `/local/...` aus -- das ist der EINZIGE Pfad, unter dem eine
+  # Dashboard-Ressource dauerhaft gueltig bleibt. Ueber Ingress ginge es nicht:
+  # dessen Pfad enthaelt ein wechselndes Token.
+  #
+  # Ohne diesen Zugriff muesste die Datei von Hand kopiert werden -- also per
+  # SSH oder Datei-Editor. Der Betreiber hat ausdruecklich gesagt, dass er alles
+  # aus der Oberflaeche heraus machen moechte und nicht ueber SSH.
+  #
+  # Geschrieben wird NUR diese eine Datei in genau diesem Unterordner; das
+  # Init-Skript fasst nichts anderes an.
+  - homeassistant_config:rw
 
 # bashio::services mqtt ... needs this so the Supervisor grants access to the
 # Mosquitto add-on's broker credentials (docs/04 §3 "MQTT-Credentials

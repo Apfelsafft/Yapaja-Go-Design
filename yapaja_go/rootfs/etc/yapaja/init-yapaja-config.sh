@@ -200,4 +200,40 @@ fi
 # the Core at the proxy URL; it re-reads $SUPERVISOR_TOKEN itself).
 export_env "HA_API_URL" "http://supervisor/core/api"
 
+# ---- Lovelace-Karte fuer eigene Dashboards bereitstellen -------------------
+# Home Assistant liefert alles unter seinem `www/` als `/local/...` aus. Das
+# ist der einzige Ort, unter dem eine Dashboard-Ressource dauerhaft gueltig
+# bleibt -- der Ingress-Pfad des Add-ons enthaelt ein wechselndes Token und
+# taugt dafuer nicht.
+#
+# ZWEI MOEGLICHE MOUNT-PFADE: der Supervisor legt `homeassistant_config` unter
+# `/homeassistant` ab, frueher hiess dieselbe Zuordnung `config` und lag unter
+# `/config`. Beide werden geprueft, statt einen zu raten -- ein geratener Pfad
+# waere hier besonders unangenehm: das Kopieren schluege still fehl, und die
+# Karte fehlte im Dashboard, ohne dass irgendwo etwas dazu stuende.
+#
+# Kopiert wird bei JEDEM Start, damit ein Add-on-Update auch die Karte
+# aktualisiert. Beruehrt wird ausschliesslich diese eine Datei.
+CARD_SRC="/usr/share/yapaja/lovelace/yapaja-map-card.js"
+HA_CONFIG_DIR=""
+for candidate in /homeassistant /config; do
+  if [ -d "$candidate" ]; then
+    HA_CONFIG_DIR="$candidate"
+    break
+  fi
+done
+
+if [ -z "$HA_CONFIG_DIR" ]; then
+  bashio::log.warning "init-yapaja-config: HA-Konfigurationsordner nicht gefunden -- die Dashboard-Karte wurde NICHT bereitgestellt."
+elif [ ! -f "$CARD_SRC" ]; then
+  bashio::log.warning "init-yapaja-config: ${CARD_SRC} fehlt im Image -- die Dashboard-Karte wurde NICHT bereitgestellt."
+else
+  CARD_DIR="${HA_CONFIG_DIR}/www/yapaja"
+  if mkdir -p "$CARD_DIR" && cp "$CARD_SRC" "${CARD_DIR}/yapaja-map-card.js"; then
+    bashio::log.info "init-yapaja-config: Dashboard-Karte bereitgestellt unter /local/yapaja/yapaja-map-card.js (als Ressource vom Typ 'JavaScript-Modul' eintragen)."
+  else
+    bashio::log.warning "init-yapaja-config: Dashboard-Karte konnte nicht nach ${CARD_DIR} kopiert werden."
+  fi
+fi
+
 bashio::log.info "init-yapaja-config: done. region='${REGION:-<none, onboarding>}' photon_enabled=${PHOTON_ENABLED} gps_source=${GPS_SOURCE}"

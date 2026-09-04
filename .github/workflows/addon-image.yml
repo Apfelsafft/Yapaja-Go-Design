@@ -141,6 +141,29 @@ jobs:
             echo "Oberflaeche und Schriftzeichen vorhanden"
           '
 
+      - name: Die Lovelace-Karte liegt im Image
+        run: |
+          # Sie wird beim Start nach <ha-config>/www/yapaja/ kopiert. Fehlt sie
+          # im Image, meldet das Init-Skript zwar eine Warnung -- aber im
+          # Dashboard fehlt schlicht die Karte, und niemand liest deswegen ein
+          # Add-on-Log.
+          docker run --rm --entrypoint sh yapaja-go:ci -c '
+            set -e
+            test -s /usr/share/yapaja/lovelace/yapaja-map-card.js
+            grep -q "custom:yapaja-map-card\|yapaja-map-card" /usr/share/yapaja/lovelace/yapaja-map-card.js
+            echo "Lovelace-Karte vorhanden"
+          '
+
+      - name: Die Anzeigeseite fuer die Karte ist ausgeliefert
+        run: |
+          # `embed.html` ist das, was die Lovelace-Karte in ihren Rahmen laedt.
+          # Ohne sie zeigt die Dashboard-Kachel eine leere Flaeche.
+          docker run --rm --entrypoint sh yapaja-go:ci -c '
+            set -e
+            test -s /app/apps/core/public/embed.html
+            echo "embed.html vorhanden"
+          '
+
       - name: s6-Dienste sind vollstaendig verdrahtet
         run: |
           # Ein Dienst ohne `run` startet nicht; einer, der nicht unter

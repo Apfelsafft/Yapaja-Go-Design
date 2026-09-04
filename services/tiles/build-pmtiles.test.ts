@@ -490,4 +490,121 @@ describe('build-pmtiles.sh — atomarer Swap (W-17)', () => {
     expect(result.stdout).toContain('liechtenstein.pmtiles');
     expect(result.stdout).toContain('kein Neustart noetig');
   });
+
+  /**
+   * ─── PLATZPRUEFUNG VOR EINEM BAU, DER STUNDEN LAEUFT ──────────────────────
+   * Der Betreiber baut Deutschland (~4,5 GB Extrakt). Geht dabei der Platz
+   * aus, ist die Zeit weg -- und die Meldung kommt aus planetilers Innerem
+   * und sagt nicht, dass schlicht die Platte voll war.
+   *
+   * Der freie Platz wird ueber `df` ermittelt; hier wird `df` deshalb durch
+   * einen Stub ersetzt, der eine feste Zahl meldet. Anders liesse sich eine
+   * volle Platte nicht nachstellen, ohne eine zu erzeugen.
+   */
+  describe('Platzpruefung', () => {
+    let dfBinCounter = 0;
+
+    /** Ein PATH-Verzeichnis mit einem `df`, das immer `freeMb` meldet.
+     *
+     *  Eigener, EINDEUTIGER Ordner je Aufruf: ein Test, der zwei verschiedene
+     *  Platzsituationen vergleicht, ruft diesen Helfer zweimal auf -- mit
+     *  einem festen Ordnernamen scheiterte der zweite Aufruf an bereits
+     *  vorhandenen Symlinks (EEXIST), und zwar bevor die eigentliche Pruefung
+     *  ueberhaupt dran war. */
+    function makeBinWithDf(freeMb: number): string {
+      dfBinCounter += 1;
+      const dir = join(work, `df-bin-${dfBinCounter}`);
+      mkdirSync(dir, { recursive: true });
+      for (const tool of ['bash', 'dirname', 'basename', 'mktemp', 'rm', 'mkdir', 'cp', 'mv', 'head', 'wc', 'tr', 'cat', 'stat', 'sync', 'awk']) {
+        const resolved = execFileSync(BASH, ['-c', `command -v ${tool} || true`], {
+          encoding: 'utf-8',
+        }).trim();
+        if (resolved) symlinkSync(resolved, join(dir, tool));
+      }
+      installJavaStub();
+      symlinkSync(join(stubBin, 'java'), join(dir, 'java'));
+      const df = join(dir, 'df');
+      writeFileSync(
+        df,
+        `#!/usr/bin/env bash\n` +
+          `echo "Filesystem 1M-blocks Used Available Use% Mounted on"\n` +
+          `echo "/dev/stub 100000 1 ${freeMb} 1% /"\n`,
+      );
+      chmodSync(df, 0o755);
+      return dir;
+    }
+
+    it('laesst den Bau laufen, wenn genug Platz frei ist', () => {
+      const pbf = writeFakePbf();
+      const jar = join(work, 'planetiler.jar');
+      writeFileSync(jar, 'nicht wirklich ein jar');
+      const result = run([pbf], { PATH: makeBinWithDf(500_000), PLANETILER_JAR: jar });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('Platzpruefung bestanden');
+    });
+
+    it('bricht VOR dem Bau ab, wenn es nicht reicht -- und nennt die Zahlen', () => {
+      const pbf = writeFakePbf();
+      const jar = join(work, 'planetiler.jar');
+      writeFileSync(jar, 'nicht wirklich ein jar');
+      const result = run([pbf], { PATH: makeBinWithDf(10), PLANETILER_JAR: jar });
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('zu wenig freier Speicherplatz');
+      // Zahlen, nicht nur "zu wenig Platz": ohne sie weiss niemand, wie viel
+      // fehlt und ob Aufraeumen ueberhaupt reichen wuerde.
+      expect(result.stderr).toMatch(/frei:\s+10 MB/);
+      expect(result.stderr).toMatch(/geschaetzt noetig:\s+\d+ MB/);
+      // Und der Bau darf gar nicht erst gestartet worden sein.
+      expect(existsSync(join(work, 'java-argv.txt'))).toBe(false);
+    });
+
+    /**
+     * Die Schaetzung ist bewusst grosszuegig und NICHT gemessen. Wer es besser
+     * weiss, muss sie ueberschreiben koennen -- sonst wird aus einer Hilfe
+     * eine Sperre.
+     *
+     * ── WARUM HIER EINE GROSSE DATEI STEHT ────────────────────────────────
+     * Der Faktor multipliziert die GROESSE des Extrakts. Mit der sonst
+     * ueblichen 1-KB-Testdatei ist die gerundet 0 MB -- dann ist der Faktor
+     * wirkungslos, und dieser Test bestand auch dann noch, wenn man ihn fest
+     * verdrahtete. Er prueft jetzt genau den Faktor: 20 MB Eingabe, 100 MB
+     * frei. Mit dem Standardfaktor 8 waeren 160 MB noetig (zu wenig), mit
+     * Faktor 1 nur 20 MB (reicht).
+     */
+    it('laesst den Faktor ueberschreiben', () => {
+      const pbf = join(work, 'gross-latest.osm.pbf');
+      writeFileSync(pbf, Buffer.alloc(20 * 1024 * 1024, 7));
+      const jar = join(work, 'planetiler.jar');
+      writeFileSync(jar, 'nicht wirklich ein jar');
+
+      const strict = run([pbf], {
+        PATH: makeBinWithDf(100),
+        PLANETILER_JAR: jar,
+        PMTILES_DISK_MARGIN_MB: '0',
+      });
+      expect(strict.status, 'mit dem Standardfaktor muesste es abbrechen').not.toBe(0);
+
+      const relaxed = run([pbf], {
+        PATH: makeBinWithDf(100),
+        PLANETILER_JAR: jar,
+        PMTILES_DISK_FACTOR: '1',
+        PMTILES_DISK_MARGIN_MB: '0',
+      });
+      expect(relaxed.status, 'mit Faktor 1 muesste es durchlaufen').toBe(0);
+    });
+
+    /** Eine Pruefung, die nicht messen KANN, darf keinen Bau verhindern. */
+    it('wird uebersprungen, wenn df fehlt -- statt den Bau abzubrechen', () => {
+      const pbf = writeFakePbf();
+      const jar = join(work, 'planetiler.jar');
+      writeFileSync(jar, 'nicht wirklich ein jar');
+      const result = run([pbf], {
+        PATH: makeDockerlessBin({ withJava: true }),
+        PLANETILER_JAR: jar,
+      });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('Platzpruefung wird uebersprungen');
+    });
+  });
 });

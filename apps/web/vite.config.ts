@@ -166,6 +166,9 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         shell: resolve(__dirname, 'shell.html'),
+        // Anzeigeseite fuer die Home-Assistant-Dashboard-Karte
+        // (`src/embed/main.tsx`): Karte mit Route, ohne Bedienelemente.
+        embed: resolve(__dirname, 'embed.html'),
       },
     },
   },
