@@ -14,7 +14,8 @@ import { RouteCache, type RouteCacheOptions } from './cache.js';
 import { checkCoverage, type InstalledRegionsProvider } from './coverageCheck.js';
 import { RoutingError } from './errors.js';
 import { mapValhallaResponse } from './mapResponse.js';
-import { buildValhallaRouteBody } from './profileMapping.js';
+import { buildTraceAttributesBody, speedSegmentsFromTraceAttributes } from './speedLimits.js';
+import { VALHALLA_COSTING, buildValhallaRouteBody } from './profileMapping.js';
 import type { RoutingLogger, ValhallaClientLike } from './valhallaClient.js';
 
 /** Just the profile lookup the service needs (ProfileService satisfies it). */
@@ -124,6 +125,14 @@ export class RoutingService {
     const response = await this.client.route(body);
     const routes = mapValhallaResponse(response, originLatLng, destination);
 
+    // ─── TEMPOLIMITS NACHTRAGEN ───────────────────────────────────────────
+    // `/route` liefert keine; sie kommen aus `/trace_attributes`. Bewusst
+    // NACH der Kartierung und bewusst fehlertolerant: eine berechnete Route
+    // muss ausgeliefert werden, auch wenn diese Zusatzabfrage scheitert.
+    // Ohne Limits fehlt das Schild -- mit einer geworfenen Ausnahme fehlt die
+    // ganze Fahrt.
+    await this.enrichWithSpeedLimits(routes);
+
     for (const route of routes) {
       this.enforcePlausibility(route, originLatLng, destination);
     }
@@ -133,6 +142,26 @@ export class RoutingService {
     }
 
     return routes;
+  }
+
+  /**
+   * Traegt die Tempolimits in die Routen ein.
+   *
+   * Jede Route einzeln: schlaegt eine fehl, bleiben die anderen vollstaendig.
+   * Ein Fehlschlag heisst „keine Limits", nicht „keine Route".
+   */
+  private async enrichWithSpeedLimits(routes: Route[]): Promise<void> {
+    for (const route of routes) {
+      if (!route.geometry) continue;
+      if (!this.client.traceAttributes) return;
+      const raw = await this.client.traceAttributes(
+        buildTraceAttributesBody(route.geometry, VALHALLA_COSTING),
+      );
+      const segments = speedSegmentsFromTraceAttributes(raw as never);
+      if (segments.length > 0) {
+        route.speed_limits = segments;
+      }
+    }
   }
 
   private resolveOrigin(origin: RouteRequest['origin']): LatLng {

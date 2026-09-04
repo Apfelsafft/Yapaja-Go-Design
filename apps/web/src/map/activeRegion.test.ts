@@ -64,9 +64,9 @@ describe('regionsContaining', () => {
   // Wer „Rheinland-Pfalz" und später „Deutschland" installiert, hat beide
   // über Mainz. Die kleinere Datei deckt dieselbe Stelle mit weniger
   // Speicher und mehr Detail ab.
-  it('nennt bei Überlappung die kleinere Region zuerst', () => {
+  it('nennt bei Überlappung die GRÖSSERE Region zuerst — sie gibt die zusammenhängende Karte', () => {
     const found = regionsContaining([DEUTSCHLAND, RHEINLAND_PFALZ], IN_MAINZ);
-    expect(found.map((r) => r.region)).toEqual(['rheinland-pfalz', 'deutschland']);
+    expect(found.map((r) => r.region)).toEqual(['deutschland', 'rheinland-pfalz']);
   });
 
   it('liefert nichts für einen Punkt außerhalb aller Regionen', () => {
@@ -96,13 +96,17 @@ describe('pickActiveRegion', () => {
     expect(choice.region?.region).toBe('liechtenstein');
   });
 
-  it('nimmt ohne Position die erste Region', () => {
+  it('nimmt ohne Position die grösste Region — sonst startet man in Liechtenstein, obwohl Deutschland installiert ist', () => {
     const choice = pickActiveRegion({
+      // Liechtenstein steht ABSICHTLICH vorn: bis 0.5.0 gewann schlicht der
+      // erste Eintrag, und genau so landete der Betreiber beim Start in
+      // Liechtenstein, obwohl Rheinland-Pfalz und Deutschland installiert
+      // waren. Die Karte sprang dann erst beim GPS-Fix um.
       regions: [LIECHTENSTEIN, RHEINLAND_PFALZ],
       point: null,
       manual: null,
     });
-    expect(choice.region?.region).toBe('liechtenstein');
+    expect(choice.region?.region).toBe('rheinland-pfalz');
     expect(choice.reason).toBe('fallback');
     // Ohne Position ist nichts „außerhalb" — es gibt keinen Punkt.
     expect(choice.positionOutsideAllRegions).toBe(false);

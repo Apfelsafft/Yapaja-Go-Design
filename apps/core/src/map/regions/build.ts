@@ -152,20 +152,116 @@ export interface BuildJobDeps {
   logger?: (line: string) => void;
 }
 
-/** Letzte nicht-leere Zeile aus einem Ausgabe-Klumpen. Planetiler schreibt
- *  fortlaufend; fuer die Anzeige interessiert nur der aktuelle Stand. */
-export function lastMeaningfulLine(chunk: string): string | null {
-  const lines = chunk
-    .split(/\r?\n|\r/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-  return lines.length > 0 ? lines[lines.length - 1] : null;
-}
-
 /** Kappt eine Ausgabezeile auf eine Laenge, die in der Oberflaeche noch
  *  lesbar ist -- planetiler schreibt sehr lange Statuszeilen. */
 export function truncateNote(line: string, max = 160): string {
   return line.length <= max ? line : `${line.slice(0, max - 1)}…`;
+}
+
+/* ─── CURLS FORTSCHRITTSANZEIGE LESBAR MACHEN ─────────────────────────────────
+ *
+ * Gemeldet als „das ist irgendwie undurchsichtig": auf der Regionskarte stand
+ * waehrend des Baus
+ *
+ *     13 4607M   13  635M    0     0  8641k      0  0:09:06  0:01:15  0:07:51
+ *
+ * Das ist curls Fortschrittstabelle. Die Bau-Wrapper holen den OSM-Extrakt mit
+ * `curl -fL` (ohne `-s`), curl schreibt seine Tabelle nach stderr, und die
+ * letzte Zeile davon wurde unveraendert als Job-Notiz angezeigt.
+ *
+ * Der Inhalt ist richtig und sogar nuetzlich -- 635 von 4607 MB, noch rund
+ * acht Minuten -- nur sieht man ihm das nicht an. curl still zu schalten waere
+ * die schlechtere Antwort: bei einem 4,6-GB-Extrakt stuende dann zehn Minuten
+ * lang dieselbe Zeile da, und „undurchsichtig" waere es erst recht. Die Zahlen
+ * werden deshalb NICHT verworfen, sondern in einen Satz uebersetzt.
+ */
+
+/** Ein Zeitfeld aus curls Tabelle: `0:07:51` oder `--:--:--` (noch unbekannt). */
+const CURL_TIME = /^(\d+:\d{2}:\d{2}|--:--:--)$/;
+
+/** Die beiden Kopfzeilen der Tabelle. Sie tragen keine Aussage und sollen
+ *  nicht als Notiz stehenbleiben. */
+const CURL_HEADER = /^(% Total\b|Dload\s+Upload\b)/;
+
+export interface CurlProgress {
+  percent: number;
+  /** Roh, wie curl es schreibt: `635M`, `10.2G`, `4096` (Bytes). */
+  received: string;
+  total: string;
+  /** `null`, solange curl die Restzeit nicht schaetzen kann. */
+  timeLeft: string | null;
+}
+
+/**
+ * Erkennt eine Datenzeile aus curls Fortschrittstabelle.
+ *
+ * Erkannt wird sie an der FORM, nicht an einer Zeilennummer: zwoelf Felder,
+ * von denen drei wie eine Zeit aussehen. Eine Ausgabezeile von planetiler oder
+ * osmium trifft das nicht -- und wenn doch einmal etwas anderes durchkaeme,
+ * stuende dort ein harmloser falscher Satz statt einer Fehlfunktion.
+ */
+export function parseCurlProgress(line: string): CurlProgress | null {
+  const f = line.trim().split(/\s+/);
+  if (f.length !== 12) return null;
+  if (!CURL_TIME.test(f[8]) || !CURL_TIME.test(f[9]) || !CURL_TIME.test(f[10])) return null;
+  const percent = Number(f[0]);
+  if (!Number.isFinite(percent) || percent < 0 || percent > 100) return null;
+  return {
+    percent,
+    total: f[1],
+    received: f[3],
+    timeLeft: f[10] === '--:--:--' ? null : f[10],
+  };
+}
+
+const SIZE_UNITS: Record<string, string> = { k: 'kB', M: 'MB', G: 'GB', T: 'TB' };
+
+/** `4607M` -> `4607 MB`. Unbekanntes bleibt, wie es ist. */
+export function humanSize(raw: string): string {
+  const m = /^(\d+(?:\.\d+)?)([kMGT])?$/.exec(raw);
+  if (!m) return raw;
+  return `${m[1]} ${m[2] ? SIZE_UNITS[m[2]] : 'B'}`;
+}
+
+/** `0:07:51` -> `7 Min.`, `1:05:00` -> `1 Std. 5 Min.` */
+export function humanDuration(hms: string): string | null {
+  const m = /^(\d+):(\d{2}):(\d{2})$/.exec(hms);
+  if (!m) return null;
+  const hours = Number(m[1]);
+  const minutes = Number(m[2]);
+  if (hours > 0) return `${hours} Std. ${minutes} Min.`;
+  if (minutes > 0) return `${minutes} Min.`;
+  return 'weniger als 1 Min.';
+}
+
+/** Die Notiz zu einer Fortschrittszeile. */
+export function formatDownloadNote(p: CurlProgress): string {
+  const base = `Kartendaten werden geladen: ${humanSize(p.received)} von ${humanSize(p.total)} (${Math.round(p.percent)} %)`;
+  const left = p.timeLeft ? humanDuration(p.timeLeft) : null;
+  // Ohne Schaetzung wird KEINE genannt. „noch etwa 0 Min." waere geraten.
+  return left ? `${base}, noch etwa ${left}` : base;
+}
+
+/**
+ * Die Notiz zu einem Ausgabe-Klumpen: die letzte Zeile, die etwas aussagt.
+ *
+ * Rueckwaerts gesucht, damit eine Kopfzeile am Ende des Klumpens nicht die
+ * vorherige echte Meldung verdraengt.
+ */
+export function noteFromChunk(chunk: string): string | null {
+  const lines = chunk
+    .split(/\r?\n|\r/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const line = lines[i];
+    const progress = parseCurlProgress(line);
+    if (progress) return formatDownloadNote(progress);
+    if (CURL_HEADER.test(line)) continue;
+    return line;
+  }
+  return null;
 }
 
 /**
@@ -259,7 +355,7 @@ export function runBuildJob(
         logger?.(`[${variant.logPrefix} ${entry.id}] ${line}`);
       }
     }
-    const last = lastMeaningfulLine(text);
+    const last = noteFromChunk(text);
     if (last) {
       jobs.setNote(jobId, truncateNote(last));
     }

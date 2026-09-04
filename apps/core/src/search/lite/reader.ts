@@ -57,8 +57,30 @@ export function escapeFtsQuery(query: string): string {
  *  an SQLite error. */
 const MIN_QUERY_LENGTH = 3;
 
+/**
+ * Spalten, die es in `places` erst seit einer bestimmten Version gibt.
+ *
+ * ─── WARUM HIER NACHGESEHEN WIRD, STATT SIE VORAUSZUSETZEN ──────────────────
+ * `category` kam mit 0.3.6, `address` und `locality` mit 0.3.9. Ein Index, der
+ * VORHER gebaut wurde, hat sie nicht -- und die Abfrage brach mit
+ *
+ *     no such column: p.category
+ *
+ * ab. Nach oben durchgereicht wurde daraus ein Backend-Fehler, und die
+ * Oberflaeche meldete „Nichts gefunden fuer …". Also: die Suche war nach dem
+ * Update vollstaendig tot, und zwar fuer JEDEN, der einen aelteren Index
+ * hatte -- ohne dass irgendwo stand, woran es lag.
+ *
+ * Einen Index neu zu bauen dauert bei einem grossen Extrakt Stunden. Ein
+ * Schema-Wechsel darf das nicht erzwingen: gelesen wird, was da ist, und was
+ * fehlt, ist eben `null`.
+ */
+const OPTIONAL_COLUMNS = ['category', 'address', 'locality'] as const;
+
 export class LiteIndexReader {
   private db: Database.Database | null = null;
+  /** Welche der optionalen Spalten dieser Index wirklich hat. */
+  private available: Set<string> | null = null;
 
   constructor(private readonly dbPath: string) {}
 
@@ -66,6 +88,24 @@ export class LiteIndexReader {
     if (this.db) return this.db;
     this.db = new Database(this.dbPath, { readonly: true, fileMustExist: true });
     return this.db;
+  }
+
+  /** Einmal je geoeffneter Datei: welche optionalen Spalten gibt es? */
+  private columns(db: Database.Database): Set<string> {
+    if (this.available) return this.available;
+    const info = db.prepare('PRAGMA table_info(places)').all() as Array<{ name: string }>;
+    const present = new Set(info.map((row) => row.name));
+    this.available = new Set(OPTIONAL_COLUMNS.filter((column) => present.has(column)));
+    return this.available;
+  }
+
+  /** `p.<spalte> as <spalte>` fuer vorhandene Spalten, sonst `NULL as <spalte>`.
+   *  So bleibt die Zeilenform gleich, egal wie alt der Index ist. */
+  private selectList(db: Database.Database): string {
+    const have = this.columns(db);
+    return OPTIONAL_COLUMNS.map((column) =>
+      have.has(column) ? `p.${column} as ${column}` : `NULL as ${column}`,
+    ).join(', ');
   }
 
   /** Returns candidates for `ranking.ts` to sort/trim -- deliberately
@@ -79,8 +119,8 @@ export class LiteIndexReader {
     const overfetch = Math.max(limit * 4, 20);
     const rows = db
       .prepare(
-        `SELECT p.name as name, p.kind as kind, p.lat as lat, p.lon as lon, p.category as category,
-                p.address as address, p.locality as locality, bm25(lite_search) as ftsRank
+        `SELECT p.name as name, p.kind as kind, p.lat as lat, p.lon as lon,
+                ${this.selectList(db)}, bm25(lite_search) as ftsRank
          FROM lite_search
          JOIN places p ON p.id = lite_search.rowid
          WHERE lite_search MATCH ?
@@ -106,7 +146,8 @@ export class LiteIndexReader {
     const boxDeg = 0.5;
     const rows = db
       .prepare(
-        `SELECT name, kind, lat, lon, category, address, locality FROM places
+        `SELECT p.name as name, p.kind as kind, p.lat as lat, p.lon as lon, ${this.selectList(db)}
+         FROM places p
          WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?`,
       )
       .all(lat - boxDeg, lat + boxDeg, lon - boxDeg, lon + boxDeg) as LiteAllRow[];
