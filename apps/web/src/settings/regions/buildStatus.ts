@@ -27,8 +27,10 @@ export interface TileStatus extends ArtifactStatus {
 
 export interface BuildStatus {
   tiles: TileStatus[];
-  routing: ArtifactStatus;
-  search: ArtifactStatus;
+  /** EINER fuer alle Regionen -- `regions` nennt alle, die darin stecken. */
+  routing: ArtifactStatus & { regions?: string[] };
+  /** Seit 0.5.0 einer JE REGION. */
+  search: ArtifactStatus[];
 }
 
 export async function fetchBuildStatus(signal?: AbortSignal): Promise<BuildStatus> {

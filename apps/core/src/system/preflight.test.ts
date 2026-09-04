@@ -39,6 +39,10 @@ function healthyDeps(overrides: Partial<PreflightDeps> = {}): PreflightDeps {
       MQTT_BROKER_URL: 'mqtt://core-mosquitto:1883',
     },
     listDir: async () => ['liechtenstein.pmtiles'],
+    // Seit 0.5.0 gibt es einen Suchindex JE REGION; die Pruefung listet das
+    // Verzeichnis. Die Groesse steuern die Tests weiter ueber `fileSize` --
+    // wer „kein Index" ausdruecken will, setzt dort `null`.
+    listSearchIndexes: () => ['/data/lite/lite_search-liechtenstein.db'],
     fileSize: async () => 4 * 1024 * 1024,
     tcpProbe: async () => true,
     httpProbe: async () => true,
@@ -210,6 +214,31 @@ describe('Suchprüfung (W-12: Photon ODER Lite)', () => {
     const search = byId(report.checks, 'search');
     expect(search.status).toBe('ok');
     expect(search.detail).toContain('Lite-Index');
+  });
+
+  /**
+   * ─── MEHRERE INDIZES, EINE AUSSAGE ────────────────────────────────────────
+   * Seit 0.5.0 liegt ein Index JE REGION. Eine Pruefung, die nur die eine
+   * alte Datei kennt, meldete „kein Lite-Index" auf einem Geraet mit dreien
+   * -- und ausgerechnet die Installationspruefung ist die Stelle, an der man
+   * nachsieht, wenn etwas klemmt. Eine Falschaussage schadet hier am meisten.
+   */
+  it('zaehlt alle Regions-Indizes, nicht nur einen', async () => {
+    const report = await runPreflight(
+      healthyDeps({
+        env: { ...healthyDeps().env, PHOTON_ENABLED: 'false' },
+        httpProbe: async () => false,
+        listSearchIndexes: () => [
+          '/data/lite/lite_search-deutschland.db',
+          '/data/lite/lite_search-frankreich.db',
+          '/data/lite/lite_search-schweiz.db',
+        ],
+        fileSize: async () => 5 * 1024 * 1024,
+      }),
+    );
+    const search = byId(report.checks, 'search');
+    expect(search.status).toBe('ok');
+    expect(search.detail).toContain('3 Indizes');
   });
 
   it('ist ok, wenn Photon eingeschaltet ist aber nicht antwortet und der Lite-Index einspringt', async () => {

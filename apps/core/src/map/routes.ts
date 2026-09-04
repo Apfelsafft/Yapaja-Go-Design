@@ -29,7 +29,7 @@ import { parseRange } from './range.js';
 import { listRegions, type MapRegionInfo } from './regions.js';
 import { collectBuildStatus } from './buildStatus.js';
 import { readLiteIndexMeta } from '../search/lite/reader.js';
-import { resolveLiteSearchDbPath } from '../search/lite/paths.js';
+import { resolveLiteSearchDir } from '../search/lite/paths.js';
 import { regionsPlugin } from './regions/routes.js';
 import {
   applyStyleOptions,
@@ -203,7 +203,7 @@ export const mapPlugin: FastifyPluginAsync = async (fastify) => {
       {
         tilesDir,
         graphDir: resolveGraphDir(),
-        liteSearchDbPath: resolveLiteSearchDbPath(),
+        liteSearchDir: resolveLiteSearchDir(),
       },
       readLiteIndexMeta,
     );

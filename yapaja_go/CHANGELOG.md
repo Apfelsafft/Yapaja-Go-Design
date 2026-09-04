@@ -10,6 +10,43 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.5.0
+
+**Mehrere Länder gleichzeitig — Suche und Routing.**
+
+Bis jetzt gab es **einen** Suchindex und **einen** Routinggraphen für alles.
+„Suche bauen" bei einer Region ersetzte den Index der anderen; dasselbe beim
+Routing. Wer Liechtenstein und Rheinland-Pfalz installiert hatte, konnte immer
+nur in einer von beiden suchen und routen.
+
+Ab jetzt:
+
+- **Suche: ein Index je Region.** Gesucht wird in allen gleichzeitig. Steht
+  eine Stadt in zwei Landesextrakten — Basel liegt im schweizerischen *und* im
+  deutschen —, erscheint sie trotzdem nur einmal in der Liste.
+- **Routing: ein Graph über alle vorhandenen Länder.** Das ist nicht nur
+  bequemer, sondern nötig: eine Route von Freiburg nach Basel führt über die
+  Grenze, und das geht nur, wenn beide Seiten im **selben** Graphen liegen.
+  Für ein Wohnmobil ist das der Normalfall.
+
+**Was das für dich heißt**
+
+Der bestehende Suchindex bleibt gültig und wird weiter gelesen — die Suche ist
+nach dem Update also nicht weg. Sobald du eine Region neu baust, entsteht ihr
+eigener Index; der alte Sammelindex wird dann entfernt, wenn er dieselbe
+Region enthielt.
+
+Beim **Routing** ist ein Neubau nötig, sobald ein Land dazukommt: der Graph
+wird über alle vorhandenen Extrakte gebaut. Heruntergeladene Extrakte werden
+dafür aufbewahrt und wiederverwendet, damit nicht jedes Mal alles neu geladen
+wird.
+
+Ehrlich zum Preis: der Graph-Bau dauert so lange wie die Summe aller Länder,
+und ein neues Land bedeutet einen kompletten Neubau.
+
+Die Übersicht „Was ist gebaut?" zeigt jetzt jede Region einzeln und beim
+Routing, welche Länder in dem einen Graphen stecken.
+
 ## 0.4.0
 
 **Neu: die Karte mit Route lässt sich in eigene Dashboards legen.**

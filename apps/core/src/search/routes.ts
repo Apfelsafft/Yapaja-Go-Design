@@ -17,7 +17,7 @@ import { CoordsBackend } from './coordsBackend.js';
 import type { SearchRegionsProvider } from './coverage.js';
 import type { FetchLike } from './httpTypes.js';
 import { LiteBackend } from './lite/liteBackend.js';
-import { resolveLiteSearchDbPath } from './lite/paths.js';
+import { resolveLiteSearchDir } from './lite/paths.js';
 import { NominatimBackend } from './nominatimBackend.js';
 import { PhotonBackend } from './photonBackend.js';
 import { SearchService } from './service.js';
@@ -35,10 +35,11 @@ export interface SearchRoutesOptions {
    *  Photon entirely and goes straight to the `lite` fallback. */
   photonEnabled?: boolean;
   /** Path to the built `lite_search.db` (E05-T5); default
-   *  `resolveLiteSearchDbPath()` (env `LITE_SEARCH_DB_PATH`, else
+   *  `resolveLiteSearchDir()` (env `LITE_SEARCH_DB_PATH`, else
    *  `data/lite-search/lite_search.db`). A missing file is not an error at
    *  startup -- `LiteBackend` only fails (degraded) when actually queried. */
-  liteDbPath?: string;
+  /** Verzeichnis mit den Suchindizes (einer je Region, seit 0.5.0). */
+  liteDbDir?: string;
   /** Default result language for Photon/Nominatim; default 'de'. */
   lang?: string;
   /** Test seam: injectable HTTP transport for the built-in backends. */
@@ -126,7 +127,7 @@ export function buildSearchService(
   const coordsBackend: GeocoderBackend = new CoordsBackend();
 
   const liteBackend: GeocoderBackend =
-    opts.liteBackend ?? new LiteBackend({ dbPath: opts.liteDbPath ?? resolveLiteSearchDbPath(), logger });
+    opts.liteBackend ?? new LiteBackend({ dbDir: opts.liteDbDir ?? resolveLiteSearchDir(), logger });
 
   // Mirrors the regions-provider construction in routing/routes.ts (E03-T6);
   // only `getInstalledRegions` is needed here (see coverage.ts).

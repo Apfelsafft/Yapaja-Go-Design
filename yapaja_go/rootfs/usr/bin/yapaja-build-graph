@@ -98,17 +98,60 @@ cleanup() {
 trap cleanup EXIT
 
 # --- PBF beschaffen ---------------------------------------------------------
-INPUT="$STAGING_DIR/$REGION_ID.osm.pbf"
+# Extrakte werden zwischengelagert und WIEDERVERWENDET -- dieselbe Ablage, die
+# der Suchindex-Bau schon benutzt. Ohne sie muesste fuer jeden Mehr-Laender-
+# Graphen jedes Land erneut geladen werden.
+PBF_CACHE="$(dirname "$(dirname "$LIVE_DIR")")/planetiler-sources"
+mkdir -p "$PBF_CACHE"
+
+CACHED="$PBF_CACHE/$REGION_ID.osm.pbf"
 if [[ "$PBF_ARG" =~ ^https?:// ]]; then
-  echo "Lade OSM-Extrakt herunter: $PBF_ARG"
-  curl -fL --retry 3 --retry-delay 5 -o "$INPUT" "$PBF_ARG"
+  if [ -s "$CACHED" ]; then
+    echo "Verwende bereits vorhandenen OSM-Extrakt: $CACHED"
+  else
+    echo "Lade OSM-Extrakt herunter: $PBF_ARG"
+    curl -fL --retry 3 --retry-delay 5 -o "$CACHED.part" "$PBF_ARG"
+    mv "$CACHED.part" "$CACHED"
+  fi
 else
   if [ ! -f "$PBF_ARG" ]; then
     echo "FEHLER: lokale PBF-Datei nicht gefunden: $PBF_ARG" >&2
     exit 1
   fi
-  cp "$PBF_ARG" "$INPUT"
+  # Nur kopieren, wenn es nicht ohnehin schon die Datei im Zwischenlager ist.
+  if [ "$(readlink -f "$PBF_ARG")" != "$(readlink -f "$CACHED" 2>/dev/null || echo "")" ]; then
+    cp "$PBF_ARG" "$CACHED"
+  fi
 fi
+
+# ─── EIN GRAPH UEBER ALLE VORHANDENEN LAENDER ───────────────────────────────
+# Valhalla baut aus MEHREREN Extrakten EINEN Graphen: `configure_valhalla.sh`
+# sammelt jede `*.pbf` im Bauverzeichnis ein (nachgelesen in gis-ops'
+# helpers.sh/configure_valhalla.sh, nicht angenommen).
+#
+# Das ist nicht nur bequem, sondern notwendig: bis 0.4.0 ersetzte jeder Bau
+# den vorherigen Graphen vollstaendig -- wer Routing fuer Frankreich baute,
+# hatte danach keins mehr fuer Deutschland. Und es ist ausserdem BESSER als
+# getrennte Graphen: eine Route von Freiburg nach Basel fuehrt ueber die
+# Grenze, und das geht nur, wenn beide Seiten in DEMSELBEN Graphen liegen --
+# fuer ein Wohnmobil der Normalfall, nicht der Sonderfall.
+#
+# Der Preis, ehrlich: der Bau dauert so lange wie die Summe aller Laender, und
+# ein neues Land bedeutet einen kompletten Neubau.
+GRAPH_REGIONS=()
+for pbf in "$PBF_CACHE"/*.osm.pbf; do
+  [ -s "$pbf" ] || continue
+  name="$(basename "$pbf")"
+  ln -sf "$pbf" "$STAGING_DIR/$name"
+  GRAPH_REGIONS+=("$(derive_region_id "$name")")
+done
+
+if [ "${#GRAPH_REGIONS[@]}" -eq 0 ]; then
+  echo "FEHLER: kein OSM-Extrakt zum Bauen gefunden (weder uebergeben noch in $PBF_CACHE)." >&2
+  exit 1
+fi
+
+echo "Graph wird ueber ${#GRAPH_REGIONS[@]} Region(en) gebaut: ${GRAPH_REGIONS[*]}"
 
 # --- Bauen ------------------------------------------------------------------
 # Die Umgebung entspricht dem, was `services/valhalla/build-tiles.sh` dem
@@ -222,8 +265,10 @@ rm -rf "$OLD_DIR"
 # NEBEN das Kachelverzeichnis, nicht hinein: was unter $LIVE_DIR liegt, liest
 # Valhalla, und dort gehoert nichts hin, was kein Graph ist.
 BUILD_INFO="$(dirname "$LIVE_DIR")/build-info.json"
-printf '{"region":"%s","built_at":"%s"}\n' \
-  "$REGION_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$BUILD_INFO.tmp" \
+REGIONS_JSON="$(printf '"%s",' "${GRAPH_REGIONS[@]}")"
+REGIONS_JSON="[${REGIONS_JSON%,}]"
+printf '{"region":"%s","regions":%s,"built_at":"%s"}\n' \
+  "$REGION_ID" "$REGIONS_JSON" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$BUILD_INFO.tmp" \
   && mv "$BUILD_INFO.tmp" "$BUILD_INFO"
 
 # Die PBF wird nicht mit eingewechselt -- sie liegt im Staging und faellt mit

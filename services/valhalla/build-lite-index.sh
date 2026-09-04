@@ -151,6 +151,8 @@ echo "== Baue lite_search.db (tsx-CLI, atomarer Swap nach $OUT_DB) =="
     --region "$REGION_ID"
 )
 
-test -s "$OUT_DB" || { echo "FEHLER: $OUT_DB fehlt oder ist leer nach dem Build." >&2; exit 1; }
+# Seit 0.5.0 eine Datei je Region -- `$OUT_DB` liefert nur das Verzeichnis.
+REGION_DB="$(dirname "$OUT_DB")/lite_search-${REGION_ID}.db"
+test -s "$REGION_DB" || { echo "FEHLER: $REGION_DB fehlt oder ist leer nach dem Build." >&2; exit 1; }
 
 echo "Fertig: $OUT_DB"

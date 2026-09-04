@@ -806,9 +806,32 @@ jobs:
 
       - name: Verify the index file exists and is non-trivial in size
         run: |
-          DB_PATH="data/lite-search/lite_search.db"
+          # Seit 0.5.0 eine Datei JE REGION. "li.osm.pbf" -> Region "li".
+          DB_PATH="data/lite-search/lite_search-li.db"
           test -s "$DB_PATH" || { echo "::error::$DB_PATH fehlt oder ist leer"; exit 1; }
           ls -la "$DB_PATH"
+
+      - name: Zwei Regionen liegen nebeneinander (Mehrregionen-Faehigkeit)
+        run: |
+          # Bis 0.4.0 ersetzte "Suche bauen" bei einer Region den Index der
+          # anderen -- vier Laender installieren und in dreien nicht suchen
+          # koennen. Hier wird derselbe Extrakt unter ZWEI Regionsnamen
+          # gebaut; danach muessen BEIDE Dateien dastehen.
+          services/valhalla/build-lite-index.sh li.osm.pbf
+          cp li.osm.pbf zweitland.osm.pbf
+          services/valhalla/build-lite-index.sh zweitland.osm.pbf
+
+          for r in li zweitland; do
+            f="data/lite-search/lite_search-$r.db"
+            test -s "$f" || { echo "::error::$f fehlt -- die Regionen ersetzen sich gegenseitig"; exit 1; }
+            echo "vorhanden: $f ($(du -h "$f" | cut -f1))"
+          done
+
+          # Und der alte Sammelindex darf nicht wieder auftauchen.
+          if [ -e data/lite-search/lite_search.db ]; then
+            echo "::error::lite_search.db wurde neu angelegt -- der Bau schreibt nicht regionsbezogen"
+            exit 1
+          fi
 
       # ─── UND DASSELBE MIT DEM GEBUENDELTEN WERKZEUG ─────────────────────
       # Der Schritt darueber laeuft ueber `tsx src/search/lite/cli.ts`. Auf dem
@@ -902,7 +925,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import sqlite3
-          con = sqlite3.connect("data/lite-search/lite_search.db")
+          con = sqlite3.connect("data/lite-search/lite_search-li.db")
           cur = con.cursor()
 
           cur.execute(
@@ -949,7 +972,7 @@ jobs:
           PY
 
       - name: Index size (informational -- docs/07 acceptance #3 "DE < 400 MB" is a nightly/DE-scale claim, not asserted here for the tiny LI extract)
-        run: du -h data/lite-search/lite_search.db
+        run: du -h data/lite-search/lite_search-li.db
 
       - name: Show build-lite-index.sh output on failure
         if: failure()

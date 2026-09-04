@@ -24,7 +24,8 @@
 
 import { statSync, readFileSync, existsSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
+import { listLiteSearchDbFiles, regionFromLiteSearchFile } from '../search/lite/paths.js';
 
 /** Ein gebautes Artefakt: da oder nicht, und seit wann. */
 export interface ArtifactStatus {
@@ -43,31 +44,38 @@ export interface TileStatus extends ArtifactStatus {
 }
 
 export interface BuildStatus {
-  /** Pro Region -- Kacheln sind das einzige Artefakt, das nebeneinander
-   *  existieren kann. */
+  /** Pro Region. */
   tiles: TileStatus[];
-  /** EINER fuer alle Regionen. */
-  routing: ArtifactStatus;
-  /** EINER fuer alle Regionen. */
-  search: ArtifactStatus;
+  /**
+   * EINER fuer alle Regionen -- aber seit 0.5.0 ueber MEHRERE gebaut.
+   * `regions` nennt alle, die darin stecken.
+   */
+  routing: ArtifactStatus & { regions?: string[] };
+  /** Seit 0.5.0 einer JE REGION. */
+  search: ArtifactStatus[];
 }
 
 export interface BuildStatusPaths {
   tilesDir: string;
   /** Verzeichnis mit dem Valhalla-Graphen. */
   graphDir: string;
-  liteSearchDbPath: string;
+  /** Verzeichnis mit den Suchindizes (einer je Region). */
+  liteSearchDir: string;
 }
 
 /** Liest `built_at`/`region` aus einer Datei, ohne je zu werfen. */
-function readJsonInfo(path: string): { region?: string; built_at?: string } {
+function readJsonInfo(path: string): { region?: string; built_at?: string; regions?: string[] } {
   try {
     const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
     if (!parsed || typeof parsed !== 'object') return {};
     const obj = parsed as Record<string, unknown>;
+    const regions = Array.isArray(obj.regions)
+      ? obj.regions.filter((r): r is string => typeof r === 'string')
+      : undefined;
     return {
       ...(typeof obj.region === 'string' ? { region: obj.region } : {}),
       ...(typeof obj.built_at === 'string' ? { built_at: obj.built_at } : {}),
+      ...(regions && regions.length > 0 ? { regions } : {}),
     };
   } catch {
     return {};
@@ -117,7 +125,7 @@ async function tileStatuses(tilesDir: string): Promise<TileStatus[]> {
  * Verzeichnisses als Naeherung -- die Region ist dann schlicht unbekannt und
  * wird auch so gemeldet, statt geraten zu werden.
  */
-function routingStatus(graphDir: string): ArtifactStatus {
+function routingStatus(graphDir: string): ArtifactStatus & { regions?: string[] } {
   if (!existsSync(graphDir)) return { present: false };
 
   let hasTiles = false;
@@ -136,6 +144,7 @@ function routingStatus(graphDir: string): ArtifactStatus {
     present: true,
     ...(builtAt ? { built_at: builtAt } : {}),
     ...(info.region ? { region: info.region } : {}),
+    ...(info.regions && info.regions.length > 0 ? { regions: info.regions } : {}),
   };
 }
 
@@ -150,26 +159,35 @@ function routingStatus(graphDir: string): ArtifactStatus {
  * Der Zeitstempel der Datei bleibt der Rueckfall fuer Indizes von vor 0.3.9,
  * die noch keine `meta`-Tabelle haben.
  */
-function searchStatus(dbPath: string, readMeta: MetaReader): ArtifactStatus {
-  if (!existsSync(dbPath)) return { present: false };
+function searchStatus(dir: string, readMeta: MetaReader): ArtifactStatus[] {
+  const out: ArtifactStatus[] = [];
+  for (const file of listLiteSearchDbFiles(dir)) {
+    let size: number | undefined;
+    try {
+      const stat = statSync(file);
+      if (!stat.isFile() || stat.size === 0) continue;
+      size = stat.size;
+    } catch {
+      continue;
+    }
 
-  let size: number | undefined;
-  try {
-    size = statSync(dbPath).size;
-  } catch {
-    size = undefined;
+    const meta = readMeta(file);
+    // Steht die Region nicht IM Index (Stand vor 0.3.9), traegt sie
+    // moeglicherweise der Dateiname -- der alte Sammelindex heisst
+    // `lite_search.db` und verraet dann gar nichts. Dann wird auch nichts
+    // behauptet.
+    const region = meta.region ?? regionFromLiteSearchFile(basename(file)) ?? undefined;
+    const builtAt = meta.built_at ?? mtimeIso(file);
+
+    out.push({
+      present: true,
+      ...(builtAt ? { built_at: builtAt } : {}),
+      ...(region ? { region } : {}),
+      size_bytes: size,
+      ...(meta.record_count !== undefined ? { record_count: meta.record_count } : {}),
+    });
   }
-
-  const meta = readMeta(dbPath);
-  const builtAt = meta.built_at ?? mtimeIso(dbPath);
-
-  return {
-    present: true,
-    ...(builtAt ? { built_at: builtAt } : {}),
-    ...(meta.region ? { region: meta.region } : {}),
-    ...(size !== undefined ? { size_bytes: size } : {}),
-    ...(meta.record_count !== undefined ? { record_count: meta.record_count } : {}),
-  };
+  return out.sort((a, b) => (a.region ?? '').localeCompare(b.region ?? ''));
 }
 
 export interface IndexMeta {
@@ -187,6 +205,6 @@ export async function collectBuildStatus(
   return {
     tiles: await tileStatuses(paths.tilesDir),
     routing: routingStatus(paths.graphDir),
-    search: searchStatus(paths.liteSearchDbPath, readMeta),
+    search: searchStatus(paths.liteSearchDir, readMeta),
   };
 }
