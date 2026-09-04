@@ -249,11 +249,79 @@ else
   cp "$PBF_ARG" "$WORK_DIR/$INPUT_NAME"
 fi
 
+# --- Passt das ueberhaupt auf die Platte? ------------------------------------
+# ─── WARUM HIER UND NICHT ERST BEIM SCHREIBEN ───────────────────────────────
+# Der Kachelbau laeuft fuer ein ganzes Land STUNDEN. Geht dabei der Platz aus,
+# ist die Zeit weg -- und die Fehlermeldung, die dann kommt, stammt irgendwo
+# aus planetilers Innerem und sagt niemandem, dass schlicht die Platte voll
+# war. Die vorhandene Vorabpruefung (`apps/core/src/map/regions/disk.ts`)
+# misst nur den DOWNLOAD; sie kennt den Bau nicht.
+#
+# ─── DIE ZAHL IST EINE SCHAETZUNG, UND SIE SAGT DAS AUCH ────────────────────
+# Waehrend des Baus liegen gleichzeitig auf der Platte:
+#   * der OSM-Extrakt selbst,
+#   * planetilers Zwischenstaende (Knoten- und Wege-Ablagen, sortiert), mit
+#     Abstand der groesste Posten,
+#   * die entstehende .pmtiles.
+# Zusammen erfahrungsgemaess das Mehrfache des Extrakts. Der Faktor unten ist
+# bewusst grosszuegig und NICHT gemessen -- ein Deutschland-Bau war hier nicht
+# durchzufuehren. Deshalb ist er ueberschreibbar, und deshalb nennt die
+# Meldung Zahlen statt nur "zu wenig Platz".
+PMTILES_DISK_FACTOR="${PMTILES_DISK_FACTOR:-8}"
+PMTILES_DISK_MARGIN_MB="${PMTILES_DISK_MARGIN_MB:-2048}"
+
+# ─── EINE PRUEFUNG, DIE NICHT MESSEN KANN, DARF NICHTS VERHINDERN ──────────
+# `df` und `awk` sind auf jedem normalen System da, aber diese Pruefung ist
+# eine Bequemlichkeit und keine Voraussetzung fuer den Bau. Fehlt eines der
+# beiden, wird sie uebersprungen -- mit einem Hinweis, statt den Bau an einem
+# fehlenden Hilfsprogramm scheitern zu lassen.
+mkdir -p "$TILES_DIR"
+
+if ! command -v df >/dev/null 2>&1 || ! command -v awk >/dev/null 2>&1; then
+  echo "Hinweis: df/awk nicht verfuegbar -- die Platzpruefung wird uebersprungen."
+else
+free_mb() { df -Pm "$1" 2>/dev/null | awk 'NR==2 {print $4}'; }
+
+INPUT_MB=$(( $(stat -c %s "$WORK_DIR/$INPUT_NAME") / 1024 / 1024 ))
+NEED_MB=$(( INPUT_MB * PMTILES_DISK_FACTOR + PMTILES_DISK_MARGIN_MB ))
+
+# Zwei Dateisysteme koennen betroffen sein: das Arbeitsverzeichnis und das
+# Ziel. Im Add-on liegen beide auf /share (der Wrapper setzt TMPDIR dorthin) --
+# dann ist es dasselbe und die Pruefung laeuft doppelt, was nicht schadet.
+DISK_OK=1
+for dir in "$WORK_DIR" "$TILES_DIR"; do
+  FREE_MB="$(free_mb "$dir")"
+  [ -n "${FREE_MB:-}" ] || continue
+  if [ "$FREE_MB" -lt "$NEED_MB" ]; then
+    echo "FEHLER: zu wenig freier Speicherplatz fuer diesen Bau." >&2
+    echo "  Verzeichnis:      $dir" >&2
+    echo "  frei:             ${FREE_MB} MB" >&2
+    echo "  geschaetzt noetig: ${NEED_MB} MB  (Extrakt ${INPUT_MB} MB x ${PMTILES_DISK_FACTOR} + ${PMTILES_DISK_MARGIN_MB} MB Reserve)" >&2
+    DISK_OK=0
+  fi
+done
+
+if [ "$DISK_OK" -eq 0 ]; then
+  echo "" >&2
+  echo "Der Bau wurde NICHT gestartet -- fuer ein ganzes Land laeuft er Stunden," >&2
+  echo "und ein Abbruch wegen voller Platte kostet diese Zeit vollstaendig." >&2
+  echo "" >&2
+  echo "Moeglichkeiten:" >&2
+  echo "  * Platz schaffen (alte Regionen, Zwischenstaende unter /share/yapaja/tmp)." >&2
+  echo "  * Eine kleinere Region bauen (Bundesland statt Land)." >&2
+  echo "  * Die Schaetzung ist konservativ. Wer es besser weiss, setzt" >&2
+  echo "    PMTILES_DISK_FACTOR (aktuell ${PMTILES_DISK_FACTOR}) oder" >&2
+  echo "    PMTILES_DISK_MARGIN_MB (aktuell ${PMTILES_DISK_MARGIN_MB})." >&2
+  exit 1
+fi
+
+echo "Platzpruefung bestanden: Extrakt ${INPUT_MB} MB, geschaetzter Bedarf ${NEED_MB} MB."
+fi
+
 # --- Bauen -------------------------------------------------------------------
 # Ausgabe geht bewusst in $WORK_DIR, nicht nach $TILES_DIR: erst nach der
 # Signaturpruefung unten wird geschwenkt (W-17).
 OUT_NAME="out.pmtiles"
-mkdir -p "$TILES_DIR"
 
 # ─── GEMEINSAME BASISDATEN, DIE NICHT AUS DER PBF KOMMEN ────────────────────
 # Das OpenMapTiles-Profil, das planetiler hier benutzt, braucht neben dem

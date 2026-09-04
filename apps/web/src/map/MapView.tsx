@@ -80,7 +80,20 @@ interface InitialStyle {
  * (`import.meta.env.BASE_URL`), so the app keeps working when served under
  * an ingress sub-path (W-15).
  */
-export default function MapView(): React.ReactElement {
+export interface MapViewProps {
+  /**
+   * Bedienelemente anzeigen (Kompass, Ansicht, Zurueck-zur-Position,
+   * Einstellungen, Regionen, Store, Installationspruefung).
+   *
+   * `false` fuer die Einbettung in ein Home-Assistant-Dashboard: dort soll die
+   * Karte etwas ZEIGEN und nicht bedient werden -- Knoepfe in einer
+   * Dashboard-Kachel, die die Navigation des Fahrzeugs umstellen, waeren dort
+   * eine Falle. Vorgabe `true`, damit sich fuer die App selbst nichts aendert.
+   */
+  chrome?: boolean;
+}
+
+export default function MapView({ chrome = true }: MapViewProps = {}): React.ReactElement {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const setMap = useMapStore((state) => state.setMap);
@@ -379,7 +392,7 @@ export default function MapView(): React.ReactElement {
   return (
     <div className="w-full h-full relative">
       <div ref={containerRef} className="w-full h-full" data-testid="map-container" />
-      {status === 'ready' && (
+      {status === 'ready' && chrome && (
         <>
           <CompassButton />
           <ViewModeButton />

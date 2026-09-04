@@ -378,6 +378,12 @@ RUN rm -rf /custom_files && ln -s /share/yapaja/valhalla/tiles /custom_files
 # ---- rootfs/etc/s6-overlay/s6-rc.d/ and rootfs/etc/yapaja/) ----
 COPY rootfs/ /
 
+# ---- Lovelace-Karte fuer eigene HA-Dashboards ----
+# Sie wird beim Start nach `<ha-config>/www/yapaja/` kopiert
+# (rootfs/etc/yapaja/init-yapaja-config.sh) und ist danach als
+# `/local/yapaja/yapaja-map-card.js` dauerhaft erreichbar.
+COPY lovelace/ /usr/share/yapaja/lovelace/
+
 # All `run`/`up`/`finish` scripts must be executable; git preserves the exec
 # bit set on them in this repo, but this RUN is a belt-and-braces guarantee
 # for build environments that don't (e.g. some CI checkout configurations).

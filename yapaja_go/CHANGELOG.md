@@ -10,6 +10,69 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.4.0
+
+**Neu: die Karte mit Route lässt sich in eigene Dashboards legen.**
+
+> „Die Idee des Navi in HA war ja, die Navigation oder auch nur Teile davon in
+> User eigene Dashboards zu integrieren."
+
+Alle **Zahlen** gab es schon als Entitäten — nächste Abbiegung, Entfernung
+zum Ziel, ETA, Tempo, Ziel, Fahrzeugposition. Dafür reichen die
+Standard-Karten von Home Assistant, dort ändert sich nichts.
+
+Was fehlte, war die **Karte selbst mit eingezeichneter Route**. Die gibt es
+jetzt als eigene Dashboard-Karte.
+
+**Einrichtung** (einmalig, ohne SSH):
+
+1. Add-on aktualisieren und starten — die Kartendatei wird dabei automatisch
+   nach `www/yapaja/` gelegt.
+2. Einstellungen → Dashboards → ⋮ → **Ressourcen** → *Ressource hinzufügen*
+   URL `/local/yapaja/yapaja-map-card.js`, Typ **JavaScript-Modul**.
+3. Im Dashboard *Karte hinzufügen* → „Yapaja Go — Karte".
+
+Als YAML:
+
+```yaml
+type: custom:yapaja-map-card
+height: 400      # optional
+title: Route     # optional
+```
+
+Die Karte zeigt **nur an** — keine Knöpfe, keine Einstellungen, keine Suche.
+Bedienelemente in einer Dashboard-Kachel, die die laufende Navigation
+umstellen, wären eine Falle; das ist Absicht und wird geprüft.
+
+Dafür darf das Add-on jetzt in die Home-Assistant-Konfiguration schreiben —
+ausschließlich für diese eine Datei in `www/yapaja/`. Anders wäre sie nur
+über SSH oder Datei-Editor zu installieren.
+
+---
+
+**Große Karten: der Platzbedarf wird jetzt VOR dem Bau geprüft.**
+
+Bisher wurde nur der Download gemessen. Beim Bauen fällt ein Vielfaches an —
+der Extrakt, die Zwischenstände (der größte Posten) und die entstehende
+Karte. Ging der Platz mittendrin aus, war die Zeit weg, und die Meldung kam
+aus dem Innenleben des Kartenbauers und sagte nicht, dass schlicht die Platte
+voll war.
+
+Jetzt bricht der Bau vorher ab und nennt Zahlen:
+
+```
+FEHLER: zu wenig freier Speicherplatz fuer diesen Bau.
+  Verzeichnis:       /share/yapaja/tiles
+  frei:              18000 MB
+  geschaetzt noetig: 38048 MB  (Extrakt 4500 MB x 8 + 2048 MB Reserve)
+```
+
+Die Schätzung ist bewusst großzügig und **nicht gemessen** — ein
+Deutschland-Bau war hier nicht durchzuführen. Wer es besser weiß, setzt
+`PMTILES_DISK_FACTOR` oder `PMTILES_DISK_MARGIN_MB`. Kann die Prüfung den
+freien Platz nicht ermitteln, wird sie übersprungen statt den Bau zu
+verhindern.
+
 ## 0.3.9
 
 **Die Suchvorschläge sagen jetzt, welcher Treffer gemeint ist.**
