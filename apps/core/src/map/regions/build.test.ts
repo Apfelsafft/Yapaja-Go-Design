@@ -24,7 +24,6 @@ import {
   buildRequiredFreeMemory,
   humanDuration,
   humanSize,
-  lastMeaningfulLine,
   noteFromChunk,
   parseCurlProgress,
   runBuildJob,
@@ -268,9 +267,12 @@ describe('Vorprüf-Kennzahlen', () => {
 
 describe('Ausgabe-Aufbereitung', () => {
   it('nimmt die letzte nicht-leere Zeile, auch bei \\r-Fortschrittsbalken', () => {
-    expect(lastMeaningfulLine('a\r\nb\r\n\r\n')).toBe('b');
-    expect(lastMeaningfulLine('nur eine')).toBe('nur eine');
-    expect(lastMeaningfulLine('   \n  \n')).toBeNull();
+    // Stand vorher auf `lastMeaningfulLine`. Die Funktion hat seit der
+    // curl-Aufbereitung keinen Aufrufer mehr ausser diesem Test — also weg
+    // damit; geprueft wird, was tatsaechlich laeuft.
+    expect(noteFromChunk('a\r\nb\r\n\r\n')).toBe('b');
+    expect(noteFromChunk('nur eine')).toBe('nur eine');
+    expect(noteFromChunk('   \n  \n')).toBeNull();
   });
 
   it('kürzt überlange Zeilen, statt das Panel zu sprengen', () => {

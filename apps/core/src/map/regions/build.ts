@@ -152,16 +152,6 @@ export interface BuildJobDeps {
   logger?: (line: string) => void;
 }
 
-/** Letzte nicht-leere Zeile aus einem Ausgabe-Klumpen. Planetiler schreibt
- *  fortlaufend; fuer die Anzeige interessiert nur der aktuelle Stand. */
-export function lastMeaningfulLine(chunk: string): string | null {
-  const lines = chunk
-    .split(/\r?\n|\r/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-  return lines.length > 0 ? lines[lines.length - 1] : null;
-}
-
 /** Kappt eine Ausgabezeile auf eine Laenge, die in der Oberflaeche noch
  *  lesbar ist -- planetiler schreibt sehr lange Statuszeilen. */
 export function truncateNote(line: string, max = 160): string {
