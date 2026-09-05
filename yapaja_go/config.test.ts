@@ -813,6 +813,7 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
       log_level: 'info',
       photon_xmx_mb: '1024',
       valhalla_memory_mb: '2048',
+      gps_simulator: 'false',
       ...options,
     };
 
@@ -829,6 +830,8 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
       'bashio::log.info() { :; }',
       'bashio::log.warning() { :; }',
       'bashio::services.available() { return 1; }',
+      // Wie das echte bashio: nur „true"/„1"/„yes"/„on" gelten als wahr.
+      'bashio::var.true() { case "$1" in true|True|TRUE|1|yes|on) return 0;; *) return 1;; esac; }',
       `source ${JSON.stringify(INIT_SCRIPT)}`,
     ].join('\n');
 
@@ -861,6 +864,34 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
     }
     return result;
   }
+
+  /**
+   * ─── DER TESTFAHRER MUSS IM ADD-ON UEBERHAUPT ERREICHBAR SEIN ────────────
+   * Der Core laeuft hier mit NODE_ENV=production, und dort antworten alle
+   * Simulator-Routen mit 403, solange `ENABLE_SIMULATOR` nicht gesetzt ist.
+   * Bis 0.5.7 gab es keinen Weg, diese Variable zu setzen -- der Simulator
+   * war gebaut, getestet, dokumentiert und im Add-on trotzdem tot.
+   *
+   * Deshalb wird hier das SKRIPT AUSGEFUEHRT und die Umgebung nachgesehen.
+   * Eine Textpruefung waere gruen, sobald „ENABLE_SIMULATOR" irgendwo im
+   * Skript steht -- auch dann, wenn die Bedingung darum herum nie zutrifft.
+   */
+  it('schaltet den GPS-Simulator frei, wenn der Haken gesetzt ist', () => {
+    expect(runInit({ gps_simulator: 'true' }).ENABLE_SIMULATOR).toBe('1');
+  });
+
+  it('laesst den Simulator ohne Haken gesperrt -- und setzt die Variable gar nicht erst', () => {
+    // Nicht „0", sondern UNGESETZT: so gilt genau die Sperre des Cores und
+    // nicht eine zweite, hier nachgebaute Regel. Der Core prueft auf === '1'.
+    const env = runInit({ gps_simulator: 'false' });
+    expect(env.ENABLE_SIMULATOR).toBeUndefined();
+  });
+
+  it('ist ohne Haken die Vorgabe -- ein fahrendes Fahrzeug bleibt geschuetzt', () => {
+    // Der Simulator kann beliebige Positionen einspeisen und verdraengt
+    // dabei den echten Empfaenger. Das darf nicht aus Versehen gehen.
+    expect(runInit({}).ENABLE_SIMULATOR).toBeUndefined();
+  });
 
   it('schaltet gpsd bei "usb" ein', () => {
     const env = runInit({ gps_source: 'usb' });

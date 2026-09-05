@@ -10,7 +10,7 @@
 name: "Yapaja Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.5.7"
+version: "0.5.8"
 url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
 
 # amd64 covers typical Mini-PC/NUC installs; aarch64 covers Raspberry Pi
@@ -170,6 +170,23 @@ options:
   log_level: "info"
   photon_xmx_mb: 1024
   valhalla_memory_mb: 2048
+  # `gps_simulator` -- den eingebauten Testfahrer freischalten.
+  #
+  # AUS als Vorgabe, und das ist der wichtige Teil: der Simulator kann
+  # beliebige Positionen einspeisen und verdraengt dabei den echten
+  # Empfaenger. Auf einem fahrenden Fahrzeug darf das nicht aus Versehen
+  # gehen -- deshalb bleibt er verschlossen, bis jemand ihn ausdruecklich
+  # aufschliesst.
+  #
+  # Bis 0.5.7 gab es diesen Schalter nicht, und der Simulator war damit im
+  # Add-on UEBERHAUPT nicht erreichbar: der Core laeuft hier mit
+  # NODE_ENV=production, und dort antworten alle Simulator-Routen mit 403,
+  # solange ENABLE_SIMULATOR nicht gesetzt ist. Die Funktion war gebaut,
+  # getestet -- und hinter einer Tuer ohne Klinke.
+  #
+  # Wieder einschalten: Einstellungen -> Add-ons -> Yapaja Go ->
+  # Konfiguration, Haken setzen, Add-on neu starten. Kein SSH noetig.
+  gps_simulator: false
 
 schema:
   region: "str?"
@@ -180,6 +197,7 @@ schema:
   log_level: "list(debug|info|warn|error)"
   photon_xmx_mb: "int(256,4096)"
   valhalla_memory_mb: "int(512,8192)"
+  gps_simulator: "bool"
 
 # KEIN `image:` -- und das ist eine bewusste Entscheidung, keine Auslassung.
 #
