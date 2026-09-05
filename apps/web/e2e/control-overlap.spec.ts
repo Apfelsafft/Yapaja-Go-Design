@@ -233,8 +233,19 @@ const VIEWPORTS = [
   { name: 'Tablet hochkant', size: { width: 768, height: 1024 } },
 ] as const;
 
+// ─── DIESE DATEI LAEUFT SERIELL ─────────────────────────────────────────────
+// Alle Tests hier teilen sich EINEN Core, und einer von ihnen startet eine
+// echte Fahrt. Eine laufende Fahrt ist kein testeigener Zustand: der Core
+// sendet sie ueber /ws/v1 an jede Seite an diesem Port, und `RoutingPanel`
+// blendet sich waehrend einer Fahrt bewusst aus. Liefen die Tests parallel,
+// saehe der Ziel-Fenster-Test die Fahrt des Nachbarn und faende sein Fenster
+// nicht -- genau so ist es passiert.
+//
+// Dieselbe Ursache wie bei CONTROL_OVERLAP_CORE_PORT, nur eine Ebene tiefer:
+// dort zwischen zwei Dateien, hier innerhalb einer.
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Bedienelemente ueberlappen einander nicht', () => {
-  test.describe.configure({ mode: 'default' });
 
 
 
@@ -314,6 +325,17 @@ test.describe('Bedienelemente ueberlappen einander nicht', () => {
  * kommt, die Mitte der Karte bleibt bedienbar.
  */
 test.describe('Das Ziel-Fenster', () => {
+  // Kein Verlass auf das Aufraeumen des Nachbar-Describes: waere hier noch
+  // eine Fahrt aktiv, blendete sich `RoutingPanel` aus und der Test suchte
+  // ein Fenster, das es zu Recht nicht gibt.
+  test.beforeEach(async ({ request }) => {
+    await request
+      .post(`${CONTROL_OVERLAP_CORE_BASE_URL}/api/v1/navigation/stop`)
+      .catch(() => {
+        /* best effort */
+      });
+  });
+
   for (const [name, viewport] of [
     ['breit', { width: 1280, height: 720 }],
     ['Tablet hochkant', { width: 768, height: 1024 }],

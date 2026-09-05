@@ -245,6 +245,26 @@ test.describe('Zwischenziele', () => {
     // Eine Position, damit der Core einen Bezugspunkt hat -- ohne Fix kann er
     // nicht neu rechnen (und sagt das auch).
     await postFix(page, POINTS[1], 8);
+
+    // ─── AUF DIE RICHTIGE ZUSICHERUNG WARTEN ──────────────────────────────
+    // Nicht auf `status === 'navigating'`: das gilt schon unmittelbar nach
+    // `start()`, also BEVOR der Core einen Positionsfix verarbeitet hat. Eine
+    // Neuberechnung braucht aber einen Ausgangspunkt -- ohne Fix vertagt der
+    // Core sie (siehe `waypointRerouteWanted`), und der Test sah dann
+    // scheinbar grundlos keine Anfrage.
+    //
+    // Genau daran ist dieser Test in CI gescheitert und lokal nicht: der
+    // Unterschied war reines Timing. Deshalb wird jetzt auf einen Wert
+    // gewartet, den es NUR nach einem verarbeiteten Fix gibt.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () => window.__yapajaNavStore?.getState().navState?.distance_remaining_m ?? null,
+          ),
+        { timeout: 15_000 },
+      )
+      .not.toBeNull();
     await expect
       .poll(
         () => page.evaluate(() => window.__yapajaNavStore?.getState().navState?.status ?? null),

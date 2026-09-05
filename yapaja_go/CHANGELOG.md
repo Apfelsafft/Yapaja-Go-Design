@@ -47,6 +47,12 @@ bist.
 nicht mitgegeben. Selbst wenn man sie hätte setzen können, wäre bei der ersten
 automatischen Neuberechnung jede Station stillschweigend weggefallen.
 
+Und: hängst du eine Station an, bevor der erste GPS-Fix da ist (unmittelbar
+nach dem Start), wird die Neuberechnung jetzt **nachgeholt**, sobald die
+Position eintrifft. Vorher wäre in diesem Fenster stillschweigend nichts
+passiert — die Liste hätte die neue Absicht gezeigt, gefahren worden wäre die
+alte Strecke.
+
 ---
 
 ## 0.5.8

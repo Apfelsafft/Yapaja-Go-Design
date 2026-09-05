@@ -335,6 +335,22 @@ export class NavigationService implements DeadReckoningRouteSource {
   /** Context for the reroute currently in flight (or about to be retried); see {@link RerouteCtx}. */
   private rerouteCtx: RerouteCtx = DEVIATION_REROUTE_CTX;
 
+  /**
+   * Eine Zwischenziel-Aenderung, die noch nicht umgesetzt werden konnte.
+   *
+   * Direkt nach dem Start hat der Core noch KEINE Position (`lastPosition`
+   * wird erst beim ersten Fix gesetzt) -- eine Neuberechnung braucht aber
+   * einen Ausgangspunkt. Ohne diesen Merker haette die Aenderung in diesem
+   * Fenster stillschweigend nichts bewirkt: die Liste stuende in der
+   * Oberflaeche, die gefahrene Strecke waere die alte, und niemand saehe den
+   * Unterschied bis zur naechsten Abweichung.
+   *
+   * Genau diese Sorte stilles Nichtstun ist in diesem Projekt schon mehrfach
+   * durchgerutscht. Mit dem Merker wird die Aenderung nachgeholt, sobald die
+   * erste Position eintrifft.
+   */
+  private waypointRerouteWanted = false;
+
   private readonly unsubscribe: () => void;
   private readonly unsubscribeProfile: () => void;
   private readonly unsubscribeExtrapolated: () => void;
@@ -388,6 +404,12 @@ export class NavigationService implements DeadReckoningRouteSource {
     this.active = active;
     this.lastProgressM = null;
     this.lastPosition = null;
+    // Eine vertagte Zwischenziel-Absicht darf nicht in die naechste Fahrt
+    // lecken. HIER und nicht zusaetzlich in `stop()`: nach einem Stopp fuehrt
+    // der einzige Weg zurueck ueber `start()`, ein zweites Zuruecksetzen
+    // koennte also nie greifen. Eine Verteidigung, die nie an die Reihe
+    // kommt, sieht nur nach Sorgfalt aus -- und kein Test kann sie halten.
+    this.waypointRerouteWanted = false;
     this.arrivedFired = false;
     this.calibration = initialCalibrationState();
     this.lastEtaTickMs = null;
@@ -574,6 +596,12 @@ export class NavigationService implements DeadReckoningRouteSource {
       prevProgressM === null ? match.progressM : Math.max(match.progressM, prevProgressM);
     this.lastProgressM = accepted;
     this.lastPosition = pos;
+
+    // Eine vertagte Zwischenziel-Aenderung jetzt nachholen -- ab hier gibt es
+    // einen Ausgangspunkt, von dem aus gerechnet werden kann.
+    if (this.waypointRerouteWanted && !this.rerouteInFlight) {
+      void this.executeWaypointReroute();
+    }
 
     this.tickCalibration(prevProgressM, accepted, pos);
     // E04-T6: feed the "last stable speed" EWMA from this REAL fix only --
@@ -1245,13 +1273,17 @@ export class NavigationService implements DeadReckoningRouteSource {
       return;
     }
     if (!this.lastPosition) {
-      this.logger.warn('Zwischenziele geaendert, aber noch keine Position -- keine Neuberechnung');
+      // Nicht verloren, nur vertagt -- siehe `waypointRerouteWanted`.
+      this.waypointRerouteWanted = true;
+      this.logger.info('Zwischenziele geaendert, warte auf die erste Position');
       return;
     }
     if (this.rerouteInFlight) {
-      this.logger.warn('Zwischenziel-Neuberechnung uebersprungen: es laeuft bereits eine');
+      this.waypointRerouteWanted = true;
+      this.logger.info('Zwischenziel-Neuberechnung vertagt: es laeuft bereits eine');
       return;
     }
+    this.waypointRerouteWanted = false;
 
     this.rerouteCtx = {
       reason: 'waypoints',
