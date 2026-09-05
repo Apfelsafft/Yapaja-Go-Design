@@ -117,6 +117,7 @@ describe('E04-T4 reroute lifecycle', () => {
       hazmat: false,
       avoid: { motorway: false, toll: false, ferry: false, unpaved: false },
       is_active: true,
+      dimensions_confirmed_at: null,
     };
     return { getActive: () => profile };
   }

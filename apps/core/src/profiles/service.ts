@@ -46,6 +46,17 @@ const DEFAULT_PROFILE: Omit<VehicleProfile, 'id' | 'is_active'> = {
  * `buildTruckCostingOptions` an Valhalla als physische Grenze reicht, zaehlt
  * hier als Sicherheitsangabe.
  */
+/**
+ * Was ein Aufrufer an einem Profil setzen darf.
+ *
+ * `dimensions_confirmed_at` ist ausdrücklich AUSGESCHLOSSEN: „ein Mensch hat
+ * die Masse bestaetigt" darf nur aus einer Handlung entstehen, nie daraus,
+ * dass jemand ein Feld mitschickt. Das war vorher nur ein Kommentar und ein
+ * Test -- jetzt sagt es der Typ, und ein Aufrufer kann es gar nicht erst
+ * versuchen.
+ */
+export type ProfileInput = Omit<VehicleProfile, 'id' | 'is_active' | 'dimensions_confirmed_at'>;
+
 export const SAFETY_DIMENSIONS = ['height_m', 'width_m', 'length_m', 'weight_t'] as const;
 
 /** Wahr, wenn `input` mindestens eine der Abmessungen auf einen ANDEREN Wert
@@ -54,7 +65,7 @@ export const SAFETY_DIMENSIONS = ['height_m', 'width_m', 'length_m', 'weight_t']
  *  Bestaetigung ausloesen, die niemand gegeben hat. */
 export function dimensionsDiffer(
   existing: VehicleProfile,
-  input: Partial<Omit<VehicleProfile, 'id' | 'is_active'>>,
+  input: Partial<ProfileInput>,
 ): boolean {
   return SAFETY_DIMENSIONS.some(
     (key) => input[key] !== undefined && input[key] !== existing[key],
@@ -137,16 +148,14 @@ export class ProfileService {
   /**
    * Create a new profile (internally generated UUID, inert is_active=false)
    */
-  create(input: Omit<VehicleProfile, 'id' | 'is_active'>): VehicleProfile {
+  create(input: ProfileInput): VehicleProfile {
     const id = randomUUID();
     const profile: VehicleProfile = {
       ...input,
       id,
       is_active: false,
       // Wer ein Profil anlegt, hat die Masse selbst eingetragen -- das IST
-      // die Bestaetigung. Ein mitgeschickter Wert wird bewusst ignoriert:
-      // „bestaetigt" darf nur aus einer Handlung entstehen, nie aus einem
-      // Feld, das ein Aufrufer setzen kann.
+      // die Bestaetigung. Mitschicken kann man sie nicht (`ProfileInput`).
       dimensions_confirmed_at: new Date().toISOString(),
     };
     this.insertProfile(profile);
@@ -157,7 +166,7 @@ export class ProfileService {
   /**
    * Update an existing profile (is_active cannot be changed via update)
    */
-  update(id: string, input: Partial<Omit<VehicleProfile, 'id' | 'is_active'>>): VehicleProfile {
+  update(id: string, input: Partial<ProfileInput>): VehicleProfile {
     const db = getDb();
     const existing = this.getById(id);
     if (!existing) {

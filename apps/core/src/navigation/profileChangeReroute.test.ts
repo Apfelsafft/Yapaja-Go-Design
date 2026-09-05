@@ -95,6 +95,7 @@ const PROFILE_A: VehicleProfile = {
   hazmat: false,
   avoid: AVOID_NONE,
   is_active: true,
+  dimensions_confirmed_at: null,
 };
 
 // Dominates PROFILE_A in every dimension (E06-T3 "switch to a LARGER/heavier
@@ -110,6 +111,7 @@ const PROFILE_B_LARGER: VehicleProfile = {
   hazmat: false,
   avoid: AVOID_NONE,
   is_active: false,
+  dimensions_confirmed_at: null,
 };
 
 describe('E06-T3 profile-change-during-navigation reroute coupling', () => {

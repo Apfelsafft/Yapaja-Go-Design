@@ -19,7 +19,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ProfileService, dimensionsDiffer, SAFETY_DIMENSIONS } from './service.js';
+import {
+  ProfileService,
+  dimensionsDiffer,
+  SAFETY_DIMENSIONS,
+  type ProfileInput,
+} from './service.js';
 import { closeDb } from '../db/index.js';
 import type { VehicleProfile } from '@yapaja/shared';
 
@@ -108,10 +113,13 @@ describe('eine Bestaetigung entsteht nur aus einer Handlung', () => {
   });
 
   it('ein direkt mitgeschicktes dimensions_confirmed_at wird ignoriert', () => {
+    // Der Typ (`ProfileInput`) verbietet das Feld inzwischen -- deshalb der
+    // Cast: geprueft wird, dass auch ein Aufrufer, der sich NICHT an den Typ
+    // haelt (etwa rohes JSON von aussen), keine Bestaetigung erzeugen kann.
     const before = active();
     const after = service.update(before.id, {
       dimensions_confirmed_at: '2020-01-01T00:00:00.000Z',
-    } as Partial<Omit<VehicleProfile, 'id' | 'is_active'>>);
+    } as unknown as Partial<ProfileInput>);
     expect(after.dimensions_confirmed_at).toBeNull();
   });
 
@@ -125,10 +133,10 @@ describe('eine Bestaetigung entsteht nur aus einer Handlung', () => {
       avg_speed_kmh: 90,
       hazmat: false,
       avoid: { motorway: false, toll: false, ferry: false, unpaved: false },
-      dimensions_confirmed_at: null,
     });
-    // `null` mitgeschickt und trotzdem bestaetigt: der Wert des Aufrufers
-    // zaehlt nicht, die Handlung zaehlt.
+    // Der Zeitstempel kommt allein aus der Handlung. Mitschicken laesst er
+    // sich gar nicht mehr: `ProfileInput` schliesst das Feld aus, der
+    // Compiler weist es ab -- staerker als eine Pruefung zur Laufzeit.
     expect(created.dimensions_confirmed_at).not.toBeNull();
   });
 });
