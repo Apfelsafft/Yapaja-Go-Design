@@ -25,6 +25,16 @@ interface PositionStoreState {
   extrapolated: boolean;
   /** Timestamp of the last REAL fix (`pos/update`) only -- never touched by `pos/extrapolated`. Drives GPS-loss detection (see gpsSignal.ts). */
   lastRealUpdateTime: number | null;
+  /**
+   * Der letzte ECHTE Fix und der davor.
+   *
+   * Gebraucht fuer die Stillstandserkennung (`standstill.ts`): liefert eine
+   * Quelle keine `speed`, bleibt nur der Vergleich zweier Orte. `position`
+   * taugt dafuer nicht -- die wird auch von `pos/extrapolated` ueberschrieben
+   * und waere dann eine Schaetzung, kein gemessener Ort.
+   */
+  lastRealPosition: Position | null;
+  previousRealPosition: Position | null;
 
   // Internal
   setPosition: (pos: Position | null) => void;
@@ -44,10 +54,27 @@ export const usePositionStore = create<PositionStoreState>((set) => ({
   error: null,
   extrapolated: false,
   lastRealUpdateTime: null,
+  lastRealPosition: null,
+  previousRealPosition: null,
 
-  setPosition: (pos) => set({ position: pos, lastUpdateTime: pos ? Date.now() : null }),
+  setPosition: (pos) =>
+    set((state) => ({
+      position: pos,
+      lastUpdateTime: pos ? Date.now() : null,
+      // Ein direkt gesetzter Wert (Tests, Werkzeuge) zaehlt ebenfalls als
+      // echter Fix -- sonst haette die Stillstandserkennung dort nie Daten.
+      lastRealPosition: pos ?? state.lastRealPosition,
+      previousRealPosition: pos ? state.lastRealPosition : state.previousRealPosition,
+    })),
   setRealPosition: (pos) =>
-    set({ position: pos, lastUpdateTime: Date.now(), extrapolated: false, lastRealUpdateTime: Date.now() }),
+    set((state) => ({
+      position: pos,
+      lastUpdateTime: Date.now(),
+      extrapolated: false,
+      lastRealUpdateTime: Date.now(),
+      lastRealPosition: pos,
+      previousRealPosition: state.lastRealPosition,
+    })),
   setExtrapolatedPosition: (pos) =>
     set({ position: pos, lastUpdateTime: Date.now(), extrapolated: true }),
   setConnected: (connected) => set({ isConnected: connected }),

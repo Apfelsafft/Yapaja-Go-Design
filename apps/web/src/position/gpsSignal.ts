@@ -15,8 +15,14 @@
 
 import { useEffect, useState } from 'react';
 import { usePositionStore } from './positionStore';
+import { wasStandingStill } from './standstill.js';
 
-export type GpsSignalState = 'acquiring' | 'live' | 'lost';
+/**
+ * `'standstill'` ist seit 0.5.6 ein EIGENER Zustand und nicht mehr Teil von
+ * `'lost'`: „keine neuen Daten, weil das Fahrzeug steht" ist kein Ausfall.
+ * Siehe `standstill.ts` fuer die Begruendung und die gemeldete Beobachtung.
+ */
+export type GpsSignalState = 'acquiring' | 'live' | 'standstill' | 'lost';
 
 /** No real fix for longer than this counts as "signal lost" (docs/08-wargame.md W-01). */
 export const GPS_SIGNAL_LOST_THRESHOLD_MS = 3000;
@@ -71,6 +77,12 @@ export interface DeriveSignalStateInput {
   now: number;
   /** Quelle des letzten echten Fixes (`Position.source`), falls bekannt. */
   source?: string | null;
+  /**
+   * Ob das Fahrzeug beim letzten bekannten Stand gestanden hat
+   * (`standstill.ts`). Fehlt die Angabe, gilt der alte, vorsichtige Weg:
+   * veraltet = verloren.
+   */
+  standingStill?: boolean;
 }
 
 /**
@@ -86,14 +98,23 @@ export function deriveSignalState({
   lastRealUpdateTime,
   now,
   source,
+  standingStill = false,
 }: DeriveSignalStateInput): GpsSignalState {
   if (lastRealUpdateTime === null) {
     return 'acquiring';
   }
   if (!connected) {
+    // Keine Verbindung zum Core: das ist unabhaengig vom Fahrzeug ein echter
+    // Ausfall -- der Stillstand entschuldigt hier nichts.
     return 'lost';
   }
-  return now - lastRealUpdateTime < lostThresholdForSource(source) ? 'live' : 'lost';
+  if (now - lastRealUpdateTime < lostThresholdForSource(source)) {
+    return 'live';
+  }
+  // Veraltet. Ob das eine Warnung wert ist, haengt daran, ob das Ausbleiben
+  // ueberrascht: ein stehendes Fahrzeug liefert nichts Neues, weil es nichts
+  // Neues GIBT. Ein fahrendes, das verstummt, ist ein Grund zur Warnung.
+  return standingStill ? 'standstill' : 'lost';
 }
 
 /**
@@ -106,6 +127,8 @@ export function useGpsSignalState(): GpsSignalState {
   const connected = usePositionStore((state) => state.isConnected);
   const lastRealUpdateTime = usePositionStore((state) => state.lastRealUpdateTime);
   const source = usePositionStore((state) => state.position?.source ?? null);
+  const latest = usePositionStore((state) => state.lastRealPosition);
+  const previous = usePositionStore((state) => state.previousRealPosition);
   const [now, setNow] = useState<number>(() => Date.now());
 
   useEffect(() => {
@@ -113,5 +136,11 @@ export function useGpsSignalState(): GpsSignalState {
     return () => window.clearInterval(interval);
   }, []);
 
-  return deriveSignalState({ connected, lastRealUpdateTime, now, source });
+  return deriveSignalState({
+    connected,
+    lastRealUpdateTime,
+    now,
+    source,
+    standingStill: wasStandingStill({ latest, previous }),
+  });
 }

@@ -16,10 +16,14 @@ import React, { useEffect, useState } from 'react';
 import type { Position } from '@yapaja/shared';
 import type { Widget, WidgetRenderContext } from '@yapaja/ui';
 import { deriveSignalState, type GpsSignalState } from '../../position/gpsSignal.js';
+import { wasStandingStill } from '../../position/standstill.js';
 
 const LABELS: Record<GpsSignalState, string> = {
   acquiring: 'GPS wird gesucht…',
   live: 'GPS aktiv',
+  // Kein Ausfall: das Fahrzeug steht, und eine Quelle, die nur bei
+  // Aenderungen meldet, hat dann nichts zu melden (siehe `standstill.ts`).
+  standstill: 'GPS aktiv (Fahrzeug steht)',
   lost: 'GPS-Signal verloren',
 };
 
@@ -35,7 +39,17 @@ function GpsStatusDisplay({ connected, data }: Pick<WidgetRenderContext, 'connec
 
   const realFix = data['pos/update'] as Position | undefined;
   const lastRealUpdateTime = realFix ? new Date(realFix.ts).getTime() : null;
-  const state = deriveSignalState({ connected, lastRealUpdateTime, now });
+  // Hier steht nur der JEWEILS letzte Fix zur Verfuegung (`data` haelt keine
+  // Vorgeschichte), also entscheidet allein die gemeldete Geschwindigkeit.
+  // Liefert die Quelle keine, bleibt es beim vorsichtigen „verloren" -- wie
+  // in `standstill.ts` begruendet.
+  const state = deriveSignalState({
+    connected,
+    lastRealUpdateTime,
+    now,
+    source: realFix?.source,
+    standingStill: wasStandingStill({ latest: realFix ?? null, previous: null }),
+  });
   // Dead-reckoning is in progress (W-01) whenever the real fix has gone
   // stale but a `pos/extrapolated` guess is still standing in for it.
   const deadReckoning = state === 'lost' && Boolean(data['pos/extrapolated']);
@@ -44,7 +58,7 @@ function GpsStatusDisplay({ connected, data }: Pick<WidgetRenderContext, 'connec
     <div
       data-testid="widget-gps-status-value"
       data-gps-state={state}
-      className={`text-xs font-medium ${state === 'lost' ? 'text-red-500' : state === 'live' ? 'text-green-600' : 'text-slate-400'}`}
+      className={`text-xs font-medium ${state === 'lost' ? 'text-red-500' : state === 'live' || state === 'standstill' ? 'text-green-600' : 'text-slate-400'}`}
     >
       {LABELS[state]}
       {deadReckoning ? ' (Schätzung)' : ''}
