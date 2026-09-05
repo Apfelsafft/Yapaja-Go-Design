@@ -38,8 +38,11 @@ describe('runCli', () => {
     writeGeoJsonSeq(placesPath, [
       { geometry: point(9.5215, 47.141), properties: { place: 'city', name: 'Vaduz' } },
       { geometry: point(9.5091, 47.166), properties: { place: 'town', name: 'Schaan' } },
-      // A place kind this index doesn't index -- must be skipped, not crash the build.
-      { geometry: point(9.5, 47.1), properties: { place: 'hamlet', name: 'Irrelevant' } },
+      // A place kind this index doesn't index -- must be skipped, not crash the
+      // build. Bis 0.6.0 stand hier `hamlet`; seitdem sind Ortsteile und
+      // Weiler AUFGENOMMEN (siehe extract.ts). `city_block` traegt weiterhin
+      // selten einen Namen, den jemand sucht.
+      { geometry: point(9.5, 47.1), properties: { place: 'city_block', name: 'Irrelevant' } },
     ]);
     writeGeoJsonSeq(streetsPath, [
       { geometry: point(9.522, 47.142), properties: { highway: 'residential', name: 'Vaduzer Straße' } },
@@ -87,7 +90,11 @@ describe('runCli', () => {
     tmpDir = mkdtempSync(join(tmpdir(), 'lite-cli-test-empty-'));
     const placesPath = join(tmpDir, 'places.geojsonseq');
     const outPath = join(tmpDir, 'lite_search.db');
-    writeGeoJsonSeq(placesPath, [{ geometry: point(9.5, 47.1), properties: { place: 'hamlet', name: 'X' } }]);
+    // `city_block` wird nicht indiziert -- also bleibt nichts uebrig, und
+    // genau das soll hier einen klaren Fehler geben statt einer leeren Datei.
+    writeGeoJsonSeq(placesPath, [
+      { geometry: point(9.5, 47.1), properties: { place: 'city_block', name: 'X' } },
+    ]);
 
     await expect(runCli(['--places', placesPath, '--out', outPath])).rejects.toThrow(/Keine Datensaetze/);
     expect(existsSync(outPath)).toBe(false);

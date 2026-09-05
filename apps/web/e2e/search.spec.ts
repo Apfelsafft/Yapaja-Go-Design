@@ -321,3 +321,80 @@ test('speed-lock (E07-T4): search field collapses to favorites-only quick-select
 
   expect(pageErrors).toEqual([]);
 });
+
+/**
+ * ─── DAS NAECHSTE ERGEBNIS NACH OBEN ────────────────────────────────────────
+ * Gemeldet: „Bitte sortiere die Ergebnisse der Suche nach Entfernung. Das
+ * naechste Ergebnis nach oben."
+ *
+ * Die Entfernung stand je Treffer schon in der Liste -- sortiert wurde
+ * nirgends. Die REGEL steht in `src/search/sortByDistance.test.ts`; hier wird
+ * geprueft, dass sie in der echten Liste ankommt.
+ */
+test('die Trefferliste beginnt mit dem naechsten Ergebnis', async ({ page }) => {
+  test.setTimeout(45_000);
+
+  // Position: 47.0 / 9.5. Der Server liefert absichtlich das FERNSTE zuerst.
+  await page.route('**/api/v1/search*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          { name: 'Weit weg', latlng: { lat: 48.0, lon: 9.5 }, source: 'lite' },
+          { name: 'Mittel', latlng: { lat: 47.2, lon: 9.5 }, source: 'lite' },
+          { name: 'Ganz nah', latlng: { lat: 47.001, lon: 9.5 }, source: 'lite' },
+        ],
+      }),
+    });
+  });
+
+  await page.goto(SEARCH_CORE_BASE_URL + '/');
+  await expect(page.getByTestId('search-input')).toBeVisible({ timeout: 15_000 });
+  await page.request.post(`${SEARCH_CORE_BASE_URL}/api/v1/position/browser`, {
+    data: browserFixBody(),
+  });
+  await expect
+    .poll(() => page.evaluate(() => window.__yapajaPositionStore?.getState().position?.lat ?? null), {
+      timeout: 10_000,
+    })
+    .not.toBeNull();
+
+  await page.getByTestId('search-input').fill('irgendwas');
+  await expect(page.getByTestId('search-result-0')).toBeVisible({ timeout: 10_000 });
+
+  // Umgekehrt zur Serverantwort -- genau das ist der Punkt.
+  await expect(page.getByTestId('search-result-0')).toContainText('Ganz nah');
+  await expect(page.getByTestId('search-result-2')).toContainText('Weit weg');
+});
+
+/**
+ * ─── DAS KREUZ ZUM LEEREN ───────────────────────────────────────────────────
+ * Gemeldet: „Bitte integriere ein 'x' in der Suchzeile, um den aktuellen Text
+ * wieder komplett loeschen zu koennen." Es gab nur die Escape-Taste -- auf
+ * einem Tablet im Fahrzeug also gar nichts.
+ */
+test('das Kreuz leert die Suchzeile und ist ohne Text nicht da', async ({ page }) => {
+  test.setTimeout(45_000);
+  await mockSearchEndpoint(page);
+
+  await page.goto(SEARCH_CORE_BASE_URL + '/');
+  const input = page.getByTestId('search-input');
+  await expect(input).toBeVisible({ timeout: 15_000 });
+
+  // Ohne Text gibt es nichts zu leeren -- dann steht dort die Lupe.
+  await expect(page.getByTestId('search-clear')).toHaveCount(0);
+
+  await input.fill('vaduz');
+  await expect(page.getByTestId('search-clear')).toBeVisible();
+  await expect(page.getByTestId('search-result-0')).toBeVisible({ timeout: 10_000 });
+
+  await page.getByTestId('search-clear').click();
+
+  await expect(input).toHaveValue('');
+  await expect(page.getByTestId('search-result-0')).toHaveCount(0);
+  // Und das Kreuz verschwindet wieder mit dem Text.
+  await expect(page.getByTestId('search-clear')).toHaveCount(0);
+  // Der Fokus bleibt im Feld -- man will ja meist gleich neu tippen.
+  await expect(input).toBeFocused();
+});

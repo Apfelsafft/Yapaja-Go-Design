@@ -21,7 +21,7 @@
 #
 # Ablauf:
 #   1. `osmium tags-filter` extrahiert DREI Teilmengen aus der PBF:
-#        - Orte:     Nodes mit place=city,town,village
+#        - Orte:     Nodes mit place=city,town,village,suburb,quarter,borough,hamlet
 #        - Strassen:  Ways mit einem highway-Tag (Namensfilter passiert im
 #                      Node-Normalizer, apps/core/src/search/lite/extract.ts
 #                      -- unbenannte Ways werden dort verworfen)
@@ -61,7 +61,7 @@ usage() {
 Usage: services/valhalla/build-lite-index.sh <pbf-datei>
 
 Baut den Lite-Suchindex (lite_search.db, SQLite FTS5 trigram) aus einem
-OSM-PBF: Orte (place=city/town/village) + benannte Strassen, je mit
+OSM-PBF: Orte (place=city/town/village/suburb/quarter/borough/hamlet) + benannte Strassen, je mit
 Zentroid. Atomarer Swap (W-17).
 
 Beispiel:
@@ -107,8 +107,10 @@ trap cleanup EXIT
 
 mkdir -p "$(dirname "$OUT_DB")"
 
-echo "== Filtere Orte (place=city,town,village) aus $PBF =="
-osmium tags-filter --overwrite -o "$WORK_DIR/places.osm.pbf" "$PBF" n/place=city,town,village
+echo "== Filtere Orte (place=city,town,village,suburb,quarter,borough,hamlet) aus $PBF =="
+# 0.6.0: Ortsteile gehoeren dazu -- „Sondernheim wurde nicht gefunden" lag
+# daran, dass `place=suburb` hier gar nicht erst herausgefiltert wurde.
+osmium tags-filter --overwrite -o "$WORK_DIR/places.osm.pbf" "$PBF" n/place=city,town,village,suburb,quarter,borough,hamlet
 
 echo "== Filtere Strassen (highway=*) aus $PBF =="
 osmium tags-filter --overwrite -o "$WORK_DIR/streets.osm.pbf" "$PBF" w/highway

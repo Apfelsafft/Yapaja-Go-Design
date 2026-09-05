@@ -55,12 +55,31 @@ describe('normalizePlaceFeature', () => {
     expect(normalizePlaceFeature(village)?.kind).toBe('village');
   });
 
-  it('rejects place values this index does not index (e.g. hamlet, suburb)', () => {
-    const feature: OsmFeature = {
-      geometry: point(9.5, 47.1),
-      properties: { place: 'hamlet', name: 'Irgendwo' },
-    };
-    expect(normalizePlaceFeature(feature)).toBeNull();
+  it('nimmt auch Ortsteile auf -- sie sind Namen, die Menschen eintippen', () => {
+    // Bis 0.6.0 stand hier das Gegenteil („rejects hamlet, suburb"). Gemeldet
+    // wurde: „Ich habe dann direkt nach Sondernheim gesucht, das wurde nicht
+    // gefunden." Sondernheim ist ein Stadtteil von Germersheim und in OSM
+    // `place=suburb` -- er war nicht schwer zu finden, sondern gar nicht im
+    // Index.
+    for (const place of ['suburb', 'quarter', 'borough', 'hamlet']) {
+      const feature: OsmFeature = {
+        geometry: point(9.5, 47.1),
+        properties: { place, name: 'Sondernheim' },
+      };
+      expect(normalizePlaceFeature(feature)?.kind, `place=${place}`).toBe(place);
+    }
+  });
+
+  it('nimmt aber weiterhin nicht auf, was selten einen gesuchten Namen traegt', () => {
+    // Die Grenze bleibt: `city_block`, `plot` und Verwandte wuerden den Index
+    // mit Eintraegen fuellen, die in der Trefferliste nur im Weg staenden.
+    for (const place of ['city_block', 'plot', 'isolated_dwelling', 'square']) {
+      const feature: OsmFeature = {
+        geometry: point(9.5, 47.1),
+        properties: { place, name: 'Irgendwo' },
+      };
+      expect(normalizePlaceFeature(feature), `place=${place}`).toBeNull();
+    }
   });
 
   it('rejects a feature with no place tag at all', () => {

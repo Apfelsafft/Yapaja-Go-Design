@@ -49,6 +49,7 @@ import { navigateToFavorite } from '../favorites/navigate.js';
 import { iconForFavoriteCategory } from '../favorites/icons.js';
 import { usePositionStore } from '../position/positionStore.js';
 import { useDriveLockStore, useIsControlLocked } from '../drive/driveLockStore.js';
+import { sortResultsByDistance } from './sortByDistance.js';
 
 const SEARCH_FLY_TO_ZOOM = 14;
 const PANEL_ID = 'search-panel';
@@ -128,7 +129,7 @@ function FavoritesQuickSelect({ thresholdKmh }: { thresholdKmh: number }): React
 
 export default function SearchBar(): React.ReactElement {
   const query = useSearchStore((state) => state.query);
-  const results = useSearchStore((state) => state.results);
+  const rawResults = useSearchStore((state) => state.results);
   const status = useSearchStore((state) => state.status);
   const error = useSearchStore((state) => state.error);
   const highlightedIndex = useSearchStore((state) => state.highlightedIndex);
@@ -137,6 +138,17 @@ export default function SearchBar(): React.ReactElement {
   const resetSearch = useSearchStore((state) => state.reset);
 
   const position = usePositionStore((state) => state.position);
+
+  // ─── DAS NAECHSTE ZUERST ──────────────────────────────────────────────────
+  // Gemeldet: „Bitte sortiere die Ergebnisse der Suche nach Entfernung. Das
+  // naechste Ergebnis nach oben." Die Entfernung wurde je Treffer bereits
+  // angezeigt -- sortiert wurde nirgends, die Reihenfolge kam unveraendert vom
+  // Server. Man sah also, wie weit alles weg ist, und musste sich das
+  // naechste selbst heraussuchen.
+  const results = React.useMemo(
+    () => sortResultsByDistance(rawResults, position),
+    [rawResults, position],
+  );
   const setDestination = useRoutingStore((state) => state.setDestination);
   const map = useMapStore((state) => state.map);
   // E05-T3: every selected search result also becomes a Verlauf entry
@@ -280,12 +292,40 @@ export default function SearchBar(): React.ReactElement {
             className="w-full rounded-full bg-white/95 dark:bg-slate-800/95 shadow-md px-4 py-2 pr-9 text-sm text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
             data-testid="search-input"
           />
-          <span
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none"
-            aria-hidden="true"
-          >
-            🔍
-          </span>
+          {/* ─── DAS KREUZ ZUM LEEREN ──────────────────────────────────────
+              Gemeldet: „Bitte integriere ein 'x' in der Suchzeile, um den
+              aktuellen Text wieder komplett loeschen zu koennen." Es gab nur
+              die Escape-Taste -- auf einem Tablet im Fahrzeug also gar nichts.
+
+              Es tritt an die Stelle der Lupe, sobald etwas dasteht: zwei
+              Zeichen nebeneinander waeren im selben engen Feld nur Unruhe,
+              und die Lupe sagt ohnehin nichts, was die Beschriftung nicht
+              schon sagt. */}
+          {query.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                resetSearch();
+                inputRef.current?.focus();
+              }}
+              aria-label="Suche leeren"
+              title="Suche leeren"
+              // 44 Punkte: die Mindestgroesse fuer eine Bedienflaeche in
+              // diesem Projekt (docs/06 §4). Ein 16-Punkte-Kreuz traefe im
+              // fahrenden Fahrzeug niemand.
+              className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              data-testid="search-clear"
+            >
+              ✕
+            </button>
+          ) : (
+            <span
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none"
+              aria-hidden="true"
+            >
+              🔍
+            </span>
+          )}
         </div>
 
         {/* Screen-reader-only live region: announces result-count/empty/error
