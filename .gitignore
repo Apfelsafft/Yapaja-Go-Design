@@ -70,3 +70,7 @@ temp/
 # E10-T3 Golden-Routes provenance/runbook-smoke scratch (osmium extract,
 # machine-readable provenance report, stub-router logs).
 e2e/golden-routes/.tmp/
+
+# Laufzeitdaten des Cores (Wiederaufnahme-Punkt der Navigation u. a.).
+# Entsteht bei jedem lokalen Lauf und gehoert niemandem ausser dieser Maschine.
+apps/core/.data/

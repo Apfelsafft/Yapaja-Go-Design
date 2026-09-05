@@ -219,6 +219,37 @@ export const navigationPlugin: FastifyPluginAsync<NavigationRoutesOptions> = asy
   fastify.post('/navigation/resume', control(() => service.resume()));
   fastify.post('/navigation/stop', control(() => service.stop()));
 
+  // POST /navigation/waypoints (0.5.9): Zwischenziele waehrend der laufenden
+  // Fahrt aendern. Der Betreiber hat sie ausdruecklich „auch waehrend aktiver
+  // Navigation" verlangt -- und `POST /navigation/start` ist aus `navigating`
+  // gar nicht erlaubt (409), aus gutem Grund: ein Neustart wuerde
+  // Kalibrierung und Ansagestand wegwerfen. Siehe
+  // `NavigationService.updateWaypoints`.
+  fastify.post<{ Body: unknown }>('/navigation/waypoints', async (request, reply) => {
+    const body = request.body;
+    const raw = (body && typeof body === 'object' ? body : {}) as { waypoints?: unknown };
+    if (!Array.isArray(raw.waypoints)) {
+      return reply
+        .code(400)
+        .send(errorResponse('VALIDATION_ERROR', 'waypoints must be an array of {lat, lon}'));
+    }
+    const waypoints: LatLng[] = [];
+    for (const entry of raw.waypoints) {
+      if (!validateLatLng(entry)) {
+        return reply
+          .code(400)
+          .send(errorResponse('VALIDATION_ERROR', 'waypoints must be an array of {lat, lon}'));
+      }
+      waypoints.push(entry);
+    }
+    try {
+      service.updateWaypoints(waypoints);
+      return reply.code(200).send({ data: service.getState() });
+    } catch (err) {
+      return sendNavError(reply, err, logger);
+    }
+  });
+
   // POST /navigation/profile_change/confirm (E06-T3): the user answered "Ja"
   // to the "Mit '‹name›' neu berechnen?" confirmation banner -- reroute with
   // the (already active) new profile. 409 NO_PENDING_PROFILE_CHANGE when

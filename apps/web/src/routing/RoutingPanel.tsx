@@ -36,6 +36,8 @@ import { startNavigation, NavigationApiError, type StartNavigationReroute } from
 import { useNavStore } from '../drive/navStore.js';
 import { isDriveActive } from '../drive/ManeuverPanel.js';
 import { useOnboardingStore, selectNavigationAllowed } from '../onboarding/store.js';
+import WaypointList from './WaypointList.js';
+import { toRequestWaypoints } from './waypoints.js';
 
 const AVOID_FLAGS = ['motorway', 'toll', 'ferry', 'unpaved'] as const;
 const AVOID_LABELS: Record<(typeof AVOID_FLAGS)[number], string> = {
@@ -50,6 +52,7 @@ export default function RoutingPanel(): React.ReactElement | null {
   const destinationName = useRoutingStore((state) => state.destinationName);
   const routes = useRoutingStore((state) => state.routes);
   const activeRouteId = useRoutingStore((state) => state.activeRouteId);
+  const waypoints = useRoutingStore((state) => state.waypoints);
   const status = useRoutingStore((state) => state.status);
   const error = useRoutingStore((state) => state.error);
   const requestRoute = useRoutingStore((state) => state.requestRoute);
@@ -123,6 +126,11 @@ export default function RoutingPanel(): React.ReactElement | null {
     setNavStartError(null);
     try {
       const reroute: StartNavigationReroute = { profile_id: activeProfile.id };
+      // Die Zwischenziele mitgeben, damit eine spaetere automatische
+      // Neuberechnung sie nicht verliert. Das Feld gab es seit E04-T5 --
+      // gefuellt hat es nie jemand, also fiel bei der ersten Abweichung jede
+      // Station stillschweigend weg.
+      if (waypoints.length > 0) reroute.waypoints = toRequestWaypoints(waypoints);
       if (Object.keys(avoidOverrides).length > 0) reroute.avoid_overrides = avoidOverrides;
       if (tempAvoidances.length > 0) reroute.exclude_polygons = tempAvoidances.map((a) => a.polygon);
 
@@ -146,6 +154,7 @@ export default function RoutingPanel(): React.ReactElement | null {
     routes,
     activeRouteId,
     activeProfile,
+    waypoints,
     avoidOverrides,
     tempAvoidances,
     destination,
@@ -229,7 +238,19 @@ export default function RoutingPanel(): React.ReactElement | null {
 
   return (
     <div
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 w-[min(92vw,28rem)] rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"
+      // ─── HOEHE BEGRENZT, INHALT SCROLLT ─────────────────────────────────
+      // Dieses Fenster hatte keine Obergrenze: es wuchs mit jedem Abschnitt,
+      // den es bekam. Mit den Zwischenzielen (0.5.9) reichte es erstmals
+      // ueber die Mitte der Karte -- gemessen bei 1280x720: Oberkante 332,
+      // Kartenmitte 360. Ein Doppeltipp auf die Karte landete danach auf dem
+      // Fenster statt auf der Karte.
+      //
+      // Aufgefallen ist es an einem Gesten-Test, aber der Fehler ist aelter
+      // als der Anlass: ein Fenster, das unbegrenzt wachsen darf, verdeckt
+      // frueher oder spaeter die Karte, um die es geht. 45 % der Hoehe
+      // laesst die Mehrheit der Karte frei -- und der Inhalt bleibt ueber
+      // das Scrollen vollstaendig erreichbar.
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 w-[min(92vw,28rem)] max-h-[45vh] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"
       data-testid="destination-sheet"
     >
       <div className="flex items-start justify-between gap-2">
@@ -324,6 +345,12 @@ export default function RoutingPanel(): React.ReactElement | null {
           </p>
         )}
       </div>
+
+      {/* Zwischenziele direkt unter dem Start: das ist die Reihenfolge, in
+          der die Fahrt gelesen wird -- Start, Stationen, Ziel. */}
+      <WaypointList
+        rerouteParams={activeProfile ? { origin: 'current', profileId: activeProfile.id } : null}
+      />
 
       <div data-testid="save-favorite-section">
         {!showSaveForm && !saveSuccess && (

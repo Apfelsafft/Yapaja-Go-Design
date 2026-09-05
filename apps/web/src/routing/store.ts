@@ -24,6 +24,17 @@ import { create } from 'zustand';
 import type { LatLng, Route, RouteAvoidOverrides } from '@yapaja/shared';
 import * as client from './client.js';
 import { RoutingApiError } from './client.js';
+import {
+  addWaypoint as addWaypointToList,
+  canAddWaypoint,
+  moveWaypoint as moveWaypointInList,
+  removeWaypoint as removeWaypointFromList,
+  toRequestWaypoints,
+  type Waypoint,
+} from './waypoints.js';
+import { useNavStore } from '../drive/navStore.js';
+import { isDriveActive } from '../drive/driveActive.js';
+import { updateNavigationWaypoints } from '../drive/client.js';
 
 export type RoutingStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -78,7 +89,7 @@ export interface RoutingState {
   /** Worauf sich der naechste Kartenklick bezieht. Nach dem Setzen eines
    *  Startpunkts faellt es auf `'destination'` zurueck -- ein Modus, in dem
    *  man versehentlich haengen bleibt, ist schlimmer als ein Klick zu viel. */
-  pickTarget: 'destination' | 'origin';
+  pickTarget: 'destination' | 'origin' | 'waypoint';
   /**
    * E05-T2 addition: the human-readable name of the destination, when it was
    * picked via search (`SearchResult.name`) rather than a raw map click/tap
@@ -97,6 +108,15 @@ export interface RoutingState {
   avoidOverrides: RouteAvoidOverrides;
   /** Session-scoped "meide diesen Abschnitt" polygons (E03-T4). */
   tempAvoidances: TempAvoidance[];
+  /**
+   * Zwischenziele, in der Reihenfolge, in der sie angefahren werden.
+   *
+   * Bis 0.5.9 schickte der Browser hier fest verdrahtet `[]` an den Core --
+   * obwohl `RouteRequest.waypoints` seit jeher existiert, an Valhalla
+   * durchgereicht und sogar auf Kartenabdeckung geprueft wird. Die Leitung
+   * lag, es hing nur nichts daran.
+   */
+  waypoints: Waypoint[];
 
   /** Sets (or clears, with `null`) the selected destination, optionally with
    *  a display `name` (E05-T2, search result selection). Always resets any
@@ -104,7 +124,13 @@ export interface RoutingState {
   setDestination: (destination: LatLng | null, name?: string | null) => void;
   /** Setzt (oder loescht, mit `null`) den ausdruecklichen Startpunkt. */
   setStartPoint: (startPoint: LatLng | null, name?: string | null) => void;
-  setPickTarget: (target: 'destination' | 'origin') => void;
+  setPickTarget: (target: 'destination' | 'origin' | 'waypoint') => void;
+  /** Haengt ein Zwischenziel ans Ende an und berechnet neu, wenn schon eine Route steht. */
+  addWaypoint: (latlng: LatLng, name: string | null, params: RequestRouteParams | null) => void;
+  /** Entfernt ein Zwischenziel und berechnet neu, wenn schon eine Route steht. */
+  removeWaypoint: (id: string, params: RequestRouteParams | null) => void;
+  /** Verschiebt ein Zwischenziel um eine Position und berechnet neu. */
+  moveWaypoint: (id: string, direction: 'up' | 'down', params: RequestRouteParams | null) => void;
   /** Requests routes for the current `destination`, including any active `avoidOverrides`/`tempAvoidances`. No-ops (no request sent) if there is no destination or no `profileId`. */
   requestRoute: (params: RequestRouteParams) => Promise<void>;
   /** Makes `routeId` the active (highlighted) route; the previously-active one becomes a gray alternative. No-ops if `routeId` isn't among the current `routes`. */
@@ -127,6 +153,39 @@ function nextAvoidanceId(): string {
   return `avoid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Was nach einer Aenderung der Zwischenziele zu tun ist.
+ *
+ * ─── ZWEI FAELLE, ZWEI WEGE ─────────────────────────────────────────────────
+ * WAEHREND EINER FAHRT geht die Aenderung an den Core: er legt die Strecke
+ * mit derselben Maschinerie neu, die er fuer Abweichungen schon hat, und
+ * uebergibt die laufende Fahrt nahtlos. Ein neues `POST /navigation/start`
+ * waere hier gar nicht erlaubt (409) und wuerde Kalibrierung und Ansagestand
+ * wegwerfen -- fuer den Menschen im Fahrzeug ein sichtbarer Aussetzer.
+ *
+ * BEIM PLANEN gibt es keine laufende Fahrt; dann wird hier im Browser neu
+ * gerechnet, wie bei jeder anderen Aenderung an der Route auch.
+ *
+ * `params === null` heisst „nicht rechnen" -- etwa, wenn noch gar kein Ziel
+ * gewaehlt ist. Dann bleibt es beim Aendern der Liste.
+ */
+function applyWaypointChange(
+  waypoints: Waypoint[],
+  params: RequestRouteParams | null,
+  get: () => RoutingState,
+): void {
+  if (isDriveActive(useNavStore.getState().navState?.status)) {
+    void updateNavigationWaypoints(toRequestWaypoints(waypoints)).catch(() => {
+      // Ein Fehlschlag darf die Liste nicht zuruecksetzen: der Wunsch steht,
+      // und der Core versucht es bei der naechsten Neuberechnung erneut. Ein
+      // stiller Ruecksprung der Liste waere schlimmer als eine Strecke, die
+      // einen Moment spaeter nachzieht.
+    });
+    return;
+  }
+  if (params) void get().requestRoute(params);
+}
+
 export const useRoutingStore = create<RoutingState>((set, get) => ({
   destination: null,
   destinationName: null,
@@ -139,6 +198,7 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
   error: null,
   avoidOverrides: {},
   tempAvoidances: [],
+  waypoints: [],
 
   setDestination: (destination, name = null) => {
     set({
@@ -167,8 +227,40 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
     set({ pickTarget });
   },
 
+  // ─── ZWISCHENZIELE ────────────────────────────────────────────────────────
+  // Nach jeder Aenderung muss die STRECKE nachziehen -- sonst zeigte die
+  // Karte weiter die alte, waehrend die Liste schon die neue Absicht anzeigt.
+  // Zwei Anzeigen, die sich widersprechen, sind schlimmer als eine langsame.
+  //
+  // Welcher Weg dafuer richtig ist, haengt davon ab, ob gefahren wird --
+  // siehe `applyWaypointChange`.
+  addWaypoint: (latlng, name, params) => {
+    const { waypoints } = get();
+    if (!canAddWaypoint(waypoints)) return;
+    const next = addWaypointToList(waypoints, latlng, name);
+    set({ waypoints: next });
+    applyWaypointChange(next, params, get);
+  },
+
+  removeWaypoint: (id, params) => {
+    const { waypoints } = get();
+    const next = removeWaypointFromList(waypoints, id);
+    if (next.length === waypoints.length) return; // nichts entfernt
+    set({ waypoints: next });
+    applyWaypointChange(next, params, get);
+  },
+
+  moveWaypoint: (id, direction, params) => {
+    const { waypoints } = get();
+    const next = moveWaypointInList(waypoints, id, direction);
+    // Am Rand aendert sich nichts -- dann auch keine Neuberechnung.
+    if (next.every((w, i) => w.id === waypoints[i]?.id)) return;
+    set({ waypoints: next });
+    applyWaypointChange(next, params, get);
+  },
+
   requestRoute: async ({ origin, profileId }) => {
-    const { destination, avoidOverrides, tempAvoidances, startPoint } = get();
+    const { destination, avoidOverrides, tempAvoidances, startPoint, waypoints } = get();
     // Ein ausdruecklich gewaehlter Startpunkt schlaegt den Wunsch des
     // Aufrufers. Ohne ihn bleibt alles wie bisher: `'current'` geht an den
     // Core, der die Live-Position einsetzt.
@@ -192,7 +284,7 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
       const routes = await client.requestRoutes({
         origin: effectiveOrigin,
         destination,
-        waypoints: [],
+        waypoints: toRequestWaypoints(waypoints),
         profile_id: profileId,
         alternatives: 2,
         // Only attach these when non-empty, so a request with no
@@ -241,6 +333,14 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
       status: 'idle',
       error: null,
       avoidOverrides: {},
+      // Zwischenziele gehoeren zu DIESER Fahrt, anders als die
+      // Meide-Bereiche (die gelten fuer die ganze Sitzung). Wer „Neues Ziel
+      // waehlen" drueckt, will nicht die Stationen der letzten Fahrt erben.
+      waypoints: [],
+      // Und der Zwischenziel-Modus darf nicht ueberleben -- ein Modus, in
+      // dem man haengen bleibt, ist schlimmer als ein Klick zu viel (siehe
+      // dieselbe Begruendung an `pickTarget`).
+      pickTarget: 'destination',
     });
   },
 

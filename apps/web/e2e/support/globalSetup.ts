@@ -84,6 +84,9 @@ import {
   SIMULATOR_UI_CORE_PORT,
   SIMULATOR_UI_CORE_BASE_URL,
   SIMULATOR_UI_VALHALLA_BASE_URL,
+  WAYPOINTS_CORE_PORT,
+  WAYPOINTS_CORE_BASE_URL,
+  WAYPOINTS_VALHALLA_BASE_URL,
   CONTROL_OVERLAP_CORE_BASE_URL,
   DIMENSIONS_CORE_BASE_URL,
   STORE_REGISTRY_PORT,
@@ -371,6 +374,11 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   const simulatorUiCore = startCore(SIMULATOR_UI_CORE_PORT, FIXTURE_TILES_DIR, {
     VALHALLA_URL: SIMULATOR_UI_VALHALLA_BASE_URL,
   });
+  // waypoints.spec.ts: eigener Core mit Stub-Valhalla -- geprueft wird, was
+  // der Core anfragt. Siehe WAYPOINTS_CORE_PORT.
+  const waypointsCore = startCore(WAYPOINTS_CORE_PORT, FIXTURE_TILES_DIR, {
+    VALHALLA_URL: WAYPOINTS_VALHALLA_BASE_URL,
+  });
 
   const allCores = [
     fixtureCore,
@@ -400,6 +408,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     dimensionsCore,
     controlOverlapCore,
     simulatorUiCore,
+    waypointsCore,
   ];
 
   try {
@@ -431,6 +440,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       waitForHealth(DIMENSIONS_CORE_BASE_URL, 20_000),
       waitForHealth(CONTROL_OVERLAP_CORE_BASE_URL, 20_000),
       waitForHealth(SIMULATOR_UI_CORE_BASE_URL, 20_000),
+      waitForHealth(WAYPOINTS_CORE_BASE_URL, 20_000),
     ]);
   } catch (err) {
     for (const core of allCores) core.kill();
@@ -470,6 +480,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       FLOW11_CORE_BASE_URL,
       CONTROL_OVERLAP_CORE_BASE_URL,
       SIMULATOR_UI_CORE_BASE_URL,
+      WAYPOINTS_CORE_BASE_URL,
       // Onboarding ja -- sonst laege der Assistent vor dem Dialog, den
       // vehicle-dimensions.spec.ts pruefen will. Die MASSE bleiben hier
       // bewusst unbestaetigt (er fehlt in der Liste darunter).
@@ -505,6 +516,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       FLOW11_CORE_BASE_URL,
       CONTROL_OVERLAP_CORE_BASE_URL,
       SIMULATOR_UI_CORE_BASE_URL,
+      WAYPOINTS_CORE_BASE_URL,
     ].map((baseUrl) => seedDimensionsConfirmed(baseUrl)),
   );
 

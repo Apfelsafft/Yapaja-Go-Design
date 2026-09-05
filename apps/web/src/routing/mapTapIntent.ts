@@ -53,14 +53,16 @@ export type MapTapIntent =
   | { kind: 'set-origin' }
   /** Der Tipper setzt ein neues Ziel. */
   | { kind: 'set-destination' }
+  /** Der Tipper setzt ein Zwischenziel (Zwischenziel-Modus ist aktiv). */
+  | { kind: 'set-waypoint' }
   /** Der Tipper bewirkt nichts. */
   | { kind: 'ignore'; reason: 'drive-active' };
 
 export interface MapTapContext {
   /** Die Route unter dem Finger, oder `null`. Bereits MIT Toleranz ermittelt. */
   tappedRouteId: string | null;
-  /** Der Startpunkt-Modus aus `useRoutingStore`. */
-  pickTarget: 'origin' | 'destination';
+  /** Worauf sich der Tipper bezieht, aus `useRoutingStore`. */
+  pickTarget: 'origin' | 'destination' | 'waypoint';
   /** Der Status aus `useNavStore`, oder `null`/`undefined` wenn unbekannt. */
   navStatus: NavState['status'] | null | undefined;
 }
@@ -80,11 +82,22 @@ export interface MapTapContext {
  *     ignorierte Tipper. Wer waehrend der Fahrt woandershin will, hat
  *     „Stopp" und die Suche -- beides absichtliche Handlungen.
  *
- *  3. Sonst gilt der Startpunkt-Modus, dann das Ziel -- wie bisher.
+ *  3. Der Zwischenziel-Modus gilt AUCH waehrend der Fahrt. Das ist kein
+ *     Widerspruch zu Punkt 2: in diesen Modus kommt man nur ueber einen
+ *     eigenen Knopf, das Antippen der Karte ist also bereits die zweite
+ *     bewusste Handlung. Genau das unterscheidet ihn vom verrutschten
+ *     Schwenk, um den es in Meldung 1 ging -- und der Betreiber hat
+ *     Zwischenziele ausdruecklich „auch waehrend aktiver Navigation"
+ *     verlangt.
+ *
+ *  4. Sonst gilt der Startpunkt-Modus, dann das Ziel -- wie bisher.
  */
 export function mapTapIntent(ctx: MapTapContext): MapTapIntent {
   if (ctx.tappedRouteId !== null) {
     return { kind: 'select-route', routeId: ctx.tappedRouteId };
+  }
+  if (ctx.pickTarget === 'waypoint') {
+    return { kind: 'set-waypoint' };
   }
   if (ctx.navStatus != null && DRIVE_ACTIVE_STATUSES.has(ctx.navStatus)) {
     return { kind: 'ignore', reason: 'drive-active' };

@@ -233,8 +233,19 @@ const VIEWPORTS = [
   { name: 'Tablet hochkant', size: { width: 768, height: 1024 } },
 ] as const;
 
+// ─── DIESE DATEI LAEUFT SERIELL ─────────────────────────────────────────────
+// Alle Tests hier teilen sich EINEN Core, und einer von ihnen startet eine
+// echte Fahrt. Eine laufende Fahrt ist kein testeigener Zustand: der Core
+// sendet sie ueber /ws/v1 an jede Seite an diesem Port, und `RoutingPanel`
+// blendet sich waehrend einer Fahrt bewusst aus. Liefen die Tests parallel,
+// saehe der Ziel-Fenster-Test die Fahrt des Nachbarn und faende sein Fenster
+// nicht -- genau so ist es passiert.
+//
+// Dieselbe Ursache wie bei CONTROL_OVERLAP_CORE_PORT, nur eine Ebene tiefer:
+// dort zwischen zwei Dateien, hier innerhalb einer.
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Bedienelemente ueberlappen einander nicht', () => {
-  test.describe.configure({ mode: 'default' });
 
 
 
@@ -299,5 +310,57 @@ test.describe('Bedienelemente ueberlappen einander nicht', () => {
 
     expect(findOverlaps(rects), findOverlaps(rects).join('\n')).toEqual([]);
   });
+  }
+});
+
+/**
+ * ─── DAS ZIEL-FENSTER DARF DIE KARTENMITTE NICHT VERDECKEN ─────────────────
+ * Es hatte bis 0.5.9 gar keine Hoehenbegrenzung und wuchs mit jedem
+ * Abschnitt, den es bekam. Mit den Zwischenzielen reichte es erstmals ueber
+ * die Mitte der Karte -- ein Doppeltipp zum Hineinzoomen landete danach auf
+ * dem Fenster statt auf der Karte.
+ *
+ * Aufgefallen ist das an einem Gesten-Test, also durch Zufall. Diese Pruefung
+ * misst die Zusicherung direkt: was auch immer kuenftig in dieses Fenster
+ * kommt, die Mitte der Karte bleibt bedienbar.
+ */
+test.describe('Das Ziel-Fenster', () => {
+  // Kein Verlass auf das Aufraeumen des Nachbar-Describes: waere hier noch
+  // eine Fahrt aktiv, blendete sich `RoutingPanel` aus und der Test suchte
+  // ein Fenster, das es zu Recht nicht gibt.
+  test.beforeEach(async ({ request }) => {
+    await request
+      .post(`${CONTROL_OVERLAP_CORE_BASE_URL}/api/v1/navigation/stop`)
+      .catch(() => {
+        /* best effort */
+      });
+  });
+
+  for (const [name, viewport] of [
+    ['breit', { width: 1280, height: 720 }],
+    ['Tablet hochkant', { width: 768, height: 1024 }],
+  ] as const) {
+    test(`laesst die Kartenmitte frei (${name})`, async ({ page }) => {
+      test.setTimeout(45_000);
+      await page.setViewportSize(viewport);
+      await page.goto(CONTROL_OVERLAP_CORE_BASE_URL + '/');
+      await waitForMapReady(page);
+
+      const canvas = await page.locator('canvas.maplibregl-canvas').boundingBox();
+      expect(canvas).not.toBeNull();
+      const mitteY = canvas!.y + canvas!.height / 2;
+
+      // Ein Tipper auf die Karte oeffnet das Fenster (Ziel setzen).
+      await page.mouse.click(canvas!.x + canvas!.width / 2, mitteY);
+      await expect(page.getByTestId('destination-sheet')).toBeVisible({ timeout: 10_000 });
+
+      const sheet = await page.getByTestId('destination-sheet').boundingBox();
+      expect(sheet).not.toBeNull();
+      expect(
+        sheet!.y,
+        `Das Ziel-Fenster beginnt bei ${Math.round(sheet!.y)} und liegt damit ueber der ` +
+          `Kartenmitte (${Math.round(mitteY)}) -- Gesten in der Mitte treffen dann das Fenster.`,
+      ).toBeGreaterThan(mitteY);
+    });
   }
 });

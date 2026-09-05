@@ -87,3 +87,40 @@ describe('die Treffer-Toleranz (Meldung 2)', () => {
     expect(ROUTE_TAP_RADIUS_PX).toBeGreaterThanOrEqual(12);
   });
 });
+
+describe('Zwischenziel-Modus', () => {
+  it('ein Tipper setzt ein Zwischenziel', () => {
+    expect(
+      mapTapIntent({ tappedRouteId: null, pickTarget: 'waypoint', navStatus: 'idle' }),
+    ).toEqual({ kind: 'set-waypoint' });
+  });
+
+  it('AUCH waehrend einer laufenden Fahrt', () => {
+    // Das ist der Punkt, und es ist kein Widerspruch zum Ignorieren
+    // daneben: in diesen Modus kommt man nur ueber einen eigenen Knopf, das
+    // Antippen ist also bereits die zweite bewusste Handlung. Der Betreiber
+    // hat Zwischenziele ausdruecklich „auch waehrend aktiver Navigation"
+    // verlangt.
+    for (const status of ['navigating', 'off_route', 'paused'] as const) {
+      expect(
+        mapTapIntent({ tappedRouteId: null, pickTarget: 'waypoint', navStatus: status }),
+      ).toEqual({ kind: 'set-waypoint' });
+    }
+  });
+
+  it('eine getroffene Route gewinnt trotzdem', () => {
+    // Wer sichtbar auf eine Linie zielt, meint die Linie -- auch im
+    // Zwischenziel-Modus.
+    expect(
+      mapTapIntent({ tappedRouteId: 'r2', pickTarget: 'waypoint', navStatus: 'navigating' }),
+    ).toEqual({ kind: 'select-route', routeId: 'r2' });
+  });
+
+  it('ohne den Modus bleibt es beim bisherigen Verhalten', () => {
+    // Die Absicherung gegen das Gegenteil: der neue Zweig darf die
+    // Behebung aus 0.5.4 nicht aushebeln.
+    expect(
+      mapTapIntent({ tappedRouteId: null, pickTarget: 'destination', navStatus: 'navigating' }),
+    ).toEqual({ kind: 'ignore', reason: 'drive-active' });
+  });
+});

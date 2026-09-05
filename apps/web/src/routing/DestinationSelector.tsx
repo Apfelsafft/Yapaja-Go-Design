@@ -119,6 +119,32 @@ export default function DestinationSelector(): null {
 
       const point = { lat: e.lngLat.lat, lon: e.lngLat.lng };
 
+      // ─── ZWISCHENZIEL ──────────────────────────────────────────────────
+      // Gilt AUCH waehrend der Fahrt (siehe `mapTapIntent.ts`): in diesen
+      // Modus kommt man nur ueber einen eigenen Knopf, das Antippen ist
+      // also bereits die zweite bewusste Handlung.
+      //
+      // Der Modus faellt danach sofort zurueck -- aus derselben Ueberlegung
+      // wie beim Startpunkt: ein Zustand, in dem jeder weitere Tipper still
+      // eine Station anhaengt, waere aus der Karte heraus nicht erkennbar.
+      if (intent.kind === 'set-waypoint') {
+        const wpLang = useStyleStore.getState().options.lang;
+        useRoutingStore.getState().addWaypoint(
+          point,
+          resolvePlaceName({
+            map,
+            point,
+            preferredLang: wpLang === 'name' ? undefined : wpLang,
+          }),
+          // Nur neu berechnen, wenn ueberhaupt schon ein Ziel steht.
+          useRoutingStore.getState().destination
+            ? { origin: 'current', profileId: useProfileStore.getState().activeProfile?.id }
+            : null,
+        );
+        setPickTarget('destination');
+        return;
+      }
+
       // Ist der Startpunkt-Modus aktiv, meint dieser Klick den START.
       // Danach faellt der Modus sofort zurueck: ein Zustand, in dem jeder
       // weitere Klick still den Start verschiebt, statt ein Ziel zu setzen,
