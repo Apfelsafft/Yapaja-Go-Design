@@ -27,7 +27,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import type { Route } from '@yapaja/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
-import { DRIVE_CORE_BASE_URL } from './support/constants.js';
+import { CONTROL_OVERLAP_CORE_BASE_URL } from './support/constants.js';
 
 const BASE_LAT = 47.2;
 const BASE_LON = 9.6;
@@ -109,6 +109,7 @@ const CONTROLS = [
   'tts-toggle',
   'drive-controls',
   'speed-limit-sign',
+  'trip-info-panel',
 ] as const;
 
 interface Rect {
@@ -240,7 +241,7 @@ test.describe('Bedienelemente ueberlappen einander nicht', () => {
     await page
       .evaluate(async (baseUrl: string) => {
         await fetch(`${baseUrl}/api/v1/navigation/stop`, { method: 'POST' });
-      }, DRIVE_CORE_BASE_URL)
+      }, CONTROL_OVERLAP_CORE_BASE_URL)
       .catch(() => {
         /* best effort */
       });
@@ -249,7 +250,7 @@ test.describe('Bedienelemente ueberlappen einander nicht', () => {
   for (const viewport of VIEWPORTS) {
   test(`ohne laufende Navigation (${viewport.name})`, async ({ page }) => {
     await page.setViewportSize(viewport.size);
-    await page.goto(DRIVE_CORE_BASE_URL + '/');
+    await page.goto(CONTROL_OVERLAP_CORE_BASE_URL + '/');
     await waitForMapReady(page);
     await seedPosition(page);
 
@@ -269,10 +270,10 @@ test.describe('Bedienelemente ueberlappen einander nicht', () => {
   test(`waehrend einer laufenden Fahrt (${viewport.name})`, async ({ page }) => {
     test.setTimeout(60_000);
     await page.setViewportSize(viewport.size);
-    await page.goto(DRIVE_CORE_BASE_URL + '/');
+    await page.goto(CONTROL_OVERLAP_CORE_BASE_URL + '/');
     await waitForMapReady(page);
 
-    const startResponse = await page.request.post(`${DRIVE_CORE_BASE_URL}/api/v1/navigation/start`, {
+    const startResponse = await page.request.post(`${CONTROL_OVERLAP_CORE_BASE_URL}/api/v1/navigation/start`, {
       data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'Ziel' } },
     });
     expect(startResponse.ok(), await startResponse.text()).toBe(true);
@@ -281,7 +282,7 @@ test.describe('Bedienelemente ueberlappen einander nicht', () => {
       window.__yapajaRoutingStore?.setState({ routes: [route], activeRouteId: route.id });
     }, ROUTE);
 
-    await page.request.post(`${DRIVE_CORE_BASE_URL}/api/v1/position/browser`, {
+    await page.request.post(`${CONTROL_OVERLAP_CORE_BASE_URL}/api/v1/position/browser`, {
       data: browserFixBody(1),
     });
     await expect(page.getByTestId('maneuver-panel')).toBeVisible({ timeout: 10_000 });

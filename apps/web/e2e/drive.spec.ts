@@ -126,6 +126,15 @@ async function getManeuverDistanceM(page: Page): Promise<number> {
   return unit === 'km' ? num * 1000 : num;
 }
 
+/** „12,3 km" / „850 m" -> Meter, damit sich zwei Anzeigen vergleichen lassen. */
+function parseDistanceM(text: string | null): number {
+  const match = /([\d.,]+)\s*(km|m)/.exec(text ?? '');
+  expect(match).not.toBeNull();
+  const [, numStr, unit] = match!;
+  const num = Number(numStr.replace(',', '.'));
+  return unit === 'km' ? num * 1000 : num;
+}
+
 async function instructionSeq(page: Page): Promise<number> {
   return page.evaluate(() => window.__yapajaNavStore?.getState().instructionSeq ?? 0);
 }
@@ -335,5 +344,76 @@ test.describe('Drive basics (E04-T3, Flow 2)', () => {
     expect(after.destination).toBeNull();
     // Und die Fahrt laeuft weiter -- das Panel ist noch da.
     await expect(page.getByTestId('maneuver-panel')).toBeVisible();
+  });
+
+  /**
+   * ─── ENTFERNUNG, DAUER UND ANKUNFT WAEHREND DER FAHRT ────────────────────
+   * Gemeldet: „Bitte füge bei aktiver Navigation weitere Infos ein.
+   * Entfernung, geschätzte Dauer, geschätzte Ankunftszeit."
+   *
+   * Der Core lieferte alle drei Werte seit jeher in `nav/state`. Sie standen
+   * nur ausschliesslich in Dashboard-Bausteinen, die ohne eigenes Dashboard
+   * nie jemand zu sehen bekam -- dieselbe Luecke wie beim Tempolimitschild.
+   * Die REGEL (was bei fehlenden Werten passiert) steht in
+   * `src/drive/tripInfo.test.ts`; hier wird geprueft, dass echte Zahlen aus
+   * einer echten Fahrt tatsaechlich auf dem Bildschirm ankommen -- und dass
+   * sie sich beim Fahren auch bewegen.
+   *
+   * Der automatische Zoom (dieselbe Meldung, Punkt 3) haengt an derselben
+   * Fahrt und wird gleich mitgeprueft: die Regel in `src/map/autoZoom.test.ts`,
+   * die Verdrahtung in `src/map/followMeAutoZoom.test.ts`, und hier die
+   * Karte selbst.
+   */
+  test('Entfernung, Restzeit und Ankunftszeit stehen waehrend der Fahrt auf der Karte', async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    const pageErrors = collectPageErrors(page);
+
+    await page.goto(DRIVE_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+
+    const startResponse = await page.request.post(`${DRIVE_CORE_BASE_URL}/api/v1/navigation/start`, {
+      data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'Ziel' } },
+    });
+    expect(startResponse.ok()).toBe(true);
+
+    await driveTo(page, 111);
+    await expect(page.getByTestId('trip-info-panel')).toBeVisible({ timeout: 5_000 });
+
+    // Echte Werte, kein Gedankenstrich und keine erfundene Null.
+    const entfernungFrueh = await page.getByTestId('trip-info-distance').textContent();
+    const restzeitFrueh = await page.getByTestId('trip-info-duration').textContent();
+    const ankunft = await page.getByTestId('trip-info-eta').textContent();
+    expect(entfernungFrueh).toMatch(/\d/);
+    expect(restzeitFrueh).toMatch(/\d/);
+    // Ankunft als Uhrzeit -- nicht irgendeine Zahl.
+    expect(ankunft).toMatch(/^\d{2}:\d{2}$/);
+
+    // ─── DER AUTO-ZOOM HAT DIE KARTE WIRKLICH ANGEFASST ────────────────────
+    // Bei ~11 km/h ist die naechste Stufe die dichteste (17). Ohne
+    // Verdrahtung bliebe die Karte auf ihrem Anfangszoom stehen.
+    await expect
+      .poll(() => page.evaluate(() => window.__yapajaMapController?.getMap?.()?.getZoom() ?? null), {
+        timeout: 10_000,
+      })
+      .toBeGreaterThan(16);
+
+    // ─── DIE ZAHLEN BEWEGEN SICH ───────────────────────────────────────────
+    // Eine feststehende Restentfernung waere schlimmer als gar keine: man
+    // wuerde ihr glauben. 445 m weiter muss weniger uebrig sein.
+    await driveTo(page, 600);
+    await expect
+      .poll(
+        async () => parseDistanceM(await page.getByTestId('trip-info-distance').textContent()),
+        { timeout: 10_000 },
+      )
+      .toBeLessThan(parseDistanceM(entfernungFrueh));
+
+    // ─── UND AM ZIEL IST DIE ANZEIGE WIEDER WEG ────────────────────────────
+    await driveTo(page, TOTAL_LENGTH_M - 5, 0);
+    await expect(page.getByTestId('trip-info-panel')).toHaveCount(0, { timeout: 10_000 });
+
+    expect(pageErrors).toEqual([]);
   });
 });

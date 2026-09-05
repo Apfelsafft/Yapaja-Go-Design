@@ -24,6 +24,7 @@ import { announce, cancelSpeech, isSpeechAvailable } from './tts.js';
 import { useHandednessStore } from '../shell/handednessStore.js';
 import { sideClassFor } from '../shell/handedness.js';
 import { rightStackBottomPx } from '../shell/mapControlLayout.js';
+import TripInfoPanel from './TripInfoPanel.js';
 
 function TtsToggle(): React.ReactElement {
   const enabled = useTtsStore((state) => state.enabled);
@@ -43,10 +44,13 @@ function TtsToggle(): React.ReactElement {
       // Touch-target audit (E07-T4, docs/06 §4): drive-mode-only control
       // (only rendered while `active`, see this file's own gate below) --
       // `min-h-[64px] min-w-[64px]` matches `DriveControls.tsx`'s own
-      // ≥64px sizing; the vertical gap to `DriveControls` below (bottom-24
-      // vs bottom-4, i.e. ~80px) comfortably clears the ≥8px spacing
-      // requirement. Mirrors to the configured LHD/RHD side, same as
+      // ≥64px sizing. Mirrors to the configured LHD/RHD side, same as
       // `DriveControls.tsx`.
+      //
+      // Der Abstand nach unten wird seit 0.5.5 NICHT mehr hier gewaehlt,
+      // sondern kommt aus `mapControlLayout.ts`. Vorher stand an dieser
+      // Stelle eine Begruendung, die nur `DriveControls` betrachtete -- und
+      // genau deshalb lag diese Taste ueber Zentrierung und Ansichtsmodus.
       style={{ bottom: rightStackBottomPx('tts', true) }}
       className={`absolute ${sideClassFor(handedness)} z-20 min-h-[64px] min-w-[64px] rounded-full bg-slate-900/90 text-white px-3 py-2 text-sm font-medium shadow-lg`}
     >
@@ -97,6 +101,7 @@ export default function DriveOverlay(): React.ReactElement {
         <>
           <ManeuverPanel />
           <SpeedLimitSign />
+          <TripInfoPanel navState={navState} />
           <TtsToggle />
           <DriveControls />
         </>

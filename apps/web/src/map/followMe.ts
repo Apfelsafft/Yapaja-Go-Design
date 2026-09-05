@@ -13,6 +13,9 @@ import { create } from 'zustand';
 import { mapController } from '../state/mapStore';
 import { usePositionStore } from '../position/positionStore';
 
+import { autoZoomFor, shouldApplyZoom } from './autoZoom.js';
+import { useNavStore } from '../drive/navStore.js';
+import { isDriveActive } from '../drive/driveActive.js';
 const PAUSE_DURATION = 10_000; // 10 seconds
 
 /**
@@ -203,9 +206,42 @@ export function updateFollowMePosition(): void {
   }
 
   const position = usePositionStore.getState().position;
-  if (position) {
-    mapController.setCamera({
-      center: [position.lon, position.lat],
-    });
-  }
+  if (!position) return;
+
+  // ─── AUTOMATISCHER ZOOM (0.5.7) ───────────────────────────────────────────
+  // Bewusst HIER und nicht als eigener Beobachter: an dieser Stelle ist die
+  // Frage „darf die Kamera ueberhaupt bewegt werden?" bereits beantwortet.
+  // Ein zweiter Weg zur Kamera muesste dieselbe Pruefung noch einmal treffen
+  // -- und irgendwann treffen zwei Pruefungen unterschiedliche Antworten.
+  //
+  // Der manuelle Schwenk pausiert Follow-Me fuer 10 s (siehe oben) und
+  // schaltet damit auch den Auto-Zoom ab. Das ist die Zusicherung, die diese
+  // Funktion braucht: der Mensch gewinnt immer.
+  const zoom = nextAutoZoom();
+
+  mapController.setCamera(
+    zoom === null
+      ? { center: [position.lon, position.lat] }
+      : { center: [position.lon, position.lat], zoom },
+  );
+}
+
+/**
+ * Die Zoomstufe, auf die der Auto-Zoom stellen soll -- oder `null` fuer
+ * „unveraendert lassen".
+ *
+ * Nur waehrend einer laufenden Fahrt: ausserhalb hat niemand eine Anweisung
+ * gegeben, die eine Kamerabewegung rechtfertigt.
+ */
+function nextAutoZoom(): number | null {
+  const navState = useNavStore.getState().navState;
+  if (!isDriveActive(navState?.status)) return null;
+
+  const target = autoZoomFor({
+    speedKmh: navState?.speed_kmh,
+    distanceToManeuverM: navState?.distance_to_maneuver_m,
+  });
+  if (target === null) return null;
+
+  return shouldApplyZoom(mapController.getMap()?.getZoom(), target) ? target : null;
 }

@@ -265,6 +265,22 @@ export const DIMENSIONS_CORE_PORT = 4351;
 
 export const FLOW11_CORE_PORT = 4341;
 
+// Eigener Core fuer control-overlap.spec.ts.
+//
+// Dieser Spec startet eine echte Navigation und schickt eigene Positionen --
+// er lieh sich dafuer zunaechst DRIVE_CORE_PORT. Das war falsch, und zwar
+// nachweisbar: laufen control-overlap.spec.ts und drive.spec.ts gleichzeitig
+// (`fullyParallel: true`, in CI zwei Worker), dann sieht der eine Spec die
+// Fahrt des anderen. Gemessen: beide zusammen in einem Lauf -> beide rot
+// (control-overlap sah Manoeverpanel und TTS-Taste im Zustand „ohne
+// laufende Navigation", drive.spec verlor seine Manoever-Vorschau); jeder
+// fuer sich -> beide gruen.
+//
+// Eine Fahrt ist kein testeigener Zustand: der Core sendet sie ueber
+// `/ws/v1` an JEDE Seite, die an diesem Core haengt. Genau dieselbe Ursache
+// wie bei SEARCH_SPEEDLOCK_CORE_PORT, und dieselbe Abhilfe.
+export const CONTROL_OVERLAP_CORE_PORT = 4352;
+
 export const FLOW2_CORE_BASE_URL = `http://127.0.0.1:${FLOW2_CORE_PORT}`;
 export const FLOW3_CORE_BASE_URL = `http://127.0.0.1:${FLOW3_CORE_PORT}`;
 export const FLOW3_VALHALLA_BASE_URL = `http://127.0.0.1:${FLOW3_VALHALLA_PORT}`;
@@ -275,3 +291,4 @@ export const FLOW10_CORE_BASE_URL = `http://127.0.0.1:${FLOW10_CORE_PORT}`;
 export const FLOW10_REGISTRY_BASE_URL = `http://127.0.0.1:${FLOW10_REGISTRY_PORT}`;
 export const FLOW11_CORE_BASE_URL = `http://127.0.0.1:${FLOW11_CORE_PORT}`;
 export const DIMENSIONS_CORE_BASE_URL = `http://127.0.0.1:${DIMENSIONS_CORE_PORT}`;
+export const CONTROL_OVERLAP_CORE_BASE_URL = `http://127.0.0.1:${CONTROL_OVERLAP_CORE_PORT}`;
