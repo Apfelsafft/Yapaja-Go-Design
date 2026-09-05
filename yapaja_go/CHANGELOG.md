@@ -10,6 +10,40 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.5.4
+
+**Behoben: ein Tipper auf die Karte warf die laufende Route weg.**
+
+> „Wenn die Navigation aktiv ist und man auf die Karte klickt, dann wird in
+> den Zielsetzen-Modus gewechselt. Die Route verschwindet und man sieht den
+> roten Zielpunkt auf der Stelle."
+
+Jeder Tipper während der Fahrt — auch ein verrutschter Schwenk — ersetzte die
+laufende Route durch einen Zielpunkt. Ohne Rückfrage, ohne Weg zurück.
+
+**Während einer Fahrt bewirkt ein Tipper neben die Route jetzt nichts.**
+Bewusst kein Rückfrage-Dialog: ein Dialog über der Karte ist im Fahrzeug
+gefährlicher als der ignorierte Tipper. Wer während der Fahrt woandershin
+will, hat „Stopp" und die Suche — beides absichtliche Handlungen. Eine
+*getroffene* Alternative gilt weiterhin: das ist ein Wechsel, kein Verwerfen.
+
+---
+
+**Behoben: knapp danebengetippt hieß „alle Routen weg".**
+
+> „Wenn ich hier nicht genau treffe, bin ich wieder in der Zieleingabe. Der
+> rote Punkt als Ziel erscheint und alle vorgeschlagenen Routen sind weg."
+
+Der Treffertest fragte **genau einen Bildpunkt** ab. Eine Fingerkuppe ist
+keinen Punkt breit — und der Fehlschlag blieb nicht folgenlos, sondern setzte
+ein neues Ziel und verwarf damit die berechneten Alternativen.
+
+Jetzt zählt ein Bereich von 18 Bildpunkten um den Finger als Treffer. Das ist
+ungefähr eine Fingerkuppe auf einem Tablet — und dieses Gerät wird mit dem
+Finger bedient, im Fahrzeug, oft in Bewegung.
+
+---
+
 ## 0.5.3
 
 **Neu: Yapaja Go fragt einmal nach, ob die Maße deines Fahrzeugs stimmen.**

@@ -182,6 +182,55 @@ async function findClickableCanvasPoint(
   throw new Error('No candidate point is on an unobstructed part of the map canvas');
 }
 
+/**
+ * Ein Punkt, der SENKRECHT zur Alternativroute daneben liegt -- `offsetPx`
+ * Bildpunkte entfernt.
+ *
+ * Senkrecht, nicht irgendwie: ein Versatz ENTLANG der Linie waere weiterhin
+ * ein Treffer, und der Test wuerde die Toleranz gar nicht pruefen. Die
+ * Richtung wird aus zwei benachbarten Stuetzpunkten der Route bestimmt,
+ * nachdem beide auf den Bildschirm projiziert wurden.
+ */
+async function findPointBesideRoute(
+  page: Page,
+  lngLatCandidates: [number, number][],
+  offsetPx: number,
+): Promise<{ x: number; y: number }> {
+  const canvasBox = await page.locator('canvas.maplibregl-canvas').boundingBox();
+  if (!canvasBox) throw new Error('Canvas has no bounding box');
+
+  for (let i = 0; i < lngLatCandidates.length - 1; i += 1) {
+    const result = await page.evaluate(
+      ({ a, b, boxX, boxY, offsetPx }) => {
+        const map = window.__yapajaMapController?.getMap();
+        if (!map) return null;
+        const pa = map.project(a as [number, number]);
+        const pb = map.project(b as [number, number]);
+        const dx = pb.x - pa.x;
+        const dy = pb.y - pa.y;
+        const len = Math.hypot(dx, dy);
+        if (len < 1) return null;
+        // Normale zur Linienrichtung.
+        const nx = -dy / len;
+        const ny = dx / len;
+        const pageX = boxX + pa.x + nx * offsetPx;
+        const pageY = boxY + pa.y + ny * offsetPx;
+        const el = document.elementFromPoint(pageX, pageY);
+        return { pageX, pageY, isCanvas: el?.tagName === 'CANVAS' };
+      },
+      {
+        a: lngLatCandidates[i],
+        b: lngLatCandidates[i + 1],
+        boxX: canvasBox.x,
+        boxY: canvasBox.y,
+        offsetPx,
+      },
+    );
+    if (result?.isCanvas) return { x: result.pageX, y: result.pageY };
+  }
+  throw new Error('Kein Punkt neben der Route liegt auf freier Kartenflaeche');
+}
+
 test('click destination -> request route -> tap alternative -> style switch survives', async ({ page }) => {
   const pageErrors = collectPageErrors(page);
   const consoleErrors: string[] = [];
@@ -410,4 +459,55 @@ test('NO_ROUTE error (E03-T6): shows different message than OUT_OF_COVERAGE', as
 
   expect(pageErrors).toEqual([]);
   expect(consoleErrors).toEqual([]);
+});
+
+/**
+ * ─── EIN TIPPER KNAPP NEBEN DIE ALTERNATIVE VERWIRFT NICHTS ─────────────────
+ * Gemeldet: „Bei der Routenauswahl erscheint ‚Alternativen verfügbar, bitte
+ * auf die Route in der Karte klicken'. Wenn ich hier nicht genau treffe, bin
+ * ich wieder in der Zieleingabe. Der rote Punkt als Ziel erscheint und alle
+ * vorgeschlagenen Routen sind weg, da sich das Ziel geändert hat."
+ *
+ * Ursache: `queryRenderedFeatures(e.point)` fragte GENAU EINEN Bildpunkt ab.
+ * Eine Fingerkuppe ist keinen Punkt breit -- und der Fehlschlag fiel nicht
+ * etwa folgenlos aus, sondern setzte ein neues Ziel und verwarf damit alle
+ * berechneten Routen.
+ *
+ * Getippt wird hier SENKRECHT zur Linie versetzt (siehe
+ * `findPointBesideRoute`): ein Versatz entlang der Linie waere weiter ein
+ * Treffer, und der Test wuerde die Toleranz nicht pruefen.
+ */
+test('ein Tipper knapp neben die Alternative waehlt sie trotzdem aus', async ({ page }) => {
+  await mockRoutesEndpoint(page, [MAIN_ROUTE, ALT_ROUTE_1, ALT_ROUTE_2]);
+  await createAndActivateProfile(page);
+
+  await page.goto(CORE_BASE_URL + '/');
+  await waitForMapReady(page);
+
+  await clickMapCenter(page);
+  await expect(page.getByTestId('route-here-button')).toBeEnabled({ timeout: 10_000 });
+  await page.getByTestId('route-here-button').click();
+  await expect(page.getByTestId('route-summary-panel')).toBeVisible({ timeout: 10_000 });
+
+  await page.waitForTimeout(800);
+  await waitForCameraIdle(page);
+
+  const routesBefore = await page.evaluate(
+    () => window.__yapajaRoutingStore?.getState().routes?.length ?? 0,
+  );
+  expect(routesBefore).toBe(3);
+
+  // 13 Bildpunkte daneben: klar neben der gezeichneten Linie, aber innerhalb
+  // der Toleranz (ROUTE_TAP_RADIUS_PX = 18).
+  const beside = await findPointBesideRoute(page, ALT_ROUTE_1_CANDIDATES, 13);
+  await page.mouse.click(beside.x, beside.y);
+
+  // Die Alternative wird aktiv -- und vor allem: die Routen sind noch da.
+  await expect
+    .poll(() => page.evaluate(() => window.__yapajaRoutingStore?.getState().activeRouteId))
+    .toBe(ALT_ROUTE_1.id);
+  expect(
+    await page.evaluate(() => window.__yapajaRoutingStore?.getState().routes?.length ?? 0),
+  ).toBe(3);
+  await expect(page.getByTestId('route-summary-panel')).toBeVisible();
 });
