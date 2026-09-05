@@ -8,6 +8,9 @@
 
 import React, { useCallback } from 'react';
 import { useViewMode, useSetViewMode, type ViewMode } from './viewMode';
+import { rightStackBottomPx, EDGE_INSET_PX } from '../shell/mapControlLayout.js';
+import { useNavStore } from '../drive/navStore.js';
+import { isDriveActive } from '../drive/driveActive.js';
 
 const MODE_ORDER: ViewMode[] = ['2d-north', '2d-course', '3d-course'];
 
@@ -34,6 +37,7 @@ function getModeIcon(mode: ViewMode): string {
 }
 
 export default function ViewModeButton(): React.ReactElement {
+  const driveActive = isDriveActive(useNavStore((state) => state.navState?.status));
   const mode = useViewMode();
   const setViewMode = useSetViewMode();
 
@@ -46,7 +50,8 @@ export default function ViewModeButton(): React.ReactElement {
   return (
     <button
       onClick={handleClick}
-      className="fixed bottom-20 right-4 w-12 h-12 rounded-full bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 text-lg font-semibold"
+      style={{ bottom: rightStackBottomPx('viewmode', driveActive), right: EDGE_INSET_PX }}
+      className="fixed w-12 h-12 rounded-full bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 text-lg font-semibold"
       aria-label={`Ansichtsmodus: ${getModeLabel(mode)}`}
       title={`Ansichtsmodus: ${getModeLabel(mode)}`}
       data-testid="viewmode-button"

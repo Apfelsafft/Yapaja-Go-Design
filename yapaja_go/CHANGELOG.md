@@ -10,6 +10,40 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.5.5
+
+**Behoben: Knöpfe und Anzeigen lagen übereinander.**
+
+> „Wir haben viele Knöpfe und Anzeigen auf der Karte, die sich teilweise
+> überlappen. Bspw. wenn die Navigation aktiv ist, liegen die neuen Buttons
+> über der Zentrierung. Die nächste Abbiegung über der Suchzeile. Oder aber
+> auch die Karteneinstellung über den Zoom-Einstellungen der Karte."
+
+Gemessen waren es **fünf** Stellen — die vierte und fünfte hatte ich selbst
+noch nicht gesehen:
+
+| | |
+|---|---|
+| Abbiege-Anzeige über der Suchzeile | bis zu 5878 Bildpunkte² |
+| Ansagen-Taste über dem Ansichtsmodus | 1536 |
+| Tempolimit-Schild über den Zoom-Reglern | 1728 |
+| Ansagen-Taste über der Zentrierung | 768 |
+| Regionen-Knopf über den Zoom-Reglern | 391 |
+
+Die Ursache war, dass **jedes Element seine Position selbst gewählt hat** —
+verteilt über ein Dutzend Dateien, keines kannte seine Nachbarn.
+
+Jetzt stehen die Positionen an einer Stelle. Die drei Karten-Knöpfe rechts
+bilden eine Spalte: während der Fahrt rücken sie über die Fahrt-Bedienung,
+ohne Fahrt rutschen sie nach unten. Die Abbiege-Anzeige beginnt unter der
+Suchzeile, und alles am rechten Rand lässt die Zoom-Regler frei.
+
+Damit das so bleibt, misst ein Test jetzt die **echten** Kästen im Browser
+und vergleicht sie paarweise — in zwei Fenstergrößen, mit und ohne
+Navigation. Er kann nicht von der Gestaltung abdriften, weil er sie ausliest.
+
+---
+
 ## 0.5.4
 
 **Behoben: ein Tipper auf die Karte warf die laufende Route weg.**

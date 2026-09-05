@@ -39,6 +39,7 @@ import React from 'react';
 import ProfilesPanel from '../profiles/ProfilesPanel.js';
 import SearchBar from '../search/SearchBar.js';
 
+import { TOP_BAR_RIGHT_RESERVE_PX } from './mapControlLayout.js';
 export default function TopBar(): React.ReactElement {
   return (
     // `<header>` und nicht `<div>`: das ist die Kopfzeile der Anwendung, also
@@ -46,7 +47,8 @@ export default function TopBar(): React.ReactElement {
     // fiel darueber, und zwar zu Recht: die Pruefung „die Huelle ist
     // gestartet" haengt an genau diesem Landmark, und Screenreader auch.
     <header
-      className="fixed top-0 left-0 right-0 z-20 flex items-start gap-2 p-3 pr-16 pointer-events-none"
+      className="fixed top-0 left-0 right-0 z-20 flex items-start gap-2 p-3 pointer-events-none"
+      style={{ paddingRight: TOP_BAR_RIGHT_RESERVE_PX }}
       data-testid="top-bar"
     >
       <h1 className="flex-shrink-0 pointer-events-auto bg-white/90 dark:bg-slate-900/90 rounded px-3 py-1 text-lg font-bold text-slate-900 dark:text-white shadow-md">

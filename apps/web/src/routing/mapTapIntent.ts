@@ -29,6 +29,7 @@
  */
 
 import type { NavState } from '@yapaja/shared';
+import { DRIVE_ACTIVE_STATUSES } from '../drive/driveActive.js';
 
 /**
  * Wie weit ein Tipper von einer Route entfernt sein darf, um noch als
@@ -41,13 +42,9 @@ import type { NavState } from '@yapaja/shared';
  */
 export const ROUTE_TAP_RADIUS_PX = 18;
 
-/** Die Zustaende, in denen eine Fahrt laeuft (dieselbe Liste wie in
- *  `drive/ManeuverPanel.tsx`, dort als `DRIVE_ACTIVE_STATUSES`). */
-const DRIVE_ACTIVE: ReadonlySet<NavState['status']> = new Set([
-  'navigating',
-  'off_route',
-  'paused',
-]);
+// Die Liste stand hier einmal abgeschrieben, „dieselbe wie in
+// ManeuverPanel.tsx". Zwei Kopien laufen frueher oder spaeter auseinander --
+// jetzt gibt es nur noch eine (`drive/driveActive.ts`).
 
 export type MapTapIntent =
   /** Diese Alternative wird zur aktiven Route. */
@@ -89,7 +86,7 @@ export function mapTapIntent(ctx: MapTapContext): MapTapIntent {
   if (ctx.tappedRouteId !== null) {
     return { kind: 'select-route', routeId: ctx.tappedRouteId };
   }
-  if (ctx.navStatus != null && DRIVE_ACTIVE.has(ctx.navStatus)) {
+  if (ctx.navStatus != null && DRIVE_ACTIVE_STATUSES.has(ctx.navStatus)) {
     return { kind: 'ignore', reason: 'drive-active' };
   }
   if (ctx.pickTarget === 'origin') {
