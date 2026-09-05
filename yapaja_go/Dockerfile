@@ -291,6 +291,20 @@ RUN mkdir -p /opt/photon
 COPY --from=photon-src /photon/photon.jar /opt/photon/photon.jar
 
 # ---- Core (built app + its production node_modules) ----
+
+# ─── DIE ADD-ON-VERSION IN DEN LAUFENDEN CORE ───────────────────────────────
+# `/api/v1/health` meldete `"version":"0.0.0"` -- immer, auch hier im Image.
+# Damit konnte niemand sagen, welchen Stand ein Geraet laeuft, und in einer
+# Fehlermeldung fehlte genau die Angabe, die man zuerst braucht.
+#
+# `BUILD_VERSION` reicht der Supervisor bei jedem Bau aus `config.yaml` herein
+# -- dieselbe Zahl, die er in der Oberflaeche anzeigt. Oben in `core-build`
+# wird sie schon gelesen (als Cache-Schluessel); ein `ARG` gilt aber nur in
+# SEINER Stufe, deshalb steht es hier noch einmal. Ohne diese Zeile bliebe das
+# `ENV` leer und der Core fiele stillschweigend auf die Core-Version zurueck.
+ARG BUILD_VERSION=dev
+ENV YAPAJA_ADDON_VERSION=${BUILD_VERSION}
+
 WORKDIR /app
 COPY --from=core-build /app/package.json ./package.json
 COPY --from=core-build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml

@@ -205,9 +205,30 @@ jobs:
             -e LOG_LEVEL=info -e PORT=8080 \
             --entrypoint node yapaja-go:ci /app/apps/core/dist/index.js
           for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:18099/api/v1/health >/dev/null 2>&1; then
+            if curl -fsS http://127.0.0.1:18099/api/v1/health -o health.json 2>/dev/null; then
               echo "Core antwortet nach ${i}s:"
-              curl -fsS http://127.0.0.1:18099/api/v1/health
+              cat health.json; echo
+
+              # ─── DIE VERSION MUSS DIE DES BAUS SEIN ───────────────────────
+              # Bis 0.5.1 stand hier immer `"version":"0.0.0"`: der Pfad zur
+              # package.json ging eine Ebene zu hoch, und das `catch` machte
+              # daraus einen gueltig AUSSEHENDEN Wert. Wer meldete „bei mir
+              # geht X nicht", konnte nicht sagen, welchen Stand er laeuft.
+              #
+              # Oben wird mit `BUILD_VERSION=ci-<sha>` gebaut -- genau so
+              # reicht der HA-Supervisor die Version aus `config.yaml` herein.
+              # Kommt sie hier wieder heraus, ist die ganze Kette belegt:
+              # build-arg -> ARG -> ENV -> readAddonVersion() -> /health.
+              # Ein Unit-Test kann das nicht zeigen; es haengt am Dockerfile.
+              EXPECTED="ci-${GITHUB_SHA}"
+              GOT=$(python3 -c "import json;print(json.load(open('health.json'))['version'])")
+              if [ "$GOT" != "$EXPECTED" ]; then
+                echo "FEHLER: /health meldet '${GOT}', erwartet war '${EXPECTED}'."
+                echo "Die Add-on-Version erreicht den laufenden Core nicht."
+                docker logs yapaja-ci
+                exit 1
+              fi
+              echo "Version stimmt: ${GOT}"
               exit 0
             fi
             sleep 1

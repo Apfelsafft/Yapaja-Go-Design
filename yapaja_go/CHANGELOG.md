@@ -10,6 +10,35 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.5.2
+
+**Behoben: das Add-on konnte nicht sagen, welche Version es ist.**
+
+Unter ⚙️ und in der Schnittstelle stand als Version immer:
+
+```
+"version": "0.0.0"
+```
+
+Nicht manchmal — **immer**, auf jedem Gerät, seit es diese Anzeige gibt. Der
+Pfad zur Versionsdatei zielte eine Ebene zu hoch, und die Absicherung
+drumherum machte aus dem Fehlschlag stillschweigend eine Zahl, die wie eine
+Auskunft aussah.
+
+Das klingt klein, war es aber nicht: wer meldet „bei mir geht das nicht",
+nennt zuerst seine Version — und diese Angabe war wertlos. Auch die Anzeige in
+Home Assistant selbst (Gerät „Yapaja Go", Feld *Softwareversion*) stand auf
+0.0.0.
+
+Jetzt steht dort die Add-on-Version, dieselbe, die der Store anzeigt.
+
+Zwei Tests hatten das übersehen — der eine prüfte einen selbstgebauten
+Ersatzserver statt des echten, der andere hielt die 0.0.0 für eine Eigenart
+der Testumgebung. Beide sind ersetzt; und der Bau des Add-on-Images prüft
+jetzt am laufenden Container nach, dass die Version wirklich durchkommt.
+
+---
+
 ## 0.5.1
 
 **Behoben: die Suche fand nichts — weil sie deinen Index nicht mehr lesen
