@@ -212,4 +212,30 @@ export const profilesPlugin: FastifyPluginAsync<ProfileRoutesOptions> = async (f
       }
     },
   );
+
+  // PUT /api/v1/profiles/:id/confirm_dimensions
+  //
+  // Die Antwort auf „Stimmen diese Masse?" in der Oberflaeche, wenn nichts
+  // geaendert werden muss. Bewusst eine EIGENE Route und kein Feld in `PUT
+  // /profiles/:id`: „ein Mensch hat die Masse bestaetigt" darf nur aus einer
+  // Handlung entstehen, nie daraus, dass ein Aufrufer ein Feld mitschickt --
+  // sonst koennte ein Formular, das einfach das ganze Profil zurueckschreibt,
+  // eine Sicherheitsangabe erzeugen, die niemand gegeben hat.
+  fastify.put<{ Params: RouteParams; Reply: ProfileDetailReply | ApiError }>(
+    '/profiles/:id/confirm_dimensions',
+    async (request, reply) => {
+      const { id } = request.params;
+
+      try {
+        const profile = service.confirmDimensions(id);
+        reply.code(200).send({ data: profile });
+      } catch (err) {
+        const message = (err as Error).message;
+        if (message.includes('not found')) {
+          return reply.code(404).send(createErrorResponse('NOT_FOUND', message));
+        }
+        return reply.code(400).send(createErrorResponse('CONFIRM_ERROR', message));
+      }
+    },
+  );
 };

@@ -126,3 +126,17 @@ export async function activateProfile(id: string): Promise<VehicleProfile> {
   const body = (await response.json()) as { data: VehicleProfile };
   return body.data;
 }
+
+/** „Die Masse stimmen so" -- bestaetigt die Abmessungen des Profils, ohne
+ *  etwas zu aendern. Siehe `UnconfirmedDimensionsBanner`. */
+export async function confirmProfileDimensions(id: string): Promise<VehicleProfile> {
+  const response = await fetch(
+    apiUrl(`api/v1/profiles/${encodeURIComponent(id)}/confirm_dimensions`),
+    { method: 'PUT' },
+  );
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+  const body = (await response.json()) as { data: VehicleProfile };
+  return body.data;
+}

@@ -21,6 +21,8 @@ export interface ProfileState {
   updateProfile: (id: string, data: Partial<VehicleProfile>) => Promise<VehicleProfile>;
   deleteProfile: (id: string) => Promise<void>;
   activateProfile: (id: string) => Promise<VehicleProfile>;
+  /** Bestaetigt die Abmessungen -- siehe `UnconfirmedDimensionsBanner`. */
+  confirmDimensions: (id: string) => Promise<VehicleProfile>;
   setError: (error: string | null) => void;
 }
 
@@ -89,6 +91,25 @@ export const useProfileStore = create<ProfileState>((set) => ({
       set((state) => ({
         profiles: state.profiles.filter((p) => p.id !== id),
       }));
+    } catch (err) {
+      if (err instanceof client.ProfileApiError) {
+        set({ error: err.message });
+      }
+      throw err;
+    }
+  },
+
+  confirmDimensions: async (id) => {
+    set({ error: null });
+    try {
+      const profile = await client.confirmProfileDimensions(id);
+      set((state) => ({
+        profiles: state.profiles.map((p) => (p.id === id ? profile : p)),
+        // Nur ersetzen, wenn es WIRKLICH das aktive Profil war -- sonst
+        // verschoebe ein Bestaetigen im Editor das aktive Profil.
+        activeProfile: state.activeProfile?.id === id ? profile : state.activeProfile,
+      }));
+      return profile;
     } catch (err) {
       if (err instanceof client.ProfileApiError) {
         set({ error: err.message });

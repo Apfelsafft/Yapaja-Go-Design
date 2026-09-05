@@ -14,6 +14,7 @@ import {
   RANGES,
 } from './validation.js';
 import { ProfileApiError } from './client.js';
+import { useProfileStore } from './store.js';
 
 interface ProfileEditorProps {
   profile: Partial<VehicleProfile>;
@@ -80,6 +81,36 @@ export default function ProfileEditor({
     [],
   );
 
+  const confirmDimensions = useProfileStore((state) => state.confirmDimensions);
+
+  /**
+   * Dieses Formular IST die Stelle, an der ein Mensch die Fahrzeugmasse sieht.
+   * Wer hier speichert, hat sie angeschaut -- auch wenn keine Zahl anders
+   * wurde, weil sie stimmten. Genau das macht ein erfolgreiches Speichern zur
+   * Bestaetigung im Sinne von `UnconfirmedDimensionsBanner`.
+   *
+   * Die strengere Regel im Core (nur ein GEAENDERTES Mass bestaetigt) bleibt
+   * unberuehrt und wirkt weiter als Untergrenze fuer alles, was NICHT durch
+   * dieses Formular kommt.
+   *
+   * Aufgefallen ist die Luecke am Onboarding-Test: der Assistent aendert im
+   * Fahrzeug-Schritt nur den NAMEN -- danach stand der Dialog vor der frisch
+   * eingerichteten App, obwohl der Betreiber die Masse gerade vor sich hatte.
+   *
+   * Scheitert die Bestaetigung, wird das bewusst geschluckt: das Profil ist
+   * gespeichert, und ein Hinweis, der ein weiteres Mal erscheint, ist
+   * harmloser als eine Fehlermeldung ueber einem erfolgreichen Speichern.
+   */
+  const confirmSavedDimensions = useCallback(async () => {
+    const id = profile.id;
+    if (!id) return;
+    try {
+      await confirmDimensions(id);
+    } catch {
+      /* siehe oben */
+    }
+  }, [profile.id, confirmDimensions]);
+
   const handleSave = useCallback(async () => {
     // Validate
     const validation = validateProfile(profile);
@@ -110,6 +141,7 @@ export default function ProfileEditor({
     // Proceed to save (skipping suspicious warning in this flow)
     try {
       await onSave(profile);
+      await confirmSavedDimensions();
     } catch (err) {
       if (err instanceof ProfileApiError && err.details) {
         const fieldDetails = (err.details as Record<string, unknown>)?.fields as
@@ -128,6 +160,7 @@ export default function ProfileEditor({
     if (dialog.profile) {
       try {
         await onSave(dialog.profile);
+        await confirmSavedDimensions();
       } catch (err) {
         if (err instanceof ProfileApiError && err.details) {
           const fieldDetails = (err.details as Record<string, unknown>)?.fields as

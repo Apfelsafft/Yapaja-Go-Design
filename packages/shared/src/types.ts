@@ -39,6 +39,20 @@ export interface VehicleProfile {
     unpaved: boolean;
   };
   is_active: boolean;
+  /**
+   * Wann ein Mensch diese Masse zuletzt bestaetigt hat (ISO-8601), oder
+   * `null` fuer „nie".
+   *
+   * Das ausgelieferte Standardprofil hat GERATENE Masse (3,00 m hoch) --
+   * die Anwendung kann das Fahrzeug nicht kennen. Ohne dieses Feld sah eine
+   * geratene Hoehe genauso aus wie eine gemessene, und `height` ging
+   * unveraendert an Valhalla. Bei einem 3,20-m-Wohnmobil plant die Route
+   * dann 20 cm zu niedrig, ohne dass irgendwo etwas steht.
+   *
+   * `null` ist deshalb kein Randfall, sondern der Zustand, den die
+   * Oberflaeche sichtbar machen muss (`UnconfirmedDimensionsBanner`).
+   */
+  dimensions_confirmed_at: string | null;
 }
 
 // Per-request override of a VehicleProfile's `avoid` flags. Every field is
