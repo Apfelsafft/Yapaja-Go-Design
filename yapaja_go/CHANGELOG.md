@@ -10,6 +10,48 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.5.6
+
+**Behoben: „GPS-Signal verloren", obwohl das Wohnmobil nur stand.**
+
+> „Du hast den GPS-Timeout eingestellt, wenn sich das Gerät nicht bewegt, und
+> es wird GPS inaktiv angezeigt. Die Idee war gut, aber auch verwirrend. Denn
+> wenn das Wohnmobil länger an einem Ort steht, sieht es so aus, als ob man
+> kein GPS-Empfang hat."
+
+**Dein Vorschlag mit den Zeitstempeln allein löst es nicht** — das muss ich
+dazusagen. Bisher wird das Alter über die Ankunftszeit gemessen; nähme ich
+stattdessen den Zeitstempel des Fixes selbst, altert genau derselbe Wert.
+Sobald keine Daten mehr kommen, wird beides gleich alt, und der Hinweis
+erschiene weiterhin.
+
+Die Frage ist eine andere: **was unterscheidet „steht geparkt, Empfang
+einwandfrei" von „Empfang weg"?** Antwort: ob das Ausbleiben überhaupt
+überrascht.
+
+- Quellen wie die Home-Assistant-App melden, *wenn es etwas zu melden gibt*.
+  Steht das Fahrzeug, gibt es nichts — Ausbleiben ist der Normalfall.
+- Fuhr das Fahrzeug gerade noch und die Daten hören auf, ist das wirklich ein
+  Grund zur Warnung.
+
+Deshalb entscheidet jetzt die Zeit **zusammen mit** dem letzten bekannten
+Bewegungszustand. Erkannt wird Stillstand an der gemeldeten Geschwindigkeit —
+und, falls die Quelle keine liefert (der Browser-Standort oft nicht), am
+Abstand zum vorherigen Fix.
+
+Im Stand steht künftig **kein** Warnbanner mehr. Der GPS-Status im Dashboard
+sagt dann „GPS aktiv (Fahrzeug steht)". Bei Fahrt ohne Daten kommt die
+Warnung unverändert — dafür ist sie da.
+
+**Eine Lücke bleibt bewusst offen:** steht das Fahrzeug und der Empfang fällt
+*wirklich* aus, merkt die Anzeige das nicht. Eine Verfallszeit („nach 15
+Minuten wieder warnen") hätte genau deinen Fehler zurückgebracht — über Nacht
+geparkt, morgens leuchtet die Warnung. Auffallen würde es an der Stelle, an
+der es zählt: eine Navigation ohne Position beginnt gar nicht erst und sagt
+das auch.
+
+---
+
 ## 0.5.5
 
 **Behoben: Knöpfe und Anzeigen lagen übereinander.**
