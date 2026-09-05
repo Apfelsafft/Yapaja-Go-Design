@@ -140,7 +140,12 @@ export interface RouteDeviationPayload {
  * change-during-navigation coupling (either UI-confirmed or headless auto-yes).
  */
 export interface RouteUpdatedPayload {
-  reason: 'reroute' | 'profile_change';
+  /**
+   * `waypoints` (0.5.9): der Betreiber hat die Zwischenziele waehrend der
+   * Fahrt geaendert. Kein Fehler und keine Abweichung -- die Route wurde auf
+   * ausdruecklichen Wunsch neu gelegt.
+   */
+  reason: 'reroute' | 'profile_change' | 'waypoints';
   /** Id of the new (cached) route now being navigated. */
   route_id: string;
   /**

@@ -67,6 +67,15 @@ export interface ValhallaStub {
   /** Number of `/route` POSTs received so far (proves a reroute was -- or wasn't -- attempted). */
   callCount(): number;
   /**
+   * Der zuletzt an `/route` geschickte Rumpf, bereits geparst -- oder `null`.
+   *
+   * Damit laesst sich pruefen, was der Core WIRKLICH angefragt hat. Fuer
+   * Zwischenziele ist das der einzige ehrliche Nachweis: der Stub liefert
+   * immer dieselbe Strecke zurueck, an der Antwort kann man also nicht
+   * erkennen, ob die Stationen ueberhaupt angekommen sind.
+   */
+  lastRequestBody(): Record<string, unknown> | null;
+  /**
    * E10-T2: same instant as {@link lastCallAt}, but on the high-resolution
    * monotonic clock (`performance.now()`), in milliseconds with sub-microsecond
    * resolution. `Date.now()`'s 1 ms granularity is unusable for the perf
@@ -118,6 +127,7 @@ export async function startValhallaStub(
   let lastCallAt: number | null = null;
   let lastCallAtHr: number | null = null;
   let traceEdges: ValhallaStubEdge[] | null = null;
+  let lastBody: Record<string, unknown> | null = null;
 
   const server: Server = createServer((req: IncomingMessage, res: ServerResponse) => {
     if (req.method === 'GET' && req.url === '/_calls') {
@@ -145,7 +155,12 @@ export async function startValhallaStub(
       res.end();
       return;
     }
-    void readBody(req).then(async () => {
+    void readBody(req).then(async (rawBody) => {
+      try {
+        lastBody = JSON.parse(rawBody) as Record<string, unknown>;
+      } catch {
+        lastBody = null;
+      }
       // Counted/stamped the moment the request ARRIVES -- `lastCallAt` is what
       // the reroute measurement uses as "the Core asked the router", so an
       // artificial `delayMs` must land AFTER this, inside the measured window.
@@ -190,6 +205,7 @@ export async function startValhallaStub(
       traceEdges = edges;
     },
     callCount: () => calls,
+    lastRequestBody: () => lastBody,
     lastCallAt: () => lastCallAt,
     lastCallAtHrMs: () => lastCallAtHr,
     close: () =>

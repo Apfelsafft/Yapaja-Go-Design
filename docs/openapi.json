@@ -1244,6 +1244,29 @@
         }
       }
     },
+    "/api/v1/navigation/waypoints": {
+      "post": {
+        "summary": "POST /api/v1/navigation/waypoints",
+        "tags": [
+          "Sonstige"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/navigation/profile_change/confirm": {
       "post": {
         "summary": "Profilwechsel während Navigation bestätigen (W-Reroute)",

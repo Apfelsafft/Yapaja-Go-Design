@@ -10,6 +10,45 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.5.9
+
+**Neu: Zwischenziele.**
+
+> „Bitte füge die Möglichkeit von Zwischenzielen ein. Bei Routenplanung bzw.
+> auch während aktiver Navigation soll man Zwischenziele einfügen und in der
+> Reihenfolge sortieren können."
+
+Im Ziel-Fenster gibt es jetzt einen Abschnitt „Zwischenziele". Knopf drücken,
+auf die Karte tippen — die Station hängt sich hinten an. Mit den Pfeilen ↑ ↓
+sortierst du sie, mit ✕ nimmst du sie wieder weg. Jede Änderung berechnet die
+Strecke sofort neu.
+
+**Auch während der Fahrt.** Der Zwischenziel-Knopf wirkt auch bei laufender
+Navigation — anders als ein normaler Kartentipper, der seit 0.5.4 absichtlich
+nichts mehr tut. Der Unterschied: hier drückst du erst einen Knopf und tippst
+dann, das sind zwei bewusste Handlungen statt eines verrutschten Wischers. Die
+laufende Fahrt wird dabei **nicht** neu gestartet, sondern auf die neue Strecke
+übergeben — Ansagen und Ankunftszeit laufen weiter.
+
+**Und ein Fehler, den ich dabei gefunden habe und der Folgen beim Fahren
+hatte.** Im Programm stand seit Monaten der Vermerk, schon besuchte
+Zwischenziele würden bei einer Neuberechnung herausgenommen. Das passierte
+nicht. Wer an einer Station vorbei war und dann falsch abbog, wurde von der
+Neuberechnung **zurückgeschickt** — eine Wendeaufforderung ohne Anlass. Jetzt
+fällt weg, was hinter dir liegt.
+
+Im Zweifel bleibt eine Station aber stehen: liegt sie weit neben der Strecke,
+lässt sich nicht sicher sagen, ob du dort warst. Ein zu Unrecht behaltenes
+Zwischenziel siehst du auf der Karte und kannst es wegnehmen; ein zu Unrecht
+gelöschtes verschwindet still, und du merkst es erst, wenn du daran vorbei
+bist.
+
+**Ebenfalls behoben:** Die Zwischenziele wurden beim Start der Navigation gar
+nicht mitgegeben. Selbst wenn man sie hätte setzen können, wäre bei der ersten
+automatischen Neuberechnung jede Station stillschweigend weggefallen.
+
+---
+
 ## 0.5.8
 
 **Neu: eine Testfahrt, die die geplante Route von selbst abfährt.**

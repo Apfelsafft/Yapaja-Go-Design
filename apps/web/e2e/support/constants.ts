@@ -298,6 +298,19 @@ export const CONTROL_OVERLAP_CORE_PORT = 4352;
 export const SIMULATOR_UI_CORE_PORT = 4353;
 export const SIMULATOR_UI_VALHALLA_PORT = 4354;
 
+// Eigener Core fuer waypoints.spec.ts.
+//
+// Braucht -- wie simulator-ui.spec.ts -- ein echtes (Stub-)Valhalla hinter
+// `RoutingService.createRoutes`: geprueft wird, WAS der Core anfragt (kommen
+// die Zwischenziele als `locations` an?), und das entscheidet sich
+// serverseitig. Ein im Browser abgefangenes `POST /routes` wuerde genau die
+// Stelle ueberspringen, um die es geht.
+//
+// Ausserdem laeuft hier eine echte Navigation, die waehrend der Fahrt ihre
+// Zwischenziele wechselt -- das darf kein anderer Spec mitbekommen.
+export const WAYPOINTS_CORE_PORT = 4355;
+export const WAYPOINTS_VALHALLA_PORT = 4356;
+
 export const FLOW2_CORE_BASE_URL = `http://127.0.0.1:${FLOW2_CORE_PORT}`;
 export const FLOW3_CORE_BASE_URL = `http://127.0.0.1:${FLOW3_CORE_PORT}`;
 export const FLOW3_VALHALLA_BASE_URL = `http://127.0.0.1:${FLOW3_VALHALLA_PORT}`;
@@ -311,3 +324,5 @@ export const DIMENSIONS_CORE_BASE_URL = `http://127.0.0.1:${DIMENSIONS_CORE_PORT
 export const CONTROL_OVERLAP_CORE_BASE_URL = `http://127.0.0.1:${CONTROL_OVERLAP_CORE_PORT}`;
 export const SIMULATOR_UI_CORE_BASE_URL = `http://127.0.0.1:${SIMULATOR_UI_CORE_PORT}`;
 export const SIMULATOR_UI_VALHALLA_BASE_URL = `http://127.0.0.1:${SIMULATOR_UI_VALHALLA_PORT}`;
+export const WAYPOINTS_CORE_BASE_URL = `http://127.0.0.1:${WAYPOINTS_CORE_PORT}`;
+export const WAYPOINTS_VALHALLA_BASE_URL = `http://127.0.0.1:${WAYPOINTS_VALHALLA_PORT}`;

@@ -301,3 +301,44 @@ test.describe('Bedienelemente ueberlappen einander nicht', () => {
   });
   }
 });
+
+/**
+ * ─── DAS ZIEL-FENSTER DARF DIE KARTENMITTE NICHT VERDECKEN ─────────────────
+ * Es hatte bis 0.5.9 gar keine Hoehenbegrenzung und wuchs mit jedem
+ * Abschnitt, den es bekam. Mit den Zwischenzielen reichte es erstmals ueber
+ * die Mitte der Karte -- ein Doppeltipp zum Hineinzoomen landete danach auf
+ * dem Fenster statt auf der Karte.
+ *
+ * Aufgefallen ist das an einem Gesten-Test, also durch Zufall. Diese Pruefung
+ * misst die Zusicherung direkt: was auch immer kuenftig in dieses Fenster
+ * kommt, die Mitte der Karte bleibt bedienbar.
+ */
+test.describe('Das Ziel-Fenster', () => {
+  for (const [name, viewport] of [
+    ['breit', { width: 1280, height: 720 }],
+    ['Tablet hochkant', { width: 768, height: 1024 }],
+  ] as const) {
+    test(`laesst die Kartenmitte frei (${name})`, async ({ page }) => {
+      test.setTimeout(45_000);
+      await page.setViewportSize(viewport);
+      await page.goto(CONTROL_OVERLAP_CORE_BASE_URL + '/');
+      await waitForMapReady(page);
+
+      const canvas = await page.locator('canvas.maplibregl-canvas').boundingBox();
+      expect(canvas).not.toBeNull();
+      const mitteY = canvas!.y + canvas!.height / 2;
+
+      // Ein Tipper auf die Karte oeffnet das Fenster (Ziel setzen).
+      await page.mouse.click(canvas!.x + canvas!.width / 2, mitteY);
+      await expect(page.getByTestId('destination-sheet')).toBeVisible({ timeout: 10_000 });
+
+      const sheet = await page.getByTestId('destination-sheet').boundingBox();
+      expect(sheet).not.toBeNull();
+      expect(
+        sheet!.y,
+        `Das Ziel-Fenster beginnt bei ${Math.round(sheet!.y)} und liegt damit ueber der ` +
+          `Kartenmitte (${Math.round(mitteY)}) -- Gesten in der Mitte treffen dann das Fenster.`,
+      ).toBeGreaterThan(mitteY);
+    });
+  }
+});

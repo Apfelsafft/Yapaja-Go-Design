@@ -89,6 +89,18 @@ export async function startNavigation(body: StartNavigationBody): Promise<NavSta
   return postControl('api/v1/navigation/start', body);
 }
 
+/**
+ * Zwischenziele einer LAUFENDEN Fahrt aendern.
+ *
+ * Eigener Weg und kein neues `startNavigation`: ein Neustart ist aus
+ * `navigating` gar nicht erlaubt (409) und wuerde Kalibrierung und
+ * Ansagestand wegwerfen. Der Core legt die Strecke stattdessen mit derselben
+ * Maschinerie neu, die er fuer Abweichungen und Profilwechsel schon hat.
+ */
+export async function updateNavigationWaypoints(waypoints: LatLng[]): Promise<NavState> {
+  return postControl('api/v1/navigation/waypoints', { waypoints });
+}
+
 export async function pauseNavigation(): Promise<NavState> {
   return postControl('api/v1/navigation/pause');
 }

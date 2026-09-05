@@ -92,6 +92,7 @@ import {
   type DeadReckoningRouteSource,
   type StableSpeedState,
 } from './deadreckoning.js';
+import { remainingWaypoints } from './waypointProgress.js';
 
 /** Distance-to-destination threshold for arrival (metres). */
 export const ARRIVAL_DISTANCE_M = 40;
@@ -128,7 +129,19 @@ export interface RerouteProvider {
  * this from the frontend's navigation-start payload.
  */
 export interface RerouteContext {
-  /** Remaining waypoints to still visit (passed through as-is; E04-T5 prunes visited ones). */
+  /**
+   * Die Zwischenziele der urspruenglichen Anfrage, unveraendert.
+   *
+   * Hier stand bis 0.5.9 „passed through as-is; E04-T5 prunes visited ones".
+   * Diese Bereinigung gab es nicht -- `rerouteContext` wurde gesetzt und
+   * geleert, dazwischen nie angefasst. Wer an einem Zwischenziel vorbei war
+   * und dann falsch abbog, wurde ZURUECK dorthin geschickt.
+   *
+   * Bereinigt wird jetzt beim Neuberechnen (`waypointProgress.ts`), nicht in
+   * diesem Feld: die Liste ist der WUNSCH des Betreibers und bleibt
+   * vollstaendig. Welche davon noch vor einem liegen, haengt vom Fortschritt
+   * ab und ist damit keine Eigenschaft der Liste selbst.
+   */
   waypoints?: LatLng[];
   /** E03-T4 temporary avoidances to reproduce on reroute. */
   exclude_locations?: LatLng[];
@@ -227,7 +240,7 @@ export type PendingProfileChange = ProfileChangePendingPayload;
  *  a failure-retry -- which re-invokes `executeReroute` without repeating the
  *  original call site -- naturally keeps reusing the SAME context. */
 interface RerouteCtx {
-  reason: 'reroute' | 'profile_change';
+  reason: 'reroute' | 'profile_change' | 'waypoints';
   /** Snapshot of the profile the route being REPLACED was computed for. */
   oldProfile: VehicleProfile | null;
   oldDurationS: number;
@@ -915,10 +928,25 @@ export class NavigationService implements DeadReckoningRouteSource {
     }
 
     const ctx = this.rerouteContext;
+    // ─── SCHON PASSIERTE ZWISCHENZIELE FALLEN WEG ────────────────────────────
+    // Sonst schickt die Neuberechnung zurueck zu einem Ort, an dem man
+    // bereits war -- eine Wendeaufforderung ohne Anlass. Im Zweifel wird
+    // behalten, siehe `waypointProgress.ts`.
+    //
+    // ABER NICHT, wenn der Betreiber die Liste gerade selbst geaendert hat:
+    // wer ein Zwischenziel HINTER sich setzt (zurueck zur Tankstelle), meint
+    // genau das. Der Fortschritt wird hier auf der ALTEN Strecke gemessen,
+    // ein solcher Punkt laege also „schon passiert" und verschwaende
+    // stillschweigend. Auf der neuen Strecke liegt er dann wieder vorn, und
+    // spaetere automatische Neuberechnungen bereinigen wieder normal.
+    const offeneWaypoints =
+      this.rerouteCtx.reason === 'waypoints'
+        ? (ctx?.waypoints ?? [])
+        : remainingWaypoints(ctx?.waypoints ?? [], active.geom, this.lastProgressM);
     const request: RouteRequest = {
       origin: { lat: pos.lat, lon: pos.lon },
       destination: { ...active.destination.latlng },
-      waypoints: ctx?.waypoints ?? [],
+      waypoints: offeneWaypoints,
       profile_id: profileId,
       alternatives: 0,
     };
@@ -1170,6 +1198,64 @@ export class NavigationService implements DeadReckoningRouteSource {
     this.rerouteCtx = {
       reason: 'profile_change',
       oldProfile,
+      oldDurationS: this.active.route.duration_s,
+    };
+    const at: LatLng = { lat: this.lastPosition.lat, lon: this.lastPosition.lon };
+    await this.executeReroute(this.lastPosition, at, false);
+  }
+
+  /**
+   * Zwischenziele waehrend der laufenden Fahrt aendern.
+   *
+   * ─── DIE MELDUNG ──────────────────────────────────────────────────────────
+   * „Bei Routenplanung bzw. auch waehrend aktiver Navigation soll man
+   * Zwischenziele einfuegen und in der Reihenfolge sortieren koennen."
+   *
+   * ─── WARUM NICHT EINFACH NEU STARTEN ──────────────────────────────────────
+   * `start()` ist aus `navigating` gar nicht erlaubt (409, „stop first"), und
+   * das aus gutem Grund: ein Neustart wirft Kalibrierung, Ansagestand und
+   * Wiederaufnahme-Punkt weg. Mitten auf der Autobahn eine Fahrt zu beenden,
+   * um sie sofort wieder zu beginnen, waere fuer den Menschen im Fahrzeug ein
+   * sichtbarer Aussetzer.
+   *
+   * Stattdessen dieselbe Maschinerie wie beim Profilwechsel (E06-T3): eine
+   * Neuberechnung, nur anders begruendet. Sie uebergibt die Fahrt nahtlos auf
+   * die neue Strecke (`applyReroute`), behaelt die Kalibrierung und hat schon
+   * die ganze Fehlerbehandlung -- 15-s-Wiederholung, Schleifenschutz,
+   * Gleichzeitigkeitssperre.
+   */
+  updateWaypoints(waypoints: LatLng[]): void {
+    // Der Wunsch wird IMMER gemerkt, auch wenn gerade nicht neu gerechnet
+    // werden kann (keine Position, andere Neuberechnung laeuft). Sonst waere
+    // die Liste in der Oberflaeche eine andere als die im Core.
+    this.rerouteContext = { ...(this.rerouteContext ?? {}), waypoints };
+    void this.executeWaypointReroute();
+  }
+
+  /**
+   * Die Neuberechnung nach einer Aenderung der Zwischenziele.
+   *
+   * Spiegelt {@link executeProfileChangeReroute} Zeile fuer Zeile -- inklusive
+   * der Gruende, aus denen sie nichts tut: kein Router, keine laufende Fahrt,
+   * noch kein Positionsfix, oder bereits eine Neuberechnung unterwegs.
+   */
+  private async executeWaypointReroute(): Promise<void> {
+    if (!this.rerouteProvider || !this.active) return;
+    if (this.status !== 'navigating' && this.status !== 'off_route' && this.status !== 'paused') {
+      return;
+    }
+    if (!this.lastPosition) {
+      this.logger.warn('Zwischenziele geaendert, aber noch keine Position -- keine Neuberechnung');
+      return;
+    }
+    if (this.rerouteInFlight) {
+      this.logger.warn('Zwischenziel-Neuberechnung uebersprungen: es laeuft bereits eine');
+      return;
+    }
+
+    this.rerouteCtx = {
+      reason: 'waypoints',
+      oldProfile: null,
       oldDurationS: this.active.route.duration_s,
     };
     const at: LatLng = { lat: this.lastPosition.lat, lon: this.lastPosition.lon };
