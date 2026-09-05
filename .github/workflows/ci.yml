@@ -872,7 +872,26 @@ jobs:
           osmium --version
 
       - name: Download Liechtenstein PBF (Geofabrik)
-        run: curl -fL -o li.osm.pbf https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+        # ─── WARUM HIER WIEDERHOLT WIRD ────────────────────────────────────
+        # Geofabrik hat an EINEM Tag zweimal mit `503` geantwortet und diesen
+        # Job rot gemacht -- ohne dass am Code etwas falsch war. Ein roter
+        # Merge-Blocker, der nichts ueber die Aenderung aussagt, kostet nicht
+        # nur Actions-Minuten: er gewoehnt einen daran, rote Haken
+        # wegzuklicken, und dann wird auch der echte Fehler weggeklickt.
+        #
+        # `--retry` deckt genau diesen Fall ab: curl wiederholt bei den
+        # voruebergehenden Statuscodes, und 503 gehoert dazu.
+        # `--retry-delay 10` statt des exponentiellen Standards, weil eine
+        # ueberlastete Gegenstelle eher Zeit als Backoff braucht.
+        #
+        # Die anderen Geofabrik-Downloads in dieser Datei laufen IM
+        # Valhalla-Container (`build-tiles.sh` reicht die URL an gis-ops
+        # weiter) -- dort greift das hier nicht. Faellt Geofabrik laenger aus,
+        # sind die weiterhin betroffen; das ist bekannt und nicht behoben.
+        run: |
+          curl -fL --retry 5 --retry-delay 10 --retry-connrefused \
+            -o li.osm.pbf \
+            https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
 
       # Exercises build-lite-index.sh end-to-end: osmium tags-filter + export,
       # tsx CLI (extract.ts/buildIndex.ts), atomic temp-file+rename swap
