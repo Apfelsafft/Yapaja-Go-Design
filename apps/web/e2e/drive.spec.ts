@@ -271,4 +271,69 @@ test.describe('Drive basics (E04-T3, Flow 2)', () => {
 
     expect(pageErrors).toEqual([]);
   });
+  /**
+   * ─── EIN KARTENTIPPER DARF DIE LAUFENDE ROUTE NICHT VERWERFEN ────────────
+   * Gemeldet: „Wenn die Navigation aktiv ist und man auf die Karte klickt,
+   * dann wird in den Zielsetzen-Modus gewechselt. Die Route verschwindet und
+   * man sieht den roten Zielpunkt auf der Stelle."
+   *
+   * `DestinationSelector.handlePick` endete bedingungslos mit
+   * `setDestination` -- jeder Tipper waehrend der Fahrt, auch ein
+   * verrutschter Schwenk, ersetzte die Route durch einen Zielpunkt.
+   *
+   * Die REGEL steht in `mapTapIntent.test.ts`. Hier wird die VERDRAHTUNG
+   * geprueft: dass der Kartenlistener den Navigationszustand ueberhaupt
+   * liest. Genau das kann ein Unit-Test nicht zeigen -- und genau solche
+   * Luecken sind in diesem Projekt schon mehrfach durchgerutscht.
+   */
+  test('ein Kartentipper waehrend der Fahrt laesst Route und Ziel unangetastet', async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await page.goto(DRIVE_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+
+    const startResponse = await page.request.post(`${DRIVE_CORE_BASE_URL}/api/v1/navigation/start`, {
+      data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'Ziel' } },
+    });
+    expect(startResponse.ok()).toBe(true);
+
+    await page.evaluate((route: Route) => {
+      window.__yapajaRoutingStore?.setState({ routes: [route], activeRouteId: route.id });
+    }, ROUTE);
+
+    await driveTo(page, 111);
+    await expect(page.getByTestId('maneuver-panel')).toBeVisible({ timeout: 5_000 });
+
+    const before = await page.evaluate(() => {
+      const s = window.__yapajaRoutingStore?.getState();
+      return { routes: s?.routes?.length ?? 0, activeRouteId: s?.activeRouteId ?? null };
+    });
+    expect(before.routes).toBe(1);
+
+    // Mitten auf die Karte tippen -- weit weg von der Routenlinie, genau die
+    // Geste aus der Meldung.
+    const canvas = page.locator('canvas.maplibregl-canvas');
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.click(box!.x + box!.width * 0.25, box!.y + box!.height * 0.75);
+    // Kurz warten: waere der Fehler noch da, braeuchte er nur einen Tick.
+    await page.waitForTimeout(500);
+
+    const after = await page.evaluate(() => {
+      const s = window.__yapajaRoutingStore?.getState();
+      return {
+        routes: s?.routes?.length ?? 0,
+        activeRouteId: s?.activeRouteId ?? null,
+        destination: s?.destination ?? null,
+      };
+    });
+
+    // Die Route steht noch, und es wurde KEIN Ziel gesetzt.
+    expect(after.routes).toBe(1);
+    expect(after.activeRouteId).toBe(before.activeRouteId);
+    expect(after.destination).toBeNull();
+    // Und die Fahrt laeuft weiter -- das Panel ist noch da.
+    await expect(page.getByTestId('maneuver-panel')).toBeVisible();
+  });
 });

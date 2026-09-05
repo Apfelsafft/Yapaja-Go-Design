@@ -25,13 +25,15 @@
  */
 
 import { useEffect } from 'react';
-import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
+import type { Map as MapLibreMap, MapMouseEvent, PointLike } from 'maplibre-gl';
 import { useMapStore } from '../state/mapStore.js';
 import { useProfileStore } from '../profiles/store.js';
 import { useRoutingStore } from './store.js';
 import { useStyleStore } from '../state/styleStore.js';
 import { resolvePlaceName } from '../map/placeName.js';
 import { buildAvoidSquare } from './exclusionGeometry.js';
+import { mapTapIntent, ROUTE_TAP_RADIUS_PX } from './mapTapIntent.js';
+import { useNavStore } from '../drive/navStore.js';
 import {
   ALT_ROUTE_LAYER_ID,
   MAIN_ROUTE_CASING_LAYER_ID,
@@ -40,11 +42,27 @@ import {
 
 const ROUTE_LAYER_IDS = [ALT_ROUTE_LAYER_ID, MAIN_ROUTE_CASING_LAYER_ID, MAIN_ROUTE_ACCENT_LAYER_ID];
 
+/**
+ * Ein Quadrat um den Tipper statt eines einzelnen Pixels.
+ *
+ * `queryRenderedFeatures(e.point)` trifft GENAU einen Bildpunkt. Eine
+ * Fingerkuppe ist keinen Punkt breit -- gemeldet als „wenn ich hier nicht
+ * genau treffe, bin ich wieder in der Zieleingabe" (und die berechneten
+ * Alternativen waren weg). Siehe `ROUTE_TAP_RADIUS_PX`.
+ */
+function tapBox(e: MapMouseEvent): [PointLike, PointLike] {
+  const r = ROUTE_TAP_RADIUS_PX;
+  return [
+    [e.point.x - r, e.point.y - r],
+    [e.point.x + r, e.point.y + r],
+  ];
+}
+
 function pickRouteIdAtPoint(map: MapLibreMap, e: MapMouseEvent): string | null {
   if (!map.getLayer(ALT_ROUTE_LAYER_ID)) {
     return null;
   }
-  const hits = map.queryRenderedFeatures(e.point, { layers: [ALT_ROUTE_LAYER_ID] });
+  const hits = map.queryRenderedFeatures(tapBox(e), { layers: [ALT_ROUTE_LAYER_ID] });
   const routeId = hits[0]?.properties?.routeId;
   return typeof routeId === 'string' ? routeId : null;
 }
@@ -53,7 +71,7 @@ function pickRouteIdAtPoint(map: MapLibreMap, e: MapMouseEvent): string | null {
 function isOnRenderedRoute(map: MapLibreMap, e: MapMouseEvent): boolean {
   const layers = ROUTE_LAYER_IDS.filter((id) => map.getLayer(id));
   if (layers.length === 0) return false;
-  return map.queryRenderedFeatures(e.point, { layers }).length > 0;
+  return map.queryRenderedFeatures(tapBox(e), { layers }).length > 0;
 }
 
 export default function DestinationSelector(): null {
@@ -73,9 +91,29 @@ export default function DestinationSelector(): null {
       // never appear over the map.
       e.originalEvent?.preventDefault?.();
 
-      const tappedAltRouteId = pickRouteIdAtPoint(map, e);
-      if (tappedAltRouteId) {
-        selectRoute(tappedAltRouteId);
+      // Was dieser Tipper bedeutet, entscheidet EINE reine Funktion --
+      // siehe `mapTapIntent.ts` fuer die beiden Fehler, die diese Trennung
+      // ausgeloest haben.
+      //
+      // Die Zustaende werden ueber `getState()` gelesen, nicht ueber Hooks:
+      // dieser Effekt haengt bewusst nur an `map`, damit die Kartenlistener
+      // nicht bei jeder Zustandsaenderung ab- und wieder angemeldet werden.
+      // Ein Hook-Wert waere in diesem Closure eingefroren.
+      const intent = mapTapIntent({
+        tappedRouteId: pickRouteIdAtPoint(map, e),
+        pickTarget: useRoutingStore.getState().pickTarget,
+        navStatus: useNavStore.getState().navState?.status,
+      });
+
+      if (intent.kind === 'select-route') {
+        selectRoute(intent.routeId);
+        return;
+      }
+
+      // Waehrend einer laufenden Fahrt bewirkt ein Tipper neben die Route
+      // NICHTS. Vorher ersetzte er die Route stillschweigend durch einen
+      // Zielpunkt -- auch bei einem verrutschten Schwenk.
+      if (intent.kind === 'ignore') {
         return;
       }
 
@@ -85,12 +123,7 @@ export default function DestinationSelector(): null {
       // Danach faellt der Modus sofort zurueck: ein Zustand, in dem jeder
       // weitere Klick still den Start verschiebt, statt ein Ziel zu setzen,
       // waere aus der Karte heraus nicht erkennbar.
-      //
-      // `pickTarget` wird hier ueber `getState()` gelesen, nicht ueber einen
-      // Hook: dieser Effekt haengt bewusst nur an `map`, damit die
-      // Kartenlistener nicht bei jeder Zustandsaenderung ab- und wieder
-      // angemeldet werden. Ein Hook-Wert waere in diesem Closure eingefroren.
-      if (useRoutingStore.getState().pickTarget === 'origin') {
+      if (intent.kind === 'set-origin') {
         const startLang = useStyleStore.getState().options.lang;
         setStartPoint(
           point,
