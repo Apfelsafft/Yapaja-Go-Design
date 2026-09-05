@@ -67,7 +67,20 @@ export function buildLiteIndexFile(
         -- Laden in der Beethovenstrasse statt der Strasse selbst.
         address TEXT,
         -- Der Ort, in dem der Eintrag liegt (aus addr:city oder abgeleitet).
-        locality TEXT
+        locality TEXT,
+        -- Postleitzahl, sofern getaggt.
+        postcode TEXT,
+        -- ─── DIE NACHRANGIGE SUCHSPALTE (0.6.0) ─────────────────────────────
+        -- Ort, Adresse und PLZ in einem Feld. Sie speisen die Volltextsuche
+        -- MIT, aber schwaecher gewichtet als search_text (siehe reader.ts).
+        --
+        -- Vorher waren sie ausdruecklich ausgenommen, mit der Begruendung:
+        -- „sonst faende 'Beethoven' jeden Laden in der Beethovenstrasse statt
+        -- der Strasse selbst". Die Sorge ist berechtigt -- die Antwort darauf
+        -- ist aber eine RANGFOLGE, kein Weglassen. Ohne diese Spalte kann
+        -- „Eschenweg Germersheim" nie etwas finden, weil der Ortsname nirgends
+        -- durchsuchbar steht. Genau das war gemeldet.
+        aux_text TEXT NOT NULL DEFAULT ''
       );
 
       -- Was in diesem Index steckt und wann er gebaut wurde. Es gibt EINEN
@@ -81,6 +94,7 @@ export function buildLiteIndexFile(
 
       CREATE VIRTUAL TABLE lite_search USING fts5(
         search_text,
+        aux_text,
         tokenize = 'trigram',
         content = 'places',
         content_rowid = 'id'
@@ -88,8 +102,8 @@ export function buildLiteIndexFile(
     `);
 
     const insertPlace = db.prepare(
-      'INSERT INTO places (name, kind, lat, lon, population, category, search_text, address, locality) ' +
-        'VALUES (@name, @kind, @lat, @lon, @population, @category, @search_text, @address, @locality)',
+      'INSERT INTO places (name, kind, lat, lon, population, category, search_text, address, locality, postcode, aux_text) ' +
+        'VALUES (@name, @kind, @lat, @lon, @population, @category, @search_text, @address, @locality, @postcode, @aux_text)',
     );
 
     const insertAll = db.transaction((rows: readonly NormalizedRecord[]) => {
@@ -106,6 +120,8 @@ export function buildLiteIndexFile(
           search_text: row.searchTerms ? `${row.name} ${row.searchTerms}` : row.name,
           address: row.address ?? null,
           locality: row.locality ?? null,
+          postcode: row.postcode ?? null,
+          aux_text: [row.locality, row.address, row.postcode].filter(Boolean).join(' '),
         });
       }
     });
@@ -115,7 +131,7 @@ export function buildLiteIndexFile(
     // in one pass -- cheaper than a trigger-per-row for a build-once,
     // read-many index (there are never any updates to an already-built
     // lite_search.db; a rebuild always starts from a fresh file).
-    db.exec('INSERT INTO lite_search(rowid, search_text) SELECT id, search_text FROM places;');
+    db.exec('INSERT INTO lite_search(rowid, search_text, aux_text) SELECT id, search_text, aux_text FROM places;');
     db.exec("INSERT INTO lite_search(lite_search) VALUES('optimize');");
 
     // Beim Bauen festgehalten, nicht beim Lesen erraten: die Datei wandert

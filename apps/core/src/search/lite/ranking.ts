@@ -40,7 +40,26 @@
  * `Record<LiteKind, number>` Vollstaendigkeit, und `reader.ts` baut seine
  * Menge daraus. Eine neue Art kann nicht mehr an einer Stelle fehlen.
  */
-export const LITE_KINDS = ['city', 'town', 'village', 'poi', 'street'] as const;
+export const LITE_KINDS = [
+  'city',
+  'town',
+  'village',
+  // ─── ORTSTEILE (0.6.0) ────────────────────────────────────────────────────
+  // Gemeldet: „Ich habe dann direkt nach Sondernheim gesucht, das wurde nicht
+  // gefunden." Sondernheim ist ein Stadtteil von Germersheim und in OSM als
+  // `place=suburb` erfasst. Der Index nahm nur city/town/village -- der Ort
+  // war also nicht schwer zu finden, sondern gar nicht vorhanden.
+  //
+  // Wer einen Ortsteil sucht, meint einen Ort. Sie stehen deshalb bei den
+  // Orten, nur hinter den groesseren: gibt es beides gleichnamig, ist die
+  // Stadt fast immer das gemeinte Ziel.
+  'suburb',
+  'quarter',
+  'borough',
+  'hamlet',
+  'poi',
+  'street',
+] as const;
 
 export type LiteKind = (typeof LITE_KINDS)[number];
 
@@ -48,11 +67,15 @@ const KIND_RANK: Record<LiteKind, number> = {
   city: 0,
   town: 1,
   village: 2,
+  borough: 3,
+  suburb: 4,
+  quarter: 5,
+  hamlet: 6,
   // Sonderziele VOR Strassen: wer „Camping" tippt, meint den Campingplatz
   // und nicht den „Campingweg". Unter den Orten bleiben sie, weil eine
   // gleichnamige Stadt fast immer das groebere, gemeinte Ziel ist.
-  poi: 3,
-  street: 4,
+  poi: 7,
+  street: 8,
 };
 
 export interface LiteCandidate {

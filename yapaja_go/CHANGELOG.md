@@ -10,6 +10,74 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.6.0
+
+**Die Suche findet jetzt, was du meinst.**
+
+> „Ich habe beispielsweise den Eschenweg in Sondernheim (Germersheim) gesucht.
+> Der wurde nicht gefunden […] Ich habe dann direkt nach Sondernheim gesucht,
+> das wurde nicht gefunden. Ich habe eschenweg 2 eingegeben und das wurde auch
+> nicht gefunden. Bitte erstelle eine smarte Suche, die über alle Aspekte einer
+> Adresse Ergebnisse liefert."
+
+Bevor ich etwas geändert habe, habe ich deine Beispiele **gemessen** — mit
+einem echten Index und Daten, die so getaggt sind wie Germersheim in OSM:
+
+| Suche | vorher | jetzt |
+|---|---|---|
+| `Sondernheim` | 0 Treffer | ✅ |
+| `eschenweg` | 1 Treffer | ✅ |
+| `eschenweg 2` | 0 Treffer | ✅ |
+| `Eschenweg Germersheim` | 0 Treffer | ✅ |
+| `76726` (PLZ) | 0 Treffer | ✅ |
+
+Zwei Ursachen, die nichts miteinander zu tun hatten:
+
+**1. Ortsteile waren gar nicht im Index.** Aufgenommen wurden nur Städte,
+Gemeinden und Dörfer. Sondernheim ist ein Stadtteil von Germersheim — in den
+Kartendaten eine eigene Kategorie, die beim Bauen still herausfiel. Sondernheim
+war also nicht schwer zu finden, sondern nicht vorhanden. Jetzt sind Ortsteile,
+Stadtviertel, Stadtbezirke und Weiler dabei.
+
+**2. Jede Suche aus mehr als einem Wort scheiterte.** Die gesamte Eingabe wurde
+als *ein zusammenhängendes Stück Text* gesucht. „Eschenweg" enthält weder „g 2"
+noch „g G" — also fiel „Eschenweg Germersheim" durch, obwohl beide Angaben
+stimmen. Das hattest du gar nicht gemeldet, es ist aber der größere der beiden
+Fehler. Jetzt muss jedes Wort vorkommen, und die zweite Angabe **grenzt ein**:
+gibt es zwei Eschenwege, bleibt mit „Germersheim" dahinter nur einer übrig.
+
+**Ort, Straße und PLZ zählen jetzt mit.** Sie waren ausdrücklich aus der Suche
+ausgenommen — mit der Sorge, „Beethoven" würde sonst jeden Laden in der
+Beethovenstraße finden statt der Straße selbst. Die Sorge ist berechtigt, aber
+die Antwort darauf ist eine Rangfolge, kein Weglassen: die Straße steht oben,
+die Läden darin sind trotzdem auffindbar.
+
+**Neu: das „x" in der Suchzeile.**
+
+> „Bitte integriere ein 'x' in der Suchzeile, um den aktuellen Text wieder
+> komplett löschen zu können."
+
+Es tritt an die Stelle der Lupe, sobald etwas dasteht, und ist 44 Punkte groß —
+ein kleines Kreuz trifft im fahrenden Fahrzeug niemand. Vorher ging das nur mit
+der Escape-Taste, auf einem Tablet also gar nicht.
+
+**Neu: die Trefferliste beginnt mit dem nächsten Ergebnis.**
+
+> „Bitte sortiere die Ergebnisse der Suche nach Entfernung. Das nächste
+> Ergebnis nach oben."
+
+Die Entfernung stand schon bei jedem Treffer — sortiert wurde die Liste
+nirgends. Man sah also, wie weit alles weg ist, und musste sich das nächste
+selbst heraussuchen.
+
+**Wichtig für dich: Punkt 1 und 3 brauchen einen neuen Suchindex.** Die
+Mehrwortsuche wirkt sofort; Ortsteile und die Suche über Ort/Straße/PLZ stehen
+erst im neu gebauten Index. „Suche bauen" in den Karten-Einstellungen. Ein
+alter Index funktioniert unverändert weiter — ein Schemawechsel darf hier
+niemanden zum stundenlangen Neubau zwingen.
+
+---
+
 ## 0.5.9
 
 **Neu: Zwischenziele.**

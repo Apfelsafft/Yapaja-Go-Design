@@ -17,6 +17,7 @@ interface LiteSearchRow {
   category: string | null;
   address: string | null;
   locality: string | null;
+  postcode: string | null;
 }
 
 interface LiteAllRow {
@@ -39,14 +40,71 @@ function isLiteKind(kind: string): kind is LiteKind {
   return KNOWN_KINDS.has(kind);
 }
 
-/** Wraps a raw user query as a double-quoted FTS5 phrase, escaping internal
- *  quotes by doubling them (standard FTS5 string-literal escaping). This is
- *  what keeps arbitrary user input (which may contain `"`, `AND`/`OR`/`NOT`,
- *  `*`, `:`, `-`, ...) from ever being parsed as FTS5 *query-language*
- *  syntax -- it's always treated as literal phrase text for the trigram
- *  tokenizer to match substrings within, never as an operator. */
+/**
+ * Ein einzelner Begriff als FTS5-Phrase.
+ *
+ * Die Anfuehrungszeichen sind das, was beliebige Nutzereingaben (`"`,
+ * `AND`/`OR`/`NOT`, `*`, `:`, `-`, ...) davor bewahrt, als FTS5-Abfragesprache
+ * gelesen zu werden -- es bleibt immer buchstaeblicher Text, in dem der
+ * Trigramm-Tokenizer Teilzeichenketten sucht, nie ein Operator.
+ */
+function escapeFtsTerm(term: string): string {
+  return `"${term.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Die ganze Eingabe als FTS5-Abfrage.
+ *
+ * ─── DER FEHLER, DEN DAS BEHEBT ─────────────────────────────────────────────
+ * Hier stand die GESAMTE Eingabe in einem einzigen Anfuehrungszeichen-Paar --
+ * also als EINE zusammenhaengende Zeichenfolge. Damit scheiterte jede Suche
+ * aus mehr als einem Wort, auch wenn beide Angaben stimmten:
+ *
+ *     „Eschenweg Germersheim"  ->  0 Treffer
+ *     „eschenweg 2"            ->  0 Treffer
+ *
+ * Denn „Eschenweg" enthaelt weder „g G" noch „g 2". Gemessen, nicht vermutet.
+ *
+ * Gemeldet wurde: „Ich habe beispielsweise den Eschenweg in Sondernheim
+ * (Germersheim) gesucht. Der wurde nicht gefunden. [...] Ich habe eschenweg 2
+ * eingegeben und das wurde auch nicht gefunden." Und der Wunsch dahinter:
+ * „eine smarte Suche, die ueber alle Aspekte einer Adresse Ergebnisse
+ * liefert."
+ *
+ * ─── WARUM UND UND NICHT ODER ───────────────────────────────────────────────
+ * Jeder Begriff muss vorkommen. Mit ODER waere „Eschenweg Germersheim" die
+ * Liste aller Eschenwege PLUS aller Germersheimer Eintraege -- mehr Treffer,
+ * aber keine besseren: die zweite Angabe soll ja EINGRENZEN.
+ *
+ * Wer eine Wortgruppe wirklich zusammenhaengend sucht, kann sie weiterhin
+ * selbst in Anfuehrungszeichen setzen -- die bleiben erhalten.
+ */
 export function escapeFtsQuery(query: string): string {
-  return `"${query.replace(/"/g, '""')}"`;
+  const terms = splitQueryTerms(query);
+  if (terms.length === 0) return escapeFtsTerm(query.trim());
+  return terms.map(escapeFtsTerm).join(' AND ');
+}
+
+/**
+ * Zerlegt die Eingabe in Begriffe.
+ *
+ * Was der Nutzer selbst in Anfuehrungszeichen setzt, bleibt ein Stueck --
+ * `"Sankt Martin" kirche` sind zwei Begriffe, nicht drei.
+ *
+ * Zu kurze Bruchstuecke fallen weg: der Trigramm-Tokenizer braucht drei
+ * Zeichen, ein zweibuchstabiges Wort koennte nie treffen und wuerde mit UND
+ * verknuepft die ganze Suche leer machen. „Weg 12" soll den Weg finden, nicht
+ * nichts.
+ */
+export function splitQueryTerms(query: string): string[] {
+  const terms: string[] = [];
+  const pattern = /"([^"]*)"|(\S+)/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(query)) !== null) {
+    const term = (match[1] ?? match[2] ?? '').trim();
+    if (term.length >= MIN_QUERY_LENGTH) terms.push(term);
+  }
+  return terms;
 }
 
 /** SQLite FTS5's trigram tokenizer needs at least 3 characters to form a
@@ -75,7 +133,29 @@ const MIN_QUERY_LENGTH = 3;
  * Schema-Wechsel darf das nicht erzwingen: gelesen wird, was da ist, und was
  * fehlt, ist eben `null`.
  */
-const OPTIONAL_COLUMNS = ['category', 'address', 'locality'] as const;
+const OPTIONAL_COLUMNS = ['category', 'address', 'locality', 'postcode'] as const;
+
+/**
+ * ─── WARUM HIER KEINE SPALTENGEWICHTE STEHEN ────────────────────────────────
+ * Mit der zweiten Suchspalte (Ort, Adresse, PLZ) lag der Gedanke nahe, den
+ * Namen per `bm25(lite_search, 10.0, 1.0)` staerker zu gewichten -- als
+ * Antwort auf die Sorge, die vor 0.6.0 zum Weglassen der Adressdaten gefuehrt
+ * hatte: „sonst faende 'Beethoven' jeden Laden in der Beethovenstrasse statt
+ * der Strasse selbst".
+ *
+ * Die Gewichte standen hier auch schon. Drei Versuche, ihren Nutzen zu
+ * belegen, blieben ergebnislos -- darunter einer, der eigens dafuer gebaut
+ * war (langer Strassenname gegen kurzen Ladennamen mit passender Adresse).
+ * In jedem Fall stand die Strasse ohnehin oben: bm25 bevorzugt kurze
+ * Dokumente, und die endgueltige Reihenfolge macht `ranking.ts` (Namensanfang,
+ * Art, Entfernung), nicht bm25.
+ *
+ * Eine Zahl, deren Wirkung sich nicht zeigen laesst, ist keine Einstellung,
+ * sondern Zierde -- und beim naechsten Umbau glaubt ihr jemand. Sie ist
+ * deshalb wieder draussen. Dass Strassen vor den Laeden darin stehen, halten
+ * die Tests in `multiAspectSearch.test.ts` fest; sollte das je kippen, sind
+ * Gewichte das erste Mittel.
+ */
 
 export class LiteIndexReader {
   private db: Database.Database | null = null;

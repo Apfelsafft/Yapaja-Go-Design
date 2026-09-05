@@ -62,6 +62,10 @@ export interface NormalizedRecord {
   /** Der Ort, in dem der Eintrag liegt. Bevorzugt aus `addr:city`; sonst wird
    *  er beim Bauen aus dem naechsten Ort abgeleitet (`placeLocator.ts`). */
   locality?: string;
+  /** Postleitzahl (`addr:postcode`), sofern getaggt. Der Betreiber hat sie
+   *  ausdruecklich als Suchaspekt genannt („Poi name, Typ, Strasse, Ort,
+   *  plz"). */
+  postcode?: string;
 }
 
 /** Liest ein Tag als nicht-leere Zeichenkette, sonst `undefined`. */
@@ -98,7 +102,31 @@ export interface OsmFeature {
   properties?: Record<string, unknown> | null;
 }
 
-const PLACE_KINDS: ReadonlySet<string> = new Set(['city', 'town', 'village']);
+/**
+ * Welche `place`-Werte in den Index kommen.
+ *
+ * ─── WARUM ORTSTEILE SEIT 0.6.0 DAZUGEHOEREN ────────────────────────────────
+ * Gemeldet: „Ich habe dann direkt nach Sondernheim gesucht, das wurde nicht
+ * gefunden." Sondernheim ist ein Stadtteil von Germersheim, in OSM
+ * `place=suburb` -- und fiel damit still heraus. Nicht schwer zu finden,
+ * sondern gar nicht da.
+ *
+ * `hamlet` ist der Weiler, `borough`/`quarter` die weiteren gebraeuchlichen
+ * Untergliederungen. Alles vier sind Namen, die Menschen eintippen.
+ *
+ * NICHT dabei: `city_block`, `plot`, `isolated_dwelling` und Verwandte. Die
+ * tragen selten einen Namen, den jemand sucht, und blaehten den Index mit
+ * Eintraegen auf, die in der Trefferliste nur im Weg staenden.
+ */
+const PLACE_KINDS: ReadonlySet<string> = new Set([
+  'city',
+  'town',
+  'village',
+  'suburb',
+  'quarter',
+  'borough',
+  'hamlet',
+]);
 
 /** `highway` values that are structural/non-navigable-by-name and get
  *  dropped even when (unusually) tagged with a `name` -- keeps the street
@@ -228,12 +256,14 @@ export function normalizeStreetFeature(feature: OsmFeature): NormalizedRecord | 
   if (!point) return null;
 
   const locality = tagString(props, 'addr:city');
+  const postcode = tagString(props, 'addr:postcode');
   return {
     kind: 'street',
     name: name.trim(),
     lat: point.lat,
     lon: point.lon,
     ...(locality ? { locality } : {}),
+    ...(postcode ? { postcode } : {}),
   };
 }
 
@@ -272,6 +302,7 @@ export function normalizePoiFeature(feature: OsmFeature): NormalizedRecord | nul
 
   const address = addressFromTags(props);
   const locality = tagString(props, 'addr:city');
+  const postcode = tagString(props, 'addr:postcode');
 
   return {
     kind: 'poi',
@@ -282,6 +313,7 @@ export function normalizePoiFeature(feature: OsmFeature): NormalizedRecord | nul
     searchTerms: searchTermsFor(category),
     ...(address ? { address } : {}),
     ...(locality ? { locality } : {}),
+    ...(postcode ? { postcode } : {}),
   };
 }
 
