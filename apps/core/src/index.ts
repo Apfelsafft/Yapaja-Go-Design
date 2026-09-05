@@ -266,6 +266,9 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     prefix: '/api/v1',
     simulator: simulatorSource,
     service: positionService,
+    // Traege ausgewertet: `routingService` entsteht erst weiter unten. Siehe
+    // die Begruendung an `SimulatorRoutesOptions.getRoute`.
+    getRoute: (id) => routingService.getCachedRoute(id),
   });
 
   // Register map/tiles plugin (E01-T1): additive, does not touch other plugins.

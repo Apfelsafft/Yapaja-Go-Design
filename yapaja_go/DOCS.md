@@ -113,6 +113,33 @@ not a replacement for a live browser fix.
 | `log_level` | `debug` \| `info` \| `warn` \| `error` | `info` | Core log verbosity (pino). |
 | `photon_xmx_mb` | int 256–4096 | `1024` | Photon JVM heap cap (`-Xmx`). See the RAM table above. |
 | `valhalla_memory_mb` | int 512–8192 | `2048` | Documented RAM budget for Valhalla; informational (Valhalla's actual runtime cache size is set at graph-build time, not per-start — see `yapaja_go/rootfs/.../valhalla/run`'s comment). |
+| `gps_simulator` | bool | `false` | Unlocks the built-in test driver (see below). **Off by default on purpose** — it can inject arbitrary positions and displaces the real receiver. |
+
+## Test drive (GPS simulator)
+
+Yapaja can drive a planned route by itself, at each section's own speed
+limit, with a fast-forward slider (1× to 32×). Useful for checking a route,
+the turn instructions and the announcements without moving the vehicle.
+
+**It is locked by default.** The simulator replaces the real GPS position for
+the whole add-on process, which must never happen by accident while driving.
+To unlock it:
+
+1. Settings → Add-ons → Yapaja Go → **Configuration**
+2. Tick `gps_simulator`, save
+3. **Restart** the add-on
+
+A flask button (🧪) then appears on the right-hand side of the map. Without
+the tick the button is not shown at all — a button that always fails is worse
+than no button.
+
+Plan a route first, then press **Route abfahren**. The panel shows how many
+sections are being driven with a *substitute* speed because no limit is known
+for them (`3/120 Abschnitte ohne Limit`) — a partly guessed run must not look
+like a fully known one.
+
+Turn the tick back off when you are done. The real position source takes over
+again after the next restart.
 
 ## MQTT
 

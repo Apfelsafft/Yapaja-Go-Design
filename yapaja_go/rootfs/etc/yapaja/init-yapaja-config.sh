@@ -69,6 +69,7 @@ fi
 LOG_LEVEL="$(bashio::config 'log_level')"
 PHOTON_XMX_MB="$(bashio::config 'photon_xmx_mb')"
 VALHALLA_MEMORY_MB="$(bashio::config 'valhalla_memory_mb')"
+GPS_SIMULATOR="$(bashio::config 'gps_simulator')"
 
 # --- Plausibilitäts-Kriterium (E08-T4): no region configured -> onboarding, ---
 # --- NOT a crash. We only LOG here; apps/core/src/ already starts cleanly  ---
@@ -165,6 +166,22 @@ export_env "LITE_SEARCH_DB_PATH" "${DATA_ROOT}/lite-search/lite_search.db"
 export_env "VALHALLA_URL" "http://127.0.0.1:8002"
 export_env "VALHALLA_MEMORY_MB" "${VALHALLA_MEMORY_MB}"
 export_env "PHOTON_ENABLED" "${PHOTON_ENABLED}"
+
+# ─── DEN TESTFAHRER FREISCHALTEN ───────────────────────────────────────────
+# Der Core laeuft hier mit NODE_ENV=production; dort antworten alle
+# Simulator-Routen mit 403, solange ENABLE_SIMULATOR nicht auf "1" steht.
+# Das ist die richtige Vorgabe: der Simulator kann beliebige Positionen
+# einspeisen und verdraengt dabei den echten Empfaenger -- auf einem
+# fahrenden Fahrzeug darf das nicht aus Versehen gehen.
+#
+# Die Variable wird nur GESETZT, wenn der Haken in der Konfiguration steht.
+# Sonst bleibt sie ungesetzt (und nicht etwa auf "0"), damit die Sperre
+# genau der Vorgabe des Cores entspricht und nicht einer zweiten,
+# hier nachgebauten Regel.
+if bashio::var.true "${GPS_SIMULATOR}"; then
+  export_env "ENABLE_SIMULATOR" "1"
+  bashio::log.warning "init-yapaja-config: GPS-Simulator ist FREIGESCHALTET -- er kann die echte Position verdraengen. Nur zum Testen einschalten."
+fi
 export_env "PHOTON_URL" "http://127.0.0.1:2322"
 export_env "PHOTON_XMX_MB" "${PHOTON_XMX_MB}"
 export_env "PHOTON_DATA_DIR" "${DATA_ROOT}/photon/photon_data"
@@ -236,4 +253,4 @@ else
   fi
 fi
 
-bashio::log.info "init-yapaja-config: done. region='${REGION:-<none, onboarding>}' photon_enabled=${PHOTON_ENABLED} gps_source=${GPS_SOURCE}"
+bashio::log.info "init-yapaja-config: done. region='${REGION:-<none, onboarding>}' photon_enabled=${PHOTON_ENABLED} gps_source=${GPS_SOURCE} gps_simulator=${GPS_SIMULATOR}"

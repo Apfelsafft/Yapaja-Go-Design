@@ -10,6 +10,49 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.5.8
+
+**Neu: eine Testfahrt, die die geplante Route von selbst abfährt.**
+
+> „Bitte füge einen GPS-Simulator ein, der die gewählte Route dann zum Test
+> abfährt. Die jeweilige Fahrgeschwindigkeit sollte der entsprechenden
+> Höchstgeschwindigkeit entsprechen. Und es sollte eine Art fast forward
+> geben, um die benötigte Zeit zu verkürzen. (2x, 4x, 8x, 16x, 32x und
+> zurück) eventuell als Schieberegler."
+
+Ein Knopf mit einem Kolben (🧪) rechts an der Karte. Route planen, „Route
+abfahren" drücken — Yapaja fährt sie ab, Abschnitt für Abschnitt mit dem dort
+geltenden Tempolimit. Pause, Weiter, Stopp. Der Zeitraffer ist ein
+Schieberegler mit den Stufen 1×, 2×, 4×, 8×, 16×, 32×, und er lässt sich
+**während der Fahrt** verstellen, ohne dass die Strecke von vorn beginnt.
+
+**Was ich dir dazu sagen muss: der Motor dafür war schon da.** Er konnte eine
+Strecke abspielen, kannte Abschnitts-Tempi und den Zeitraffer — seit Monaten.
+Erreichbar war er trotzdem nirgends: kein Knopf im Browser, niemand hat die
+Tempolimits der Route je in Abschnitts-Tempi übersetzt, und im Add-on
+antwortete er auf **jede** Anfrage mit „verboten". Drei Lücken, jede für sich
+unauffällig, zusammen eine Funktion, die es auf dem Papier gab und in
+Wirklichkeit nicht.
+
+**Wo kein Tempolimit bekannt ist, steht das da.** Das Panel zeigt zum Beispiel
+`3/120 Abschnitte ohne Limit` — dort wird mit einem Ersatzwert gefahren. Eine
+halb geratene Fahrt darf nicht aussehen wie eine belegte, sonst glaubt man den
+Zeiten hinterher.
+
+**Der Simulator ist ab Werk gesperrt, und das bleibt so.** Er ersetzt die echte
+GPS-Position für das ganze Add-on — auf einem fahrenden Fahrzeug darf das nicht
+aus Versehen passieren. Einschalten: Einstellungen → Add-ons → Yapaja Go →
+Konfiguration → Haken bei `gps_simulator` → Add-on neu starten. Ohne Haken
+erscheint der Knopf gar nicht erst. Kein SSH nötig, wie gewohnt.
+
+**Nebenbei aufgeräumt:** Die vier Knöpfe an der rechten oberen Kante hatten
+jeder seine eigene, von Hand geratene Höhe in vier verschiedenen Dateien —
+genau die Ausgangslage, aus der die Überlappungen entstanden sind, die du
+gemeldet hattest. Ein fünfter Knopf mit einer fünften geratenen Zahl hätte den
+Fehler wiederholt; sie stehen jetzt in einer gemeinsamen Reihe.
+
+---
+
 ## 0.5.7
 
 **Neu: Ankunftszeit, Restzeit und Entfernung stehen jetzt auf der Karte.**

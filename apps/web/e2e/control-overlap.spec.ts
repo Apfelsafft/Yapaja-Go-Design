@@ -103,6 +103,7 @@ const CONTROLS = [
   'regions-panel-toggle',
   'store-panel-toggle',
   'preflight-panel-toggle',
+  'simulator-panel-toggle',
   'speed-display',
   // Nur waehrend der Fahrt vorhanden:
   'maneuver-panel',

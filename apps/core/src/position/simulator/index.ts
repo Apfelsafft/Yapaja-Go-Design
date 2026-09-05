@@ -67,6 +67,16 @@ export interface PlayTrackPolyline {
   speedMs?: number;
   /** Per-segment speed (m/s); length must equal (decoded points - 1). */
   speedsMs?: number[];
+  /**
+   * Klartext fuer den Status, wenn der Aufrufer mehr weiss als „polyline6".
+   *
+   * Eine abgefahrene Route soll im Status als solche erkennbar sein --
+   * einschliesslich der Zahl der Abschnitte, fuer die kein Tempolimit
+   * bekannt war und mit einem Ersatzwert gefahren wird (siehe
+   * routeProfile.ts). Ohne diese Angabe saehe eine halb geratene Fahrt
+   * genauso aus wie eine vollstaendig belegte.
+   */
+  description?: string;
 }
 export type PlayTrackInput = PlayTrackGpxId | PlayTrackGpxInline | PlayTrackPolyline;
 
@@ -102,7 +112,7 @@ function clampSpeedFactor(value: number): number {
 function describeTrackInput(input: PlayTrackInput): string {
   if ('gpxId' in input) return `gpx:${input.gpxId}`;
   if ('gpx' in input) return 'gpx:inline';
-  return 'polyline6';
+  return input.description ?? 'polyline6';
 }
 
 function buildTrack(input: PlayTrackInput): Track {
@@ -172,6 +182,36 @@ export class SimulatorSource implements PositionSource {
     if (this.state !== 'paused') return;
     this.state = 'playing';
     this.scheduleNextTick();
+  }
+
+  /**
+   * Aendert den Zeitraffer waehrend der Wiedergabe.
+   *
+   * ─── WARUM DAS NICHT ueber play() GEHT ────────────────────────────────────
+   * `play()` beginnt IMMER bei t=0. Wer also unterwegs von 2x auf 8x wollte,
+   * haette die halbe Teststrecke noch einmal fahren muessen -- und genau das
+   * soll der Zeitraffer ja ersparen. Gemeldet wurde „2x, 4x, 8x, 16x, 32x und
+   * zurueck", also ein Regler waehrend der Fahrt, kein Startparameter.
+   *
+   * Der laufende Wecker wird sofort neu gestellt, damit die Aenderung nicht
+   * erst nach der alten Wartezeit greift (von 1x auf 32x waere das eine ganze
+   * Sekunde Verzoegerung -- spuerbar genug, um wie ein Fehler auszusehen).
+   *
+   * Die SIMULIERTE Zeit bleibt davon unberuehrt: `tickS` zaehlt nur in
+   * `tick()` hoch. Der Zeitraffer aendert, wie schnell die Wanduhr aufholt,
+   * nie die gefahrenen Werte selbst (docs/07 §2).
+   *
+   * @returns der tatsaechlich gesetzte Faktor (auf den erlaubten Bereich
+   *          begrenzt) -- der Aufrufer soll anzeigen koennen, was wirklich
+   *          gilt, statt was er angefragt hat.
+   */
+  setSpeedFactor(factor: number): number {
+    this.speedFactor = clampSpeedFactor(factor);
+    if (this.state === 'playing') {
+      this.clearTimer();
+      this.scheduleNextTick();
+    }
+    return this.speedFactor;
   }
 
   /** Suspends playback without losing position; resume() continues from here. No-op unless currently playing. */

@@ -41,11 +41,29 @@ export interface ValhallaStubTrip {
   maneuvers?: ValhallaStubManeuver[];
 }
 
+/** Eine Kante, wie `speedSegmentsFromTraceAttributes` sie erwartet. */
+export interface ValhallaStubEdge {
+  begin_shape_index: number;
+  end_shape_index: number;
+  /** km/h, oder Valhallas „unlimited"; fehlt = kein Limit bekannt. */
+  speed_limit?: number | 'unlimited';
+}
+
 export interface ValhallaStub {
   /** Base URL to point `VALHALLA_URL` at (already the case for the dedicated core, see `constants.ts`). */
   baseUrl: string;
   /** Sets the trip the NEXT `/route` call(s) resolve to. */
   setNextTrip(trip: ValhallaStubTrip): void;
+  /**
+   * Kanten fuer `/trace_attributes` -- daher kommen die Tempolimits einer
+   * Route (`RoutingService.enrichWithSpeedLimits`).
+   *
+   * `null` (die Vorgabe) heisst: der Stub antwortet mit 404, der Client
+   * meldet „keine Limits" und die Route bleibt ohne. Genau so verhielt sich
+   * der Stub bisher, und jeder bestehende Aufrufer bekommt unveraendert
+   * dieses Verhalten.
+   */
+  setTraceAttributesEdges(edges: ValhallaStubEdge[] | null): void;
   /** Number of `/route` POSTs received so far (proves a reroute was -- or wasn't -- attempted). */
   callCount(): number;
   /**
@@ -99,11 +117,27 @@ export async function startValhallaStub(
   let calls = 0;
   let lastCallAt: number | null = null;
   let lastCallAtHr: number | null = null;
+  let traceEdges: ValhallaStubEdge[] | null = null;
 
   const server: Server = createServer((req: IncomingMessage, res: ServerResponse) => {
     if (req.method === 'GET' && req.url === '/_calls') {
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ count: calls }));
+      return;
+    }
+    if (req.method === 'POST' && req.url === '/trace_attributes') {
+      // Ohne konfigurierte Kanten wie bisher: 404. Der Client faengt das ab
+      // und laesst die Route ohne Limits -- eine Route soll nicht an einem
+      // fehlenden Tempolimit scheitern.
+      void readBody(req).then(() => {
+        if (!traceEdges) {
+          res.writeHead(404);
+          res.end();
+          return;
+        }
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ edges: traceEdges }));
+      });
       return;
     }
     if (req.method !== 'POST' || req.url !== '/route') {
@@ -151,6 +185,9 @@ export async function startValhallaStub(
     baseUrl: `http://127.0.0.1:${port}`,
     setNextTrip: (t) => {
       trip = t;
+    },
+    setTraceAttributesEdges: (edges) => {
+      traceEdges = edges;
     },
     callCount: () => calls,
     lastCallAt: () => lastCallAt,

@@ -22,7 +22,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { fetchPreflight, type PreflightCheck, type PreflightReport } from './client';
 
-import { TOP_RIGHT_INSET_PX } from '../../shell/mapControlLayout.js';
+import { TOP_RIGHT_INSET_PX, topRightSlotPx } from '../../shell/mapControlLayout.js';
 const STATUS_ICON: Record<string, string> = {
   ok: '✓',
   warn: '!',
@@ -105,7 +105,7 @@ export default function PreflightPanel(): React.ReactElement {
   const toggleOpen = useCallback(() => setIsOpen((open) => !open), []);
 
   return (
-    <div className="fixed z-10" style={{ top: 208, right: TOP_RIGHT_INSET_PX }}>
+    <div className="fixed z-10" style={{ top: topRightSlotPx('preflight'), right: TOP_RIGHT_INSET_PX }}>
       {isOpen && (
         <div
           className="absolute top-14 right-0 mb-2 w-96 max-h-[75vh] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"

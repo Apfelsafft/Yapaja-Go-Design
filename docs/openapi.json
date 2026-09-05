@@ -571,6 +571,29 @@
         }
       }
     },
+    "/api/v1/simulator/speed": {
+      "post": {
+        "summary": "POST /api/v1/simulator/speed",
+        "tags": [
+          "Sonstige"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/simulator/pause": {
       "post": {
         "summary": "GPS-Simulator pausieren",

@@ -281,6 +281,23 @@ export const FLOW11_CORE_PORT = 4341;
 // wie bei SEARCH_SPEEDLOCK_CORE_PORT, und dieselbe Abhilfe.
 export const CONTROL_OVERLAP_CORE_PORT = 4352;
 
+// Eigener Core fuer simulator-ui.spec.ts.
+//
+// Zwei Gruende, und beide sind in diesem Verzeichnis schon dokumentiert:
+//
+//  1. Der Simulator PINNT die Positionsquelle prozessweit (`play` setzt
+//     `forcedSource`). Jeder andere Spec an diesem Core saehe ab dann die
+//     simulierten Positionen -- derselbe Grund, aus dem
+//     `SIMULATOR_CORE_PORT` fuer gps-loss.spec.ts existiert.
+//  2. Dieser Spec braucht ein echtes (Stub-)Valhalla hinter
+//     `RoutingService.createRoutes`: die Route muss WIRKLICH im
+//     Routen-Zwischenspeicher des Servers landen, sonst kann der Simulator
+//     sie nicht per `routeId` nachschlagen. Ein im Browser abgefangenes
+//     `POST /routes` (wie in den meisten Specs) fuellt diesen Speicher nicht.
+//     Gleiches Muster wie `PROFILE_REROUTE_CORE_PORT`.
+export const SIMULATOR_UI_CORE_PORT = 4353;
+export const SIMULATOR_UI_VALHALLA_PORT = 4354;
+
 export const FLOW2_CORE_BASE_URL = `http://127.0.0.1:${FLOW2_CORE_PORT}`;
 export const FLOW3_CORE_BASE_URL = `http://127.0.0.1:${FLOW3_CORE_PORT}`;
 export const FLOW3_VALHALLA_BASE_URL = `http://127.0.0.1:${FLOW3_VALHALLA_PORT}`;
@@ -292,3 +309,5 @@ export const FLOW10_REGISTRY_BASE_URL = `http://127.0.0.1:${FLOW10_REGISTRY_PORT
 export const FLOW11_CORE_BASE_URL = `http://127.0.0.1:${FLOW11_CORE_PORT}`;
 export const DIMENSIONS_CORE_BASE_URL = `http://127.0.0.1:${DIMENSIONS_CORE_PORT}`;
 export const CONTROL_OVERLAP_CORE_BASE_URL = `http://127.0.0.1:${CONTROL_OVERLAP_CORE_PORT}`;
+export const SIMULATOR_UI_CORE_BASE_URL = `http://127.0.0.1:${SIMULATOR_UI_CORE_PORT}`;
+export const SIMULATOR_UI_VALHALLA_BASE_URL = `http://127.0.0.1:${SIMULATOR_UI_VALHALLA_PORT}`;

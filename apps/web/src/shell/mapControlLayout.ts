@@ -111,10 +111,23 @@ export function rightStackRects(driveActive: boolean): { slot: RightStackSlot; b
  * Unsere Knoepfe standen auf `right-4` (16) und lagen damit mitten darin;
  * genau das ist „die Karteneinstellung über den Zoom-Einstellungen".
  *
- * 56 laesst 17 Punkte Luft zur MapLibre-Gruppe. Der Wert ist gemessen, nicht
- * geschaetzt -- und `control-overlap.spec.ts` misst nach.
+ * ─── WARUM DIESE ZAHL SEIT 0.5.8 GERECHNET UND NICHT GEMESSEN WIRD ─────────
+ * Sie stand auf 56 -- gemessen gegen die MapLibre-Gruppe, und dagegen stimmte
+ * sie auch. Nur beruecksichtigte sie den ZWEITEN Stapel nicht: die
+ * Fahr-Knoepfe am rechten Rand (`RIGHT_STACK`, `EDGE_INSET_PX` = 16, 48
+ * breit) belegen 16..64 vom Rand. Bei 56 belegte die obere Spalte 56..104 --
+ * acht Punkte Ueberschneidung.
+ *
+ * Aufgefallen ist das erst, als die obere Spalte auf vier Knoepfe wuchs und
+ * damit weit genug nach unten reichte, um den Fahr-Stapel zu treffen. Der
+ * Fehler war vorher schon da, nur ausser Reichweite -- `control-overlap.spec.ts`
+ * hat ihn beim vierten Knopf gefunden.
+ *
+ * Jetzt gerechnet statt geraten: hinter dem Fahr-Stapel, plus derselbe
+ * Zwischenraum wie zwischen dessen eigenen Knoepfen. Das ergibt 76 und
+ * laesst der MapLibre-Gruppe (10..39) erst recht Luft.
  */
-export const TOP_RIGHT_INSET_PX = 56;
+export const TOP_RIGHT_INSET_PX = EDGE_INSET_PX + FAB_SIZE_PX + STACK_GAP_PX;
 
 /**
  * Oberkante der Abbiege-Anzeige.
@@ -138,6 +151,35 @@ export const SPEED_LIMIT_SIGN_SIZE_PX = 64;
  * mitten in der Suche.
  */
 export const TOP_BAR_RIGHT_RESERVE_PX = TOP_RIGHT_INSET_PX + SPEED_LIMIT_SIGN_SIZE_PX + 8;
+
+/**
+ * Die Knopfsaeule am rechten oberen Rand, von oben nach unten.
+ *
+ * ─── WARUM DAS HIER STEHT ───────────────────────────────────────────────────
+ * Diese vier Knoepfe standen mit handgewaehlten `top`-Werten (80, 144, 208)
+ * in vier verschiedenen Dateien. Keine kannte ihre Nachbarn -- genau die
+ * Ausgangslage, die zu „die Karteneinstellung über den Zoom-Einstellungen"
+ * gefuehrt hat. Ein fuenfter Knopf mit einer fuenften geratenen Zahl haette
+ * denselben Fehler ein weiteres Mal gemacht.
+ *
+ * `0` gehoert MapLibres eigener Zoom-/Kompass-Gruppe; unsere Saeule beginnt
+ * darunter. Die Abstaende sind gemessen (Knopf 48 hoch, 16 Luft) und
+ * `control-overlap.spec.ts` misst nach.
+ */
+export const TOP_RIGHT_STACK = ['regions', 'store', 'preflight', 'simulator'] as const;
+export type TopRightSlot = (typeof TOP_RIGHT_STACK)[number];
+
+/** Oberkante der MapLibre-Gruppe bis zum ersten eigenen Knopf. */
+export const TOP_RIGHT_STACK_START_PX = 80;
+/** Mitte-zu-Mitte-Abstand zweier Knoepfe der Saeule (48 Knopf + 16 Luft). */
+export const TOP_RIGHT_STACK_STEP_PX = 64;
+
+export function topRightSlotPx(slot: TopRightSlot): number {
+  const index = TOP_RIGHT_STACK.indexOf(slot);
+  /* istanbul ignore next -- der Typ laesst nichts anderes zu */
+  if (index < 0) return TOP_RIGHT_STACK_START_PX;
+  return TOP_RIGHT_STACK_START_PX + index * TOP_RIGHT_STACK_STEP_PX;
+}
 
 /* ─── UNTERER RAND, MITTE ──────────────────────────────────────────────────*/
 

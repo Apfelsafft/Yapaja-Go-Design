@@ -81,6 +81,9 @@ import {
   FLOW11_CORE_BASE_URL,
   DIMENSIONS_CORE_PORT,
   CONTROL_OVERLAP_CORE_PORT,
+  SIMULATOR_UI_CORE_PORT,
+  SIMULATOR_UI_CORE_BASE_URL,
+  SIMULATOR_UI_VALHALLA_BASE_URL,
   CONTROL_OVERLAP_CORE_BASE_URL,
   DIMENSIONS_CORE_BASE_URL,
   STORE_REGISTRY_PORT,
@@ -362,6 +365,12 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   // control-overlap.spec.ts: eigener Core, damit seine Fahrt und die von
   // drive.spec.ts einander nicht sehen -- siehe CONTROL_OVERLAP_CORE_PORT.
   const controlOverlapCore = startCore(CONTROL_OVERLAP_CORE_PORT, FIXTURE_TILES_DIR);
+  // simulator-ui.spec.ts: eigener Core mit echtem (Stub-)Valhalla, damit
+  // die Route wirklich im Routen-Zwischenspeicher landet und der Simulator
+  // sie per `routeId` findet -- siehe SIMULATOR_UI_CORE_PORT.
+  const simulatorUiCore = startCore(SIMULATOR_UI_CORE_PORT, FIXTURE_TILES_DIR, {
+    VALHALLA_URL: SIMULATOR_UI_VALHALLA_BASE_URL,
+  });
 
   const allCores = [
     fixtureCore,
@@ -390,6 +399,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     flow11Core,
     dimensionsCore,
     controlOverlapCore,
+    simulatorUiCore,
   ];
 
   try {
@@ -420,6 +430,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       waitForHealth(FLOW11_CORE_BASE_URL, 20_000),
       waitForHealth(DIMENSIONS_CORE_BASE_URL, 20_000),
       waitForHealth(CONTROL_OVERLAP_CORE_BASE_URL, 20_000),
+      waitForHealth(SIMULATOR_UI_CORE_BASE_URL, 20_000),
     ]);
   } catch (err) {
     for (const core of allCores) core.kill();
@@ -458,6 +469,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       FLOW10_CORE_BASE_URL,
       FLOW11_CORE_BASE_URL,
       CONTROL_OVERLAP_CORE_BASE_URL,
+      SIMULATOR_UI_CORE_BASE_URL,
       // Onboarding ja -- sonst laege der Assistent vor dem Dialog, den
       // vehicle-dimensions.spec.ts pruefen will. Die MASSE bleiben hier
       // bewusst unbestaetigt (er fehlt in der Liste darunter).
@@ -492,6 +504,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       FLOW10_CORE_BASE_URL,
       FLOW11_CORE_BASE_URL,
       CONTROL_OVERLAP_CORE_BASE_URL,
+      SIMULATOR_UI_CORE_BASE_URL,
     ].map((baseUrl) => seedDimensionsConfirmed(baseUrl)),
   );
 

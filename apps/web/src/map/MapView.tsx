@@ -29,6 +29,7 @@ import StorePanel from '../store/StorePanel';
 import PreflightPanel from '../settings/preflight/PreflightPanel';
 import PerfOverlay from '../perf/PerfOverlay';
 import { startPerfWatchdog } from '../perf/perfWatchdog';
+import SimulatorPanel from '../simulator/SimulatorPanel.js';
 
 /** Identifies which (styleId, options, region) combination is currently
  *  applied to the live map, so the live-switch effect can tell "this is the
@@ -401,6 +402,11 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
           <RegionsPanel />
           <StorePanel />
           <PreflightPanel />
+          {/* Nur auf der laufenden Karte: der Testfahrer faehrt eine geplante
+              Route ab, und ohne Karte gibt es keine. Der Knopf erscheint
+              ausserdem nur, wenn der Simulator ueberhaupt freigeschaltet ist
+              (siehe SimulatorPanel). */}
+          <SimulatorPanel />
           <PerfOverlay />
           <RegionCoverageNotice />
         </>

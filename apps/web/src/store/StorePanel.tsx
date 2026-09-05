@@ -53,7 +53,7 @@ import {
   type PendingInstall,
 } from './client.js';
 
-import { TOP_RIGHT_INSET_PX } from '../shell/mapControlLayout.js';
+import { TOP_RIGHT_INSET_PX, topRightSlotPx } from '../shell/mapControlLayout.js';
 type InstallFlowState =
   | { kind: 'idle' }
   | { kind: 'beginning'; label: string }
@@ -311,7 +311,7 @@ export default function StorePanel(): React.ReactElement {
   // confirmed against gestures.spec.ts's zoom-in-button click (a `top-4`
   // placement here intercepted MapLibre's zoom control).
   return (
-    <div className="fixed z-10" style={{ top: 144, right: TOP_RIGHT_INSET_PX }}>
+    <div className="fixed z-10" style={{ top: topRightSlotPx('store'), right: TOP_RIGHT_INSET_PX }}>
       {isOpen && (
         <div
           className="absolute top-14 right-0 mb-2 w-96 max-h-[75vh] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"
