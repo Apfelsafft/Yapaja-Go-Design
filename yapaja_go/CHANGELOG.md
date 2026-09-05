@@ -10,6 +10,43 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.5.7
+
+**Neu: Ankunftszeit, Restzeit und Entfernung stehen jetzt auf der Karte.**
+
+> „Bitte füge bei aktiver Navigation weitere Infos ein. Entfernung,
+> geschätzte Dauer, geschätzte Ankunftszeit."
+
+Diese drei Werte hat Yapaja Go die ganze Zeit berechnet — sie waren nur
+nirgends zu sehen. Sie standen ausschließlich als Bausteine für ein selbst
+zusammengestelltes Dashboard bereit; wer keines gebaut hatte, bekam sie nie
+zu Gesicht. Jetzt stehen sie während der Fahrt unten in der Mitte.
+
+Fehlt ein Wert, steht dort ein Gedankenstrich und keine Null. Eine erfundene
+Ankunftszeit ist im Fahrzeug schlechter als eine fehlende, weil man sich
+danach richtet.
+
+**Neu: Die Karte zoomt während der Fahrt von selbst.**
+
+> „Füge bei der Navigation einen automatischen Zoom ein."
+
+Langsam heißt nah dran (man muss die Spur sehen), schnell heißt weiter weg
+(man will sehen, was kommt). Kurz vor einer Abbiegung holt die Karte immer
+heran, egal wie schnell du fährst.
+
+**Der Zoom stellt sich nie gegen dich.** Sobald du die Karte selbst anfasst,
+hält er zehn Sekunden lang still — dieselbe Pause, die auch das Mitziehen
+der Karte aussetzt. Und er arbeitet in Stufen statt stufenlos: eine stetig
+nachgeführte Karte zittert bei jeder Positionsmeldung ein Stück, was im
+fahrenden Fahrzeug besonders unangenehm ist.
+
+**Nebenbei behoben: ein Fehler in unserer eigenen Testtechnik.** Zwei
+Testdateien teilten sich denselben Testserver und liefen gleichzeitig — die
+eine sah dann die Fahrt der anderen. Das ist nichts, was du gemerkt hättest,
+aber es hätte irgendwann einen Fehler durchgelassen.
+
+---
+
 ## 0.5.6
 
 **Behoben: „GPS-Signal verloren", obwohl das Wohnmobil nur stand.**

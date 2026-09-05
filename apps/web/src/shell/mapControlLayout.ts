@@ -138,3 +138,17 @@ export const SPEED_LIMIT_SIGN_SIZE_PX = 64;
  * mitten in der Suche.
  */
 export const TOP_BAR_RIGHT_RESERVE_PX = TOP_RIGHT_INSET_PX + SPEED_LIMIT_SIGN_SIZE_PX + 8;
+
+/* ─── UNTERER RAND, MITTE ──────────────────────────────────────────────────*/
+
+/**
+ * Unterkante der Fahrtdaten (Ankunft / Restzeit / Entfernung).
+ *
+ * Mittig unten, weil dort waehrend der Fahrt nichts anderes liegt: die
+ * Fahrt-Bedienung und die Karten-Knoepfe stehen rechts, der Tacho links.
+ *
+ * 16 waere buendig mit der Fahrt-Bedienung -- bei schmalen Fenstern lagen
+ * beide dann nebeneinander auf derselben Hoehe und beruehrten sich. Der Wert
+ * hebt die Fahrtdaten darueber; `control-overlap.spec.ts` misst nach.
+ */
+export const TRIP_INFO_BOTTOM_PX = EDGE_INSET_PX;
