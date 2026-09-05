@@ -255,6 +255,14 @@ export const FLOW10_STORAGE_DIR = join(WEB_ROOT, 'e2e', '.tmp', 'addon-storage-f
 /** flow-11 (geolocation denied): must observe a Core that NEVER receives a
  *  browser position fix, so it cannot share a core with any spec that POSTs
  *  `/api/v1/position/browser` (position.spec.ts does, on CORE_PORT). */
+// Dedicated core for vehicle-dimensions.spec.ts: der EINZIGE Core, dessen
+// Fahrzeugmasse NICHT als bestaetigt geseedet werden (globalSetup tut das
+// fuer alle anderen, sonst laege der Dialog ueber 40+ Specs). Nur hier laesst
+// sich zeigen, dass der Sicherheitsdialog ueberhaupt erscheint -- und weil es
+// bewusst kein „Bestaetigung zuruecknehmen" gibt, geht das nur mit einer
+// eigenen, frischen Datenbank.
+export const DIMENSIONS_CORE_PORT = 4351;
+
 export const FLOW11_CORE_PORT = 4341;
 
 export const FLOW2_CORE_BASE_URL = `http://127.0.0.1:${FLOW2_CORE_PORT}`;
@@ -266,3 +274,4 @@ export const FLOW8_MQTT_BROKER_URL = `mqtt://127.0.0.1:${FLOW8_MQTT_PORT}`;
 export const FLOW10_CORE_BASE_URL = `http://127.0.0.1:${FLOW10_CORE_PORT}`;
 export const FLOW10_REGISTRY_BASE_URL = `http://127.0.0.1:${FLOW10_REGISTRY_PORT}`;
 export const FLOW11_CORE_BASE_URL = `http://127.0.0.1:${FLOW11_CORE_PORT}`;
+export const DIMENSIONS_CORE_BASE_URL = `http://127.0.0.1:${DIMENSIONS_CORE_PORT}`;

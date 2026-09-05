@@ -71,6 +71,8 @@ export interface DatabaseRow {
   avoid_ferry: number;
   avoid_unpaved: number;
   is_active: number;
+  /** Migration 005. `null`/fehlend = nie von einem Menschen bestaetigt. */
+  dimensions_confirmed_at?: string | null;
 }
 
 /**
@@ -93,6 +95,10 @@ export function rowToProfile(row: DatabaseRow): VehicleProfile {
       unpaved: row.avoid_unpaved === 1,
     },
     is_active: row.is_active === 1,
+    // `NULL` (nie bestaetigt) bleibt `null` -- siehe Migration 005. Ein
+    // fehlendes Feld darf hier NIE zu einem Zeitstempel werden: das hiesse
+    // „ein Mensch hat die Masse geprueft", und genau das ist unbekannt.
+    dimensions_confirmed_at: row.dimensions_confirmed_at ?? null,
   };
 }
 

@@ -32,7 +32,45 @@ const DEFAULT_PROFILE: Omit<VehicleProfile, 'id' | 'is_active'> = {
     ferry: false,
     unpaved: false,
   },
+  // GERATEN, nicht gemessen -- die Anwendung kann das Fahrzeug nicht kennen.
+  // `null` haelt genau das fest, damit die Oberflaeche es sagen kann, statt
+  // eine Vermutung wie eine Angabe aussehen zu lassen (Migration 005).
+  dimensions_confirmed_at: null,
 };
+
+/**
+ * Die vier Masse, die ueber die BEFAHRBARKEIT einer Kante entscheiden.
+ *
+ * `avg_speed_kmh` gehoert bewusst NICHT dazu: eine falsche Reisegeschwindigkeit
+ * macht die Ankunftszeit ungenau, nicht die Route unbefahrbar. Nur was
+ * `buildTruckCostingOptions` an Valhalla als physische Grenze reicht, zaehlt
+ * hier als Sicherheitsangabe.
+ */
+/**
+ * Was ein Aufrufer an einem Profil setzen darf.
+ *
+ * `dimensions_confirmed_at` ist ausdrücklich AUSGESCHLOSSEN: „ein Mensch hat
+ * die Masse bestaetigt" darf nur aus einer Handlung entstehen, nie daraus,
+ * dass jemand ein Feld mitschickt. Das war vorher nur ein Kommentar und ein
+ * Test -- jetzt sagt es der Typ, und ein Aufrufer kann es gar nicht erst
+ * versuchen.
+ */
+export type ProfileInput = Omit<VehicleProfile, 'id' | 'is_active' | 'dimensions_confirmed_at'>;
+
+export const SAFETY_DIMENSIONS = ['height_m', 'width_m', 'length_m', 'weight_t'] as const;
+
+/** Wahr, wenn `input` mindestens eine der Abmessungen auf einen ANDEREN Wert
+ *  setzt. Ein mitgeschickter, aber unveraenderter Wert zaehlt nicht -- sonst
+ *  wuerde ein Aufrufer, der einfach das ganze Profil zurueckschickt, eine
+ *  Bestaetigung ausloesen, die niemand gegeben hat. */
+export function dimensionsDiffer(
+  existing: VehicleProfile,
+  input: Partial<ProfileInput>,
+): boolean {
+  return SAFETY_DIMENSIONS.some(
+    (key) => input[key] !== undefined && input[key] !== existing[key],
+  );
+}
 
 export interface ProfileServiceOptions {
   onProfileChanged?: (profile: VehicleProfile) => void;
@@ -110,12 +148,15 @@ export class ProfileService {
   /**
    * Create a new profile (internally generated UUID, inert is_active=false)
    */
-  create(input: Omit<VehicleProfile, 'id' | 'is_active'>): VehicleProfile {
+  create(input: ProfileInput): VehicleProfile {
     const id = randomUUID();
     const profile: VehicleProfile = {
       ...input,
       id,
       is_active: false,
+      // Wer ein Profil anlegt, hat die Masse selbst eingetragen -- das IST
+      // die Bestaetigung. Mitschicken kann man sie nicht (`ProfileInput`).
+      dimensions_confirmed_at: new Date().toISOString(),
     };
     this.insertProfile(profile);
     this.onProfileListChanged?.();
@@ -125,7 +166,7 @@ export class ProfileService {
   /**
    * Update an existing profile (is_active cannot be changed via update)
    */
-  update(id: string, input: Partial<Omit<VehicleProfile, 'id' | 'is_active'>>): VehicleProfile {
+  update(id: string, input: Partial<ProfileInput>): VehicleProfile {
     const db = getDb();
     const existing = this.getById(id);
     if (!existing) {
@@ -137,12 +178,21 @@ export class ProfileService {
       ...input,
       id: existing.id,
       is_active: existing.is_active, // Prevent changing is_active
+      // Eine GEAENDERTE Abmessung ist eine bewusste Angabe eines Menschen und
+      // gilt damit als Bestaetigung. Ein blosses Umschalten von „Faehren
+      // meiden" dagegen nicht -- wer das tut, hat die Hoehe nicht geprueft,
+      // und ein Haken an der falschen Stelle darf keine Sicherheitsangabe
+      // erzeugen. `dimensions_confirmed_at` aus `input` wird ignoriert.
+      dimensions_confirmed_at: dimensionsDiffer(existing, input)
+        ? new Date().toISOString()
+        : existing.dimensions_confirmed_at,
     };
 
     const row = profileToRow(updated);
     db.prepare(
       `UPDATE profiles SET name=?, height_m=?, width_m=?, length_m=?, weight_t=?, avg_speed_kmh=?,
-       hazmat=?, avoid_motorway=?, avoid_toll=?, avoid_ferry=?, avoid_unpaved=? WHERE id=?`,
+       hazmat=?, avoid_motorway=?, avoid_toll=?, avoid_ferry=?, avoid_unpaved=?,
+       dimensions_confirmed_at=? WHERE id=?`,
     ).run(
       row.name,
       row.height_m,
@@ -155,6 +205,7 @@ export class ProfileService {
       row.avoid_toll,
       row.avoid_ferry,
       row.avoid_unpaved,
+      updated.dimensions_confirmed_at,
       id,
     );
 
@@ -223,13 +274,36 @@ export class ProfileService {
   /**
    * Internal: insert a profile (used by create and init)
    */
+  /**
+   * „Die Masse stimmen so" -- die Antwort auf den Hinweis in der Oberflaeche,
+   * ohne dass etwas geaendert werden muss.
+   *
+   * Es gibt bewusst KEIN Gegenstueck zum Zuruecknehmen: der Hinweis fragt
+   * nach einer Tatsache ueber das Fahrzeug, und die aendert sich nur, wenn
+   * sich das Fahrzeug aendert -- dann werden die Masse bearbeitet, und das
+   * setzt den Zeitstempel ohnehin neu.
+   */
+  confirmDimensions(id: string): VehicleProfile {
+    const db = getDb();
+    const existing = this.getById(id);
+    if (!existing) {
+      throw new Error(`Profile ${id} not found`);
+    }
+    const confirmedAt = new Date().toISOString();
+    db.prepare('UPDATE profiles SET dimensions_confirmed_at=? WHERE id=?').run(confirmedAt, id);
+    const updated: VehicleProfile = { ...existing, dimensions_confirmed_at: confirmedAt };
+    this.onProfileListChanged?.();
+    return updated;
+  }
+
   private insertProfile(profile: VehicleProfile): void {
     const db = getDb();
     const row = profileToRow(profile);
     db.prepare(
       `INSERT INTO profiles (id, name, height_m, width_m, length_m, weight_t, avg_speed_kmh,
-       hazmat, avoid_motorway, avoid_toll, avoid_ferry, avoid_unpaved, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       hazmat, avoid_motorway, avoid_toll, avoid_ferry, avoid_unpaved, is_active,
+       dimensions_confirmed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       row.id,
       row.name,
@@ -244,6 +318,7 @@ export class ProfileService {
       row.avoid_ferry,
       row.avoid_unpaved,
       row.is_active,
+      profile.dimensions_confirmed_at,
     );
   }
 }

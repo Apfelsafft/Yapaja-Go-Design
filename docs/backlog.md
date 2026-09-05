@@ -186,6 +186,80 @@ Ausführlich in `docs/gps-endgeraete.md` §5.
 
 ---
 
+## B-06 🟡 Build-Server: Karten zentral bauen statt auf jedem Gerät
+
+**Status:** zurückgestellt am 2026-09-05 durch Entscheidung des Betreibers
+(„Behalte den Buildserver im Hinterkopf. Lass uns lieber erstmal weiter an der
+Navigation arbeiten.").
+**Betrifft:** noch nichts im Code — dies ist ein Entwurf, keine angefangene
+Arbeit.
+
+### Worum es geht
+
+Kacheln, Routinggraph und Suchindex einmal zentral bauen und als fertige
+Dateien bereitstellen, statt sie auf jedem Gerät stundenlang zu bauen.
+
+### Was bereits vorhanden ist
+
+Die **Verbraucherseite existiert vollständig und ist getestet**:
+
+* `customSources.ts` — der Betreiber trägt eine eigene `.pmtiles`-URL **aus
+  der GUI** ein, ohne SSH;
+* `download.ts` — Resume, sha256-Prüfung, Platzprüfung, Job-Fortschritt;
+* `catalog.ts` — `CatalogEntry` mit optionalem `url` + `sha256` + `sizeBytes`.
+
+Ein Build-Server muss also **kein neues Add-on-Feature erfinden**. Er muss
+Dateien erzeugen und erreichbar ablegen.
+
+### Die Lücke, die zuerst geschlossen werden müsste
+
+Einen Download-Weg gibt es **nur für Kacheln**. Routinggraph und Suchindex
+lassen sich ausschließlich auf dem Gerät bauen — es existiert keine Route
+dafür. Ein Build-Server nähme dem Betreiber also vorerst nur **einen von drei**
+langen Bauten ab, und der Graph-Bau ist der längste.
+
+### Zahlen, die die Maschinenwahl entscheiden
+
+| | Wert | Quelle |
+|---|---|---|
+| Deutschland-Extrakt | 4607 MB | Bildschirmfoto des Betreibers |
+| Platzbedarf Kachelbau | Faktor 8 + 2 GB ≈ **39 GB** | `PMTILES_DISK_FACTOR` in `build-pmtiles.sh` |
+| VPS des Betreibers | 8 GB RAM / 100 GB Platte | Angabe des Betreibers |
+| HAOS-VM (Mini-PC) | 16 GB RAM / 50 GB Platte | Angabe des Betreibers |
+
+Der **VPS** ist die richtige Maschine: der Platz entscheidet, und der Mini-PC
+soll fahren, nicht bauen.
+
+### Was dabei ausdrücklich NICHT gemacht werden soll
+
+**Keine Builds ins Git-Repository laden.** Git speichert jede Version für
+immer, GitHub weist Dateien > 100 MB ab, LFS hat Kontingente — und der
+Add-on-Image-Bau zieht das Repo selbst als Tarball von `codeload.github.com`,
+ein fettes Repo bremst also jedes Add-on-Update. Der VPS soll die Dateien
+stattdessen selbst per HTTPS ausliefern; GitHub-Releases (2 GB je Datei)
+bleibt ein optionaler zweiter Schritt, falls die Builds anderen Nutzern
+angeboten werden sollen.
+
+### Offene Unbekannte
+
+Ob planetiler Deutschland mit dem Heap eines 8-GB-VPS durchbaut, ist **nicht
+belegt**. `--nodemap-type=sortedtable` ist bereits gesetzt (die
+speicherschonende Variante), und auf einem reinen Build-VPS darf der Heap weit
+über die 40-%-Regel hinaus, die nur existiert, weil das Add-on sich die Kiste
+mit Home Assistant teilt. Das klärt ein Testlauf mit Rheinland-Pfalz, keine
+Schätzung.
+
+Ebenfalls offen: OSM-Daten stehen unter ODbL — abgeleitete Kacheln
+weiterzugeben verlangt Namensnennung und Share-alike. Für den Eigenbedarf
+belanglos, beim Anbieten an Dritte nicht.
+
+### Woran man erkennt, dass es wieder aufgegriffen werden kann
+
+Wenn der Betreiber es sagt — oder wenn der Bau auf dem Gerät zum Blocker wird
+(mehrere Länder, regelmäßige Aktualisierung).
+
+---
+
 ## B-05 ✅ Position aus der Home-Assistant-App — ERLEDIGT 2026-09-03
 
 **Status:** offen, aufgenommen am 2026-09-02.

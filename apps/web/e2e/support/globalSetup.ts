@@ -79,6 +79,8 @@ import {
   FLOW10_STORAGE_DIR,
   FLOW11_CORE_PORT,
   FLOW11_CORE_BASE_URL,
+  DIMENSIONS_CORE_PORT,
+  DIMENSIONS_CORE_BASE_URL,
   STORE_REGISTRY_PORT,
   STORE_ADDONS_DIR,
   STORE_STORAGE_DIR,
@@ -193,6 +195,31 @@ async function seedOnboardingCompleted(baseUrl: string): Promise<void> {
       },
     }),
   });
+}
+
+/**
+ * Bestaetigt die Fahrzeugmasse des aktiven Profils auf jedem Core AUSSER dem
+ * Onboarding-Core -- aus demselben Grund wie `seedOnboardingCompleted`
+ * daneben: `UnconfirmedDimensionsBanner` ist ein Vollbild-Dialog, und ohne
+ * diesen Schritt laege er in jedem der 40+ bestehenden Specs ueber der
+ * Oberflaeche, auf der sie pruefen.
+ *
+ * Das ist keine Umgehung der Sicherheitsfrage, sondern ihr Normalfall: ein
+ * Betreiber beantwortet sie einmal, und danach ist sie beantwortet. Genau
+ * diesen Zustand stellt das hier her -- ueber dieselbe Route, die auch der
+ * Knopf in der Oberflaeche aufruft, nicht durch einen Schreibzugriff
+ * daneben.
+ *
+ * Dass der Dialog OHNE diesen Schritt erscheint, ist selbst eine Zusicherung
+ * und wird in `vehicle-dimensions.spec.ts` gegen einen eigenen, ungeseedeten
+ * Core geprueft.
+ */
+async function seedDimensionsConfirmed(baseUrl: string): Promise<void> {
+  const response = await fetch(`${baseUrl}/api/v1/profiles`);
+  const body = (await response.json()) as { data: { id: string; is_active: boolean }[] };
+  const active = body.data.find((p) => p.is_active) ?? body.data[0];
+  if (!active) return;
+  await fetch(`${baseUrl}/api/v1/profiles/${active.id}/confirm_dimensions`, { method: 'PUT' });
 }
 
 export default async function globalSetup(): Promise<() => Promise<void>> {
@@ -326,6 +353,10 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     ADDONS_REGISTRY_URL: `http://127.0.0.1:${FLOW10_REGISTRY_PORT}/index.json`,
   });
   const flow11Core = startCore(FLOW11_CORE_PORT, FIXTURE_TILES_DIR);
+  // vehicle-dimensions.spec.ts: bekommt das Onboarding geseedet (damit der
+  // Assistent nicht davorliegt), aber ABSICHTLICH keine bestaetigten Masse --
+  // siehe DIMENSIONS_CORE_PORT in constants.ts.
+  const dimensionsCore = startCore(DIMENSIONS_CORE_PORT, FIXTURE_TILES_DIR);
 
   const allCores = [
     fixtureCore,
@@ -352,6 +383,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     flow8Core,
     flow10Core,
     flow11Core,
+    dimensionsCore,
   ];
 
   try {
@@ -380,6 +412,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       waitForHealth(FLOW8_CORE_BASE_URL, 20_000),
       waitForHealth(FLOW10_CORE_BASE_URL, 20_000),
       waitForHealth(FLOW11_CORE_BASE_URL, 20_000),
+      waitForHealth(DIMENSIONS_CORE_BASE_URL, 20_000),
     ]);
   } catch (err) {
     for (const core of allCores) core.kill();
@@ -417,7 +450,40 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       FLOW8_CORE_BASE_URL,
       FLOW10_CORE_BASE_URL,
       FLOW11_CORE_BASE_URL,
+      // Onboarding ja -- sonst laege der Assistent vor dem Dialog, den
+      // vehicle-dimensions.spec.ts pruefen will. Die MASSE bleiben hier
+      // bewusst unbestaetigt (er fehlt in der Liste darunter).
+      DIMENSIONS_CORE_BASE_URL,
     ].map((baseUrl) => seedOnboardingCompleted(baseUrl)),
+  );
+
+  // Dieselbe Liste, derselbe Grund -- siehe `seedDimensionsConfirmed`.
+  await Promise.all(
+    [
+      CORE_BASE_URL,
+      EMPTY_CORE_BASE_URL,
+      SIMULATOR_CORE_BASE_URL,
+      SEARCH_CORE_BASE_URL,
+      FAVORITES_CORE_BASE_URL,
+      DRIVE_CORE_BASE_URL,
+      NAV_CONTROL_CORE_BASE_URL,
+      PROFILE_REROUTE_CORE_BASE_URL,
+      SHELL_CORE_BASE_URL,
+      SHELL_EDIT_CORE_BASE_URL,
+      DRIVE_LOCK_CORE_BASE_URL,
+      TOUCH_TARGETS_CORE_BASE_URL,
+      A11Y_CORE_BASE_URL,
+      PWA_CORE_BASE_URL,
+      ADDON_UI_CORE_BASE_URL,
+      ADDON_EXAMPLES_CORE_BASE_URL,
+      STORE_CORE_BASE_URL,
+      SEARCH_SPEEDLOCK_CORE_BASE_URL,
+      FLOW2_CORE_BASE_URL,
+      FLOW3_CORE_BASE_URL,
+      FLOW8_CORE_BASE_URL,
+      FLOW10_CORE_BASE_URL,
+      FLOW11_CORE_BASE_URL,
+    ].map((baseUrl) => seedDimensionsConfirmed(baseUrl)),
   );
 
   return async () => {

@@ -10,6 +10,46 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.5.3
+
+**Neu: Yapaja Go fragt einmal nach, ob die Maße deines Fahrzeugs stimmen.**
+
+Beim ersten Start legt das Add-on ein Profil „Camper" an — **3,00 m hoch,
+2,20 m breit, 6,50 m lang, 3,5 t**. Diese Zahlen sind **geraten**. Sie müssen
+es sein: die App kann dein Fahrzeug nicht kennen.
+
+Nur sah man ihnen das nicht an. Sie gingen genau wie gemessene Werte in die
+Routenplanung. Und der Weg daran vorbei stand offen:
+
+- der Fahrzeug-Schritt im Einrichtungsassistenten ließ sich **überspringen**;
+- losfahren durfte man schon, sobald der **Haftungshinweis** bestätigt war —
+  über die Maße sagte der nichts.
+
+Wer also den Hinweis bestätigt und den Fahrzeug-Schritt übersprungen hat, ist
+mit geratenen Maßen navigiert. Bei einem 3,20-m-Wohnmobil plant die Route dann
+mit 3,00 m: **20 cm zu niedrig**, und aufgefallen wäre es unter einer Brücke.
+
+Ab dieser Version fragt Yapaja Go **einmal** nach — mit den Zahlen im Klartext,
+damit ein falscher Wert sofort auffällt:
+
+> Routen werden gerade für **3,00 m hoch · 2,20 m breit · 6,50 m lang · 3,5 t**
+> geplant. Diese Werte sind eine Voreinstellung — sie wurden nie bestätigt.
+
+„Maße stimmen" beantwortet das dauerhaft. Wer die Maße im Fahrzeugprofil
+speichert, hat sie damit ebenfalls bestätigt — dann erscheint die Frage gar
+nicht erst.
+
+**Was das für dich heißt:** Nach dem Update kommt die Frage einmal, auch wenn
+du deine Maße längst eingetragen hast. Ob das jemals jemand bestätigt hat, war
+bis jetzt nirgends gespeichert, und eine Vermutung wäre hier der falsche Weg —
+gerade bei dieser Frage. Ein Klick, und sie ist weg.
+
+Zwei Dinge ausdrücklich **nicht**: Die Navigation wird **nicht** gesperrt, und
+während einer laufenden Fahrt erscheint die Frage **nicht** — ein Dialog über
+der Karte ist im Fahrzeug gefährlicher als die Frage, die er stellt.
+
+---
+
 ## 0.5.2
 
 **Behoben: das Add-on konnte nicht sagen, welche Version es ist.**

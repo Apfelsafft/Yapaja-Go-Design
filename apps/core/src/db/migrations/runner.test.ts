@@ -62,26 +62,60 @@ describe('runMigrations -- fresh schema', () => {
     db.close();
   });
 
-  it('is a byte-for-byte-schema match for the old inline createDb (same columns)', () => {
+  /**
+   * Die Spalten des alten, inline angelegten `createDb`-Schemas. Sie duerfen
+   * NIE verschwinden, sich umbenennen oder die Reihenfolge tauschen -- daran
+   * haengen bestehende Datenbanken auf echten Geraeten.
+   */
+  const INLINE_CREATEDB_PROFILE_COLS = [
+    'id',
+    'name',
+    'height_m',
+    'width_m',
+    'length_m',
+    'weight_t',
+    'avg_speed_kmh',
+    'hazmat',
+    'avoid_motorway',
+    'avoid_toll',
+    'avoid_ferry',
+    'avoid_unpaved',
+    'is_active',
+  ];
+
+  it('behaelt die Spalten des alten inline createDb unveraendert am Anfang', () => {
+    // Vorher stand hier `toEqual([...])` ueber ALLE Spalten nach ALLEN
+    // Migrationen. Das prueft zwei Dinge auf einmal und macht jede additive
+    // Migration rot, obwohl nichts verlorenging -- gemeint war aber „keine
+    // bestehende Spalte driftet". `ALTER TABLE ADD COLUMN` haengt in SQLite
+    // hinten an, also ist genau das der Praefix-Vergleich.
     const db = new Database(':memory:');
     runMigrations(db, ':memory:', MIGRATIONS);
 
     const profileCols = (db.prepare(`PRAGMA table_info(profiles)`).all() as { name: string }[]).map((c) => c.name);
-    expect(profileCols).toEqual([
-      'id',
-      'name',
-      'height_m',
-      'width_m',
-      'length_m',
-      'weight_t',
-      'avg_speed_kmh',
-      'hazmat',
-      'avoid_motorway',
-      'avoid_toll',
-      'avoid_ferry',
-      'avoid_unpaved',
-      'is_active',
-    ]);
+    expect(profileCols.slice(0, INLINE_CREATEDB_PROFILE_COLS.length)).toEqual(
+      INLINE_CREATEDB_PROFILE_COLS,
+    );
+    db.close();
+  });
+
+  it('legt die Bestaetigungs-Spalte an, und zwar nullbar', () => {
+    // Migration 005. `NULL` muss moeglich sein: es ist die Angabe „nie von
+    // einem Menschen bestaetigt", und fuer Altbestand die einzige ehrliche.
+    // Ein `NOT NULL DEFAULT ...` haette jeder bestehenden Zeile eine
+    // Bestaetigung angedichtet, die niemand gegeben hat.
+    const db = new Database(':memory:');
+    runMigrations(db, ':memory:', MIGRATIONS);
+
+    const cols = db.prepare(`PRAGMA table_info(profiles)`).all() as {
+      name: string;
+      notnull: number;
+      dflt_value: string | null;
+    }[];
+    const confirmed = cols.find((c) => c.name === 'dimensions_confirmed_at');
+    expect(confirmed).toBeDefined();
+    expect(confirmed?.notnull).toBe(0);
+    expect(confirmed?.dflt_value).toBeNull();
     db.close();
   });
 });

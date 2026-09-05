@@ -11,6 +11,7 @@ import HandednessController from './shell/HandednessController.js';
 import TopBar from './shell/TopBar.js';
 import UpdatePrompt from './pwa/UpdatePrompt.js';
 import OnboardingWizard from './onboarding/OnboardingWizard.js';
+import UnconfirmedDimensionsBanner from './profiles/UnconfirmedDimensionsBanner.js';
 import AddonHost from './addons/AddonHost.js';
 
 export default function App(): React.ReactElement {
@@ -31,7 +32,11 @@ export default function App(): React.ReactElement {
       {/* Tacho: haengt an der Position, also auch ohne laufende Navigation da. */}
       <SpeedDisplay />
       <UpdatePrompt />
+      {/* Sicherheitshinweis, solange die Fahrzeugmasse nie bestaetigt wurden.
+          Er blendet sich selbst aus, solange der Assistent laeuft (beide sind
+          `z-50`-Overlays) -- siehe UnconfirmedDimensionsBanner.tsx. */}
       <OnboardingWizard />
+      <UnconfirmedDimensionsBanner />
       {/* E09-T2: sandboxed UI add-on runtime (iframes + scope-checked bridge,
           add-on widgets, route-proposal banner). Renders nothing until an
           enabled UI add-on is installed. */}

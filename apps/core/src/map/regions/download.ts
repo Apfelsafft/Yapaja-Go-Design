@@ -105,17 +105,62 @@ interface StreamToFileParams {
 function streamToFile({ url, dest, resumeFrom, jobId, jobs }: StreamToFileParams): Promise<void> {
   return new Promise((resolvePromise, rejectPromise) => {
     let settled = false;
+    /**
+     * Der Schreibstrom, sobald er existiert. Wird bei einem Abbruch
+     * gebraucht -- siehe `settleErr`.
+     */
+    let outStream: import('fs').WriteStream | null = null;
+
     const settleOk = (): void => {
       if (!settled) {
         settled = true;
         resolvePromise();
       }
     };
+
+    /**
+     * ─── WARUM HIER AUF DEN SCHREIBSTROM GEWARTET WIRD ──────────────────────
+     * Bei `res.pipe(out)` bricht eine zerstoerte Verbindung sofort mit
+     * `error` durch. Vorher wurde direkt abgelehnt -- waehrend `out` noch
+     * empfangene Bytes im Puffer hatte, die nie auf die Platte kamen.
+     *
+     * Das ist kein Schoenheitsfehler: der einzige Zweck der `.part`-Datei ist,
+     * empfangene Bytes fuer den naechsten Versuch zu BEHALTEN. Wurden sie
+     * verworfen, laedt der Wiederaufnahme-Versuch sie erneut -- bei einem
+     * 4,6-GB-Extrakt ueber eine langsame Leitung ist das der Unterschied
+     * zwischen „macht dort weiter" und „faengt von vorn an".
+     *
+     * Aufgefallen als sprunghafter Test: `routes.test.ts` fand die
+     * `.part`-Datei unter CI-Last mit 0 Bytes vor, obwohl der Stub-Server die
+     * Haelfte geschickt hatte. Isoliert lief er 5/5 durch -- der Test war
+     * nicht kaputt, er hat nur ein echtes Wettrennen sichtbar gemacht.
+     *
+     * `end()` leert den Puffer und schliesst; erst danach wird abgelehnt. Ein
+     * Fehler beim Schliessen wird verschluckt: der urspruengliche
+     * Netzwerkfehler ist die Ursache und soll die Meldung bleiben.
+     *
+     * ─── WARUM HIER KEIN EIGENER TEST STEHT ─────────────────────────────────
+     * Nicht aus Nachlaessigkeit: ein deterministischer Test kann das nicht
+     * zeigen. Ohne Last ist der Puffer laengst geschrieben, bevor irgendetwas
+     * nachsehen kann -- gemessen liefern behobene und kaputte Fassung
+     * dieselbe Dateigroesse (bei 16 MB schrieb die KAPUTTE sogar mehr, also
+     * Rauschen statt Signal). Ein Test, der beides nicht unterscheiden kann,
+     * ist keine Absicherung, sondern nur eine Behauptung.
+     *
+     * Belegt ist es stattdessen durch Last, mit `routes.test.ts` als Sonde:
+     * 8 parallele Laeufe -> 1 rot ohne diese Zeilen (`partSize` war 0);
+     * 16 parallele Laeufe -> 0 rot mit ihnen.
+     */
     const settleErr = (err: Error): void => {
-      if (!settled) {
-        settled = true;
+      if (settled) return;
+      settled = true;
+      const stream = outStream;
+      if (!stream || stream.closed) {
         rejectPromise(err);
+        return;
       }
+      stream.end(() => rejectPromise(err));
+      stream.on('error', () => rejectPromise(err));
     };
 
     const headers: Record<string, string> = {};
@@ -145,6 +190,8 @@ function streamToFile({ url, dest, resumeFrom, jobId, jobs }: StreamToFileParams
           dest,
           writeStart > 0 ? { flags: 'r+', start: writeStart } : { flags: 'w' },
         );
+
+        outStream = out;
 
         let bytesWritten = writeStart;
         const contentLengthHeader = res.headers['content-length'];

@@ -320,6 +320,7 @@ describe('navigation REST plugin — POST /navigation/destination (E04-T5)', () 
       hazmat: false,
       avoid: { motorway: false, toll: false, ferry: false, unpaved: false },
       is_active: true,
+      dimensions_confirmed_at: null,
     };
   }
 
@@ -625,6 +626,7 @@ describe('navigation REST plugin — POST /navigation/profile_change/confirm (E0
         hazmat: false,
         avoid: { motorway: false, toll: false, ferry: false, unpaved: false },
         is_active: true,
+        dimensions_confirmed_at: null,
       },
       pB: {
         id: 'pB',
@@ -637,6 +639,7 @@ describe('navigation REST plugin — POST /navigation/profile_change/confirm (E0
         hazmat: false,
         avoid: { motorway: false, toll: false, ferry: false, unpaved: false },
         is_active: false,
+        dimensions_confirmed_at: null,
       },
     };
     let activeId = 'pA';
