@@ -15,13 +15,14 @@ import { useNavState, useNavStore } from './navStore.js';
 import { useRoutingStore } from '../routing/store.js';
 import { ManeuverArrow } from './arrows.js';
 import { formatDistance } from '../routing/format.js';
+import { MANEUVER_PANEL_TOP_PX } from '../shell/mapControlLayout.js';
 
-const DRIVE_ACTIVE_STATUSES: ReadonlySet<NavState['status']> = new Set(['navigating', 'off_route', 'paused']);
-
-/** Whether the Drive UI (maneuver panel, speed sign, TTS) should be shown for this `nav/state` status. */
-export function isDriveActive(status: NavState['status'] | null | undefined): boolean {
-  return status != null && DRIVE_ACTIVE_STATUSES.has(status);
-}
+// Liegt seit 0.5.5 in `driveActive.ts` -- ein komponentenfreies Modul, damit
+// auch die Karten-Knoepfe es benutzen koennen, ohne eine React-Komponente zu
+// importieren. Hier nur noch weitergereicht, damit bestehende Aufrufer
+// unveraendert bleiben.
+export { isDriveActive } from './driveActive.js';
+import { isDriveActive } from './driveActive.js';
 
 export interface FollowingManeuver {
   type: Maneuver['type'];
@@ -83,7 +84,8 @@ export default function ManeuverPanel(props: ManeuverPanelProps = {}): React.Rea
   return (
     <div
       data-testid="maneuver-panel"
-      className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 rounded-2xl bg-slate-900/90 text-white px-4 py-3 shadow-lg pointer-events-none"
+      style={{ top: MANEUVER_PANEL_TOP_PX }}
+      className="absolute left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 rounded-2xl bg-slate-900/90 text-white px-4 py-3 shadow-lg pointer-events-none"
     >
       <ManeuverArrow type={maneuver.type} className="shrink-0" />
       <div className="flex flex-col">

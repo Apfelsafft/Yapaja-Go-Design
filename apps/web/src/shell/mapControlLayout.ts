@@ -1,0 +1,140 @@
+/**
+ * Wo die Bedienelemente auf der Karte liegen -- an EINER Stelle.
+ *
+ * ─── DIE MELDUNG ────────────────────────────────────────────────────────────
+ * „Wir haben viele Knöpfe und Anzeigen auf der Karte, die sich teilweise
+ * überlappen. Bspw. wenn die Navigation aktiv ist, liegen die neuen Buttons
+ * über der Zentrierung. Die nächste Abbiegung über der Suchzeile. Oder aber
+ * auch die Karteneinstellung über den Zoom-Einstellungen der Karte."
+ *
+ * ─── WARUM DAS PASSIERT IST ─────────────────────────────────────────────────
+ * Jedes Overlay hat seine Position SELBST gewaehlt: `bottom-20`, `bottom-24`,
+ * `bottom-[120px]`, `bottom-36`, `top-3`, `top-20`, `top-36`, `top-52` --
+ * verteilt ueber ein Dutzend Dateien, keine kannte ihre Nachbarn.
+ * `DriveOverlay.tsx` begruendete seinen Abstand sogar ausdruecklich, aber nur
+ * gegenueber `DriveControls`; die drei Karten-Knoepfe auf derselben Seite
+ * kamen darin gar nicht vor.
+ *
+ * Gemessen (`e2e/control-overlap.spec.ts`) waren es fuenf Ueberlappungen:
+ *
+ *     search-input        <-> maneuver-panel          4442 / 5878 qpx
+ *     viewmode-button     <-> tts-toggle              1536 qpx
+ *     recenter-button     <-> tts-toggle               768 qpx
+ *     speed-limit-sign    <-> maplibre-zoom-controls  1728 qpx
+ *     regions-panel-toggle<-> maplibre-zoom-controls   391 qpx
+ *
+ * ─── DIE REGEL ──────────────────────────────────────────────────────────────
+ * Die Werte stehen jetzt hier, und die Komponenten lesen sie. Wer eine
+ * Position aendert, aendert sie an einer Stelle -- und `control-overlap.spec.ts`
+ * misst die ECHTEN Kaesten im Browser nach, kann also nicht von dieser Datei
+ * abdriften.
+ */
+
+/* ─── RECHTER RAND, VON UNTEN ──────────────────────────────────────────────
+ * Eine Spalte, in der sich alles stapelt: waehrend der Fahrt zuunterst die
+ * Fahrt-Bedienung, darueber die Ansagen-Taste, darueber die drei
+ * Karten-Knoepfe. Ohne Fahrt faellt der untere Teil weg und die Knoepfe
+ * ruecken nach.
+ */
+
+/** Abstand zum unteren Rand. */
+export const EDGE_INSET_PX = 16;
+/** Luft zwischen zwei gestapelten Elementen. */
+export const STACK_GAP_PX = 12;
+/** Kantenlaenge der runden Karten-Knoepfe (`w-12 h-12`). */
+export const FAB_SIZE_PX = 48;
+/** Hoehe der Ansagen-Taste (`min-h-[64px]`). */
+export const TTS_HEIGHT_PX = 64;
+/**
+ * Hoehe des Fahrt-Bedienblocks (Pause/Stopp).
+ *
+ * Die Knoepfe sind `min-h-[64px]` und stehen in einer Spalte mit `gap-2`.
+ * Zwei davon waeren 136 -- gerechnet wird mit dem Platz fuer ZWEI, weil
+ * „Pause" und „Stopp" beide da sind, sobald gefahren wird.
+ */
+export const DRIVE_CONTROLS_HEIGHT_PX = 64 * 2 + 8;
+
+/** Ein Platz in der rechten Spalte, von unten nach oben. */
+export type RightStackSlot = 'drive-controls' | 'tts' | 'viewmode' | 'compass' | 'recenter';
+
+interface StackEntry {
+  slot: RightStackSlot;
+  heightPx: number;
+  /** Nur waehrend einer laufenden Fahrt vorhanden. */
+  driveOnly: boolean;
+}
+
+/** Die Reihenfolge von unten nach oben. Wer hier etwas einfuegt, verschiebt
+ *  automatisch alles darueber -- das ist der ganze Zweck. */
+const RIGHT_STACK: readonly StackEntry[] = [
+  { slot: 'drive-controls', heightPx: DRIVE_CONTROLS_HEIGHT_PX, driveOnly: true },
+  { slot: 'tts', heightPx: TTS_HEIGHT_PX, driveOnly: true },
+  { slot: 'viewmode', heightPx: FAB_SIZE_PX, driveOnly: false },
+  { slot: 'compass', heightPx: FAB_SIZE_PX, driveOnly: false },
+  { slot: 'recenter', heightPx: FAB_SIZE_PX, driveOnly: false },
+];
+
+/**
+ * Der Abstand dieses Platzes zum unteren Rand, in Bildpunkten.
+ *
+ * Waehrend der Fahrt zaehlen alle Eintraege, sonst nur die, die es ohne Fahrt
+ * gibt -- so ruecken die Karten-Knoepfe nach unten, statt eine Luecke zu
+ * lassen, wo die Fahrt-Bedienung waere.
+ */
+export function rightStackBottomPx(slot: RightStackSlot, driveActive: boolean): number {
+  let bottom = EDGE_INSET_PX;
+  for (const entry of RIGHT_STACK) {
+    if (entry.driveOnly && !driveActive) continue;
+    if (entry.slot === slot) return bottom;
+    bottom += entry.heightPx + STACK_GAP_PX;
+  }
+  // Ein Platz, den es in diesem Zustand nicht gibt (etwa `tts` ohne Fahrt):
+  // der Aufrufer rendert dann ohnehin nichts.
+  return bottom;
+}
+
+/** Die belegten Bereiche der rechten Spalte -- fuer den Test. */
+export function rightStackRects(driveActive: boolean): { slot: RightStackSlot; bottom: number; top: number }[] {
+  return RIGHT_STACK.filter((e) => driveActive || !e.driveOnly).map((entry) => {
+    const bottom = rightStackBottomPx(entry.slot, driveActive);
+    return { slot: entry.slot, bottom, top: bottom + entry.heightPx };
+  });
+}
+
+/* ─── OBERER RAND ──────────────────────────────────────────────────────────*/
+
+/**
+ * Abstand vom RECHTEN Rand fuer alles, was oben rechts liegt.
+ *
+ * MapLibre setzt seine eigene Zoom-/Kompass-Gruppe nach oben rechts. Gemessen
+ * ist sie 29 Bildpunkte breit und sitzt 10 vom Rand -- belegt also 10..39.
+ * Unsere Knoepfe standen auf `right-4` (16) und lagen damit mitten darin;
+ * genau das ist „die Karteneinstellung über den Zoom-Einstellungen".
+ *
+ * 56 laesst 17 Punkte Luft zur MapLibre-Gruppe. Der Wert ist gemessen, nicht
+ * geschaetzt -- und `control-overlap.spec.ts` misst nach.
+ */
+export const TOP_RIGHT_INSET_PX = 56;
+
+/**
+ * Oberkante der Abbiege-Anzeige.
+ *
+ * Sie stand auf `top-3` (12) und lag damit ueber der Suchzeile -- die
+ * `TopBar` beginnt bei 0 und ist gemessen 62 Punkte hoch. Darunter statt
+ * darueber.
+ */
+export const TOP_BAR_HEIGHT_PX = 62;
+export const MANEUVER_PANEL_TOP_PX = TOP_BAR_HEIGHT_PX + 10;
+
+/** Kantenlaenge des runden Tempolimit-Schilds (`w-16 h-16`). */
+export const SPEED_LIMIT_SIGN_SIZE_PX = 64;
+
+/**
+ * Wie viel Platz die `TopBar` am rechten Rand freilassen muss.
+ *
+ * In ihrem Band liegen MapLibres Zoom-Gruppe (10..39 vom Rand) und das
+ * Tempolimit-Schild (`TOP_RIGHT_INSET_PX` .. + 64). Die Suchzeile darf nicht
+ * darunter durchlaufen -- vorher stand dort `pr-16` (64), und das Schild lag
+ * mitten in der Suche.
+ */
+export const TOP_BAR_RIGHT_RESERVE_PX = TOP_RIGHT_INSET_PX + SPEED_LIMIT_SIGN_SIZE_PX + 8;

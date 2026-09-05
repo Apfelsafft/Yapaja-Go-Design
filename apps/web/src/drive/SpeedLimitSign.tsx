@@ -9,6 +9,7 @@ import React from 'react';
 import type { NavState } from '@yapaja/shared';
 import { useNavState, useNavStore } from './navStore.js';
 import { isDriveActive } from './ManeuverPanel.js';
+import { TOP_RIGHT_INSET_PX } from '../shell/mapControlLayout.js';
 
 /**
  * Ab wie viel km/h ueber dem Limit das Schild rot wird.
@@ -54,7 +55,8 @@ export default function SpeedLimitSign(props: SpeedLimitSignProps = {}): React.R
     <div
       data-testid="speed-limit-sign"
       data-speeding={speeding ? 'true' : 'false'}
-      className={`absolute top-3 right-3 z-20 flex items-center justify-center w-16 h-16 rounded-full border-4 shadow-lg ${
+      style={{ right: TOP_RIGHT_INSET_PX }}
+      className={`absolute top-3 z-20 flex items-center justify-center w-16 h-16 rounded-full border-4 shadow-lg ${
         speeding ? 'bg-red-600 border-red-700' : 'bg-white border-red-600'
       }`}
     >

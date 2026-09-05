@@ -35,6 +35,7 @@ import {
   type JobSnapshot,
 } from './client';
 
+import { TOP_RIGHT_INSET_PX } from '../../shell/mapControlLayout.js';
 const JOB_POLL_INTERVAL_MS = 400;
 
 function formatBytes(bytes: number): string {
@@ -317,7 +318,7 @@ export default function RegionsPanel(): React.ReactElement {
   const downloadableCatalog = catalog.filter((entry) => !entry.installed);
 
   return (
-    <div className="fixed top-20 right-4 z-10">
+    <div className="fixed z-10" style={{ top: 80, right: TOP_RIGHT_INSET_PX }}>
       {isOpen && (
         <div
           className="absolute top-14 right-0 mb-2 w-80 max-h-[70vh] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"

@@ -23,6 +23,7 @@ import ProfileChangeBanner from '../profiles/ProfileChangeBanner.js';
 import { announce, cancelSpeech, isSpeechAvailable } from './tts.js';
 import { useHandednessStore } from '../shell/handednessStore.js';
 import { sideClassFor } from '../shell/handedness.js';
+import { rightStackBottomPx } from '../shell/mapControlLayout.js';
 
 function TtsToggle(): React.ReactElement {
   const enabled = useTtsStore((state) => state.enabled);
@@ -46,7 +47,8 @@ function TtsToggle(): React.ReactElement {
       // vs bottom-4, i.e. ~80px) comfortably clears the ≥8px spacing
       // requirement. Mirrors to the configured LHD/RHD side, same as
       // `DriveControls.tsx`.
-      className={`absolute bottom-24 ${sideClassFor(handedness)} z-20 min-h-[64px] min-w-[64px] rounded-full bg-slate-900/90 text-white px-3 py-2 text-sm font-medium shadow-lg`}
+      style={{ bottom: rightStackBottomPx('tts', true) }}
+      className={`absolute ${sideClassFor(handedness)} z-20 min-h-[64px] min-w-[64px] rounded-full bg-slate-900/90 text-white px-3 py-2 text-sm font-medium shadow-lg`}
     >
       {enabled ? '🔊 Ansagen an' : '🔇 Ansagen aus'}
     </button>
