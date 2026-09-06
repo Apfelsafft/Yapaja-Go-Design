@@ -34,6 +34,8 @@ import React from 'react';
 
 interface CrashScreenState {
   error: Error | null;
+  /** Die Komponentenspur von React -- sie NENNT die Stelle. */
+  componentStack: string | null;
 }
 
 interface CrashScreenProps {
@@ -45,23 +47,46 @@ interface CrashScreenProps {
 export default class CrashScreen extends React.Component<CrashScreenProps, CrashScreenState> {
   constructor(props: CrashScreenProps) {
     super(props);
-    this.state = { error: null };
+    this.state = { error: null, componentStack: null };
   }
 
   static getDerivedStateFromError(error: Error): CrashScreenState {
-    return { error };
+    // Die Spur kommt erst in `componentDidCatch` -- hier nur der Fehler.
+    return { error, componentStack: null };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
-    // In die Konsole, damit der Fehler im Protokoll des Browsers steht --
-    // und mit der Komponentenspur, die React mitliefert. Ohne sie steht da
-    // nur „irgendwo".
     console.error('Yapaja: Oberflaeche abgestuerzt', error, info.componentStack);
+    // ─── DIE SPUR GEHOERT AUF DEN BILDSCHIRM, NICHT NUR INS PROTOKOLL ────────
+    // Beim ersten Absturz stand hier nur die Meldung („Maximum call stack size
+    // exceeded."). Die sagt, WAS passiert ist, aber nicht WO -- und an die
+    // Browser-Konsole kommt auf einem Tablet im Fahrzeug niemand heran.
+    // React liefert die Komponentenspur mit; sie nennt die Stelle.
+    this.setState({ componentStack: info.componentStack ?? null });
     this.props.onError?.(error);
   }
 
   private reload = (): void => {
     window.location.reload();
+  };
+
+  /** Alles, was zum Weitergeben taugt, in einem Stueck. */
+  private report(): string {
+    const { error, componentStack } = this.state;
+    return [
+      error?.message ?? String(error),
+      error?.stack ?? '',
+      componentStack ?? '',
+    ]
+      .filter((teil) => teil.trim().length > 0)
+      .join('\n\n');
+  }
+
+  private copy = (): void => {
+    // Ohne Erfolgsmeldung: der Text steht ohnehin sichtbar da, und eine
+    // Zwischenablage, die im Ingress-Rahmen gesperrt ist, soll hier keine
+    // Fehlermeldung ueber die Fehlermeldung legen.
+    void navigator.clipboard?.writeText(this.report()).catch(() => undefined);
   };
 
   render(): React.ReactNode {
@@ -90,17 +115,25 @@ export default class CrashScreen extends React.Component<CrashScreenProps, Crash
           Anzeige neu laden
         </button>
 
-        <details className="max-w-md text-left text-xs text-slate-600 dark:text-slate-300">
+        <details className="w-full max-w-2xl text-left text-xs text-slate-600 dark:text-slate-300">
           <summary className="cursor-pointer">Was ist passiert?</summary>
           <p className="mt-2">
             Bitte diesen Text weitergeben — ohne ihn lässt sich der Fehler nicht finden:
           </p>
           <pre
-            className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-slate-100 p-2 dark:bg-slate-800"
+            className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-slate-100 p-2 dark:bg-slate-800"
             data-testid="crash-message"
           >
-            {error.message || String(error)}
+            {this.report()}
           </pre>
+          <button
+            type="button"
+            onClick={this.copy}
+            className="mt-2 min-h-[44px] rounded-lg border border-slate-300 px-4 text-xs dark:border-slate-600"
+            data-testid="crash-copy"
+          >
+            Text kopieren
+          </button>
         </details>
       </div>
     );
