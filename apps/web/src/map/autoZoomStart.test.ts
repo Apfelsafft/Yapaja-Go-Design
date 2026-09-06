@@ -147,8 +147,11 @@ describe('fluessig statt sprunghaft', () => {
   });
 
   it('bei sehr kurzen Abstaenden wird gesprungen', () => {
-    // Zeitraffer 32x: alle ~31 ms eine Meldung. Eine Animation darueber
-    // kostet mehr, als sie glaettet.
+    // Hier stand als Begruendung „Zeitraffer 32x: alle ~31 ms eine Meldung".
+    // Das ist nachgemessen falsch -- der Core drosselt auf `rateHz` (Vorgabe
+    // 1 Hz), auch im Zeitraffer. Gemeint ist ein Buendel dicht aufeinander
+    // folgender Meldungen, etwa nach einer Wiederverbindung: eine Animation
+    // ueber wenige Millisekunden kostet mehr, als sie glaettet.
     expect(followAnimationMs(31)).toBeNull();
     expect(followAnimationMs(0)).toBeNull();
   });

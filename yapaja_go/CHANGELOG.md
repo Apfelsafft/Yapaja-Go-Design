@@ -10,6 +10,41 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.6.6
+
+**Der blaue Punkt springt nicht mehr — er fährt.**
+
+Gemeldet: *„Die Navigation wirkt immer noch abgehakt und nicht smooth. Der
+blaue Punkt springt immer von Punkt zu Punkt anstelle sich flüssig zu
+bewegen."* Mit dem Verdacht, der Simulator liefere zu grobe Punkte.
+
+Erst nachgemessen. Der Verdacht stimmt **halb**:
+
+- Bei **einfacher Geschwindigkeit** meldet der Simulator eine Position pro
+  Sekunde, und Yapaja gibt höchstens eine pro Sekunde weiter — also genau so
+  oft wie ein echter GPS-Empfänger. Bei 50 km/h sind das Sprünge von 13,9 m.
+  Mit echtem GPS hätten Sie dasselbe gesehen.
+- Im **Zeitraffer** stimmt er dagegen ganz: bei 32× entstehen 32 Positionen
+  je Sekunde, durchgelassen wird eine. Jede Meldung liegt dann rund 440 m
+  weiter.
+
+Der eigentliche Fehler war aber ein anderer, und Ihr zweiter Satz trifft ihn:
+*auch dann sollte die Anzeige eher flüssig zum nächsten Punkt fahren.* Seit
+0.6.1 **gleitet die Kamera** zur neuen Position — der Punkt sprang dorthin.
+Zwei Dinge, die sich verschieden schnell bewegen: genau das sieht man als
+Haken.
+
+Jetzt wandert der Punkt zwischen zwei Meldungen dorthin, im selben Takt wie
+die Kamera. Auch seine Ausrichtung dreht mit, und zwar über die kürzere
+Seite — von 350° auf 10° sind zwanzig Grad, nicht dreihundertvierzig.
+
+Der Preis, offen gesagt: der Punkt zeigt, wo Sie vor bis zu einer Sekunde
+waren. Die Alternative wäre, nach vorne zu *raten* — und eine geratene
+Position, die schon hinter der Abzweigung liegt, ist im Fahrzeug gefährlicher
+als eine, die eine Sekunde nachhinkt.
+
+---
+
 ## 0.6.5
 
 **Der Blick geht jetzt nach vorn.**
