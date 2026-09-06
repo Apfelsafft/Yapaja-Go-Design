@@ -127,6 +127,15 @@ export async function confirmProfileChangeReroute(): Promise<NavState> {
 export interface NavStateEnvelope {
   navState: NavState;
   recoveredRoute: { route_id: string; destination: { latlng: LatLng; name: string | null } | null } | null;
+  /**
+   * Die Route, die gerade gefahren wird -- oder `null`.
+   *
+   * Der Browser zeichnet die Streckenlinie aus SEINEM Speicher; nach einem
+   * Neuladen ist der leer, waehrend die Fahrt im Core weiterlaeuft. Gemeldet:
+   * „Bei Bestaetigung wird weiter navigiert aber die blaue Streckenlinie
+   * fehlt jetzt."
+   */
+  activeRoute: Route | null;
 }
 
 /** `GET /api/v1/navigation/state`. Throws `NavigationApiError` on any non-2xx response. */
@@ -138,6 +147,11 @@ export async function getNavigationState(): Promise<NavStateEnvelope> {
   const body = (await response.json()) as {
     data: NavState;
     recovered_route?: { route_id: string; destination: { latlng: LatLng; name: string | null } | null };
+    active_route?: Route;
   };
-  return { navState: body.data, recoveredRoute: body.recovered_route ?? null };
+  return {
+    navState: body.data,
+    recoveredRoute: body.recovered_route ?? null,
+    activeRoute: body.active_route ?? null,
+  };
 }

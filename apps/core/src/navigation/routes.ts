@@ -273,9 +273,23 @@ export const navigationPlugin: FastifyPluginAsync<NavigationRoutesOptions> = asy
   // state (plus any pending recovery) on load, THEN let the WS take over.
   fastify.get('/navigation/state', async (_request, reply) => {
     const recovered = service.getRecoverableRoute();
-    return reply
-      .code(200)
-      .send({ data: service.getState(), ...(recovered ? { recovered_route: recovered } : {}) });
+    // ─── DIE LAUFENDE ROUTE MITGEBEN (0.6.1) ────────────────────────────────
+    // Gemeldet: „Bei Bestaetigung wird weiter navigiert aber die blaue
+    // Streckenlinie fehlt jetzt." Gezeichnet wird die Linie aus dem Speicher
+    // des BROWSERS, und der ist nach einem Neuladen leer -- waehrend die Fahrt
+    // im Core unveraendert weiterlaeuft.
+    //
+    // Hier und nicht ueber `GET /routes/:id`: die aktive Route liegt ohnehin
+    // im Speicher dieses Dienstes. Der Umweg ueber den Routen-Zwischenspeicher
+    // fuehrte fuer Routen, die nie darin lagen (etwa direkt an
+    // `navigation/start` uebergeben), zu einem 404 -- und damit zu einem
+    // Fehler im Browser-Protokoll fuer einen voellig normalen Fall.
+    const activeRoute = service.getActiveRoute();
+    return reply.code(200).send({
+      data: service.getState(),
+      ...(recovered ? { recovered_route: recovered } : {}),
+      ...(activeRoute ? { active_route: activeRoute } : {}),
+    });
   });
 
   // POST /navigation/destination (E04-T5): convenience for HA/add-ons (and

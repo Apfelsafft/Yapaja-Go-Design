@@ -199,6 +199,47 @@ export function recenterOnPosition(): boolean {
  * Update map center to follow current position (if following and not paused).
  * Call this from a useEffect that depends on position updates.
  */
+/**
+ * Wie lange die Kamera fuer den Weg zur neuen Position brauchen soll.
+ *
+ * ─── DIE MELDUNG ──────────────────────────────────────────────────────────
+ * „Das Abfahren der Route passiert sprunghaft. Der Route wird nicht fluessig
+ * gefolgt sondern immer in Schritten."
+ *
+ * ─── DIE URSACHE ──────────────────────────────────────────────────────────
+ * `setCamera` SPRINGT standardmaessig (`jumpTo`). Positionen kommen im
+ * Sekundentakt -- also ein Sprung pro Sekunde, genau das beschriebene
+ * Stufenmuster.
+ *
+ * ─── WARUM DIE DAUER MITWANDERT ───────────────────────────────────────────
+ * Eine feste Sekunde waere im Zeitraffer falsch: bei 32x treffen die
+ * Meldungen alle ~31 ms ein, und die Kamera haenge dauernd hinterher. Die
+ * Bewegung dauert deshalb ungefaehr so lange, wie zwischen den letzten
+ * beiden Meldungen vergangen ist -- dann kommt sie gerade an, wenn die
+ * naechste eintrifft.
+ *
+ * Bei sehr kurzen Abstaenden wird gesprungen: eine Animation ueber wenige
+ * Millisekunden kostet mehr, als sie glaettet. Bei sehr langen wird gedeckelt
+ * -- nach einer Pause (GPS-Ausfall, App im Hintergrund) soll die Karte nicht
+ * minutenlang kriechen.
+ */
+export const MIN_ANIMATE_MS = 60;
+export const MAX_ANIMATE_MS = 1500;
+
+export function followAnimationMs(sinceLastFixMs: number | null): number | null {
+  if (sinceLastFixMs === null || !Number.isFinite(sinceLastFixMs)) return null;
+  if (sinceLastFixMs < MIN_ANIMATE_MS) return null; // springen
+  return Math.min(sinceLastFixMs, MAX_ANIMATE_MS);
+}
+
+/** Wann zuletzt eine Position die Kamera bewegt hat. */
+let lastFollowAtMs: number | null = null;
+
+/** Nur fuer Tests: den Takt vergessen, als haette es keine Meldung gegeben. */
+export function resetFollowCadence(): void {
+  lastFollowAtMs = null;
+}
+
 export function updateFollowMePosition(): void {
   const { isFollowing, isPaused } = useFollowMeStore.getState();
   if (!isFollowing || isPaused) {
@@ -219,11 +260,51 @@ export function updateFollowMePosition(): void {
   // Funktion braucht: der Mensch gewinnt immer.
   const zoom = nextAutoZoom();
 
+  // ─── FLUESSIG STATT SPRUNGHAFT ────────────────────────────────────────────
+  // Siehe `followAnimationMs`: die Bewegung dauert ungefaehr so lange wie der
+  // Abstand zur vorigen Meldung, damit sie ankommt, wenn die naechste kommt.
+  const jetzt = Date.now();
+  const dauer = followAnimationMs(lastFollowAtMs === null ? null : jetzt - lastFollowAtMs);
+  lastFollowAtMs = jetzt;
+
   mapController.setCamera(
     zoom === null
       ? { center: [position.lon, position.lat] }
       : { center: [position.lon, position.lat], zoom },
+    dauer === null ? undefined : { animate: true, duration: dauer },
   );
+}
+
+/**
+ * Den Auto-Zoom SOFORT anwenden, ohne auf die naechste Position zu warten.
+ *
+ * ─── DIE MELDUNG ──────────────────────────────────────────────────────────
+ * „Der Zoom wirkt noch nicht ausgereift. Insbesondere bei Start ist noch
+ * recht weit rausgezoomt. Da waere es besser wenn man die naechsten Strassen
+ * deutlicher sieht."
+ *
+ * ─── DIE URSACHE WAR DER ZEITPUNKT, NICHT DIE STUFE ───────────────────────
+ * Bei Stillstand waere die Stufe bereits die dichteste. Der Auto-Zoom hing
+ * aber ausschliesslich an `updateFollowMePosition`, und die laeuft erst,
+ * wenn eine NEUE Position eintrifft. Beim Losfahren blieb also die
+ * Uebersicht stehen, in der man die Route geplant hatte -- bis zur naechsten
+ * Meldung, und mit ihr die ganze erste Abbiegung.
+ *
+ * Aufgerufen wird das beim Beginn einer Fahrt (siehe `DriveOverlay`). Die
+ * Pausenregel gilt unveraendert: wer die Karte gerade selbst angefasst hat,
+ * behaelt sie.
+ */
+export function applyAutoZoomNow(): void {
+  const { isFollowing, isPaused } = useFollowMeStore.getState();
+  if (!isFollowing || isPaused) return;
+
+  const position = usePositionStore.getState().position;
+  if (!position) return;
+
+  const zoom = nextAutoZoom();
+  if (zoom === null) return;
+
+  mapController.setCamera({ center: [position.lon, position.lat], zoom });
 }
 
 /**
