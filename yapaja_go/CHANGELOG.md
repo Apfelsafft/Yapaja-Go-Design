@@ -10,6 +10,40 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.6.3
+
+**Die abgefahrene Strecke wird grau.**
+
+Gemeldet: *„Die abgefahrene Strecke bleibt weiterhin blau."* Das war der
+letzte offene Punkt aus der Testfahrt. Die Linie sah nach der halben Strecke
+aus wie am Anfang — in beide Richtungen gleich. Wer im Fahren kurz aufsieht,
+soll aber auf einen Blick erkennen, wohin es **weitergeht**.
+
+Jetzt liegt hinter dem Fahrzeug ein gedämpftes Grau, vor ihm das gewohnte
+Blau. Die Trennstelle wandert mit — sie sitzt genau dort, wo Sie gerade sind,
+und zwar auf dem Meter: die Anzeige rechnet nichts eigenes aus, sondern nimmt
+den Fortschritt, den Yapaja ohnehin schon aus dem Kartenabgleich kennt.
+
+Im Zweifel bleibt alles blau. Solange nicht sicher ist, wie weit die Fahrt
+gediehen ist (kurz nach einer Neuberechnung etwa), wird nichts eingegraut:
+grau heißt „liegt hinter Ihnen", und was noch kommt, darf nie so aussehen.
+
+**Nach dem GPS-Simulator kommt die echte Ortung zurück.**
+
+Dabei aufgefallen, und es hätte jeden getroffen, der den Simulator einmal
+benutzt: Beim Start klemmt Yapaja die Positionsquelle auf den Simulator fest,
+damit dessen Fahrt auch wirklich ankommt. Beim **Beenden** wurde diese Klemme
+nicht wieder gelöst. Danach sendete der Simulator nichts mehr — und jede
+andere Quelle war gesperrt. Ergebnis: keine Position mehr, bis das Add-on neu
+startet. Dieselbe Wirkung wie das *„GPS inaktiv"* aus 0.5.6, nur durch eine
+andere Tür.
+
+Gefunden hat das ein Test, der nach dem Beenden eigene Positionen schicken
+wollte und abgewiesen wurde. Eine Pause lässt die Klemme weiterhin stehen —
+pausiert heißt „steht still", nicht „fertig".
+
+---
+
 ## 0.6.2
 
 **Der Absturzbildschirm sagt jetzt auch, WO es passiert ist.**
