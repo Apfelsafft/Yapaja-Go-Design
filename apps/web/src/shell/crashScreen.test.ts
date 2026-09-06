@@ -37,7 +37,12 @@ const WEB_SRC = join(HIER, '..');
 describe('die Entscheidung', () => {
   it('ein Fehler wird gemerkt', () => {
     const fehler = new Error('etwas ging schief');
-    expect(CrashScreen.getDerivedStateFromError(fehler)).toEqual({ error: fehler });
+    // Die Komponentenspur kommt erst in `componentDidCatch` -- hier steht sie
+    // noch aus.
+    expect(CrashScreen.getDerivedStateFromError(fehler)).toEqual({
+      error: fehler,
+      componentStack: null,
+    });
   });
 
   it('und zwar der ECHTE -- nicht ein Ersatztext', () => {

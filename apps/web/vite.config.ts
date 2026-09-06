@@ -158,6 +158,22 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    // ─── WARUM HIER KEIN `keepNames` STEHT ──────────────────────────────────
+    // Naheliegend waere es: `CrashScreen` zeigt die Komponentenspur von React
+    // an, und ohne erhaltene Funktionsnamen steht dort „a" statt
+    // „TripInfoPanel" -- eine Spur, mit der niemand etwas anfangen kann.
+    //
+    // Ausprobiert und wieder entfernt: mit `esbuild: { keepNames: true }`
+    // wirft die ausgelieferte Anwendung `ReferenceError: f is not defined`.
+    // esbuild legt dafuer einen Hilfsnamen an, der bei Vites Aufteilung in
+    // mehrere Buendel in einem ANDEREN landet als seine Verwendung. Vier
+    // Playwright-Tests sind daran rot geworden -- die Suite hat es gefangen,
+    // nicht das Nachdenken.
+    //
+    // Lesbare Namen sind es nicht wert, die Anwendung zu zerlegen. Der
+    // Absturzbildschirm zeigt stattdessen Meldung UND Fehlerspur; die
+    // Quelltextkarten (`sourcemap: true` direkt darunter) liegen ohnehin bei,
+    // eine Spur laesst sich damit nachtraeglich aufloesen.
     rollupOptions: {
       // Multi-page build (E07-T1): `shell.html` is the standalone widget-shell
       // mount point (`apps/web/src/shell/main.tsx`) alongside the main app

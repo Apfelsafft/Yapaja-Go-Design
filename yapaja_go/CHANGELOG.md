@@ -10,6 +10,35 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.6.2
+
+**Der Absturzbildschirm sagt jetzt auch, WO es passiert ist.**
+
+Der erste echte Bericht bestand aus einer Zeile: *„Maximum call stack size
+exceeded."* Das sagt, **was** passiert ist — eine Endlosschleife oder eine zu
+tiefe Verschachtelung —, aber nicht **wo**. React liefert dazu die
+Komponentenspur mit; die stand bisher nur im Browser-Protokoll, an das auf
+einem Tablet im Fahrzeug niemand herankommt.
+
+Jetzt steht sie mit auf dem Bildschirm, zusammen mit der Fehlerspur und einem
+Knopf zum Kopieren.
+
+**Ich habe die Ursache noch nicht.** Der Fehler tritt auf dem iPad auf (Safari
+hat einen deutlich kleineren Aufrufstapel als andere Browser), und Safari lässt
+sich in meiner Testumgebung nicht ausführen — im automatisierten Browser läuft
+dieselbe Fahrt fehlerfrei durch. Wenn es wieder passiert: bitte den Text
+kopieren und mir schicken. Mit der Komponentenspur ist die Stelle meist in
+Minuten gefunden.
+
+**Was ich versucht und wieder verworfen habe:** die Komponentennamen im
+ausgelieferten Programm zu erhalten, damit in der Spur „TripInfoPanel" statt
+„a" steht. Das hat die Anwendung zerlegt (`ReferenceError: f is not defined`) —
+vier Tests sind daran rot geworden. Lesbare Namen sind es nicht wert, das
+Programm kaputtzumachen; die Einstellung ist wieder draußen, und im Quelltext
+steht jetzt, warum.
+
+---
+
 ## 0.6.1
 
 Vier Dinge aus deiner Testfahrt.
