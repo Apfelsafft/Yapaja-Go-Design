@@ -39,6 +39,28 @@ export const MANEUVER_CLOSE_M = 250;
 export const MANEUVER_ZOOM = 17;
 
 /**
+ * ─── UND EINE STUFE NAEHER, UNMITTELBAR VOR DEM ABBIEGEN ────────────────────
+ * Gemeldet: „kurz vor der Abfahrt nach rechts bin ich noch recht weit
+ * rausgezoomt. Da waere es besser wenn man genau die Strassen und Abfahrten
+ * sieht."
+ *
+ * Die Stufe 17 GRIFF dabei bereits -- gemessen: bei 222 m zum Abbiegepunkt
+ * stand die Karte auf 16,99. Sie war nur zu weit weg: mittig sind auf 17 nur
+ * 281 m voraus zu sehen, die Abfahrt sass also fast am oberen Bildrand.
+ *
+ * Diese zweite, engere Stufe ist erst moeglich, seit das Fahrzeug waehrend
+ * der Fahrt im unteren Bilddrittel sitzt (`map/drivePadding.ts`). MITTIG
+ * waere sie schaedlich: auf 18 sind dann nur 141 m voraus sichtbar, und ein
+ * Abbiegepunkt in 150 m laege ausserhalb des Bildes. Mit der Verschiebung
+ * sind es 219 m -- er bleibt im Bild und ist doppelt so gross.
+ *
+ * Deshalb gehoeren die beiden Zahlen zusammen; wer die eine aendert, muss die
+ * andere nachrechnen.
+ */
+export const MANEUVER_AT_M = 150;
+export const MANEUVER_AT_ZOOM = 18;
+
+/**
  * Geschwindigkeitsstufen, von langsam nach schnell.
  *
  * `upToKmh` ist die OBERE Grenze der Stufe. Die letzte gilt fuer alles
@@ -67,14 +89,14 @@ export interface AutoZoomInput {
  * angefordert hat.
  */
 export function autoZoomFor({ speedKmh, distanceToManeuverM }: AutoZoomInput): number | null {
-  // 1. Naher Abbiegepunkt gewinnt.
+  // 1. Naher Abbiegepunkt gewinnt -- und ein sehr naher gewinnt noch mehr.
   if (
     typeof distanceToManeuverM === 'number' &&
     Number.isFinite(distanceToManeuverM) &&
-    distanceToManeuverM >= 0 &&
-    distanceToManeuverM <= MANEUVER_CLOSE_M
+    distanceToManeuverM >= 0
   ) {
-    return MANEUVER_ZOOM;
+    if (distanceToManeuverM <= MANEUVER_AT_M) return MANEUVER_AT_ZOOM;
+    if (distanceToManeuverM <= MANEUVER_CLOSE_M) return MANEUVER_ZOOM;
   }
 
   // 2. Sonst die Geschwindigkeit.

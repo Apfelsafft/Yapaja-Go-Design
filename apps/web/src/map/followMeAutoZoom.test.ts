@@ -79,7 +79,7 @@ beforeEach(() => {
 
 describe('waehrend einer Fahrt', () => {
   it('kommt die Stufe wirklich an der Kamera an', () => {
-    useNavStore.setState({ navState: nav({ distance_to_maneuver_m: 100 }) });
+    useNavStore.setState({ navState: nav({ distance_to_maneuver_m: 200 }) });
 
     updateFollowMePosition();
 
@@ -90,7 +90,7 @@ describe('waehrend einer Fahrt', () => {
     // Ohne diese Zusicherung setzte jede Positionsmeldung den Zoom neu --
     // fuer den Menschen im Fahrzeug ein staendiges Zappeln der Karte.
     mockMap.getZoom.mockReturnValue(MANEUVER_ZOOM);
-    useNavStore.setState({ navState: nav({ distance_to_maneuver_m: 100 }) });
+    useNavStore.setState({ navState: nav({ distance_to_maneuver_m: 200 }) });
 
     updateFollowMePosition();
 
@@ -111,7 +111,7 @@ describe('wann der Auto-Zoom sich heraushaelt', () => {
   it('ohne laufende Fahrt', () => {
     // Beim Planen schaut man sich die Strecke an. Ein Zoom, der einem dabei
     // die Uebersicht wegnimmt, ist eine Bewegung ohne Anlass.
-    useNavStore.setState({ navState: nav({ status: 'idle', distance_to_maneuver_m: 100 }) });
+    useNavStore.setState({ navState: nav({ status: 'idle', distance_to_maneuver_m: 200 }) });
 
     updateFollowMePosition();
 
@@ -127,7 +127,7 @@ describe('wann der Auto-Zoom sich heraushaelt', () => {
   it('nach einem manuellen Schwenk -- der Mensch gewinnt', () => {
     // Follow-Me pausiert nach einem Schwenk 10 Sekunden. In dieser Zeit darf
     // die Kamera GAR NICHT angefasst werden, auch nicht am Zoom.
-    useNavStore.setState({ navState: nav({ distance_to_maneuver_m: 100 }) });
+    useNavStore.setState({ navState: nav({ distance_to_maneuver_m: 200 }) });
     useFollowMeStore.getState().pause();
 
     updateFollowMePosition();
@@ -136,7 +136,7 @@ describe('wann der Auto-Zoom sich heraushaelt', () => {
   });
 
   it('wenn Follow-Me ganz abgeschaltet ist', () => {
-    useNavStore.setState({ navState: nav({ distance_to_maneuver_m: 100 }) });
+    useNavStore.setState({ navState: nav({ distance_to_maneuver_m: 200 }) });
     useFollowMeStore.setState({ isFollowing: false });
 
     updateFollowMePosition();
