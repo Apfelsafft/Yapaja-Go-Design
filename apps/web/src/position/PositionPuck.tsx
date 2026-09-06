@@ -16,11 +16,13 @@
  *   MapLibre paint-property transitions -- never a "teleport flicker"
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePosition, usePositionConnected, usePositionExtrapolated, usePositionStore } from './positionStore';
 import { useGpsSignalState } from './gpsSignal';
 import { useMapStore } from '../state/mapStore';
 import { runWhenStyleReady } from '../map/styleReady';
+import { followAnimationMs } from '../map/followMe';
+import { interpolateFix, type SmoothFix } from './smoothing.js';
 
 const STALE_POSITION_MS = 5000; // 5 seconds
 const INACCURACY_THRESHOLD_M = 100; // 100 meters
@@ -58,6 +60,21 @@ const PUCK_STATE: PuckState = {
 
 export default function PositionPuck(): null {
   const position = usePosition();
+  // Wo der Puck GERADE gezeichnet ist -- Ausgangspunkt der naechsten
+  // Bewegung. Bewusst eine Referenz und kein Zustand: sie aendert sich je
+  // Einzelbild und darf deshalb kein Neuzeichnen des Baums ausloesen.
+  const angezeigt = useRef<SmoothFix | null>(null);
+  /** Das zuletzt angesteuerte Ziel -- unterscheidet „neue Meldung" von „nur neu gezeichnet". */
+  const letztesZiel = useRef<SmoothFix | null>(null);
+  /** Wann die letzte NEUE Meldung kam -- daraus ergibt sich die Dauer. */
+  const letzteMeldungMs = useRef<number | null>(null);
+  /** Die laufende Bewegung. Ueberlebt ein erneutes Auswerten der Wirkung. */
+  const lauf = useRef<{
+    von: SmoothFix;
+    ziel: SmoothFix;
+    startMs: number;
+    dauerMs: number;
+  } | null>(null);
   const isConnected = usePositionConnected();
   const extrapolated = usePositionExtrapolated();
   const signalState = useGpsSignalState();
@@ -195,17 +212,6 @@ export default function PositionPuck(): null {
     const metersPerPixel = 40075000 / (256 * Math.pow(2, zoom)); // Rough approximation
     const accuracyPixels = displayAccuracyM / metersPerPixel;
 
-    // Build heading line (from center, 20px in heading direction)
-    const headingGeometry = position.heading !== null
-      ? {
-          type: 'LineString' as const,
-          coordinates: [
-            [position.lon, position.lat],
-            getHeadingEndpoint(position.lon, position.lat, position.heading, 20 / metersPerPixel),
-          ],
-        }
-      : null;
-
     interface GeoJSONFeature {
       type: 'Feature';
       geometry: {
@@ -215,41 +221,127 @@ export default function PositionPuck(): null {
       properties: Record<string, unknown>;
     }
 
-    const features: GeoJSONFeature[] = [
-      {
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [position.lon, position.lat],
-        },
-        properties: {
-          'puck-color': puckColor,
-          'ring-color': ringColor,
-          'accuracy-pixels': accuracyPixels,
-          heading: position.heading,
-        },
-      },
-    ];
+    const source = map.getSource(PUCK_STATE.sourceId) as unknown as
+      | { setData(data: unknown): void }
+      | undefined;
 
-    if (headingGeometry) {
-      features.push({
-        type: 'Feature',
-        geometry: {
-          type: 'LineString',
-          coordinates: headingGeometry.coordinates as Array<number[]>,
+    /** Zeichnet den Puck an EINER bestimmten Stelle -- der Rest bleibt gleich. */
+    const zeichne = (an: SmoothFix): void => {
+      // Build heading line (from center, 20px in heading direction)
+      const headingGeometry =
+        an.heading !== null
+          ? {
+              type: 'LineString' as const,
+              coordinates: [
+                [an.lon, an.lat],
+                getHeadingEndpoint(an.lon, an.lat, an.heading, 20 / metersPerPixel),
+              ],
+            }
+          : null;
+
+      const features: GeoJSONFeature[] = [
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [an.lon, an.lat],
+          },
+          properties: {
+            'puck-color': puckColor,
+            'ring-color': ringColor,
+            'accuracy-pixels': accuracyPixels,
+            heading: an.heading,
+          },
         },
-        properties: {
-          'puck-color': puckColor,
-          heading: position.heading,
-        },
-      });
+      ];
+
+      if (headingGeometry) {
+        features.push({
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: headingGeometry.coordinates as Array<number[]>,
+          },
+          properties: {
+            'puck-color': puckColor,
+            heading: an.heading,
+          },
+        });
+      }
+
+      source?.setData({ type: 'FeatureCollection', features });
+      // Debug-/E2E-Haken, wie `__yapajaMapController` und
+      // `__yapajaFollowMeStore`: die GEZEICHNETE Stelle, synchron lesbar.
+      // Ueber die Kartenquelle geht das nicht brauchbar -- `getData()` laeuft
+      // ueber den Worker und brauchte gemessen rund 300 ms je Abfrage, womit
+      // sich eine Bewegung von gut einer Sekunde nicht abtasten laesst.
+      if (typeof window !== 'undefined') window.__yapajaPuckPosition = an;
+    };
+
+    // ─── VON DER LETZTEN STELLE ZUR NEUEN WANDERN ───────────────────────────
+    // Gemeldet: „Der blaue Punkt springt immer von Punkt zu Punkt anstelle
+    // sich fluessig zu bewegen." Die Begruendung, die gemessenen Melderaten
+    // und der Preis dafuer stehen in `smoothing.ts`.
+    //
+    // Die Bewegung laeuft ueber `requestAnimationFrame` und NICHT ueber den
+    // Zustand von React: ein Neuzeichnen des Baums je Einzelbild waere im
+    // Fahrzeug genau die Last, die man sich nicht leisten kann. Diese
+    // Wirkung laeuft ohnehin schon einmal je Meldung.
+    const ziel: SmoothFix = { lat: position.lat, lon: position.lon, heading: position.heading };
+    const zielGewechselt =
+      letztesZiel.current === null ||
+      letztesZiel.current.lat !== ziel.lat ||
+      letztesZiel.current.lon !== ziel.lon ||
+      letztesZiel.current.heading !== ziel.heading;
+
+    if (zielGewechselt) {
+      // Der Takt der Meldungen -- dieselbe Regel, nach der sich die Kamera
+      // bewegt (`map/followMe.ts`). Beide MUESSEN gleich lang brauchen, sonst
+      // wandert der Punkt waehrend der Fahrt im Bild umher, statt stehen zu
+      // bleiben.
+      const seitLetzter = letzteMeldungMs.current === null ? null : now - letzteMeldungMs.current;
+      const dauer = followAnimationMs(seitLetzter);
+      letzteMeldungMs.current = now;
+      letztesZiel.current = ziel;
+
+      lauf.current =
+        dauer === null || angezeigt.current === null
+          ? // Erste Meldung oder Zeitraffer: ohne Takt gibt es nichts zu
+            // glaetten, und eine Animation ueber wenige Millisekunden kostet
+            // mehr, als sie bringt.
+            null
+          : { von: angezeigt.current, ziel, startMs: performance.now(), dauerMs: dauer };
     }
 
-    const source = map.getSource(PUCK_STATE.sourceId) as unknown as { setData(data: unknown): void } | undefined;
-    source?.setData({
-      type: 'FeatureCollection',
-      features,
-    });
+    // ─── WARUM DIE BEWEGUNG DIESE WIRKUNG UEBERLEBEN MUSS ───────────────────
+    // Diese Wirkung laeuft NICHT nur bei einer neuen Meldung: `tick` treibt
+    // sie im Sekundentakt an, damit Alterung und Genauigkeitsring
+    // weiterlaufen. Der erste Entwurf setzte den Punkt dann hart aufs Ziel --
+    // gemessen kamen so statt einer Bewegung nur zwei Zwischenstaende
+    // heraus, der Rest war wieder ein Sprung. Der Lauf liegt deshalb in einer
+    // Referenz und wird hier nur FORTGESETZT, mit seiner urspruenglichen
+    // Startzeit.
+    let bild = 0;
+    const schritt = (): void => {
+      const lauffend = lauf.current;
+      if (!lauffend) {
+        angezeigt.current = ziel;
+        zeichne(ziel);
+        return;
+      }
+      const t = (performance.now() - lauffend.startMs) / lauffend.dauerMs;
+      const jetzt = interpolateFix(lauffend.von, lauffend.ziel, t);
+      angezeigt.current = jetzt;
+      zeichne(jetzt);
+      if (t >= 1) {
+        lauf.current = null;
+        return;
+      }
+      bild = requestAnimationFrame(schritt);
+    };
+    schritt();
+
+    return () => cancelAnimationFrame(bild);
   }, [map, position, isConnected, extrapolated, signalState, lastRealUpdateTime, tick, styleEpoch]);
 
   return null;
@@ -279,4 +371,11 @@ function getHeadingEndpoint(
   const newLon = lon + (dLon * 180) / Math.PI;
 
   return [newLon, newLat];
+}
+
+declare global {
+  interface Window {
+    /** Debug/E2E: wo der Puck gerade GEZEICHNET ist (nicht die letzte Meldung). */
+    __yapajaPuckPosition?: SmoothFix;
+  }
 }

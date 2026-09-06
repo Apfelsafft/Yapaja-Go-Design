@@ -212,16 +212,28 @@ export function recenterOnPosition(): boolean {
  * Stufenmuster.
  *
  * ─── WARUM DIE DAUER MITWANDERT ───────────────────────────────────────────
- * Eine feste Sekunde waere im Zeitraffer falsch: bei 32x treffen die
- * Meldungen alle ~31 ms ein, und die Kamera haenge dauernd hinterher. Die
- * Bewegung dauert deshalb ungefaehr so lange, wie zwischen den letzten
- * beiden Meldungen vergangen ist -- dann kommt sie gerade an, wenn die
- * naechste eintrifft.
+ * Die Bewegung dauert ungefaehr so lange, wie zwischen den letzten beiden
+ * Meldungen vergangen ist -- dann kommt sie gerade an, wenn die naechste
+ * eintrifft. Eine feste Sekunde waere falsch, sobald sich die Melderate
+ * aendert (`positionService` erlaubt bis 5 Hz), und die Kamera hinge dauernd
+ * hinterher.
  *
- * Bei sehr kurzen Abstaenden wird gesprungen: eine Animation ueber wenige
- * Millisekunden kostet mehr, als sie glaettet. Bei sehr langen wird gedeckelt
- * -- nach einer Pause (GPS-Ausfall, App im Hintergrund) soll die Karte nicht
- * minutenlang kriechen.
+ * Bei sehr langen Abstaenden wird gedeckelt -- nach einer Pause (GPS-Ausfall,
+ * App im Hintergrund) soll die Karte nicht minutenlang kriechen.
+ *
+ * ─── EINE KORREKTUR ────────────────────────────────────────────────────────
+ * Hier stand, im Zeitraffer traefen die Meldungen „alle ~31 ms" ein, und
+ * `MIN_ANIMATE_MS` faenge das ab. Das ist NACHGEMESSEN falsch: der Core gibt
+ * Positionen mit hoechstens `rateHz` weiter (Vorgabe 1 Hz,
+ * `position/service.ts#publishThrottled`), unabhaengig vom Zeitraffer. Im
+ * Browser kommt also auch bei 32x rund eine Meldung je Sekunde an -- sie
+ * liegt nur weiter auseinander (bei 50 km/h rund 440 m statt 13,9 m).
+ *
+ * Die untere Grenze bleibt trotzdem: bei einer Melderate von 5 Hz und einem
+ * Buendel nach einer Wiederverbindung koennen zwei Meldungen dicht
+ * aufeinander folgen, und eine Animation ueber wenige Millisekunden kostet
+ * mehr, als sie glaettet. Sie steht jetzt nur nicht mehr mit einer
+ * Begruendung da, die es so nicht gibt.
  */
 export const MIN_ANIMATE_MS = 60;
 export const MAX_ANIMATE_MS = 1500;

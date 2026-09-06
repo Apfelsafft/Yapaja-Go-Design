@@ -274,6 +274,69 @@ test.describe('Eine laengere Testfahrt', () => {
       .toBeCloseTo(0.5, 2);
   });
 
+  // ─── „Der blaue Punkt springt immer von Punkt zu Punkt" ───────────────────
+  // Gemessen wurde vorher, wie oft ueberhaupt eine Meldung ankommt: der
+  // Simulator schickt eine je simulierter Sekunde, der Core laesst hoechstens
+  // 1 Hz durch -- also genau so oft wie ein echter Empfaenger. Die Rate war
+  // nicht das Problem, sondern dass zwischen zwei Meldungen NICHTS gezeichnet
+  // wurde.
+  //
+  // Geprueft wird deshalb die Bewegung selbst: liegt der Punkt zwischendurch
+  // wirklich ZWISCHEN den beiden Meldungen, und kommt er am Ende an?
+  test('der blaue Punkt wandert zur naechsten Meldung, statt zu springen', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto(LONG_DRIVE_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+
+    // Zwei Meldungen, damit ein Takt bekannt ist -- die erste kann nicht
+    // wandern, weil es kein „vorher" gibt.
+    await fahreZu(page, 0);
+    await fahreZu(page, 4);
+
+    // Die dritte losschicken und sofort mitschreiben, wo der Punkt steht.
+    const vonLat = POINTS[4].lat;
+    const nachLat = POINTS[8].lat;
+    await page.request.post(`${LONG_DRIVE_CORE_BASE_URL}/api/v1/position/browser`, {
+      data: {
+        lat: nachLat,
+        lon: POINTS[8].lon,
+        alt: null,
+        speed: 13.9,
+        heading: 0,
+        accuracy: 5,
+        fix: '3d',
+        ts: new Date().toISOString(),
+      },
+    });
+
+    // Zwei Sekunden abtasten -- laenger als die Bewegung selbst, damit auch
+    // das Ankommen mit in der Reihe steht.
+    const proben = await tasteAb(page, 2000);
+    // ─── UNTERWEGS ──────────────────────────────────────────────────────────
+    // Echte Zwischenstaende: nicht am Start, nicht am Ziel. Ein Sprung haette
+    // hier NUR Ziel-Werte.
+    const abstand = nachLat - vonLat;
+    const dazwischen = proben.filter(
+      (lat) => lat > vonLat + abstand * 0.05 && lat < nachLat - abstand * 0.05,
+    );
+    expect(
+      new Set(dazwischen.map((l) => l.toFixed(7))).size,
+      `Zwischenstaende, Proben: ${proben.length}`,
+    ).toBeGreaterThan(3);
+
+    // ─── UND ES GEHT NUR VORWAERTS ──────────────────────────────────────────
+    for (let i = 1; i < proben.length; i++) {
+      expect(proben[i], `Probe ${i} lief rueckwaerts`).toBeGreaterThanOrEqual(proben[i - 1] - 1e-9);
+    }
+
+    // ─── ANGEKOMMEN ─────────────────────────────────────────────────────────
+    // Glaetten darf nicht heissen, dass der Punkt hinterherhinkt.
+    await expect.poll(() => puckLat(page), { timeout: 10_000, intervals: [100] }).toBeCloseTo(
+      nachLat,
+      6,
+    );
+  });
+
   // ─── DER BLANKE BILDSCHIRM, ENDLICH MIT URSACHE ───────────────────────────
   // „Den Zoom konnte ich nicht testen da es gleich gecrasht ist."
   //
@@ -337,6 +400,36 @@ test.describe('Eine laengere Testfahrt', () => {
     });
   }
 });
+
+/** Die Breite, auf der der blaue Punkt GERADE gezeichnet ist. */
+async function puckLat(page: Page): Promise<number | null> {
+  return page.evaluate(() => window.__yapajaPuckPosition?.lat ?? null);
+}
+
+/**
+ * Tastet die gezeichnete Stelle IM BROWSER ab und gibt die Reihe zurueck.
+ *
+ * Von aussen Probe fuer Probe zu holen ging nicht: der erste Entwurf las die
+ * Kartenquelle ueber `getData()`, das laeuft ueber den Worker und brauchte
+ * gemessen rund 300 ms -- von einer Bewegung ueber gut eine Sekunde blieben
+ * so vier Proben uebrig, und der Test hielt eine richtige Glaettung faelsch-
+ * licherweise fuer einen Sprung.
+ */
+async function tasteAb(page: Page, dauerMs: number): Promise<number[]> {
+  return page.evaluate((ms) => {
+    return new Promise<number[]>((fertig) => {
+      const werte: number[] = [];
+      const start = performance.now();
+      const schritt = (): void => {
+        const lat = window.__yapajaPuckPosition?.lat;
+        if (typeof lat === 'number') werte.push(lat);
+        if (performance.now() - start < ms) requestAnimationFrame(schritt);
+        else fertig(werte);
+      };
+      schritt();
+    });
+  }, dauerMs);
+}
 
 /** Wo das Fahrzeug im Bild sitzt, als Anteil der Kartenhoehe von oben. */
 async function fahrzeugImBild(page: Page): Promise<number> {
