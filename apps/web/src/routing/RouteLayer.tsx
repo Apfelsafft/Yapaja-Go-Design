@@ -30,15 +30,39 @@
  * style-load guard) as the route/marker sources -- a second, independent
  * `addSource`/`addLayer` call site would reintroduce exactly the "Style is
  * not done loading" trap this file's pattern exists to avoid.
+ *
+ * ─── GEFAHRENES GRAU (0.6.3) ────────────────────────────────────────────────
+ * Gemeldet: „Die abgefahrene Strecke bleibt weiterhin blau." Die aktive Route
+ * geht deshalb als ZWEI Linienobjekte in dieselbe Quelle -- eines mit
+ * `part: 'traveled'`, eines mit `part: 'remaining'` --, und die Farbe kommt
+ * aus einem Ausdruck auf dieser Eigenschaft.
+ *
+ * Warum keine eigenen Ebenen dafuer: `DestinationSelector` erkennt einen
+ * Fingertipp auf die Route an genau diesen beiden Ebenen-Kennungen
+ * (`MAIN_ROUTE_CASING_LAYER_ID`/`..._ACCENT_...`). Neue Ebenen haetten das
+ * stillschweigend halbiert -- ein Tipp auf den grauen Teil waere als „neues
+ * Ziel" durchgegangen. Das ist derselbe Befund wie ① aus der ersten
+ * Rueckmeldung, und er soll nicht ueber eine Farbe wieder hereinkommen.
+ *
+ * Der Ausdruck faellt bewusst auf BLAU zurueck, wenn die Eigenschaft fehlt:
+ * grau heisst „liegt hinter dir", und was noch kommt, darf nie so aussehen.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { LatLng } from '@yapaja/shared';
 import { useMapStore } from '../state/mapStore.js';
 import { runWhenStyleReady } from '../map/styleReady.js';
+import { useNavStore } from '../drive/navStore.js';
+import { isDriveActive } from '../drive/driveActive.js';
 import { useRoutingStore, selectActiveRoute, selectAlternativeRoutes } from './store.js';
 import { decodePolyline6 } from './polyline.js';
+import {
+  cumulativeMeters,
+  progressFromRemaining,
+  splitRouteAtProgress,
+  type Coord,
+} from './traveledSplit.js';
 import {
   ALT_ROUTE_SOURCE_ID,
   ALT_ROUTE_LAYER_ID,
@@ -59,6 +83,26 @@ const ALT_COLOR = '#9CA3AF'; // gray
 const START_COLOR = '#16A34A'; // green
 const DEST_COLOR = '#DC2626'; // red
 const AVOID_COLOR = '#DC2626'; // red, matches the destination pin for "danger/excluded"
+
+// Bereits gefahren: gedecktes Blaugrau statt des Grau der Alternativen
+// (`ALT_COLOR`) -- die beiden bedeuten Verschiedenes und sollen nicht
+// dieselbe Farbe tragen. Dazu halbe Deckkraft, damit der Teil hinter dem
+// Fahrzeug zurueckweicht, statt mit der Fuehrung um Aufmerksamkeit zu ringen.
+const TRAVELED_CASING_COLOR = '#334155'; // slate-700
+const TRAVELED_ACCENT_COLOR = '#94A3B8'; // slate-400
+const TRAVELED_OPACITY = 0.55;
+
+/** Eigenschaftswert des bereits gefahrenen Linienstuecks. */
+const TRAVELED = 'traveled';
+
+/**
+ * Farbe/Deckkraft nach `part`. Bewusst `case` mit `==` statt `match`: fehlt
+ * die Eigenschaft, ist das Ergebnis der zweite Zweig -- also BLAU. Siehe
+ * Kopfkommentar, „im Zweifel blau".
+ */
+function byPart<T>(traveledValue: T, remainingValue: T): unknown {
+  return ['case', ['==', ['get', 'part'], TRAVELED], traveledValue, remainingValue];
+}
 
 /** App-internal `{lat, lon}` ring -> GeoJSON `[lon, lat]` ring, closed. */
 function ringToGeoJson(ring: readonly LatLng[]): [number, number][] {
@@ -82,10 +126,42 @@ export default function RouteLayer(): null {
   const destination = useRoutingStore((state) => state.destination);
   const startPoint = useRoutingStore((state) => state.startPoint);
   const tempAvoidances = useRoutingStore((state) => state.tempAvoidances);
+  const navState = useNavStore((state) => state.navState);
   // Incremented whenever the route sources/layers are (re)created, so the
   // geometry effect below immediately paints the CURRENT route into the
   // freshly-added (empty) sources instead of waiting for the next store change.
   const [styleEpoch, setStyleEpoch] = useState(0);
+
+  const activeRoute = useMemo(
+    () => selectActiveRoute({ routes, activeRouteId }),
+    [routes, activeRouteId],
+  );
+
+  // Entschluesseln und Aufsummieren einmal pro Route, nicht einmal pro
+  // Positionsmeldung: waehrend der Fahrt laeuft der Fortschritt im
+  // Sekundentakt durch, die Geometrie aendert sich dabei nicht.
+  const activeGeom = useMemo((): { coords: Coord[]; cumulative: number[] } => {
+    if (!activeRoute) return { coords: [], cumulative: [] };
+    const coords = decodePolyline6(activeRoute.geometry) as Coord[];
+    return { coords, cumulative: cumulativeMeters(coords) };
+  }, [activeRoute]);
+
+  // ─── WIE WEIT IST DIE ROUTE GEFAHREN? ──────────────────────────────────────
+  // Aus der Restentfernung des Cores, nicht aus einer eigenen Rechnung --
+  // die Begruendung steht in `traveledSplit.ts`. `null` (= alles blau) in
+  // jedem Fall, in dem die Zahl nicht sicher zu DIESER Linie gehoert:
+  //  - es faehrt gerade niemand,
+  //  - der Core fuehrt eine ANDERE Route (etwa direkt nach einer
+  //    Neuberechnung, bevor die neue Geometrie im Browser angekommen ist) --
+  //    ohne diese Abfrage wuerde der Fortschritt der neuen Route auf die
+  //    alte Linie angewendet und faerbte dort irgendetwas grau.
+  const progressM = useMemo(() => {
+    if (!activeRoute || !isDriveActive(navState?.status)) return null;
+    if (navState?.route_id !== activeRoute.id) return null;
+    const totalM = activeGeom.cumulative[activeGeom.cumulative.length - 1];
+    if (totalM === undefined) return null;
+    return progressFromRemaining(totalM, navState.distance_remaining_m);
+  }, [activeRoute, activeGeom, navState]);
 
   // Setup: sources + layers, once the map (and its style) is ready.
   useEffect(() => {
@@ -126,19 +202,29 @@ export default function RouteLayer(): null {
       });
 
       // Casing (wide, dark) then accent (narrow, bright) on top of it.
+      // Beide Ebenen tragen dieselbe Quelle und faerben nach `part` --
+      // gefahrenes Stueck grau, kommendes blau (siehe Kopfkommentar).
       map.addLayer({
         id: MAIN_ROUTE_CASING_LAYER_ID,
         type: 'line',
         source: MAIN_ROUTE_SOURCE_ID,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': CASING_COLOR, 'line-width': 9 },
+        paint: {
+          'line-color': byPart(TRAVELED_CASING_COLOR, CASING_COLOR) as string,
+          'line-opacity': byPart(TRAVELED_OPACITY, 1) as number,
+          'line-width': 9,
+        },
       });
       map.addLayer({
         id: MAIN_ROUTE_ACCENT_LAYER_ID,
         type: 'line',
         source: MAIN_ROUTE_SOURCE_ID,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': ACCENT_COLOR, 'line-width': 5 },
+        paint: {
+          'line-color': byPart(TRAVELED_ACCENT_COLOR, ACCENT_COLOR) as string,
+          'line-opacity': byPart(TRAVELED_OPACITY, 1) as number,
+          'line-width': 5,
+        },
       });
 
       // Start/destination pins, on top of everything.
@@ -175,19 +261,57 @@ export default function RouteLayer(): null {
     return runWhenStyleReady(map, setup);
   }, [map]);
 
+  // ─── DIE AKTIVE ROUTE, IN ZWEI STUECKEN ────────────────────────────────────
+  // Eigener Effekt, weil dieser als einziger im Sekundentakt laeuft: der
+  // Fortschritt aendert sich mit jeder Positionsmeldung. Alles andere
+  // (Alternativen, Nadeln, Meide-Flaechen) haengt nur am Routen-Speicher und
+  // soll deshalb nicht bei jeder Meldung neu geschrieben werden.
+  useEffect(() => {
+    if (!map) return;
+    void styleEpoch; // Dependency-only trigger, siehe unten.
+    const mainSource = getGeoJSONSource(map, MAIN_ROUTE_SOURCE_ID);
+    if (!mainSource) return;
+
+    const { traveled, remaining } = splitRouteAtProgress(
+      activeGeom.coords,
+      activeGeom.cumulative,
+      progressM,
+    );
+
+    const stueck = (
+      part: 'traveled' | 'remaining',
+      coordinates: Coord[],
+    ): Record<string, unknown> | null =>
+      // Unter zwei Punkten gibt es keine Linie zu zeichnen.
+      coordinates.length < 2
+        ? null
+        : {
+            type: 'Feature',
+            properties: { part },
+            geometry: { type: 'LineString', coordinates },
+          };
+
+    // Reihenfolge: gefahren zuerst, damit die Fuehrung an der Trennstelle
+    // oben liegt.
+    const features = [stueck(TRAVELED, traveled), stueck('remaining', remaining)].filter(
+      (feature): feature is Record<string, unknown> => feature !== null,
+    );
+
+    mainSource.setData({ type: 'FeatureCollection', features });
+  }, [map, activeGeom, progressM, styleEpoch]);
+
   // Update route/marker geometry whenever the routing store changes.
   useEffect(() => {
     if (!map) return;
     // Dependency-only trigger: re-run right after the sources are (re)created.
     void styleEpoch;
-    const mainSource = getGeoJSONSource(map, MAIN_ROUTE_SOURCE_ID);
     const altSource = getGeoJSONSource(map, ALT_ROUTE_SOURCE_ID);
     const markersSource = getGeoJSONSource(map, MARKERS_SOURCE_ID);
     const avoidSource = getGeoJSONSource(map, AVOID_POLYGONS_SOURCE_ID);
     // Sources not added yet (style still loading) -- the setup effect's
     // `load` handler will run this same data once it finishes; nothing to
     // do here yet.
-    if (!mainSource || !altSource || !markersSource || !avoidSource) return;
+    if (!altSource || !markersSource || !avoidSource) return;
 
     avoidSource.setData({
       type: 'FeatureCollection',
@@ -198,21 +322,7 @@ export default function RouteLayer(): null {
       })),
     });
 
-    const activeRoute = selectActiveRoute({ routes, activeRouteId });
     const alternativeRoutes = selectAlternativeRoutes({ routes, activeRouteId });
-
-    mainSource.setData({
-      type: 'FeatureCollection',
-      features: activeRoute
-        ? [
-            {
-              type: 'Feature',
-              properties: {},
-              geometry: { type: 'LineString', coordinates: decodePolyline6(activeRoute.geometry) },
-            },
-          ]
-        : [],
-    });
 
     altSource.setData({
       type: 'FeatureCollection',
@@ -229,9 +339,8 @@ export default function RouteLayer(): null {
       geometry: { type: 'Point'; coordinates: [number, number] };
     }> = [];
     if (activeRoute) {
-      const coords = decodePolyline6(activeRoute.geometry);
-      if (coords.length > 0) {
-        markerFeatures.push({ type: 'Feature', properties: { kind: 'start' }, geometry: { type: 'Point', coordinates: coords[0] } });
+      if (activeGeom.coords.length > 0) {
+        markerFeatures.push({ type: 'Feature', properties: { kind: 'start' }, geometry: { type: 'Point', coordinates: activeGeom.coords[0] } });
       }
     } else if (startPoint) {
       // Ein AUSDRUECKLICH gewaehlter Startpunkt muss schon sichtbar sein,
@@ -253,7 +362,7 @@ export default function RouteLayer(): null {
       });
     }
     markersSource.setData({ type: 'FeatureCollection', features: markerFeatures });
-  }, [map, routes, activeRouteId, destination, startPoint, tempAvoidances, styleEpoch]);
+  }, [map, routes, activeRouteId, activeRoute, activeGeom, destination, startPoint, tempAvoidances, styleEpoch]);
 
   // Auto-fit the camera to the union of all currently displayed routes
   // (active + alternatives) whenever the route set changes.

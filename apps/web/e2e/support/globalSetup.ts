@@ -82,6 +82,8 @@ import {
   DIMENSIONS_CORE_PORT,
   CONTROL_OVERLAP_CORE_PORT,
   SIMULATOR_UI_CORE_PORT,
+  LONG_DRIVE_CORE_PORT,
+  LONG_DRIVE_VALHALLA_BASE_URL,
   SIMULATOR_UI_CORE_BASE_URL,
   SIMULATOR_UI_VALHALLA_BASE_URL,
   WAYPOINTS_CORE_PORT,
@@ -379,6 +381,12 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   const waypointsCore = startCore(WAYPOINTS_CORE_PORT, FIXTURE_TILES_DIR, {
     VALHALLA_URL: WAYPOINTS_VALHALLA_BASE_URL,
   });
+  // long-drive.spec.ts: eigener Core mit Stub-Valhalla. Er teilte sich den
+  // von simulator-ui.spec.ts und hat dessen Wiedergabe gestoppt -- siehe
+  // LONG_DRIVE_CORE_PORT.
+  const longDriveCore = startCore(LONG_DRIVE_CORE_PORT, FIXTURE_TILES_DIR, {
+    VALHALLA_URL: LONG_DRIVE_VALHALLA_BASE_URL,
+  });
 
   const allCores = [
     fixtureCore,
@@ -409,6 +417,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     controlOverlapCore,
     simulatorUiCore,
     waypointsCore,
+    longDriveCore,
   ];
 
   try {

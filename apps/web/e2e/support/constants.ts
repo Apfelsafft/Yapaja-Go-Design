@@ -311,6 +311,27 @@ export const SIMULATOR_UI_VALHALLA_PORT = 4354;
 export const WAYPOINTS_CORE_PORT = 4355;
 export const WAYPOINTS_VALHALLA_PORT = 4356;
 
+// Eigener Core fuer long-drive.spec.ts.
+//
+// Der Spec lieh sich zunaechst den Core von simulator-ui.spec.ts (beide
+// brauchen ein Stub-Valhalla, damit die Route wirklich im
+// Routen-Zwischenspeicher landet). Das ging so lange gut, wie long-drive nur
+// EINEN Test hatte -- mit dem zweiten fiel es um, und zwar nachweisbar:
+//
+//   simulator-ui.spec.ts allein          -> 5 von 5 gruen
+//   simulator-ui + long-drive zusammen   -> rot
+//
+// Rot wurde „der Zeitraffer laesst sich waehrend der Fahrt umstellen": der
+// Zeitraffer-Regler war gesperrt, weil die Wiedergabe nicht mehr lief. Sie
+// lief nicht mehr, weil long-drive.spec.ts in seinem `beforeEach`
+// `POST /simulator/stop` schickt -- an DENSELBEN Core.
+//
+// Der Simulator ist kein testeigener Zustand: er gehoert dem Prozess. Genau
+// dieselbe Ursache wie bei CONTROL_OVERLAP_CORE_PORT und
+// SEARCH_SPEEDLOCK_CORE_PORT, und dieselbe Abhilfe.
+export const LONG_DRIVE_CORE_PORT = 4357;
+export const LONG_DRIVE_VALHALLA_PORT = 4358;
+
 export const FLOW2_CORE_BASE_URL = `http://127.0.0.1:${FLOW2_CORE_PORT}`;
 export const FLOW3_CORE_BASE_URL = `http://127.0.0.1:${FLOW3_CORE_PORT}`;
 export const FLOW3_VALHALLA_BASE_URL = `http://127.0.0.1:${FLOW3_VALHALLA_PORT}`;
@@ -326,3 +347,5 @@ export const SIMULATOR_UI_CORE_BASE_URL = `http://127.0.0.1:${SIMULATOR_UI_CORE_
 export const SIMULATOR_UI_VALHALLA_BASE_URL = `http://127.0.0.1:${SIMULATOR_UI_VALHALLA_PORT}`;
 export const WAYPOINTS_CORE_BASE_URL = `http://127.0.0.1:${WAYPOINTS_CORE_PORT}`;
 export const WAYPOINTS_VALHALLA_BASE_URL = `http://127.0.0.1:${WAYPOINTS_VALHALLA_PORT}`;
+export const LONG_DRIVE_CORE_BASE_URL = `http://127.0.0.1:${LONG_DRIVE_CORE_PORT}`;
+export const LONG_DRIVE_VALHALLA_BASE_URL = `http://127.0.0.1:${LONG_DRIVE_VALHALLA_PORT}`;

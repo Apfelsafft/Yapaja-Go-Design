@@ -344,6 +344,22 @@ export const simulatorPlugin: FastifyPluginAsync<SimulatorRoutesOptions> = async
   // POST /simulator/stop
   fastify.post('/simulator/stop', async (_request, reply) => {
     simulator.stop();
+    // ─── UND DIE ECHTE ORTUNG WIEDER FREIGEBEN ──────────────────────────────
+    // `play` klemmt die Positionsquelle auf `simulator` fest (siehe dort).
+    // Das MUSS beim Beenden zurueckgenommen werden -- sonst bleibt sie
+    // festgeklemmt, und weil danach kein Simulator mehr sendet, kommt
+    // ueberhaupt keine Position mehr an: `POST /position/browser` antwortet
+    // mit SOURCE_NOT_SELECTABLE, gpsd wird gar nicht erst gefragt.
+    //
+    // Genau so gefunden: ein Playwright-Test wollte nach `simulator/stop`
+    // eigene Positionen schicken und bekam 409. Auf dem Geraet heisst
+    // derselbe Zustand: Simulator einmal benutzt, gestoppt -- und die
+    // Ortung ist bis zum Neustart des Add-ons tot. Das ist dieselbe Meldung
+    // wie „GPS inaktiv" aus 0.5.6, nur durch eine andere Tuer.
+    //
+    // `pause` laesst die Klemme ABSICHTLICH stehen: dort laeuft die
+    // Wiedergabe weiter, sie steht nur still.
+    service.setForcedSource(null);
     return reply.code(200).send({ data: simulator.getStatus() });
   });
 

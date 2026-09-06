@@ -65,6 +65,87 @@ describe('Simulator Routes Integration', () => {
       expect(JSON.parse(statusRes.body).data.state).toBe('stopped');
     });
 
+    // ─── NACH DEM SIMULATOR MUSS DIE ECHTE ORTUNG WIEDERKOMMEN ──────────────
+    // `play` klemmt die Quelle auf `simulator` fest. Blieb sie das auch nach
+    // `stop`, war die Ortung tot: der Simulator sendet nichts mehr, und jede
+    // andere Quelle ist gesperrt. Auf dem Geraet: Simulator einmal benutzt --
+    // und bis zum Neustart des Add-ons kommt keine Position mehr an.
+    describe('nach dem Beenden', () => {
+      it('ist die Quelle wieder frei', async () => {
+        await server.inject({
+          method: 'POST',
+          url: '/api/v1/simulator/play',
+          payload: { track: { gpxId: 'city' } },
+        });
+        expect(
+          JSON.parse((await server.inject({ method: 'GET', url: '/api/v1/position/sources' })).body)
+            .forced,
+        ).toBe('simulator');
+
+        await server.inject({ method: 'POST', url: '/api/v1/simulator/stop' });
+
+        expect(
+          JSON.parse((await server.inject({ method: 'GET', url: '/api/v1/position/sources' })).body)
+            .forced,
+        ).toBeNull();
+      });
+
+      it('nimmt der Core wieder Positionen des Browsers an', async () => {
+        // Das ist die Auswirkung, um die es geht -- der Zustand oben ist nur
+        // ihre Ursache.
+        await server.inject({
+          method: 'POST',
+          url: '/api/v1/simulator/play',
+          payload: { track: { gpxId: 'city' } },
+        });
+
+        const fix = {
+          lat: 47.4,
+          lon: 9.7,
+          alt: null,
+          speed: 0,
+          heading: 0,
+          accuracy: 5,
+          fix: '3d',
+          ts: new Date().toISOString(),
+        };
+
+        const gesperrt = await server.inject({
+          method: 'POST',
+          url: '/api/v1/position/browser',
+          payload: fix,
+        });
+        expect(gesperrt.statusCode, 'waehrend der Simulator laeuft, zu Recht gesperrt').toBe(409);
+        expect(JSON.parse(gesperrt.body).error.code).toBe('SOURCE_NOT_SELECTABLE');
+
+        await server.inject({ method: 'POST', url: '/api/v1/simulator/stop' });
+
+        const frei = await server.inject({
+          method: 'POST',
+          url: '/api/v1/position/browser',
+          payload: fix,
+        });
+        expect(frei.statusCode, 'nach dem Beenden wieder angenommen').toBe(200);
+      });
+
+      it('aber eine Pause laesst die Klemme stehen', async () => {
+        // Pausieren heisst „steht still", nicht „fertig". Gaebe der Core hier
+        // die Quelle frei, koennte eine echte Position mitten in die
+        // angehaltene Wiedergabe platzen.
+        await server.inject({
+          method: 'POST',
+          url: '/api/v1/simulator/play',
+          payload: { track: { gpxId: 'city' } },
+        });
+        await server.inject({ method: 'POST', url: '/api/v1/simulator/pause' });
+
+        expect(
+          JSON.parse((await server.inject({ method: 'GET', url: '/api/v1/position/sources' })).body)
+            .forced,
+        ).toBe('simulator');
+      });
+    });
+
     it('rejects a play request with no track and nothing to resume', async () => {
       const res = await server.inject({ method: 'POST', url: '/api/v1/simulator/play', payload: {} });
       expect(res.statusCode).toBe(400);
