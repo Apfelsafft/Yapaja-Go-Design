@@ -10,6 +10,54 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.6.4
+
+**Der blanke Bildschirm: Ursache gefunden und behoben.**
+
+Gemeldet: *„nach kurzer Zeit verschwindet die gesamte Anzeige und man sieht
+nur noch einen blanken Screen"* — und beim nächsten Versuch *„es ist gleich
+gecrasht"*. Der Absturzbildschirm aus 0.6.1 hat den Text geliefert:
+*„Maximum call stack size exceeded."*
+
+Es lag an der **Fahrtrichtung**, und nur an ihr.
+
+In den Kurs-Modi (*Karte dreht mit*) dreht Yapaja die Karte dem Fahrzeug nach.
+Vor jedem Drehen wird geprüft, ob es überhaupt nötig ist — sonst würde sich
+die Kamera endlos selbst nachjustieren. Diese Prüfung verglich den GPS-Kurs
+(0–360°) mit dem Kartenwinkel. MapLibre speichert den aber **gewickelt**: aus
+200° wird intern −160°. Nachgemessen im Browser:
+
+| gesetzt | gelesen |
+|---|---|
+| 179° | 179° |
+| 181° | −179° |
+| 200° | −160° |
+| 270° | −90° |
+
+Die Prüfung las daraus einen Unterschied von 360° und drehte wieder. Und
+wieder. Die Kamerabewegung meldet ihr Ende sofort, was die Prüfung erneut
+auslöst — bis der Aufrufstapel voll war und Home Assistant nur noch eine leere
+Fläche zeigte.
+
+Getroffen hat es **jede Fahrt Richtung Westen** (Kurs über 180°). Deshalb
+„nach kurzer Zeit": das war der Moment, in dem die Route nach Westen drehte.
+Auf dem iPad fällt das früher um als auf einem PC — darum war es dort so
+zuverlässig zu sehen.
+
+Die Prüfung rechnet jetzt auf dem Kreis statt auf der Zahlengeraden: 359° und
+1° sind zwei Grad auseinander, nicht 358. Ein Test fährt jede Himmelsrichtung
+ab, in beiden Kurs-Modi.
+
+**Die Karte dreht jetzt sofort mit, nicht eine Meldung später.**
+
+Dabei aufgefallen: das Nachdrehen hing allein daran, dass die Kamera *aus
+einem anderen Grund* bewegt wurde. Seit die Verfolgung in 0.6.1 flüssig
+animiert, kam dieses Signal erst am Ende der Animation — die Karte drehte
+sich gemessen eine ganze Positionsmeldung zu spät. Und im Stand, wenn sich
+der Kartenmittelpunkt gar nicht ändert, drehte sie überhaupt nicht mit.
+
+---
+
 ## 0.6.3
 
 **Die abgefahrene Strecke wird grau.**

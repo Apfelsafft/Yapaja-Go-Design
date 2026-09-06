@@ -13,11 +13,21 @@
 import { create } from 'zustand';
 import { mapController, type CameraOptions } from '../state/mapStore';
 import { usePositionStore } from '../position/positionStore';
+import { anglesMatch } from './angles.js';
 
 export type ViewMode = '2d-north' | '2d-course' | '3d-course';
 
 const STORAGE_KEY = 'yapaja.viewMode';
 const ANIMATION_DURATION = 300;
+
+/**
+ * Ab welchem Unterschied die Karte ueberhaupt nachgedreht wird.
+ *
+ * Der Wert stand vorher zweimal als `0.1` im Code. Er ist nicht nur eine
+ * Frage der Ruhe im Bild, sondern die ABBRUCHBEDINGUNG des Nachfuehrens --
+ * siehe `angles.ts`. Deshalb hat er jetzt einen Namen und eine Stelle.
+ */
+const BEARING_TOLERANCE_DEG = 0.1;
 
 // Camera parameters for each mode
 const MODE_PARAMS: Record<ViewMode, Pick<CameraOptions, 'pitch'>> = {
@@ -134,20 +144,26 @@ export function syncHeadingToBearing(): void {
 
   // For 2d-north mode: enforce bearing = 0 always
   if (mode === '2d-north') {
-    const currentBearing = map.getBearing();
-    if (Math.abs(currentBearing) > 0.1) {
+    if (!anglesMatch(map.getBearing(), 0, BEARING_TOLERANCE_DEG)) {
       mapController.setCamera({ bearing: 0 });
     }
     return;
   }
 
-  // For course modes: update bearing from position heading. Guard with an
-  // epsilon so a programmatic setCamera doesn't re-trigger itself via the
-  // rotate/moveend listener (no feedback loop).
+  // ─── KURS-MODI: DIE KARTE DEM FAHRZEUG NACHDREHEN ─────────────────────────
+  // Die Abfrage muss auf dem KREIS rechnen, nicht auf der Zahlengeraden.
+  // Vorher stand hier `Math.abs(currentBearing - position.heading) > 0.1` --
+  // und weil MapLibre den Kartenwinkel gewickelt speichert (200 wird zu
+  // -160, gemessen), waren das bei Kurs 200 volle 360 Grad Unterschied. Die
+  // Abfrage sollte genau die Rueckkopplung verhindern, die sie dadurch
+  // ausloeste: `setCamera` springt, MapLibre meldet `moveend` sofort, der
+  // Zuhoerer ruft wieder hierher -- bis der Aufrufstapel voll war.
+  //
+  // Das ist der Absturz „Maximum call stack size exceeded.", und er traf jede
+  // Fahrt Richtung Westen. Siehe `angles.ts` fuer die Messung.
   const position = usePositionStore.getState().position;
   if (position?.heading !== null && position?.heading !== undefined) {
-    const currentBearing = map.getBearing();
-    if (Math.abs(currentBearing - position.heading) > 0.1) {
+    if (!anglesMatch(map.getBearing(), position.heading, BEARING_TOLERANCE_DEG)) {
       mapController.setCamera({ bearing: position.heading });
     }
   }
