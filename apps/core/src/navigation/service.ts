@@ -1294,6 +1294,17 @@ export class NavigationService implements DeadReckoningRouteSource {
     await this.executeReroute(this.lastPosition, at, false);
   }
 
+  /**
+   * Die Route, die gerade gefahren wird -- oder `null`.
+   *
+   * Der Browser zeichnet die Streckenlinie aus SEINEM Speicher; nach einem
+   * Neuladen ist der leer, waehrend die Fahrt hier unveraendert weiterlaeuft.
+   * Damit die Linie zurueckkommt, muss er sie erfragen koennen.
+   */
+  getActiveRoute(): Route | null {
+    return this.active?.route ?? null;
+  }
+
   // --- State-machine plumbing ----------------------------------------------
 
   /** Apply an internal action if valid; return whether it fired. Never throws. */

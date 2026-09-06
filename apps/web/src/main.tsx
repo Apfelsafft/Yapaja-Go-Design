@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import CrashScreen from './shell/CrashScreen.js';
 import './index.css';
 import { initServiceWorker } from './pwa/registerServiceWorker.js';
 import { requestPersistentStorage } from './pwa/persistentStorage.js';
@@ -17,6 +18,10 @@ void requestPersistentStorage();
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
-    <App />
+    {/* Ohne diese Grenze raeumt React bei einem Fehler beim Zeichnen
+        den GANZEN Baum ab -- der gemeldete „blanke Screen". */}
+    <CrashScreen>
+      <App />
+    </CrashScreen>
   </React.StrictMode>
 );

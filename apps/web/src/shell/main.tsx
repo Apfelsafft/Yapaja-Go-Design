@@ -28,6 +28,7 @@ import DriveLockController from '../drive/DriveLockController.js';
 import { initServiceWorker } from '../pwa/registerServiceWorker.js';
 import { requestPersistentStorage } from '../pwa/persistentStorage.js';
 import '../index.css';
+import CrashScreen from './CrashScreen.js';
 
 function readModeFromQuery(): ShellMode {
   const params = new URLSearchParams(window.location.search);
@@ -49,7 +50,11 @@ void requestPersistentStorage();
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
-    <DriveLockController />
-    <Shell mode={readModeFromQuery()} />
+    {/* Ohne diese Grenze raeumt React bei einem Fehler beim Zeichnen den
+        GANZEN Baum ab -- der gemeldete „blanke Screen". */}
+    <CrashScreen>
+      <DriveLockController />
+      <Shell mode={readModeFromQuery()} />
+    </CrashScreen>
   </React.StrictMode>,
 );

@@ -10,6 +10,67 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.6.1
+
+Vier Dinge aus deiner Testfahrt.
+
+**Behoben: der blanke Bildschirm.**
+
+> „Nach kurzer Zeit verschwindet die gesamte Anzeige und man sieht nur noch
+> einen blanken Screen. Nur die HA Menüs sind noch da."
+
+Yapaja war nicht hängen geblieben, sondern **abgeräumt**. Geht beim Zeichnen
+etwas schief und fängt es niemand auf, entfernt React die ganze Oberfläche —
+das ist seine Regel: lieber nichts zeigen als etwas Falsches. Nur gab es hier
+nirgends eine Stelle, die das auffängt. Aus jedem Fehler wurde deshalb ein
+leerer Rahmen, ohne Hinweis und ohne Weg zurück.
+
+Jetzt erscheint stattdessen eine Meldung mit dem **echten Fehlertext**, einem
+großen „Neu laden"-Knopf und dem wichtigsten Satz zuerst: *die Navigation läuft
+weiter*. Sie liegt im Yapaja-Dienst, nicht in der Anzeige — die Ansagen kommen
+also weiter, während du den Knopf suchst.
+
+**Das ist eine Auffangstelle, keine Ursachenbehebung.** Ich konnte deinen
+Absturz nicht nachstellen: eine simulierte Fahrt über 120 Sekunden im
+32-fachen Zeitraffer läuft hier ohne einen einzigen Fehler durch. Wenn es
+wieder passiert, steht jetzt der Fehlertext auf dem Bildschirm — bitte gib ihn
+mir, dann finde ich die Ursache.
+
+**Behoben: die fehlende blaue Linie nach dem Fortsetzen.**
+
+> „Bei Bestätigung wird weiter navigiert aber die blaue Streckenlinie fehlt
+> jetzt."
+
+Die Linie wird aus dem Speicher des Browsers gezeichnet, und der ist nach
+einem Neuladen leer — während die Fahrt im Dienst unverändert weiterläuft.
+Genau deshalb kam ja die Rückfrage und die Ansagen liefen weiter: alles war da,
+nur die Linie nicht. Jetzt holt sich die Anzeige die laufende Route zurück.
+
+**Behoben: das ruckelige Abfahren.**
+
+> „Das Abfahren der Route passiert sprunghaft. Der Route wird nicht flüssig
+> gefolgt sondern immer in Schritten."
+
+Die Karte wurde bei jeder Positionsmeldung **gesetzt** statt bewegt — ein
+Sprung pro Sekunde. Jetzt gleitet sie, und zwar genau so schnell, wie die
+Meldungen eintreffen: im Zeitraffer schneller, in Echtzeit über eine Sekunde.
+
+**Behoben: die Übersicht beim Losfahren.**
+
+> „Insbesondere bei Start ist noch recht weit rausgezoomt."
+
+Die Ursache war nicht die Zoomstufe, sondern der Zeitpunkt: im Stand wäre die
+Stufe schon die nächste gewesen, der automatische Zoom hing aber an der
+*nächsten* Positionsmeldung. Beim Losfahren blieb also die Planungsübersicht
+stehen — mitsamt der ersten Abbiegung. Jetzt wird beim Start sofort
+herangeholt.
+
+**Noch offen: die abgefahrene Strecke bleibt blau.** Das habe ich in dieser
+Version nicht angefasst — es braucht ein Aufteilen der Linie am Fortschritt,
+und ich wollte lieber vier Dinge fertig ausliefern als fünf halb.
+
+---
+
 ## 0.6.0
 
 **Die Suche findet jetzt, was du meinst.**

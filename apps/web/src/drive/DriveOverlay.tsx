@@ -24,6 +24,7 @@ import { announce, cancelSpeech, isSpeechAvailable } from './tts.js';
 import { useHandednessStore } from '../shell/handednessStore.js';
 import { sideClassFor } from '../shell/handedness.js';
 import { rightStackBottomPx } from '../shell/mapControlLayout.js';
+import { applyAutoZoomNow } from '../map/followMe.js';
 import TripInfoPanel from './TripInfoPanel.js';
 
 function TtsToggle(): React.ReactElement {
@@ -90,6 +91,16 @@ export default function DriveOverlay(): React.ReactElement {
   }, [ttsEnabled]);
 
   const active = driveGateOpen && isDriveActive(navState?.status);
+
+  // ─── BEIM LOSFAHREN SOFORT HERANHOLEN ────────────────────────────────────
+  // Ohne das blieb die Uebersicht stehen, in der die Route geplant wurde --
+  // bis zur naechsten Positionsmeldung, und mit ihr die erste Abbiegung.
+  // Gemeldet: „Insbesondere bei Start ist noch recht weit rausgezoomt."
+  const warAktiv = useRef(false);
+  useEffect(() => {
+    if (active && !warAktiv.current) applyAutoZoomNow();
+    warAktiv.current = active;
+  }, [active]);
 
   return (
     <>

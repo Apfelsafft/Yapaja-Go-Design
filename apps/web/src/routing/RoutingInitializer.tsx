@@ -6,6 +6,7 @@
 import React, { useEffect } from 'react';
 import { useProfileStore } from '../profiles/store.js';
 import RouteLayer from './RouteLayer.js';
+import RouteRestorer from './RouteRestorer.js';
 import DestinationSelector from './DestinationSelector.js';
 import RoutingPanel from './RoutingPanel.js';
 
@@ -26,6 +27,9 @@ export default function RoutingInitializer(): React.ReactElement {
 
   return (
     <>
+      {/* Holt die Route nach einem Neuladen zurueck, damit die blaue Linie
+          nicht fehlt, waehrend die Fahrt weiterlaeuft. */}
+      <RouteRestorer />
       <RouteLayer />
       <DestinationSelector />
       <RoutingPanel />
