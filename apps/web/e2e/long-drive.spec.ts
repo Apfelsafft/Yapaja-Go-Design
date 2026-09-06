@@ -238,7 +238,88 @@ test.describe('Eine laengere Testfahrt', () => {
 
     expect(consoleErrors, 'MapLibre hat nichts zu beanstanden').toEqual([]);
   });
+
+  // ─── DER BLANKE BILDSCHIRM, ENDLICH MIT URSACHE ───────────────────────────
+  // „Den Zoom konnte ich nicht testen da es gleich gecrasht ist."
+  //
+  // In den Kurs-Modi dreht Yapaja die Karte dem Fahrzeug nach. Die Abfrage,
+  // ob ueberhaupt gedreht werden muss, verglich den GPS-Kurs (0..360) mit dem
+  // Kartenwinkel -- und den speichert MapLibre GEWICKELT. Im Browser
+  // gemessen: gesetzt 200, gelesen -160. Der alte Vergleich las daraus 360
+  // Grad Unterschied und drehte erneut; `setCamera` springt, MapLibre meldet
+  // `moveend` SOFORT, der Zuhoerer ruft zurueck -- bis der Aufrufstapel voll
+  // war. Genau das ist „Maximum call stack size exceeded."
+  //
+  // Getroffen hat es jede Fahrt Richtung WESTEN. Dass es hier nie auffiel,
+  // hat einen schlichten Grund: alle Testfahrten in dieser Datei fahren nach
+  // NORDEN, und Kurs 0 wickelt nicht.
+  //
+  // ─── WARUM IM BROWSER UND NICHT NUR ALS EINHEITSTEST ──────────────────────
+  // Die Rueckkopplung entsteht aus MapLibres Verhalten (Wicklung, sofortiges
+  // `moveend`). Eine nachgebaute Karte haette genau das nachgebaut, was
+  // falsch verstanden war. `map/angles.test.ts` prueft die Regel; dieser Test
+  // prueft, dass sie die richtige ist.
+  for (const modus of ['2d-course', '3d-course']) {
+    test(`${modus}: keine Himmelsrichtung raeumt die Anzeige ab`, async ({ page }) => {
+      test.setTimeout(90_000);
+      const pageErrors = collectPageErrors(page);
+      const consoleErrors: string[] = [];
+      page.on('console', (m) => {
+        if (m.type() === 'error') consoleErrors.push(m.text());
+      });
+
+      // Der Modus liegt im Speicher des Browsers -- genau dort, wo ihn das
+      // Umschalten auf dem Geraet hinterlaesst.
+      await page.addInitScript((m) => localStorage.setItem('yapaja.viewMode', m), modus);
+      await page.goto(LONG_DRIVE_CORE_BASE_URL + '/');
+      await waitForMapReady(page);
+
+      // Rundherum. Die ueber 180 sind die, an denen es abgestuerzt ist.
+      const KURSE = [0, 45, 90, 135, 180, 200, 225, 270, 315, 359];
+      for (const [schritt, kurs] of KURSE.entries()) {
+        // Das Fahrzeug bewegt sich dabei -- steht es still, bleibt der
+        // Kartenmittelpunkt gleich, MapLibre meldet keine Bewegung, und die
+        // Karte dreht gar nicht erst. (Beim ersten Entwurf lagen alle
+        // Positionen aufeinander; der Kartenwinkel hinkte dann genau eine
+        // Meldung hinterher.)
+        await meldeKurs(page, kurs, schritt);
+
+        // Der Absturzbildschirm ist der sichtbare Beweis.
+        await expect(page.getByTestId('crash-screen'), `Absturz bei Kurs ${kurs}`).toHaveCount(0);
+
+        // Und die Karte zeigt wirklich dorthin -- der Vergleich waere sonst
+        // auch dadurch zu erfuellen, dass gar nicht mehr gedreht wird.
+        const gelesen = await page.evaluate(
+          () => window.__yapajaMapController!.getMap!()!.getBearing(),
+        );
+        const abstand = Math.abs(((kurs - gelesen + 540) % 360) - 180);
+        expect(abstand, `Kartenwinkel bei Kurs ${kurs}: ${gelesen}`).toBeLessThan(1);
+      }
+
+      await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible();
+      expect(pageErrors, 'keine Ausnahme im Browser').toEqual([]);
+      expect(consoleErrors, 'keine Fehlermeldung in der Konsole').toEqual([]);
+    });
+  }
 });
+
+/** Eine Position mit genau diesem Kurs melden, ein Stueck weiter als die vorige. */
+async function meldeKurs(page: Page, heading: number, schritt: number): Promise<void> {
+  const res = await page.request.post(`${LONG_DRIVE_CORE_BASE_URL}/api/v1/position/browser`, {
+    data: {
+      lat: 47.4 + schritt * 0.001,
+      lon: 9.7,
+      alt: null,
+      speed: 13.9,
+      heading,
+      accuracy: 5,
+      fix: '3d',
+      ts: new Date().toISOString(),
+    },
+  });
+  expect(res.ok(), await res.text()).toBe(true);
+  await page.waitForTimeout(1100); // 1-Hz-Drossel des Cores
+}
 
 /** Das Fahrzeug auf `POINTS[index]` setzen -- die Strecke laeuft nach Norden. */
 async function fahreZu(page: Page, index: number): Promise<void> {

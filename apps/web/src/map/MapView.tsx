@@ -316,6 +316,15 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
       return;
     }
     updateFollowMePosition();
+    // ─── UND DIE KARTE MITDREHEN ────────────────────────────────────────────
+    // Der Kurs aendert sich HIER -- also gehoert das Nachdrehen auch hierhin.
+    // Bisher haing es allein an `rotate`/`moveend` (siehe der Effekt
+    // darunter), lief also nur, wenn die Kamera aus einem anderen Grund
+    // bewegt wurde. Seit die Verfolgung fluessig animiert (0.6.1), kommt
+    // `moveend` erst am Ende der Animation: die Karte drehte sich gemessen
+    // eine ganze Meldung zu spaet. Steht das Fahrzeug still, bewegte sich
+    // die Kamera gar nicht -- dann drehte sie ueberhaupt nicht mit.
+    syncHeadingToBearing();
   }, [map, position]);
 
   // Sync heading to bearing for course modes + lock 2d-north bearing. Attaches
