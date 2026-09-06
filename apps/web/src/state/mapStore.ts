@@ -36,6 +36,16 @@ interface MapControllerState {
   getMap: () => MapLibreMap | null;
   /** Moves the camera. No-ops silently if no map is registered yet. */
   setCamera: (camera: CameraOptions, options?: SetCameraOptions) => void;
+  /**
+   * Schiebt den Kartenmittelpunkt im Bild nach unten (Rand OBEN in
+   * Bildpunkten) -- waehrend der Fahrt sitzt das Fahrzeug dadurch im unteren
+   * Bilddrittel statt in der Mitte. Siehe `map/drivePadding.ts`.
+   *
+   * `null` stellt den Zustand ohne Verschiebung wieder her.
+   */
+  setTopPadding: (paddingTopPx: number | null) => void;
+  /** Die Hoehe der Kartenflaeche in CSS-Bildpunkten, oder `null` ohne Karte. */
+  getHeightPx: () => number | null;
   /** Subscribes to a MapLibre map event. No-ops silently if no map is registered yet. */
   on: <T extends keyof MapEventType>(type: T, listener: MapEventListener<T>) => void;
   /** Unsubscribes from a MapLibre map event. No-ops silently if no map is registered yet. */
@@ -61,6 +71,26 @@ export const useMapStore = create<MapControllerState>((set, get) => ({
     }
   },
 
+  setTopPadding: (paddingTopPx) => {
+    const map = get().map;
+    if (!map) {
+      return;
+    }
+    // Nur `top` anfassen: die uebrigen Raender gehoeren anderen (etwa
+    // `fitBounds` in `routing/RouteLayer.tsx`), und sie hier mitzusetzen
+    // hiesse, deren Werte stillschweigend zu ueberschreiben.
+    map.setPadding({ ...map.getPadding(), top: paddingTopPx ?? 0 });
+  },
+
+  getHeightPx: () => {
+    const map = get().map;
+    if (!map) {
+      return null;
+    }
+    const hoehe = map.getCanvas().clientHeight;
+    return Number.isFinite(hoehe) && hoehe > 0 ? hoehe : null;
+  },
+
   on: (type, listener) => {
     get().map?.on(type, listener);
   },
@@ -80,6 +110,9 @@ export const mapController = {
   getMap: (): MapLibreMap | null => useMapStore.getState().getMap(),
   setCamera: (camera: CameraOptions, options?: SetCameraOptions): void =>
     useMapStore.getState().setCamera(camera, options),
+  setTopPadding: (paddingTopPx: number | null): void =>
+    useMapStore.getState().setTopPadding(paddingTopPx),
+  getHeightPx: (): number | null => useMapStore.getState().getHeightPx(),
   on: <T extends keyof MapEventType>(type: T, listener: MapEventListener<T>): void =>
     useMapStore.getState().on(type, listener),
   off: <T extends keyof MapEventType>(type: T, listener: MapEventListener<T>): void =>

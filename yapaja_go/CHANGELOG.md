@@ -10,6 +10,38 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.6.5
+
+**Der Blick geht jetzt nach vorn.**
+
+Gemeldet: *„kurz vor der Abfahrt nach rechts bin ich noch recht weit
+rausgezoomt. Da wäre es besser wenn man genau die Straßen und Abfahrten
+sieht."*
+
+Erst nachgemessen: der automatische Zoom **griff** bereits. Bei 222 m zum
+Abbiegepunkt stand die Karte auf Stufe 16,99, bei 445 m auf 15,99. Die Stufe
+war also da — sie war nur zu weit weg.
+
+Der Grund war nicht die Stufe, sondern die **Lage**. Das Fahrzeug saß in der
+Bildmitte, und damit zeigte die gesamte untere Bildhälfte Strecke, die schon
+hinter Ihnen lag. Auf einem Tablet quer sind das bei Stufe 17 nur 281 m
+Sicht nach vorn — Ihre Abfahrt in 206 m saß fast am oberen Rand. Und einfach
+näher heranzugehen hätte es *schlimmer* gemacht: auf Stufe 18 wären mittig
+nur 141 m voraus sichtbar gewesen, die Abfahrt läge außerhalb des Bildes.
+
+Deshalb sitzt das Fahrzeug während der Fahrt jetzt im **unteren Viertel**.
+Aus derselben Stufe 17 werden damit 422 m Sicht nach vorn statt 281 m. Nach
+dem Ende der Fahrt rückt es wieder in die Mitte — dort geht es ums Umsehen,
+nicht ums Vorausschauen.
+
+**Und unmittelbar vor dem Abbiegen eine Stufe näher.**
+
+Erst durch die Verschiebung wird das überhaupt tragbar: ab 150 m vor dem
+Abbiegepunkt geht die Karte auf Stufe 18, und es sind immer noch 211 m
+sichtbar. Spuren und Abfahrten sind damit doppelt so groß im Bild.
+
+---
+
 ## 0.6.4
 
 **Der blanke Bildschirm: Ursache gefunden und behoben.**

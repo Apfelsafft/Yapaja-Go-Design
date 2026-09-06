@@ -26,6 +26,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { LONG_DRIVE_CORE_BASE_URL, LONG_DRIVE_VALHALLA_PORT } from './support/constants.js';
 import { startValhallaStub, type ValhallaStub } from './support/valhallaStub.js';
 import { collectPageErrors } from './support/network.js';
+import { DRIVE_VEHICLE_Y } from '../src/map/drivePadding.js';
 import type { LatLon } from '../../core/src/routing/polyline.js';
 
 const BASE_LAT = 47.4;
@@ -239,6 +240,40 @@ test.describe('Eine laengere Testfahrt', () => {
     expect(consoleErrors, 'MapLibre hat nichts zu beanstanden').toEqual([]);
   });
 
+  // ─── DER BLICK GEHT NACH VORN ─────────────────────────────────────────────
+  // „Kurz vor der Abfahrt nach rechts bin ich noch recht weit rausgezoomt. Da
+  // waere es besser wenn man genau die Strassen und Abfahrten sieht."
+  //
+  // Der Auto-Zoom griff dabei bereits -- gemessen: bei 222 m zum Abbiegepunkt
+  // stand die Karte auf 16,99. Die Stufe war nur zu weit weg, weil das
+  // Fahrzeug in der BILDMITTE sass und die untere Bildhaelfte damit Strecke
+  // zeigte, die schon hinter einem lag.
+  //
+  // Geprueft wird hier die Lage im Bild, denn genau daran haengt die Rechnung
+  // in `drivePadding.ts` -- und ob MapLibres `padding` in die erwartete
+  // Richtung schiebt, laesst sich nur an einer echten Karte feststellen.
+  test('waehrend der Fahrt sitzt das Fahrzeug unten, danach wieder mittig', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.goto(LONG_DRIVE_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+
+    expect(await fahrzeugImBild(page), 'vor der Fahrt: mittig').toBeCloseTo(0.5, 2);
+
+    await planeUndFahre(page);
+    await fahreZu(page, 4);
+
+    const waehrend = await fahrzeugImBild(page);
+    expect(waehrend, 'waehrend der Fahrt: im unteren Viertel').toBeCloseTo(DRIVE_VEHICLE_Y, 2);
+    expect(waehrend, 'und wirklich tiefer als vorher').toBeGreaterThan(0.5);
+
+    await page.request
+      .post(`${LONG_DRIVE_CORE_BASE_URL}/api/v1/navigation/stop`)
+      .catch(() => {});
+    await expect
+      .poll(() => fahrzeugImBild(page), { timeout: 15_000, intervals: [250] })
+      .toBeCloseTo(0.5, 2);
+  });
+
   // ─── DER BLANKE BILDSCHIRM, ENDLICH MIT URSACHE ───────────────────────────
   // „Den Zoom konnte ich nicht testen da es gleich gecrasht ist."
   //
@@ -302,6 +337,14 @@ test.describe('Eine laengere Testfahrt', () => {
     });
   }
 });
+
+/** Wo das Fahrzeug im Bild sitzt, als Anteil der Kartenhoehe von oben. */
+async function fahrzeugImBild(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const map = window.__yapajaMapController!.getMap!()!;
+    return map.project(map.getCenter()).y / map.getCanvas().clientHeight;
+  });
+}
 
 /** Eine Position mit genau diesem Kurs melden, ein Stueck weiter als die vorige. */
 async function meldeKurs(page: Page, heading: number, schritt: number): Promise<void> {

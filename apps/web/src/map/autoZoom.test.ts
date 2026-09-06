@@ -13,6 +13,8 @@ import {
   shouldApplyZoom,
   MANEUVER_CLOSE_M,
   MANEUVER_ZOOM,
+  MANEUVER_AT_M,
+  MANEUVER_AT_ZOOM,
   SPEED_ZOOM_STEPS,
 } from './autoZoom.js';
 
@@ -20,7 +22,7 @@ describe('woran sich die Stufe bemisst', () => {
   it('ein naher Abbiegepunkt gewinnt gegen die Geschwindigkeit', () => {
     // Kurz vor der Kreuzung nuetzt die Uebersicht nichts -- man muss die
     // Spur sehen. Auch bei Autobahntempo.
-    expect(autoZoomFor({ speedKmh: 130, distanceToManeuverM: 100 })).toBe(MANEUVER_ZOOM);
+    expect(autoZoomFor({ speedKmh: 130, distanceToManeuverM: 200 })).toBe(MANEUVER_ZOOM);
   });
 
   it('genau an der Grenze zaehlt der Abbiegepunkt noch als nah', () => {
@@ -29,6 +31,43 @@ describe('woran sich die Stufe bemisst', () => {
     );
     // Einen Meter weiter entscheidet wieder das Tempo.
     expect(autoZoomFor({ speedKmh: 130, distanceToManeuverM: MANEUVER_CLOSE_M + 1 })).toBe(14);
+  });
+
+  // ─── UNMITTELBAR VOR DEM ABBIEGEN NOCH EINE STUFE NAEHER ──────────────────
+  // Gemeldet: „kurz vor der Abfahrt nach rechts bin ich noch recht weit
+  // rausgezoomt." Stufe 17 griff dabei bereits (gemessen: 16,99 bei 222 m) --
+  // sie ist nur zu weit weg.
+  describe('unmittelbar vor dem Abbiegen', () => {
+    it('gilt die engste Stufe', () => {
+      expect(autoZoomFor({ speedKmh: 130, distanceToManeuverM: 100 })).toBe(MANEUVER_AT_ZOOM);
+      expect(autoZoomFor({ speedKmh: 130, distanceToManeuverM: 0 })).toBe(MANEUVER_AT_ZOOM);
+    });
+
+    it('und sie ist wirklich naeher als die vorige', () => {
+      // Sonst waere die ganze Stufe eine Verdopplung ohne Wirkung.
+      expect(MANEUVER_AT_ZOOM).toBeGreaterThan(MANEUVER_ZOOM);
+      expect(MANEUVER_AT_M).toBeLessThan(MANEUVER_CLOSE_M);
+    });
+
+    it('genau an ihrer Grenze noch, einen Meter weiter nicht mehr', () => {
+      expect(autoZoomFor({ speedKmh: 130, distanceToManeuverM: MANEUVER_AT_M })).toBe(
+        MANEUVER_AT_ZOOM,
+      );
+      expect(autoZoomFor({ speedKmh: 130, distanceToManeuverM: MANEUVER_AT_M + 1 })).toBe(
+        MANEUVER_ZOOM,
+      );
+    });
+
+    it('die Stufen folgen aufeinander, statt sich zu ueberspringen', () => {
+      // Von weit nach nah darf die Zahl nur wachsen -- ein Zurueckspringen
+      // waere ein Herauszoomen beim Naeherkommen.
+      const stufen = [400, 250, 200, 150, 100, 20].map((m) =>
+        autoZoomFor({ speedKmh: 50, distanceToManeuverM: m }),
+      );
+      for (let i = 1; i < stufen.length; i++) {
+        expect(stufen[i]!, `bei Schritt ${i}`).toBeGreaterThanOrEqual(stufen[i - 1]!);
+      }
+    });
   });
 
   it('sonst entscheidet die Geschwindigkeit, und zwar naeher bei langsam', () => {
