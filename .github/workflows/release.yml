@@ -333,7 +333,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: "Yapaja Go v${{ needs.changelog.outputs.version }}"
+          name: "Yapaia Go v${{ needs.changelog.outputs.version }}"
           body_path: /tmp/release-artifact/release-notes.md
           # E10-T5 Plausibilität: ein Breaking Change der Add-on-API steht
           # (maschinell erzwungen, scripts/changeset-breaking-check.mjs)

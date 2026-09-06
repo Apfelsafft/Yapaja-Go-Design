@@ -4,7 +4,7 @@
  * Valhalla directly, so the profile→truck-costing mapping (the actual W-08
  * safety surface) is part of what gets tested.
  *
- * Uses the global `fetch` (Node >= 18). No dependency on `@yapaja/*` packages:
+ * Uses the global `fetch` (Node >= 18). No dependency on `@yapaia/*` packages:
  * `e2e/` is outside those package boundaries on purpose.
  */
 
@@ -106,7 +106,7 @@ export async function requestRoute(
 
 /**
  * The subset of `NavState` (docs/03 §1) the ETA case reads. Deliberately a
- * local structural type rather than an import of `@yapaja/shared`: `e2e/` sits
+ * local structural type rather than an import of `@yapaia/shared`: `e2e/` sits
  * outside the workspace packages on purpose (see this file's header), and the
  * suite must fail if the Core stops sending these fields — not silently
  * compile against a type that moved.

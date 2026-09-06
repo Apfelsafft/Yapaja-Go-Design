@@ -10,7 +10,7 @@
  * ─── WO ES STEHT, UND WARUM DORT ────────────────────────────────────────────
  * Bis 2026-09-03 lag dieses Banner auf `top-4 left-4 right-4` und OHNE
  * z-index. Auf derselben Zeile sitzen aber drei andere Dinge: der Titel
- * „Yapaja Go" (App.tsx, `absolute top-0 left-0`), die Profil-Auswahl
+ * „Yapaia Go" (App.tsx, `absolute top-0 left-0`), die Profil-Auswahl
  * (`fixed top-4 left-44 z-10`) und die Suchleiste (`fixed top-4 … z-20`).
  * Und `PositionInitializer` — in dem dieses Banner haengt — steht in
  * `App.tsx` VOR allen dreien, also malt es zuerst und liegt zuunterst.

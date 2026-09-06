@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import type { VehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile } from '@yapaia/shared';
 import * as client from './client.js';
 
 export interface ProfileState {
@@ -143,16 +143,16 @@ export const useProfileStore = create<ProfileState>((set) => ({
 declare global {
   interface Window {
     /**
-     * Debug/E2E hook (E05-T3), mirrors `window.__yapajaRoutingStore` /
-     * `window.__yapajaMapController`: exposes the profile store so
+     * Debug/E2E hook (E05-T3), mirrors `window.__yapaiaRoutingStore` /
+     * `window.__yapaiaMapController`: exposes the profile store so
      * Playwright can assert on/await `activeProfile` directly (e.g. proving
      * the favorites active-profile invariant against a freshly-activated
      * profile without waiting on an arbitrary UI poll interval).
      */
-    __yapajaProfileStore?: typeof useProfileStore;
+    __yapaiaProfileStore?: typeof useProfileStore;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaProfileStore = useProfileStore;
+  window.__yapaiaProfileStore = useProfileStore;
 }

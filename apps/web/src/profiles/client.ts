@@ -6,7 +6,7 @@
  * `import.meta.env.BASE_URL` so this keeps working under an ingress sub-path.
  */
 
-import type { VehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile } from '@yapaia/shared';
 
 interface ApiErrorBody {
   error: { code: string; message: string; details?: Record<string, unknown> };

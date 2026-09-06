@@ -16,7 +16,7 @@
 import { existsSync } from 'fs';
 import { unlink } from 'fs/promises';
 import type { FastifyPluginAsync } from 'fastify';
-import type { ApiError } from '@yapaja/shared';
+import type { ApiError } from '@yapaia/shared';
 import { REGION_NAME_PATTERN, resolveRegionFilePath, resolveTilesDir } from '../paths.js';
 import { listRegions } from '../regions.js';
 import { loadCatalog, type CatalogEntry } from './catalog.js';

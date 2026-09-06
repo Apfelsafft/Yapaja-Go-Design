@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import type { AddonManifest } from '@yapaja/shared';
+import type { AddonManifest } from '@yapaia/shared';
 import { getDb, closeDb } from '../db/index.js';
 import { AddonRepository } from './repository.js';
 import { AddonTokenService, RevocationTombstones, hashAddonToken } from './tokens.js';

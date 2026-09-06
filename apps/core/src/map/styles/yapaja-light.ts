@@ -1,5 +1,5 @@
 /**
- * „Yapaja Hell" — der Tagesstil (docs/06-ui-ux-guidelines.md §6).
+ * „Yapaia Hell" — der Tagesstil (docs/06-ui-ux-guidelines.md §6).
  *
  * Die Kartografie steht in `baseLayers.ts`, die Farben in `palette.ts`. Bis
  * 0.3.6 stand hier eine eigene, sehr knappe Ebenenliste: Hintergrund, EINE
@@ -14,13 +14,13 @@ import { PLACEHOLDER_TILE_URL, REGION_SOURCE_ID } from './constants.js';
 import { GLYPHS_URL } from './fonts.js';
 import type { MapStyleDocument } from './types.js';
 
-export const YAPAJA_LIGHT_STYLE_ID = 'yapaja-light';
-export const YAPAJA_LIGHT_STYLE_NAME = 'Yapaja Hell';
+export const YAPAIA_LIGHT_STYLE_ID = 'yapaja-light';
+export const YAPAIA_LIGHT_STYLE_NAME = 'Yapaia Hell';
 
-export function buildYapajaLightStyle(): MapStyleDocument {
+export function buildYapaiaLightStyle(): MapStyleDocument {
   return {
     version: 8,
-    name: YAPAJA_LIGHT_STYLE_NAME,
+    name: YAPAIA_LIGHT_STYLE_NAME,
     glyphs: GLYPHS_URL,
     sources: { [REGION_SOURCE_ID]: { type: 'vector', url: PLACEHOLDER_TILE_URL } },
     layers: buildBaseLayers(LIGHT_PALETTE),

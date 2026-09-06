@@ -1,6 +1,6 @@
 /**
  * E09-T5 acceptance criterion 1: both reference add-ons must use
- * `@yapaja/addon-sdk` EXCLUSIVELY -- no raw `fetch`, `postMessage`,
+ * `@yapaia/addon-sdk` EXCLUSIVELY -- no raw `fetch`, `postMessage`,
  * `XMLHttpRequest`, or `WebSocket` anywhere in the add-on's OWN source. The
  * SDK itself (`packages/addon-sdk/src/**`) legitimately uses all of those
  * under the hood -- that's what it's FOR -- so this scan is deliberately
@@ -38,7 +38,7 @@ function collectSourceFiles(dir: string, out: string[] = []): string[] {
 
 const ADDON_SRC_DIRS = [join(HERE, 'poi-campsites', 'src'), join(HERE, 'track-recorder', 'src')];
 
-describe('E09-T5 add-on source uses only @yapaja/addon-sdk (no raw fetch/postMessage/WS)', () => {
+describe('E09-T5 add-on source uses only @yapaia/addon-sdk (no raw fetch/postMessage/WS)', () => {
   for (const srcDir of ADDON_SRC_DIRS) {
     const files = collectSourceFiles(srcDir);
 

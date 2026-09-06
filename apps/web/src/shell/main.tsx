@@ -23,7 +23,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import Shell from './Shell.js';
-import type { ShellMode } from '@yapaja/ui';
+import type { ShellMode } from '@yapaia/ui';
 import DriveLockController from '../drive/DriveLockController.js';
 import { initServiceWorker } from '../pwa/registerServiceWorker.js';
 import { requestPersistentStorage } from '../pwa/persistentStorage.js';

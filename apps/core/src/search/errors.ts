@@ -6,7 +6,7 @@
  * next backend in the chain -- so a Photon outage never crashes a request
  * (rule: "keine stillen Fehler", but also never a 500 for a degraded chain).
  */
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 
 export type GeocoderBackendErrorCode = 'TIMEOUT' | 'UNAVAILABLE' | 'BAD_RESPONSE';
 

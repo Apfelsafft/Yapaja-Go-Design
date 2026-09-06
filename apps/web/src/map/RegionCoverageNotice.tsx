@@ -2,7 +2,7 @@
  * „Ihre Position liegt in keiner installierten Karte."
  *
  * ─── WOFUER DIESER HINWEIS DA IST ───────────────────────────────────────────
- * Es gibt einen Zustand, in dem Yapaja bis 2026-09-03 vollkommen still eine
+ * Es gibt einen Zustand, in dem Yapaia bis 2026-09-03 vollkommen still eine
  * leere Flaeche zeigte: die eigene Position liegt ausserhalb jeder gebauten
  * Region. Die Karte ist dann technisch in Ordnung, der Kachelsatz ist
  * vollstaendig, der Routinggraph steht — es gibt an dieser Stelle nur keine

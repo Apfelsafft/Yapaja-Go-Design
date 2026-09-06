@@ -31,7 +31,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer, type Server, type Socket } from 'node:net';
 import { Aedes } from 'aedes';
 import { connect as mqttConnect, type MqttClient } from 'mqtt';
-import type { Favorite, Route, RouteRequest, VehicleProfile } from '@yapaja/shared';
+import type { Favorite, Route, RouteRequest, VehicleProfile } from '@yapaia/shared';
 import { EventBus } from '../bus/index.js';
 import { NavigationService, type RouteProvider, type RerouteProvider, type ActiveProfileLookup } from '../navigation/service.js';
 import { encodePolyline6 } from '../routing/polyline.js';

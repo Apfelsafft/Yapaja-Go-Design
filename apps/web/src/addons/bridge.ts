@@ -3,7 +3,7 @@
  *
  * One `AddonBridge` owns exactly one sandboxed add-on iframe and is the ONLY
  * thing that iframe can talk to. It is the TRUSTED enforcement point -- the
- * SDK inside the iframe (`@yapaja/addon-sdk`) is untrusted convenience code
+ * SDK inside the iframe (`@yapaia/addon-sdk`) is untrusted convenience code
  * that a malicious add-on can bypass, so every security decision is made HERE
  * and re-made on every message, never delegated to the add-on side.
  *
@@ -50,7 +50,7 @@ import {
   type StorageSetParams,
   type WidgetRegisterParams,
   type WidgetUpdateParams,
-} from '@yapaja/addon-sdk';
+} from '@yapaia/addon-sdk';
 
 /**
  * The security vectors the HOST can attribute to an add-on iframe (E09-T6).

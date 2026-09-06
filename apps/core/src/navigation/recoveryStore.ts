@@ -13,7 +13,7 @@
  * in-memory implementation; production wires the file-backed one.
  */
 
-import type { LatLng } from '@yapaja/shared';
+import type { LatLng } from '@yapaia/shared';
 
 export interface NavRecoveryRecord {
   route_id: string;

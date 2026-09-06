@@ -54,7 +54,7 @@ test.afterAll(async () => {
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -87,7 +87,7 @@ async function planRoute(page: Page): Promise<string> {
   // Der Browser kennt diese Route noch nicht -- sie wurde per REST geplant,
   // nicht ueber „Route hierhin". Derselbe Kunstgriff wie in drive.spec.ts.
   await page.evaluate((routeData) => {
-    window.__yapajaRoutingStore?.setState({
+    window.__yapaiaRoutingStore?.setState({
       routes: routeData as never,
       activeRouteId: (routeData as Array<{ id: string }>)[0].id,
     });
@@ -104,7 +104,7 @@ async function openPanel(page: Page): Promise<void> {
 
 /** Die aktuell im Browser bekannte Position (oder `null`). */
 async function currentLat(page: Page): Promise<number | null> {
-  return page.evaluate(() => window.__yapajaPositionStore?.getState().position?.lat ?? null);
+  return page.evaluate(() => window.__yapaiaPositionStore?.getState().position?.lat ?? null);
 }
 
 test.describe('Der Testfahrer', () => {
@@ -257,7 +257,7 @@ test.describe('Der Testfahrer', () => {
     await waitForMapReady(page);
     // Bewusst KEINE Route planen.
     await page.evaluate(() => {
-      window.__yapajaRoutingStore?.setState({ routes: [], activeRouteId: null });
+      window.__yapaiaRoutingStore?.setState({ routes: [], activeRouteId: null });
     });
     await openPanel(page);
 

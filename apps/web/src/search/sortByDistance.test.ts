@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 import { sortResultsByDistance } from './sortByDistance.js';
 
 const HIER = { lat: 49.0, lon: 8.0 };

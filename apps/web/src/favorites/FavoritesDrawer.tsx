@@ -28,7 +28,7 @@
  * deletable, plus "Verlauf löschen" clears all.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { Favorite, HistoryEntry } from '@yapaja/shared';
+import type { Favorite, HistoryEntry } from '@yapaia/shared';
 import { useMapStore } from '../state/mapStore.js';
 import { useProfileStore } from '../profiles/store.js';
 import { useRoutingStore } from '../routing/store.js';

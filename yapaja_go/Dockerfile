@@ -1,5 +1,5 @@
 # ==============================================================================
-# Yapaja Go -- Home Assistant Add-on image (E08-T4, docs/04 §3).
+# Yapaia Go -- Home Assistant Add-on image (E08-T4, docs/04 §3).
 #
 # Multi-stage build:
 #   1. `core-build`    -- builds apps/core + apps/web exactly like the
@@ -89,7 +89,7 @@ ARG BUILD_FROM=ghcr.io/gis-ops/docker-valhalla/valhalla:latest
 # ---- Stage 1: build apps/core + apps/web (identical recipe to apps/core/Dockerfile) ----
 FROM node:22-slim AS core-build
 # Vom Supervisor bzw. `build.yaml` gesetzt; siehe Kopfkommentar.
-ARG YAPAJA_REPO=Apfelsafft/Yapaja-Go-Design
+ARG YAPAIA_REPO=Apfelsafft/Yapaja-Go-Design
 ARG YAPAJA_REF=main
 # Der Supervisor uebergibt hier die Add-on-Version aus `config.yaml`
 # (`--build-arg BUILD_VERSION=0.1.5`). Sie wird unten im Fetch-Schritt
@@ -137,7 +137,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN set -eux; \
     echo "Quelltext fuer Add-on-Version ${BUILD_VERSION} aus ${YAPAJA_REF}"; \
     curl -fsSL --retry 3 --retry-delay 5 \
-      "https://codeload.github.com/${YAPAJA_REPO}/tar.gz/${YAPAJA_REF}" \
+      "https://codeload.github.com/${YAPAIA_REPO}/tar.gz/${YAPAJA_REF}" \
       -o /tmp/yapaja-src.tar.gz; \
     tar -xzf /tmp/yapaja-src.tar.gz -C /app --strip-components=1; \
     rm /tmp/yapaja-src.tar.gz; \
@@ -146,7 +146,7 @@ RUN set -eux; \
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
 RUN rm -rf node_modules apps/core/node_modules apps/web/node_modules packages/shared/node_modules \
-  && pnpm install --prod --frozen-lockfile --filter @yapaja/core...
+  && pnpm install --prod --frozen-lockfile --filter @yapaia/core...
 
 # ---- Stage 2: Photon JAR source (JAR files are portable across JVMs) ----
 FROM rtuszik/photon-docker:latest AS photon-src
@@ -303,7 +303,7 @@ COPY --from=photon-src /photon/photon.jar /opt/photon/photon.jar
 # SEINER Stufe, deshalb steht es hier noch einmal. Ohne diese Zeile bliebe das
 # `ENV` leer und der Core fiele stillschweigend auf die Core-Version zurueck.
 ARG BUILD_VERSION=dev
-ENV YAPAJA_ADDON_VERSION=${BUILD_VERSION}
+ENV YAPAIA_ADDON_VERSION=${BUILD_VERSION}
 
 WORKDIR /app
 COPY --from=core-build /app/package.json ./package.json
@@ -320,7 +320,7 @@ COPY --from=core-build /app/apps/web/dist ./apps/core/public
 # seinem Geraet unausfuehrbar. Der Fehlercode `NO_DOWNLOAD_URL` sagt
 # „services/tiles/build-pmtiles.sh <pfad>", die Installationspruefung sagt
 # dasselbe, `docs/installation.md` §C beschreibt es ausfuehrlich -- und bis
-# 2026-09-02 lag keine dieser Dateien im Add-on-Image. Wer Yapaja ueber den
+# 2026-09-02 lag keine dieser Dateien im Add-on-Image. Wer Yapaia ueber den
 # HA-Store installiert, hat dieses Repository nicht; fuer ihn verwiesen alle
 # drei Stellen auf etwas, das es bei ihm nirgends gibt.
 #

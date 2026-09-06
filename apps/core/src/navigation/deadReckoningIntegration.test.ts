@@ -19,7 +19,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { NavInstructionPayload, Position, Route, VehicleProfile } from '@yapaja/shared';
+import type { NavInstructionPayload, Position, Route, VehicleProfile } from '@yapaia/shared';
 import { EventBus } from '../bus/index.js';
 import { NavigationService, type ActiveProfileLookup, type RouteProvider } from './service.js';
 import { DeadReckoningController } from '../position/deadReckoning.js';

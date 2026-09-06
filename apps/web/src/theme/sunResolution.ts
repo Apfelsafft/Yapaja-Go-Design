@@ -8,7 +8,7 @@
  * plain unit test: pass in whatever `Date`/position you like.
  */
 
-import { computeSunTimes } from '@yapaja/shared';
+import { computeSunTimes } from '@yapaia/shared';
 
 export type ResolvedTheme = 'light' | 'dark';
 

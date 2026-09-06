@@ -28,7 +28,7 @@ export default function DisclaimerStep({ state, onAccept }: DisclaimerStepProps)
           vor der Navigation.
         </p>
         <p>
-          Die Kartendaten basieren auf OpenStreetMap (© OpenStreetMap contributors). Yapaja Go
+          Die Kartendaten basieren auf OpenStreetMap (© OpenStreetMap contributors). Yapaia Go
           kann nicht garantieren, dass Höhen-, Gewichts- oder sonstige Einschränkungen vollständig
           erfasst sind.
         </p>

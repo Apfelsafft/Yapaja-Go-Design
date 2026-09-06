@@ -18,7 +18,7 @@
  */
 
 import { create } from 'zustand';
-import type { LatLng, SearchResult } from '@yapaja/shared';
+import type { LatLng, SearchResult } from '@yapaia/shared';
 import * as client from './client.js';
 import { SearchApiError } from './client.js';
 

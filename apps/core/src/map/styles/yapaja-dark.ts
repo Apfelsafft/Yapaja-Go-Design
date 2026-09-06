@@ -1,5 +1,5 @@
 /**
- * „Yapaja Dunkel" — der Nachtstil.
+ * „Yapaia Dunkel" — der Nachtstil.
  *
  * Bewusst eine eigene Palette und nicht die helle invertiert: ein
  * invertiertes Grün wird magenta, ein invertiertes Wasserblau orange. Der
@@ -12,13 +12,13 @@ import { PLACEHOLDER_TILE_URL, REGION_SOURCE_ID } from './constants.js';
 import { GLYPHS_URL } from './fonts.js';
 import type { MapStyleDocument } from './types.js';
 
-export const YAPAJA_DARK_STYLE_ID = 'yapaja-dark';
-export const YAPAJA_DARK_STYLE_NAME = 'Yapaja Dunkel';
+export const YAPAIA_DARK_STYLE_ID = 'yapaja-dark';
+export const YAPAIA_DARK_STYLE_NAME = 'Yapaia Dunkel';
 
-export function buildYapajaDarkStyle(): MapStyleDocument {
+export function buildYapaiaDarkStyle(): MapStyleDocument {
   return {
     version: 8,
-    name: YAPAJA_DARK_STYLE_NAME,
+    name: YAPAIA_DARK_STYLE_NAME,
     glyphs: GLYPHS_URL,
     sources: { [REGION_SOURCE_ID]: { type: 'vector', url: PLACEHOLDER_TILE_URL } },
     layers: buildBaseLayers(DARK_PALETTE),

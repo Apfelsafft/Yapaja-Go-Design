@@ -1,5 +1,5 @@
 /**
- * Die Ebenen einer Yapaja-Karte — einmal geschrieben, von jedem Stil benutzt.
+ * Die Ebenen einer Yapaia-Karte — einmal geschrieben, von jedem Stil benutzt.
  *
  * ─── WAS HIER GEZEICHNET WIRD, UND WORAUS ───────────────────────────────────
  * Jede `source-layer` und jeder Klassenwert unten stammt aus

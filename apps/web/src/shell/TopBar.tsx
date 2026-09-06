@@ -5,7 +5,7 @@
  * Am oberen Rand saßen bisher vier Dinge, jedes für sich absolut positioniert
  * und keines von der Existenz der anderen wissend:
  *
- *   „Yapaja Go"      `absolute top-0 left-0`            (App.tsx, kein z-index)
+ *   „Yapaia Go"      `absolute top-0 left-0`            (App.tsx, kein z-index)
  *   Fahrzeugprofil   `fixed top-4 left-44 z-10`         (ProfilesPanel)
  *   Suchleiste       `fixed top-4 left-1/2 … w-[min(92vw,26rem)] z-20`
  *   GPS-Warnung      `fixed top-4 left-4 right-4`       (kein z-index)
@@ -51,8 +51,25 @@ export default function TopBar(): React.ReactElement {
       style={{ paddingRight: TOP_BAR_RIGHT_RESERVE_PX }}
       data-testid="top-bar"
     >
-      <h1 className="flex-shrink-0 pointer-events-auto bg-white/90 dark:bg-slate-900/90 rounded px-3 py-1 text-lg font-bold text-slate-900 dark:text-white shadow-md">
-        Yapaja Go
+      <h1 className="flex-shrink-0 pointer-events-auto flex items-center gap-2 bg-white/90 dark:bg-slate-900/90 rounded px-3 py-1 text-lg font-bold text-slate-900 dark:text-white shadow-md">
+        {/* ─── DAS ZEICHEN, NICHT DER GANZE SCHRIFTZUG ─────────────────────
+            Die Weitfassung des Logos traegt den Namen bereits als Schrift;
+            neben dem Wort „Yapaia Go" stuende er zweimal da. Hier also nur
+            das Emblem, freigestellt, damit es in Hell UND Dunkel sitzt.
+
+            `alt=""` und `aria-hidden`: die Ueberschrift SAGT bereits
+            „Yapaia Go". Ein Alternativtext am Bild liesse Screenreader den
+            Namen zweimal vorlesen. */}
+        <img
+          src={`${import.meta.env.BASE_URL}icons/emblem-128.png`}
+          alt=""
+          aria-hidden="true"
+          width={28}
+          height={28}
+          className="h-7 w-7 flex-shrink-0"
+          data-testid="brand-emblem"
+        />
+        Yapaia Go
       </h1>
       <ProfilesPanel />
       <SearchBar />

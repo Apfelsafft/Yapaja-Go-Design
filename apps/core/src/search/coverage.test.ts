@@ -3,7 +3,7 @@
  * Mirrors the fixture style of routing/coverageCheck.test.ts.
  */
 import { describe, it, expect } from 'vitest';
-import type { LatLng, SearchResult } from '@yapaja/shared';
+import type { LatLng, SearchResult } from '@yapaia/shared';
 import { markOutOfCoverage, type SearchRegionsProvider } from './coverage.js';
 
 const REGION_LI = {

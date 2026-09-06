@@ -3,7 +3,7 @@
   "name": "Stellplätze-Overlay",
   "version": "1.0.0",
   "core_api": "*",
-  "author": "Yapaja Go",
+  "author": "Yapaia Go",
   "license": "MIT",
   "description": "Zeigt ~200 gebündelte Stellplatz-POIs als Kartenlayer, mit Detail-Ansicht und \"Route hierhin\".",
   "requires_online": false,

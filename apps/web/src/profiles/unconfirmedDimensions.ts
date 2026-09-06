@@ -4,7 +4,7 @@
  * rendern.
  */
 
-import type { VehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile } from '@yapaia/shared';
 
 /**
  * Wahr, solange die Abmessungen des AKTIVEN Profils nie von einem Menschen

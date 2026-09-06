@@ -100,7 +100,7 @@ test.describe('PWA: manifest + Service Worker (E07-T5)', () => {
     expect(manifestResponse.ok()).toBe(true);
     const manifest = await manifestResponse.json();
 
-    expect(manifest.name).toBe('Yapaja Go');
+    expect(manifest.name).toBe('Yapaia Go');
     expect(manifest.display).toBe('fullscreen');
     expect(manifest.orientation).toBe('any');
     expect(manifest.background_color).toBe('#111417');
@@ -200,7 +200,7 @@ test.describe('PWA: manifest + Service Worker (E07-T5)', () => {
 
       // The app shell's persistent chrome (App.tsx's header) must still
       // render -- served from the SW's precache, no network round-trip.
-      await expect(page.locator('header')).toContainText('Yapaja Go', { timeout: 10_000 });
+      await expect(page.locator('header')).toContainText('Yapaia Go', { timeout: 10_000 });
       // The React tree actually mounted (not a blank/crashed root).
       await expect(page.locator('#root')).not.toBeEmpty();
     } finally {

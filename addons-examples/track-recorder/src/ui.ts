@@ -2,7 +2,7 @@
  * Track-Recorder (E09-T5, docs/05 §6.2) -- UI entry point (the "+ Mini-UI"
  * half of this Type B add-on). Runs inside the sandboxed add-on iframe
  * exactly like `poi-campsites/src/main.ts`, and talks to the host EXCLUSIVELY
- * through `@yapaja/addon-sdk` -- no raw `fetch`/`postMessage` anywhere here
+ * through `@yapaia/addon-sdk` -- no raw `fetch`/`postMessage` anywhere here
  * either (verified by `addons-examples/no-raw-transport.test.ts`).
  *
  * This file NEVER touches the recording logic directly -- it only reads the
@@ -22,7 +22,7 @@
  * `<pre>` is the one this add-on relies on actually working everywhere.
  */
 
-import { connectAddon } from '@yapaja/addon-sdk';
+import { connectAddon } from '@yapaia/addon-sdk';
 
 const STATE_POLL_MS = 1000;
 const INDEX_POLL_MS = 1500;

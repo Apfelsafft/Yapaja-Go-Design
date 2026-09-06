@@ -7,7 +7,7 @@
  * one. `now` is injectable for deterministic TTL tests.
  */
 
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 
 export const DEFAULT_ROUTE_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 export const DEFAULT_ROUTE_CACHE_MAX = 20;

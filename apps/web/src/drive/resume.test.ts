@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { NavState } from '@yapaja/shared';
+import type { NavState } from '@yapaia/shared';
 
 vi.mock('./client.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./client.js')>();

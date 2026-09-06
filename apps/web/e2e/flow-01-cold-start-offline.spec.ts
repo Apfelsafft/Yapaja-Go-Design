@@ -61,7 +61,7 @@ test('[Flow 1] cold start with the network blocked: map is interactive in < 5 s'
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: INTERACTIVE_BUDGET_MS });
   await page.waitForFunction(
     () => {
-      const map = window.__yapajaMapController?.getMap?.();
+      const map = window.__yapaiaMapController?.getMap?.();
       if (!map) return false;
       const center = map.getCenter();
       return Number.isFinite(center.lng) && Number.isFinite(center.lat);
@@ -78,7 +78,7 @@ test('[Flow 1] cold start with the network blocked: map is interactive in < 5 s'
 
   // --- UI side: the map genuinely responds to a user gesture ---------------
   const centerBefore = await page.evaluate(() => {
-    const c = window.__yapajaMapController?.getMap?.()?.getCenter();
+    const c = window.__yapaiaMapController?.getMap?.()?.getCenter();
     return c ? { lng: c.lng, lat: c.lat } : null;
   });
   expect(centerBefore).not.toBeNull();
@@ -98,14 +98,14 @@ test('[Flow 1] cold start with the network blocked: map is interactive in < 5 s'
   // assert the camera actually moved (a painted-but-dead canvas would not).
   await page.waitForFunction(
     () => {
-      const map = window.__yapajaMapController?.getMap?.();
+      const map = window.__yapaiaMapController?.getMap?.();
       return Boolean(map) && !map!.isMoving();
     },
     undefined,
     { timeout: 10_000 },
   );
   const centerAfter = await page.evaluate(() => {
-    const c = window.__yapajaMapController?.getMap?.()?.getCenter();
+    const c = window.__yapaiaMapController?.getMap?.()?.getCenter();
     return c ? { lng: c.lng, lat: c.lat } : null;
   });
   expect(centerAfter).not.toBeNull();

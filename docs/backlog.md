@@ -125,7 +125,7 @@ zu importieren — oder den Job auf einen self-hosted Runner legen. Dann
 
 ### Was unklar ist
 
-Yapaja unterstützt die **Browser-Geolocation** als vollwertige Positionsquelle
+Yapaia unterstützt die **Browser-Geolocation** als vollwertige Positionsquelle
 (`browserSource.ts` → `POST /position/browser`, Prioritätskette
 `gpsd > browser > simulator`, ADR-007). Das ist der Bedienweg, der real
 genutzt wird: Telefon, Tablet oder Android-Autoradio greifen per Browser auf

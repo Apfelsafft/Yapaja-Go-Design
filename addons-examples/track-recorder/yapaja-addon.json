@@ -3,7 +3,7 @@
   "name": "Track-Recorder",
   "version": "1.0.0",
   "core_api": "*",
-  "author": "Yapaja Go",
+  "author": "Yapaia Go",
   "license": "MIT",
   "description": "Zeichnet die gefahrene Strecke als GPX auf (mit Segment-Split bei GPS-Verlust) -- Start/Stop, Distanz, Export.",
   "requires_online": false,

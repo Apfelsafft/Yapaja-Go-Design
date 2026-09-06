@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 import { secondaryLine } from './secondaryLine';
 
 function result(partial: Partial<SearchResult>): SearchResult {

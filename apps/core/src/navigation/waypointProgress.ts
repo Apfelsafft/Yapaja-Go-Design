@@ -31,7 +31,7 @@
  * Deshalb im Zweifel behalten.
  */
 
-import type { LatLng } from '@yapaja/shared';
+import type { LatLng } from '@yapaia/shared';
 import { matchPosition, type RouteGeometry } from './mapMatching.js';
 
 /**

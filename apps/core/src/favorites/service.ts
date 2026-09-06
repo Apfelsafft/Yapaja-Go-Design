@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import type { Favorite } from '@yapaja/shared';
+import type { Favorite } from '@yapaia/shared';
 import { getDb, rowToFavorite, favoriteToRow, type FavoriteRow } from '../db/index.js';
 
 export class FavoriteError extends Error {

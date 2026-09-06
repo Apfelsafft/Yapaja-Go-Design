@@ -3,7 +3,7 @@
 /**
  * E10-T5 (docs/07 §7, docs/03 §1): generates `docs/openapi.json` from the
  * Core's ACTUAL Fastify route table (introspected via `buildServer`'s
- * `onRouteHook`, see `index.ts`) plus the real `@yapaja/shared` JSON
+ * `onRouteHook`, see `index.ts`) plus the real `@yapaia/shared` JSON
  * Schemas (`schemas.ts`) and a hand-curated per-route enrichment table
  * (`paths.ts`, which documents WHY it exists and what it deliberately does
  * not attempt).
@@ -140,11 +140,11 @@ export async function generateOpenApiDocument(): Promise<Record<string, unknown>
   return {
     openapi: '3.1.0',
     info: {
-      title: 'Yapaja Go Core API',
+      title: 'Yapaia Go Core API',
       version,
       description:
         'Automatisch generiert aus den tatsächlich registrierten Fastify-Routen ' +
-        '(apps/core/src/index.ts, onRouteHook) und den @yapaja/shared-JSON-Schemas ' +
+        '(apps/core/src/index.ts, onRouteHook) und den @yapaia/shared-JSON-Schemas ' +
         '(packages/shared/src/schemas/). Quelle der Wahrheit ist der Code, nicht ' +
         'dieses Dokument -- bei Verdacht auf Abweichung: `pnpm openapi:check` (CI-Gate ' +
         '"Spec aktuell") bzw. docs/03-api-spec.md für den erzählenden Überblick. ' +
@@ -180,7 +180,7 @@ async function main(): Promise<void> {
     const committed = readFileSync(OPENAPI_OUTPUT_PATH, 'utf-8');
     if (committed !== serialized) {
       console.error(
-        'docs/openapi.json ist veraltet (Fastify-Routen oder @yapaja/shared-Schemas haben ' +
+        'docs/openapi.json ist veraltet (Fastify-Routen oder @yapaia/shared-Schemas haben ' +
           "sich geändert, das committete Dokument aber nicht). 'pnpm openapi:generate' laufen " +
           'lassen und den Diff committen.',
       );

@@ -7,7 +7,7 @@
  */
 
 import React, { useCallback, useEffect } from 'react';
-import type { VehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile } from '@yapaia/shared';
 import { useProfileStore } from '../../profiles/store.js';
 import ProfileEditor from '../../profiles/ProfileEditor.js';
 

@@ -1,6 +1,6 @@
 # Photon Search Service (E05-T4)
 
-Photon (Komoot) ist der primäre Offline-Geocoder für Yapaja Go
+Photon (Komoot) ist der primäre Offline-Geocoder für Yapaia Go
 (`GeocoderBackend`-Kette in `apps/core/src/search/`, ADR-005: docs/01
 §ADR-005). Der Service läuft als Teil des Docker-Compose-Stacks
 (`docker compose --profile search up -d photon`), Endpoint

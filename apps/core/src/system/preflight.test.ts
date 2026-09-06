@@ -562,7 +562,7 @@ describe('Handlungsanweisungen verweisen nur auf real Vorhandenes', () => {
 
     // Beschriftungen, die BEWUSST nicht aus dem Frontend stammen: sie
     // benennen Bedienelemente von Home Assistant bzw. fremden Add-ons, nicht
-    // von Yapaja. Jede weitere Ausnahme braucht dieselbe Begründung.
+    // von Yapaia. Jede weitere Ausnahme braucht dieselbe Begründung.
     const FOREIGN_UI = new Set(['Samba share', 'File editor', 'Protokoll', 'Terminal']);
 
     const labels = report.checks

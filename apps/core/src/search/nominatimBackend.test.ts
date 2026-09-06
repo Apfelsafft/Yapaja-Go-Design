@@ -5,7 +5,7 @@
  * the wait is asserted deterministically.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { validateSearchResult } from '@yapaja/shared';
+import { validateSearchResult } from '@yapaia/shared';
 import type { FetchLike, HttpResponseLike } from './httpTypes.js';
 import { NominatimBackend } from './nominatimBackend.js';
 import { RateLimiter } from './rateLimiter.js';
@@ -48,13 +48,13 @@ describe('NominatimBackend', () => {
     };
     const backend = new NominatimBackend({
       fetchImpl,
-      userAgent: 'YapajaGoTest/1.0',
+      userAgent: 'YapaiaGoTest/1.0',
       rateLimiter: new RateLimiter(0),
     });
 
     await backend.search({ q: 'x', limit: 10 });
 
-    expect(capturedHeaders['User-Agent']).toBe('YapajaGoTest/1.0');
+    expect(capturedHeaders['User-Agent']).toBe('YapaiaGoTest/1.0');
   });
 
   it('reverse geocode hits /reverse with jsonv2 and maps the single result', async () => {

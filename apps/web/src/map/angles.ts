@@ -35,7 +35,7 @@
  * Damit die Regel eine Stelle hat, an der sie geprueft wird, statt zweimal
  * nebeneinander im Kartencode zu stehen. Der Core hat dieselbe Funktion
  * laengst (`navigation/geo.ts#angularDifference`) -- sie liegt aber nicht auf
- * der oeffentlichen Oberflaeche von `@yapaja/shared`, und der Browser haengt
+ * der oeffentlichen Oberflaeche von `@yapaia/shared`, und der Browser haengt
  * nicht am Core. Gleiche Formel, gleiche Regel, eigener Ort. (Dasselbe
  * Muster wie `search/distance.ts`, siehe dort.)
  */

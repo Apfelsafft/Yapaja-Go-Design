@@ -7,7 +7,7 @@ import {
   ScopeDeniedError,
   UnsupportedOnTransportError,
 } from './errors.js';
-import type { YapajaAddon } from './types.js';
+import type { YapaiaAddon } from './types.js';
 
 /**
  * The REST+WS (service add-on) transport: mocked `fetch` + a fake
@@ -113,7 +113,7 @@ const BASE_OPTS = { apiUrl: 'http://127.0.0.1:8080', token: 'tok-123', addonId: 
 async function connectWith(
   fetchImpl: ReturnType<typeof vi.fn>,
   extra: Partial<Parameters<typeof connectServiceAddon>[0]> = {},
-): Promise<YapajaAddon> {
+): Promise<YapaiaAddon> {
   return connectServiceAddon({
     ...BASE_OPTS,
     fetchImpl: fetchImpl as unknown as FetchLike,
@@ -313,7 +313,7 @@ describe('service transport: fetch() via the egress proxy', () => {
   it('rejects a non-GET method up front (the proxy only ever issues GET upstream), before any network call', async () => {
     const fetchImpl = fetchQueue(jsonResponse(HEALTH_OK));
     const client = await connectWith(fetchImpl);
-    const nonGetInit = { method: 'POST' } as unknown as Parameters<YapajaAddon['fetch']>[1];
+    const nonGetInit = { method: 'POST' } as unknown as Parameters<YapaiaAddon['fetch']>[1];
     await expect(client.fetch('https://api.example.com', nonGetInit)).rejects.toMatchObject({
       code: 'FETCH_METHOD_NOT_SUPPORTED',
     });

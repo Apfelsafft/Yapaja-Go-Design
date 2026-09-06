@@ -1,7 +1,7 @@
 /**
  * The postMessage transport (docs/05 §3, E09-T2/T4): the UI add-on side of
  * the handshake + call/result/event protocol `protocol.ts` defines, wrapped
- * into the shared {@link YapajaAddon} surface. Runs INSIDE the sandboxed,
+ * into the shared {@link YapaiaAddon} surface. Runs INSIDE the sandboxed,
  * opaque-origin add-on iframe and talks to `apps/web/src/addons/bridge.ts`.
  *
  * ⚠️ THIS CODE IS UNTRUSTED. It ships inside the add-on bundle and an add-on
@@ -39,10 +39,10 @@ import {
   type WidgetRegisterParams,
   type WidgetUpdateParams,
 } from './protocol.js';
-import type { NavState } from '@yapaja/shared';
+import type { NavState } from '@yapaia/shared';
 import { AddonTimeoutError, AddonTransportError, RemoteCallError, UnsupportedOnTransportError } from './errors.js';
 import { guardScope } from './sdkMethods.js';
-import type { YapajaAddon } from './types.js';
+import type { YapaiaAddon } from './types.js';
 
 type PositionCallback = (pos: PositionUpdate) => void;
 
@@ -67,11 +67,11 @@ function unsupported<T>(method: string, reason?: string): Promise<T> {
 }
 
 /**
- * Performs the handshake with the host and resolves to a {@link YapajaAddon}
+ * Performs the handshake with the host and resolves to a {@link YapaiaAddon}
  * bound to the postMessage transport. Rejects with {@link AddonTimeoutError}
  * if the host does not answer within `timeoutMs`.
  */
-export function connectPostMessage(options: PostMessageTransportOptions = {}): Promise<YapajaAddon> {
+export function connectPostMessage(options: PostMessageTransportOptions = {}): Promise<YapaiaAddon> {
   const targetWindow = options.target ?? (typeof window !== 'undefined' ? window.parent : undefined);
   const selfWindow = options.self ?? (typeof window !== 'undefined' ? window : undefined);
   if (!targetWindow || !selfWindow) {
@@ -81,7 +81,7 @@ export function connectPostMessage(options: PostMessageTransportOptions = {}): P
   }
   const timeoutMs = options.timeoutMs ?? 5000;
 
-  return new Promise<YapajaAddon>((resolve, reject) => {
+  return new Promise<YapaiaAddon>((resolve, reject) => {
     const pending = new Map<string, PendingCall>();
     const positionCallbacks = new Map<PositionCallback, ((err: Error) => void) | undefined>();
     let callSeq = 0;
@@ -144,7 +144,7 @@ export function connectPostMessage(options: PostMessageTransportOptions = {}): P
       reject(new AddonTimeoutError(`Host did not answer the handshake within ${timeoutMs}ms`));
     }, timeoutMs);
 
-    function buildClient(addonId: string, scopes: AddonScope[]): YapajaAddon {
+    function buildClient(addonId: string, scopes: AddonScope[]): YapaiaAddon {
       const scopeSet = new Set<string>(scopes);
 
       return {

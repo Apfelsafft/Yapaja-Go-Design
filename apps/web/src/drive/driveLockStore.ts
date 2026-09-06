@@ -36,7 +36,7 @@ import {
 import { loadDriveLockThresholdKmh, patchServerDriveLockThresholdKmh, saveLocalDriveLockThresholdKmh } from './driveLockClient.js';
 import { usePositionStore } from '../position/positionStore.js';
 
-const SESSION_STORAGE_KEY = 'yapaja:driveLock:passengerOverride';
+const SESSION_STORAGE_KEY = 'yapaia:driveLock:passengerOverride';
 /** How often the countdown is re-checked against the real clock -- well
  *  under 1s so the 5-second countdown UI feels responsive and the
  *  activation itself never lags visibly behind the real elapsed time. */
@@ -181,13 +181,13 @@ export function useIsControlLocked(controlId: DriveControlId): boolean {
 
 declare global {
   interface Window {
-    /** Debug/E2E hook, mirrors `window.__yapajaPositionStore`/`__yapajaThemeStore`. */
-    __yapajaDriveLockStore?: typeof useDriveLockStore;
+    /** Debug/E2E hook, mirrors `window.__yapaiaPositionStore`/`__yapaiaThemeStore`. */
+    __yapaiaDriveLockStore?: typeof useDriveLockStore;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaDriveLockStore = useDriveLockStore;
+  window.__yapaiaDriveLockStore = useDriveLockStore;
   // Keep `speedMps` current independent of whether any component is
   // currently mounted/subscribed -- mirrors `themeStore.ts`'s "apply the
   // best-effort initial state at module load" rationale, just for a plain

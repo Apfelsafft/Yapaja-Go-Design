@@ -8,14 +8,14 @@
  * policy: a descriptive `User-Agent` header and a hard max-1-req/s rate
  * limit via the injectable {@link RateLimiter}. Hard 3s timeout per request.
  */
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 import { GeocoderBackendError } from './errors.js';
 import { defaultFetch, type FetchLike, type HttpResponseLike } from './httpTypes.js';
 import { RateLimiter } from './rateLimiter.js';
 import type { GeocoderBackend, ReverseQuery, SearchLogger, SearchQuery } from './types.js';
 
 export const DEFAULT_NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
-export const DEFAULT_NOMINATIM_USER_AGENT = 'YapajaGo/0.1 (+https://github.com/yapaja/yapaja-go)';
+export const DEFAULT_NOMINATIM_USER_AGENT = 'YapaiaGo/0.1 (+https://github.com/yapaja/yapaja-go)';
 export const DEFAULT_NOMINATIM_RATE_LIMIT_MS = 1_000;
 export const DEFAULT_BACKEND_TIMEOUT_MS = 3_000;
 

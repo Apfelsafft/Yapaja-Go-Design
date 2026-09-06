@@ -27,8 +27,8 @@ import { buildBaseLayers } from './baseLayers';
 import { LIGHT_PALETTE, DARK_PALETTE, CONTRAST_PALETTE, OUTDOOR_PALETTE } from './palette';
 import { REGION_SOURCE_ID } from './constants';
 import { POI_LAYER_ID_PREFIX } from './constants';
-import { OMITTED_LAYER_IDS, buildYapajaMinimalStyle } from './yapaja-minimal';
-import { buildYapajaContrastStyle } from './yapaja-contrast';
+import { OMITTED_LAYER_IDS, buildYapaiaMinimalStyle } from './yapaja-minimal';
+import { buildYapaiaContrastStyle } from './yapaja-contrast';
 
 /** Die `source-layer`-Namen, die das OpenMapTiles-Profil erzeugt. */
 const OMT_LAYERS: ReadonlySet<string> = new Set([
@@ -175,11 +175,11 @@ describe('buildBaseLayers — Ebenen gegen das echte Kachelschema', () => {
           'Die Auslassung ist damit wirkungslos, ohne dass es auffiele.',
       ).toBe(true);
     }
-    expect(buildYapajaMinimalStyle().layers.length).toBe(baseIds.size - OMITTED_LAYER_IDS.size);
+    expect(buildYapaiaMinimalStyle().layers.length).toBe(baseIds.size - OMITTED_LAYER_IDS.size);
   });
 
   it('hängt „Kontrast" den POI-Filter an eine Ebene, die es wirklich gibt', () => {
-    const filtered = buildYapajaContrastStyle().layers.filter(
+    const filtered = buildYapaiaContrastStyle().layers.filter(
       (l) => l.type === 'symbol' && Array.isArray((l as { filter?: unknown[] }).filter),
     );
     const poiFiltered = filtered.filter((l) => l.id.startsWith(POI_LAYER_ID_PREFIX));

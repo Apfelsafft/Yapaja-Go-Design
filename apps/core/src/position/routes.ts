@@ -4,8 +4,8 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import type { ApiError, Position } from '@yapaja/shared';
-import { validatePosition } from '@yapaja/shared';
+import type { ApiError, Position } from '@yapaia/shared';
+import { validatePosition } from '@yapaia/shared';
 import { POSITION_SOURCE_NAMES, type PositionService, type PositionSourceName } from './service.js';
 
 export interface PositionRoutesOptions {

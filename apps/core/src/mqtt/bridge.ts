@@ -31,7 +31,7 @@
  * Broker voll funktional"); every failure is logged (pino) and swallowed.
  */
 import { connect as mqttConnect, type IClientOptions, type MqttClient } from 'mqtt';
-import type { Favorite, NavInstructionPayload, NavState, Position, VehicleProfile } from '@yapaja/shared';
+import type { Favorite, NavInstructionPayload, NavState, Position, VehicleProfile } from '@yapaia/shared';
 import type { EventBus, ExtrapolatedPositionPayload } from '../bus/index.js';
 import type { NavigationService, ActiveProfileLookup, RerouteProvider, RouteProvider } from '../navigation/service.js';
 import {

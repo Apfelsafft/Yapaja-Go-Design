@@ -86,7 +86,7 @@ auto-disabled; 4. Proxy verweigert nicht-deklarierte Hosts.
 
 ---
 
-## E09-T4: Add-on-SDK (`@yapaja/addon-sdk`)
+## E09-T4: Add-on-SDK (`@yapaia/addon-sdk`)
 
 - **Abhängigkeiten:** E09-T2/T3 · **Kontext:** docs/05 §3
 - **Pfade:** `packages/addon-sdk/`

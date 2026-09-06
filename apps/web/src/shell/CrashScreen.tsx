@@ -4,7 +4,7 @@
  * ─── DIE MELDUNG ────────────────────────────────────────────────────────────
  * „Und das schlimmste, nach kurzer Zeit verschwindet die gesamte Anzeige und
  * man sieht nur noch einen blanken Screen. Nur die HA Menüs sind noch da, die
- * Yapaja Oberfläche ist weg."
+ * Yapaia Oberfläche ist weg."
  *
  * ─── WARUM DAS PASSIERT ─────────────────────────────────────────────────────
  * Schlaegt beim Zeichnen ein Fehler nach oben durch und faengt ihn niemand
@@ -56,7 +56,7 @@ export default class CrashScreen extends React.Component<CrashScreenProps, Crash
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
-    console.error('Yapaja: Oberflaeche abgestuerzt', error, info.componentStack);
+    console.error('Yapaia: Oberflaeche abgestuerzt', error, info.componentStack);
     // ─── DIE SPUR GEHOERT AUF DEN BILDSCHIRM, NICHT NUR INS PROTOKOLL ────────
     // Beim ersten Absturz stand hier nur die Meldung („Maximum call stack size
     // exceeded."). Die sagt, WAS passiert ist, aber nicht WO -- und an die
@@ -102,7 +102,7 @@ export default class CrashScreen extends React.Component<CrashScreenProps, Crash
 
         <p className="max-w-md text-sm">
           {/* Das Wichtigste zuerst: die Fahrt laeuft weiter. */}
-          <strong>Die Navigation läuft weiter</strong> — sie liegt im Yapaja-Dienst, nicht in
+          <strong>Die Navigation läuft weiter</strong> — sie liegt im Yapaia-Dienst, nicht in
           dieser Anzeige. Ansagen kommen also weiterhin.
         </p>
 

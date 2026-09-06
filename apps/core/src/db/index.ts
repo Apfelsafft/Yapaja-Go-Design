@@ -6,7 +6,7 @@
 import Database from 'better-sqlite3';
 import { mkdirSync, existsSync } from 'fs';
 import { dirname } from 'path';
-import type { VehicleProfile, Favorite, HistoryEntry } from '@yapaja/shared';
+import type { VehicleProfile, Favorite, HistoryEntry } from '@yapaia/shared';
 import { runMigrations } from './migrations/index.js';
 
 let dbInstance: Database.Database | null = null;

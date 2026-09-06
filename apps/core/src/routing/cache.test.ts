@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { RouteCache } from './cache.js';
 
 function route(id: string): Route {

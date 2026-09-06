@@ -103,7 +103,7 @@ Navigation. Alles Relevante sichtbar, nichts überfrachtet, flüssig auf Touch.
 - 2D-Nord, 2D-Kurs, 3D-Kurs (Tilt 45–60°) – Umschalt-FAB, Zustand persistiert.
 - Kompass-FAB erscheint bei Rotation ≠ Nord; Tipp = zurück zu Nord (wie GMaps).
 - 3D-Gebäude erst ab Zoom 15 und nur wenn fps-Budget hält (Auto-Degradation W-04).
-- Styles: `Yapaja Light`, `Yapaja Dark`, `Yapaja Contrast` (+ Add-on-Styles).
+- Styles: `Yapaia Light`, `Yapaia Dark`, `Yapaia Contrast` (+ Add-on-Styles).
   POI-Dichte, Labelgröße (Fahrmodus: +20 %), Sprache der Labels einstellbar.
 - OSM-Attribution dauerhaft dezent sichtbar (ODbL-Pflicht).
 

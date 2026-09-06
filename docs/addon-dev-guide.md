@@ -1,8 +1,8 @@
-# Add-on-Entwicklungsleitfaden (`@yapaja/addon-sdk`)
+# Add-on-Entwicklungsleitfaden (`@yapaia/addon-sdk`)
 
 Dieser Leitfaden ist die praktische Ergänzung zu [docs/05-addon-system.md](05-addon-system.md)
 (Architektur, Sandbox-Modell, Marketplace) – er zeigt, wie man als Add-on-Autor
-tatsächlich loslegt: Manifest schreiben, Entry-Datei gegen `@yapaja/addon-sdk`
+tatsächlich loslegt: Manifest schreiben, Entry-Datei gegen `@yapaia/addon-sdk`
 programmieren, Tarball bauen, gegen einen lokalen Core installieren und testen.
 
 **Alles hier ist an den echten Code gebunden** (`packages/addon-sdk/src/`,
@@ -11,7 +11,7 @@ Code, nicht dieses Dokument.
 
 ## 0. Das Sicherheitsmodell in einem Absatz
 
-`@yapaja/addon-sdk` läuft **innerhalb** des Add-ons (im Sandbox-`<iframe>` bzw. im
+`@yapaia/addon-sdk` läuft **innerhalb** des Add-ons (im Sandbox-`<iframe>` bzw. im
 Service-Prozess) und ist damit **nicht vertrauenswürdiger Code**: ein Add-on kann
 das SDK umgehen und die Wire-Protokolle selbst sprechen – das ändert nichts an
 dem, was es darf. Jede Berechtigungsentscheidung trifft ausschließlich die
@@ -74,7 +74,7 @@ siehe [§7 Fehlerklassen](#7-fehlerklassen).
   <head><meta charset="utf-8" /></head>
   <body>
     <script type="module">
-      import { connectAddon } from 'https://esm.sh/@yapaja/addon-sdk'; // oder: gebündelt via Vite/esbuild
+      import { connectAddon } from 'https://esm.sh/@yapaia/addon-sdk'; // oder: gebündelt via Vite/esbuild
 
       const addon = await connectAddon(); // erkennt "postMessage" automatisch (läuft im iframe)
 
@@ -94,7 +94,7 @@ siehe [§7 Fehlerklassen](#7-fehlerklassen).
 ```
 
 In der Praxis wird `ui/index.html` von einem Bundler (Vite/esbuild) erzeugt, der
-`@yapaja/addon-sdk` aus `node_modules` bündelt – der Import oben ist nur zur
+`@yapaia/addon-sdk` aus `node_modules` bündelt – der Import oben ist nur zur
 Illustration ohne Build-Schritt.
 
 > ⚠️ **Bundle-Format: IIFE, nicht ESM** (entdeckt beim Bau von
@@ -112,19 +112,19 @@ Illustration ohne Build-Schritt.
 > `import`/`export`-Statements mehr (alles ist bereits zusammengebündelt),
 > unterliegt also keiner Modul-Auflösung, die ein `type="module"` bräuchte.
 
-> ⚠️ **`@yapaja/shared` NICHT zur Laufzeit importieren.** Ein direkter
-> `import { ... } from '@yapaja/shared'`-Aufruf zieht dessen gesamten
+> ⚠️ **`@yapaia/shared` NICHT zur Laufzeit importieren.** Ein direkter
+> `import { ... } from '@yapaia/shared'`-Aufruf zieht dessen gesamten
 > Paket-Entry-Point (`src/index.ts`) mit hinein – inklusive
 > `validators.ts`, das beim Modul-Laden `ajv.compile(...)` aufruft (AJVs
 > Standard-Strategie generiert Validator-Funktionen per `new Function(...)`).
 > Das Add-on-Iframe hat **kein** `'unsafe-eval'` in seiner CSP
 > (`apps/core/src/addons/ui-host.ts#buildAddonCsp`), also schlägt das mit
 > genau derselben `blocked by CSP`-Fehlermeldung fehl, unabhängig davon, ob der
-> eigene Code die AJV-Validatoren je aufruft. `@yapaja/addon-sdk` selbst hatte
+> eigene Code die AJV-Validatoren je aufruft. `@yapaia/addon-sdk` selbst hatte
 > dieses Problem bis E09-T5 (`version.ts` importierte `isValidSemver` von
 > dort) – seitdem hält es, wie `protocol.ts`s `AddonScope` es schon vormacht,
-> keine Laufzeit-Abhängigkeit zu `@yapaja/shared` mehr. Braucht ein Add-on
-> `@yapaja/shared`-Typen, sind `import type { ... }`-Importe (typ-only, kein
+> keine Laufzeit-Abhängigkeit zu `@yapaia/shared` mehr. Braucht ein Add-on
+> `@yapaia/shared`-Typen, sind `import type { ... }`-Importe (typ-only, kein
 > Laufzeit-Code) unproblematisch – nur ein WERT-Import ist die Falle.
 
 ### 1.4 Paketieren
@@ -192,7 +192,7 @@ traffic-warner/
 ### 2.3 `service/main.js`
 
 ```js
-import { connectAddon } from '@yapaja/addon-sdk';
+import { connectAddon } from '@yapaia/addon-sdk';
 
 // Läuft als Core-Kindprozess: YAPAJA_API_URL / YAPAJA_TOKEN / YAPAJA_ADDON_ID /
 // YAPAJA_DATA_DIR stehen bereits in process.env -- connectAddon() erkennt daran
@@ -296,7 +296,7 @@ Das Env-Signal gewinnt bewusst, falls (unüblich) beide gleichzeitig vorliegen �
 
 ## 6. SDK-Oberfläche im Überblick
 
-Alle Methoden sind in `packages/addon-sdk/src/types.ts` (`YapajaAddon`) vollständig
+Alle Methoden sind in `packages/addon-sdk/src/types.ts` (`YapaiaAddon`) vollständig
 typisiert und dort pro Methode mit „UI TRANSPORT ONLY"/„SERVICE TRANSPORT ONLY"
 dokumentiert. Kurzfassung:
 
@@ -333,12 +333,12 @@ addon.dispose(); // beide
 ```
 
 Re-exportierte Domain-Typen (`Position`, `NavState`, `Route`, `RouteRequest`,
-`AddonManifest`, …) kommen aus `@yapaja/shared` – **ein** Import-Surface für
+`AddonManifest`, …) kommen aus `@yapaia/shared` – **ein** Import-Surface für
 Add-on-Autoren, statt zwei parallele Typdefinitionen pflegen zu müssen.
 
 ## 7. Fehlerklassen
 
-Alle exportiert aus `@yapaja/addon-sdk`, alle mit `.code`:
+Alle exportiert aus `@yapaia/addon-sdk`, alle mit `.code`:
 
 | Klasse | `.code` | Bedeutung |
 |---|---|---|
@@ -356,7 +356,7 @@ Aufruf unabhängig noch einmal (§0).
 
 1. **Core lokal starten** (aus dem Repo-Root):
    ```sh
-   pnpm --filter @yapaja/core dev
+   pnpm --filter @yapaia/core dev
    ```
    Startet auf `http://localhost:8080` (`PORT`-Env überschreibbar). Solange kein
    `API_AUTH_TOKEN` gesetzt ist, läuft der Core im offenen Modus (kein Bearer-Token
@@ -404,10 +404,10 @@ Aufruf unabhängig noch einmal (§0).
    curl -s -X POST http://localhost:8080/api/v1/addons/com.example.my-addon/enable | jq
    ```
 
-5. **Logs beobachten**: `pnpm --filter @yapaja/core dev` läuft im Vordergrund;
+5. **Logs beobachten**: `pnpm --filter @yapaia/core dev` läuft im Vordergrund;
    Service-Add-on-Ausgabe erscheint mit Präfix `[addon <id>] …`
    (`stdout` → `info`, `stderr` → `warn`, siehe `apps/core/src/addons/service-host.ts`).
-   Für UI-Add-ons: Web-Frontend separat starten (`pnpm --filter @yapaja/web dev`)
+   Für UI-Add-ons: Web-Frontend separat starten (`pnpm --filter @yapaia/web dev`)
    und die Browser-DevTools der Haupt-App öffnen – Konsolenausgaben aus dem
    Add-on-Iframe erscheinen dort mit Iframe-Kontext.
 
@@ -423,7 +423,7 @@ Aufruf unabhängig noch einmal (§0).
    curl -s -X DELETE http://localhost:8080/api/v1/addons/com.example.my-addon
    ```
 
-8. **Unit-Tests der eigenen Add-on-Logik**: `@yapaja/addon-sdk` selbst ist gegen
+8. **Unit-Tests der eigenen Add-on-Logik**: `@yapaia/addon-sdk` selbst ist gegen
    einen Mock-Host getestet (`packages/addon-sdk/src/postMessageTransport.test.ts`,
    `serviceTransport.test.ts`) – dasselbe Muster (Fake-`window`/Fake-`fetch`+
    `WebSocket`) eignet sich, um die eigene Add-on-Logik ohne echten Core zu testen:
@@ -464,7 +464,7 @@ Aufruf unabhängig noch einmal (§0).
 - **`position.subscribe()`-Payload-Form unterscheidet sich je Transport**
   (entdeckt bei E09-T5, dem Track-Recorder-Referenz-Add-on): Auf dem
   SERVICE-Transport ist das an den Callback übergebene Objekt tatsächlich die
-  VOLLE `Position`-Form aus `@yapaja/shared` (`lat`, **`lon`** – nicht
+  VOLLE `Position`-Form aus `@yapaia/shared` (`lat`, **`lon`** – nicht
   `lng` –, `alt`, `speed`, `heading`, `accuracy`, `source`, `fix`, `ts`), weil
   `serviceTransport.ts` den rohen `pos/update`-Bus-Payload unverändert
   durchreicht (`apps/core/src/position/service.ts#pushFix` publiziert die
@@ -482,11 +482,11 @@ Aufruf unabhängig noch einmal (§0).
 
 - **REST-API-Referenz (maschinenlesbar):** [`docs/openapi.json`](openapi.json)
   — OpenAPI 3.1, generiert aus den tatsächlich registrierten Fastify-Routen
-  und den `@yapaja/shared`-JSON-Schemas (`apps/core/src/openapi/`). Ein
+  und den `@yapaia/shared`-JSON-Schemas (`apps/core/src/openapi/`). Ein
   CI-Gate (`pnpm openapi:check`, Job `docs-freshness` in
   `.github/workflows/ci.yml`) hält das Dokument aktuell.
 - **Core-API-Versionierung & Breaking Changes:** ein `major`-Bump von
-  `@yapaja/core` oder `@yapaja/addon-sdk` (Wargame W-11 — der Fall, in dem
+  `@yapaia/core` oder `@yapaia/addon-sdk` (Wargame W-11 — der Fall, in dem
   euer Add-on nach einem Core-Update deaktiviert statt geladen wird) braucht
   einen erzwungenen `## Breaking Change`-Abschnitt im zugehörigen Changeset
   und erscheint dadurch explizit im [`CHANGELOG.md`](../CHANGELOG.md) —

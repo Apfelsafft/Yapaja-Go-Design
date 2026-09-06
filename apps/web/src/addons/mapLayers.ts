@@ -22,7 +22,7 @@
  */
 
 import type { GeoJSONSourceSpecification } from 'maplibre-gl';
-import type { AddLayerParams, AddMarkersParams } from '@yapaja/addon-sdk';
+import type { AddLayerParams, AddMarkersParams } from '@yapaia/addon-sdk';
 import { mapController } from '../state/mapStore.js';
 
 /** The GeoJSON-or-URL shape MapLibre's geojson source accepts, without needing

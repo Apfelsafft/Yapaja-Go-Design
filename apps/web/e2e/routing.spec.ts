@@ -16,14 +16,14 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors } from './support/network.js';
 import { formatDistance, formatDuration } from '../src/routing/format.js';
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -34,7 +34,7 @@ async function waitForMapReady(page: Page): Promise<void> {
 async function waitForCameraIdle(page: Page): Promise<void> {
   await page.waitForFunction(
     () => {
-      const map = window.__yapajaMapController?.getMap();
+      const map = window.__yapaiaMapController?.getMap();
       return Boolean(map) && !map!.isMoving();
     },
     undefined,
@@ -165,7 +165,7 @@ async function findClickableCanvasPoint(
   for (const candidate of lngLatCandidates) {
     const result = await page.evaluate(
       ({ candidate, boxX, boxY }) => {
-        const map = window.__yapajaMapController?.getMap();
+        const map = window.__yapaiaMapController?.getMap();
         if (!map) return null;
         const p = map.project(candidate as [number, number]);
         const pageX = boxX + p.x;
@@ -202,7 +202,7 @@ async function findPointBesideRoute(
   for (let i = 0; i < lngLatCandidates.length - 1; i += 1) {
     const result = await page.evaluate(
       ({ a, b, boxX, boxY, offsetPx }) => {
-        const map = window.__yapajaMapController?.getMap();
+        const map = window.__yapaiaMapController?.getMap();
         if (!map) return null;
         const pa = map.project(a as [number, number]);
         const pb = map.project(b as [number, number]);
@@ -280,9 +280,9 @@ test('click destination -> request route -> tap alternative -> style switch surv
   // 5. The route layer is actually on the map, and the store's active route
   // is the main route.
   await expect
-    .poll(() => page.evaluate(() => Boolean(window.__yapajaMapController?.getMap()?.getLayer('route-main-accent'))))
+    .poll(() => page.evaluate(() => Boolean(window.__yapaiaMapController?.getMap()?.getLayer('route-main-accent'))))
     .toBe(true);
-  expect(await page.evaluate(() => window.__yapajaRoutingStore?.getState().activeRouteId)).toBe(MAIN_ROUTE.id);
+  expect(await page.evaluate(() => window.__yapaiaRoutingStore?.getState().activeRouteId)).toBe(MAIN_ROUTE.id);
 
   // 6. Tap the alternative route on the map (clicked at its EXACT projected
   // screen position, not a guessed pixel) -> it becomes the active route.
@@ -296,7 +296,7 @@ test('click destination -> request route -> tap alternative -> style switch surv
   await page.mouse.click(clickPoint.x, clickPoint.y);
 
   await expect
-    .poll(() => page.evaluate(() => window.__yapajaRoutingStore?.getState().activeRouteId))
+    .poll(() => page.evaluate(() => window.__yapaiaRoutingStore?.getState().activeRouteId))
     .toBe(ALT_ROUTE_1.id);
 
   // The previously-active route is now a gray alternative; the tapped one is
@@ -312,17 +312,17 @@ test('click destination -> request route -> tap alternative -> style switch surv
   await page.locator('[data-testid="style-option-yapaja-dark"]').click();
 
   await expect
-    .poll(() => page.evaluate(() => Boolean(window.__yapajaMapController?.getMap()?.getLayer('route-main-accent'))))
+    .poll(() => page.evaluate(() => Boolean(window.__yapaiaMapController?.getMap()?.getLayer('route-main-accent'))))
     .toBe(true);
   expect(
-    await page.evaluate(() => Boolean(window.__yapajaMapController?.getMap()?.getSource('route-main-source'))),
+    await page.evaluate(() => Boolean(window.__yapaiaMapController?.getMap()?.getSource('route-main-source'))),
   ).toBe(true);
   expect(
-    await page.evaluate(() => Boolean(window.__yapajaMapController?.getMap()?.getLayer('route-alt-layer'))),
+    await page.evaluate(() => Boolean(window.__yapaiaMapController?.getMap()?.getLayer('route-alt-layer'))),
   ).toBe(true);
   // The routing store's own state (which route is active) is untouched by a
   // style switch -- it never depended on the style in the first place.
-  expect(await page.evaluate(() => window.__yapajaRoutingStore?.getState().activeRouteId)).toBe(ALT_ROUTE_1.id);
+  expect(await page.evaluate(() => window.__yapaiaRoutingStore?.getState().activeRouteId)).toBe(ALT_ROUTE_1.id);
 
   expect(pageErrors).toEqual([]);
   expect(consoleErrors).toEqual([]);
@@ -338,12 +338,12 @@ test('destination pin appears even before the route is requested, and "Abbrechen
   await clickMapCenter(page);
   await expect(page.getByTestId('destination-sheet')).toBeVisible();
   await expect
-    .poll(() => page.evaluate(() => Boolean(window.__yapajaMapController?.getMap()?.getLayer('route-dest-marker'))))
+    .poll(() => page.evaluate(() => Boolean(window.__yapaiaMapController?.getMap()?.getLayer('route-dest-marker'))))
     .toBe(true);
 
   await page.getByTestId('destination-cancel-button').click();
   await expect(page.getByTestId('destination-sheet')).not.toBeVisible();
-  expect(await page.evaluate(() => window.__yapajaRoutingStore?.getState().destination)).toBeNull();
+  expect(await page.evaluate(() => window.__yapaiaRoutingStore?.getState().destination)).toBeNull();
 
   expect(pageErrors).toEqual([]);
 });
@@ -493,7 +493,7 @@ test('ein Tipper knapp neben die Alternative waehlt sie trotzdem aus', async ({ 
   await waitForCameraIdle(page);
 
   const routesBefore = await page.evaluate(
-    () => window.__yapajaRoutingStore?.getState().routes?.length ?? 0,
+    () => window.__yapaiaRoutingStore?.getState().routes?.length ?? 0,
   );
   expect(routesBefore).toBe(3);
 
@@ -504,10 +504,10 @@ test('ein Tipper knapp neben die Alternative waehlt sie trotzdem aus', async ({ 
 
   // Die Alternative wird aktiv -- und vor allem: die Routen sind noch da.
   await expect
-    .poll(() => page.evaluate(() => window.__yapajaRoutingStore?.getState().activeRouteId))
+    .poll(() => page.evaluate(() => window.__yapaiaRoutingStore?.getState().activeRouteId))
     .toBe(ALT_ROUTE_1.id);
   expect(
-    await page.evaluate(() => window.__yapajaRoutingStore?.getState().routes?.length ?? 0),
+    await page.evaluate(() => window.__yapaiaRoutingStore?.getState().routes?.length ?? 0),
   ).toBe(3);
   await expect(page.getByTestId('route-summary-panel')).toBeVisible();
 });

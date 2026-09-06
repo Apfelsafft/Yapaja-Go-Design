@@ -28,7 +28,7 @@ build_from:
   amd64: "ghcr.io/gis-ops/docker-valhalla/valhalla:latest"
   aarch64: "ghcr.io/gis-ops/docker-valhalla/valhalla:latest"
 labels:
-  org.opencontainers.image.title: "Yapaja Go"
+  org.opencontainers.image.title: "Yapaia Go"
   org.opencontainers.image.description: "Offline motorhome navigation, packaged as a Home Assistant add-on"
   org.opencontainers.image.source: "https://github.com/Apfelsafft/Yapaja-Go-Design"
   org.opencontainers.image.licenses: "MIT"
@@ -44,4 +44,4 @@ args:
   # existiert, gehoert er HIER hinein, damit eine Add-on-Version reproduzierbar
   # denselben Quelltext baut.
   YAPAJA_REF: "main"
-  YAPAJA_REPO: "Apfelsafft/Yapaja-Go-Design"
+  YAPAIA_REPO: "Apfelsafft/Yapaja-Go-Design"

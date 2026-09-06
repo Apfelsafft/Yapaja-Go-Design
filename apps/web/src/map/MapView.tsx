@@ -58,12 +58,12 @@ declare global {
      * `page.evaluate`. Read-only in intent — production code must still go
      * through `useMapStore`/`mapController`, never through this global.
      */
-    __yapajaMapController?: typeof mapController;
+    __yapaiaMapController?: typeof mapController;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaMapController = mapController;
+  window.__yapaiaMapController = mapController;
 }
 
 type MapViewStatus = 'loading' | 'no-region' | 'ready';

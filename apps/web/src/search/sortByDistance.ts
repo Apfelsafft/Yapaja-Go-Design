@@ -21,7 +21,7 @@
  * sortieren, das man nicht kennt, hiesse hier: nach nichts.
  */
 
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 import { haversineMeters } from './distance.js';
 
 export interface SortOrigin {

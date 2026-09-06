@@ -21,7 +21,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import fp from 'fastify-plugin';
 import { randomBytes } from 'node:crypto';
-import type { ApiError } from '@yapaja/shared';
+import type { ApiError } from '@yapaia/shared';
 import {
   AuthGuard,
   AUTH_TOKEN_SETTINGS_KEY,

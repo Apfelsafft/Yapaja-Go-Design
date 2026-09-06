@@ -25,7 +25,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { buildPMTilesFixtureBuffer } from '../../core/src/map/__fixtures__/pmtiles-fixture.js';
 import {
@@ -105,7 +105,7 @@ async function mockRoutesEndpoint(page: Page): Promise<void> {
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -117,7 +117,7 @@ async function clickMapCenter(page: Page): Promise<void> {
 }
 
 async function navStatus(page: Page): Promise<string | null> {
-  return page.evaluate(() => window.__yapajaNavStore?.getState().navState?.status ?? null);
+  return page.evaluate(() => window.__yapaiaNavStore?.getState().navState?.status ?? null);
 }
 
 test.describe('Onboarding wizard (E08-T5)', () => {

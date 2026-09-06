@@ -7,8 +7,8 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
-import type { NavState, Position, Route } from '@yapaja/shared';
-import type { NavInstructionPayload } from '@yapaja/shared';
+import type { NavState, Position, Route } from '@yapaia/shared';
+import type { NavInstructionPayload } from '@yapaia/shared';
 import { EventBus } from '../bus/index.js';
 import { encodePolyline6 } from '../routing/polyline.js';
 import { NavigationService, type RouteProvider } from './service.js';

@@ -10,7 +10,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { expect, type APIRequestContext } from '@playwright/test';
-import type { AddonManifest } from '@yapaja/shared';
+import type { AddonManifest } from '@yapaia/shared';
 // The SAME in-process tarball builder the Core's own add-on unit tests use --
 // so the security suite needs neither a system `tar` nor a pre-build step, and
 // can construct the malicious headers (`../` names, symlinks) a real `tar` CLI

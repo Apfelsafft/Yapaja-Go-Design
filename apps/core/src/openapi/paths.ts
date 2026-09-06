@@ -7,7 +7,7 @@
  * outside tests) -- so the PATHS themselves come from live introspection of
  * the running server (never hand-typed, never drifts silently), while
  * REQUEST/RESPONSE shape comes from this table referencing the real
- * `@yapaja/shared` JSON Schemas (`schemas.ts`).
+ * `@yapaia/shared` JSON Schemas (`schemas.ts`).
  *
  * A route with no entry here still appears in the published spec (from
  * introspection) with a generic description -- an undocumented ROUTE can

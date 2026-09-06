@@ -11,9 +11,9 @@
  * trivially unit-testable -- see `layout.test.ts`.
  */
 
-import type { ShellMode, SlotId, Widget, WidgetSize } from '@yapaja/ui';
-import { SLOT_IDS } from '@yapaja/ui';
-import type { WidgetRegistry } from '@yapaja/ui';
+import type { ShellMode, SlotId, Widget, WidgetSize } from '@yapaia/ui';
+import { SLOT_IDS } from '@yapaia/ui';
+import type { WidgetRegistry } from '@yapaia/ui';
 
 export type { SlotId, ShellMode };
 

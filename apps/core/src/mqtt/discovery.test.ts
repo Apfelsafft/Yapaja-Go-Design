@@ -18,7 +18,7 @@ import {
 
 const DEVICE = {
   identifiers: ['yapaja_go'],
-  name: 'Yapaja Go',
+  name: 'Yapaia Go',
   sw_version: '1.2.3',
   configuration_url: 'http://homeassistant.local:8080',
 };

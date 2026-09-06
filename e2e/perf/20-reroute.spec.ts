@@ -24,7 +24,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../apps/core/src/routing/polyline.js';
 import { startValhallaStub, type ValhallaStub } from '../../apps/web/e2e/support/valhallaStub.js';
 import {
@@ -130,7 +130,7 @@ async function waitForNewRouteInUi(
 ): Promise<number> {
   return page.evaluate(
     ({ routeId, timeout }: { routeId: string; timeout: number }) => {
-      const store = window.__yapajaNavStore;
+      const store = window.__yapaiaNavStore;
       if (!store) throw new Error('Nav-Store nicht verfuegbar');
       const isNew = (id: string | null | undefined): boolean => Boolean(id && id !== routeId);
       if (isNew(store.getState().navState?.route_id)) {

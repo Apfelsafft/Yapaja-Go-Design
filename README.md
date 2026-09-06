@@ -1,8 +1,8 @@
-# Yapaja Go – Planungs- und Design-Repository
+# Yapaia Go – Planungs- und Design-Repository
 
 ![CI](https://github.com/Apfelsafft/Yapaja-Go-Design/actions/workflows/ci.yml/badge.svg)
 
-**Yapaja Go** ist eine browserbasierte Navigations-App im Stil von Google Maps / Sygic Truck,
+**Yapaia Go** ist eine browserbasierte Navigations-App im Stil von Google Maps / Sygic Truck,
 optimiert für **Wohnmobile und Camper**, lauffähig **offline** auf einem Low-/Mid-End-Mini-PC
 (parallel zu einer Home-Assistant-Instanz unter Proxmox), mit tiefer
 **Home-Assistant-Integration** (MQTT + REST) und einem **erweiterbaren Add-on-System**
@@ -36,8 +36,8 @@ inkl. Marketplace.
 | [docs/erste-schritte.md](docs/erste-schritte.md) | Profil anlegen → Ziel suchen → Route berechnen → Navigation starten |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom → Ursache → Lösung für alle 🔴/🟠-Wargame-Fälle (`docs/08-wargame.md`) |
 | [docs/faq.md](docs/faq.md) | Häufige Fragen |
-| [docs/addon-dev-guide.md](docs/addon-dev-guide.md) | Add-on-Entwicklungsleitfaden (`@yapaja/addon-sdk`) |
-| [docs/openapi.json](docs/openapi.json) | Core-REST-API als OpenAPI 3.1, generiert aus den Fastify-Routen + `@yapaja/shared`-Schemas (`apps/core/src/openapi/`, CI-Check „Spec aktuell") |
+| [docs/addon-dev-guide.md](docs/addon-dev-guide.md) | Add-on-Entwicklungsleitfaden (`@yapaia/addon-sdk`) |
+| [docs/openapi.json](docs/openapi.json) | Core-REST-API als OpenAPI 3.1, generiert aus den Fastify-Routen + `@yapaia/shared`-Schemas (`apps/core/src/openapi/`, CI-Check „Spec aktuell") |
 
 ## Task-Prompts (für Umsetzungs-Modelle)
 
@@ -79,5 +79,5 @@ Menschen nach Abschluss.
 
 ## Namenskonvention
 
-Produktname: **Yapaja Go** (Schreibweise „Yapaia Go" ist ein Alias derselben App).
-Technischer Name / Package-Prefix: `yapaja-go`, npm-Scope `@yapaja`.
+Produktname: **Yapaia Go** (Schreibweise „Yapaia Go" ist ein Alias derselben App).
+Technischer Name / Package-Prefix: `yapaja-go`, npm-Scope `@yapaia`.

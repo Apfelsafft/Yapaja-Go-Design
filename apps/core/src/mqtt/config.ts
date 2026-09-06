@@ -81,12 +81,12 @@ export interface MqttDiscoveryConfig {
   enabled: boolean;
   /** HA discovery-topic prefix, default `'homeassistant'`. */
   discoveryPrefix: string;
-  /** HA `device.configuration_url` -- where HA should link to open the Yapaja UI. */
+  /** HA `device.configuration_url` -- where HA should link to open the Yapaia UI. */
   configurationUrl?: string;
 }
 
 const DEFAULT_DISCOVERY_PREFIX = 'homeassistant';
-// Yapaja and HA typically run on the SAME host (docs/04 §0: "auf demselben
+// Yapaia and HA typically run on the SAME host (docs/04 §0: "auf demselben
 // Mini-PC"), `homeassistant.local` is that host's usual mDNS name, and 8080
 // is the Core's own default port (see `main()`'s `process.env.PORT ||
 // '8080'` in index.ts) -- a reasonable default, always overridable.

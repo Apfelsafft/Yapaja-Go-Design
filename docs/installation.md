@@ -91,8 +91,8 @@ zusätzlich zu jenem Dokument, nicht als Ersatz dafür.
 
    Danach den Dialog schließen und die Store-Seite neu laden (bzw. **⋮ → Nach
    Updates suchen**).
-   *Erwartetes Ergebnis:* ein neuer Store-Abschnitt „Yapaja Go" mit der
-   Kachel **Yapaja Go**.
+   *Erwartetes Ergebnis:* ein neuer Store-Abschnitt „Yapaia Go" mit der
+   Kachel **Yapaia Go**.
    *Erscheint nichts:* HA meldet ungültige Repositories mit einer eigenen
    Fehlermeldung im selben Dialog. Bleibt der Abschnitt leer ohne Fehler, hat
    der Supervisor das Repository zwar geladen, aber kein Add-on darin
@@ -112,7 +112,7 @@ zusätzlich zu jenem Dokument, nicht als Ersatz dafür.
    rm -rf /tmp/yapaja
    ```
 
-   „Yapaja Go" erscheint dann im Abschnitt **„Lokale Add-ons"**. Im Ordner
+   „Yapaia Go" erscheint dann im Abschnitt **„Lokale Add-ons"**. Im Ordner
    `/addons/yapaja_go/` müssen `config.yaml` und `Dockerfile` unmittelbar
    liegen (keine weitere Zwischenebene).
 
@@ -201,7 +201,7 @@ curl -fL --retry 3 -o data/pbf/li.osm.pbf \
   https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
 
 # Schlaegt der Download auch nach den drei Versuchen fehl, liegt es fast immer
-# an der Netzverbindung, einem Proxy oder einer Firewall -- nicht an Yapaja.
+# an der Netzverbindung, einem Proxy oder einer Firewall -- nicht an Yapaia.
 # Pruefen: `curl -I https://download.geofabrik.de/` muss "200" liefern.
 # Geofabrik-Extrakte lassen sich auch vorab woanders herunterladen und
 # einfach nach data/pbf/ kopieren; der Dateiname ist das Einzige, worauf die
@@ -320,7 +320,7 @@ austauschbar in der Reihenfolge, brauchen aber alle dieselbe Eingabedatei:
 
 ### C.2 Was fehlt mir gerade? — die Prüfung in der App
 
-Bevor du irgendetwas baust: öffne Yapaja und klicke rechts oben auf **🩺
+Bevor du irgendetwas baust: öffne Yapaia und klicke rechts oben auf **🩺
 Installation prüfen**. Die Seite listet Kacheln, Routing, Suche, Position,
 RAM, Plattenplatz und MQTT — je mit dem, was tatsächlich vorgefunden wurde,
 und dem, was dagegen zu tun ist. Sie funktioniert auch dann, wenn noch gar
@@ -337,7 +337,7 @@ curl -s http://localhost:8080/api/v1/system/preflight | jq .
 Für Liechtenstein, ein deutsches Bundesland oder einen US-Bundesstaat reicht
 das Gerät selbst, auch eine HAOS-VM mit 8 GB.
 
-**Der normale Weg — in der Yapaja-Oberfläche, ohne Shell:**
+**Der normale Weg — in der Yapaia-Oberfläche, ohne Shell:**
 
 1. **„Kartenregionen verwalten"** (🗺️ rechts oben) öffnen.
 2. Bei der gewünschten Region auf **„Kacheln bauen"** drücken.
@@ -455,7 +455,7 @@ Das RAM-Budget einer 8-GB-HAOS-VM ist weitgehend vergeben:
 
 | Posten | Bedarf |
 |---|---|
-| Yapaja Core | ~300 MB |
+| Yapaia Core | ~300 MB |
 | Valhalla | ~1,5 GB |
 | Photon | ~1 GB |
 | Home Assistant + Mosquitto | ~1–1,5 GB |
@@ -568,7 +568,7 @@ bestimmtes Docker-Image für `gpsd` erfordert:
    ergänzen. Dazu **neben** der `docker-compose.yml` eine zweite Datei namens
    `docker-compose.override.yml` anlegen (exakt dieser Name): `docker compose`
    lädt sie automatisch zusätzlich, wenn sie im selben Verzeichnis liegt — ein
-   Standardmechanismus von Compose, kein Yapaja-Sonderweg. So bleibt die
+   Standardmechanismus von Compose, kein Yapaia-Sonderweg. So bleibt die
    getrackte `docker-compose.yml` unangetastet und lokale Anpassungen
    überstehen jedes `git pull`. Inhalt:
    ```yaml

@@ -22,7 +22,7 @@ export const ADDON_PROTOCOL_VERSION = 1;
 export const ADDON_MESSAGE_NS = 'yapaja-addon';
 
 /** The permission scopes an add-on manifest may declare (docs/05 §2 table).
- *  Mirrors `@yapaja/shared` `ADDON_PERMISSION_SCOPES` -- kept as a local type
+ *  Mirrors `@yapaia/shared` `ADDON_PERMISSION_SCOPES` -- kept as a local type
  *  so the public SDK has no dependency on the Core's shared package. */
 export type AddonScope =
   | 'pos.read'

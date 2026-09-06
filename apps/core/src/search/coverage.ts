@@ -14,7 +14,7 @@
  * exported, and that file is explicitly out of scope to modify for this
  * task (E05-T1 allowed paths: read-only reuse of coverageCheck.ts).
  */
-import type { LatLng } from '@yapaja/shared';
+import type { LatLng } from '@yapaia/shared';
 import type { BoundedRegion } from '../routing/coverageCheck.js';
 
 /**

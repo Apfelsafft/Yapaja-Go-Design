@@ -13,7 +13,7 @@
  */
 
 import { create } from 'zustand';
-import type { LatLng, NavInstructionPayload, NavState } from '@yapaja/shared';
+import type { LatLng, NavInstructionPayload, NavState } from '@yapaia/shared';
 import { buildWebSocketUrl, currentWsUrlLocation } from '../net/wsUrl.js';
 
 /** W-19 reload-recovery: what the "Navigation fortsetzen?" prompt has to
@@ -106,13 +106,13 @@ export function useDriveGateOpen(): boolean {
 
 declare global {
   interface Window {
-    /** Debug/E2E hook, mirrors `window.__yapajaPositionStore`. */
-    __yapajaNavStore?: typeof useNavStore;
+    /** Debug/E2E hook, mirrors `window.__yapaiaPositionStore`. */
+    __yapaiaNavStore?: typeof useNavStore;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaNavStore = useNavStore;
+  window.__yapaiaNavStore = useNavStore;
 }
 
 /** Hook for components to access the current NavState. */

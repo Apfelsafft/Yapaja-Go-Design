@@ -2,7 +2,7 @@
  * POI-Overlay "Stellplätze" (E09-T5, docs/05 §6.1) -- UI entry point (Type A,
  * `ui.entry`). Runs inside the sandboxed add-on iframe
  * (`apps/web/src/addons/AddonHost.tsx`) and talks to the host EXCLUSIVELY
- * through `@yapaja/addon-sdk`'s `connectAddon()` -- no raw `fetch`, no raw
+ * through `@yapaia/addon-sdk`'s `connectAddon()` -- no raw `fetch`, no raw
  * `postMessage` anywhere in this file (verified by
  * `addons-examples/no-raw-transport.test.ts`).
  *
@@ -35,7 +35,7 @@
  * overlay), it just isn't the click TARGET.
  */
 
-import { connectAddon } from '@yapaja/addon-sdk';
+import { connectAddon } from '@yapaia/addon-sdk';
 import campsitesGeoJson from '../data/campsites.geojson';
 import { poisFromGeoJson } from './types.js';
 import { distinctCategories, filterByCategory } from './filterPois.js';

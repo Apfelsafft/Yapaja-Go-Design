@@ -25,7 +25,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { CONTROL_OVERLAP_CORE_BASE_URL } from './support/constants.js';
 
@@ -172,7 +172,7 @@ function findOverlaps(rects: Rect[]): string[] {
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -202,7 +202,7 @@ async function waitForMapReady(page: Page): Promise<void> {
 async function seedPosition(page: Page): Promise<void> {
   await page.evaluate(
     ({ lat, lon }) => {
-      window.__yapajaPositionStore?.getState().setPosition({
+      window.__yapaiaPositionStore?.getState().setPosition({
         lat,
         lon,
         alt: null,
@@ -291,7 +291,7 @@ test.describe('Bedienelemente ueberlappen einander nicht', () => {
     expect(startResponse.ok(), await startResponse.text()).toBe(true);
 
     await page.evaluate((route: Route) => {
-      window.__yapajaRoutingStore?.setState({ routes: [route], activeRouteId: route.id });
+      window.__yapaiaRoutingStore?.setState({ routes: [route], activeRouteId: route.id });
     }, ROUTE);
 
     await page.request.post(`${CONTROL_OVERLAP_CORE_BASE_URL}/api/v1/position/browser`, {

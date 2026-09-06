@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import type { VehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile } from '@yapaia/shared';
 import { getDb, rowToProfile, profileToRow, type DatabaseRow } from '../db/index.js';
 
 class ProfileError extends Error {

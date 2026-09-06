@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { Maneuver, Route } from '@yapaja/shared';
+import type { Maneuver, Route } from '@yapaia/shared';
 import {
   buildManeuverAnchors,
   buildTimeSegments,

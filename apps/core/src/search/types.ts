@@ -7,7 +7,7 @@
  * mockable in tests without a live Photon/Nominatim.
  */
 
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 
 /** Forward-search query, as resolved from `GET /search?q&limit&lat&lon`. */
 export interface SearchQuery {

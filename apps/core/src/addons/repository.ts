@@ -8,7 +8,7 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { AddonManifest } from '@yapaja/shared';
+import type { AddonManifest } from '@yapaia/shared';
 import { getDb } from '../db/index.js';
 
 export interface AddonRow {

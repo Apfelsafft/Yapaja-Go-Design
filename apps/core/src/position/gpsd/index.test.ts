@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as net from 'node:net';
 import { EventEmitter } from 'node:events';
 import { setTimeout } from 'node:timers';
-import { checkPosition, validatePosition, type Position } from '@yapaja/shared';
+import { checkPosition, validatePosition, type Position } from '@yapaia/shared';
 import { EventBus } from '../../bus/index.js';
 import { PositionService } from '../service.js';
 import { GpsdSource } from './index.js';

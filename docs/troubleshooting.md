@@ -102,7 +102,7 @@ schlägt in genau dieser Reihenfolge vor:
    `gpsd` (die USB-GPS-Antenne) umstellen — funktioniert unabhängig vom
    Browser-Sicherheitskontext.
 2. Über den **HA-Ingress-Link** zugreifen (Home Assistant → Add-ons →
-   Yapaja Go → „Weboberfläche öffnen") — der ist immer HTTPS-abgesichert.
+   Yapaia Go → „Weboberfläche öffnen") — der ist immer HTTPS-abgesichert.
 3. Zugriff über `http://localhost:8080` (nicht die LAN-IP) funktioniert
    ausnahmsweise auch ohne HTTPS, weil Browser `localhost` als sicher
    einstufen.
@@ -130,7 +130,7 @@ vorsorglich zu umfahren.
 
 ## W-06 — HA-Entitäten werden „nicht verfügbar"
 
-**Symptom:** Home-Assistant-Entitäten von Yapaja Go zeigen „nicht
+**Symptom:** Home-Assistant-Entitäten von Yapaia Go zeigen „nicht
 verfügbar"; die App zeigt einen MQTT-Health-Badge als „down"/„degraded" an.
 
 **Ursache:** Der MQTT-Broker (meist das Mosquitto-Add-on) ist gerade nicht
@@ -138,7 +138,7 @@ erreichbar — häufig während eines HA-Updates/-Neustarts.
 
 **Lösung:** **Die App selbst bleibt voll funktionsfähig** — MQTT ist
 bewusst nie im Kernpfad der Navigation. Broker neu starten (Home Assistant
-→ Add-ons → Mosquitto → Neu starten); Yapaja Go verbindet sich automatisch
+→ Add-ons → Mosquitto → Neu starten); Yapaia Go verbindet sich automatisch
 mit exponentiellem Backoff neu und veröffentlicht alle Zustände (Discovery
 + aktuelle Werte) erneut, sobald der Broker wieder da ist. Kein
 Datenverlust, kein manuelles Eingreifen an der App nötig.
@@ -153,7 +153,7 @@ eingestellten Fahrzeugprofil eigentlich physisch nicht erlaubt sein sollte
 App zeigt das Banner „Maßangaben auf Teilstrecke unvollständig".
 
 **Ursache:** Nicht jede reale Höhen-, Gewichts- oder Breitenbeschränkung ist
-in den zugrunde liegenden OpenStreetMap-Daten erfasst. Yapaja Go kann nur
+in den zugrunde liegenden OpenStreetMap-Daten erfasst. Yapaia Go kann nur
 meiden, was in den Kartendaten steht — das ist eine physische Grenze der
 Datenquelle, kein Software-Fehler, und wird bewusst offen kommuniziert statt
 verschwiegen.
@@ -278,7 +278,7 @@ Gerät/Container statt auf dem Navi-Mini-PC).
 
 ## W-15 — App funktioniert direkt, aber nicht über HA-Ingress
 
-**Symptom:** Yapaja Go funktioniert unter der direkten Adresse
+**Symptom:** Yapaia Go funktioniert unter der direkten Adresse
 (`http://<Geräte-IP>:8080`), aber nicht über den Ingress-Link in Home
 Assistant (weiße Seite, fehlende Kartenkacheln, hängender Ladebalken).
 
@@ -288,7 +288,7 @@ angefragt und landen dadurch am falschen Ingress-Sub-Pfad
 (`/hassio_ingress/<token>/…`).
 
 **Lösung:**
-1. Add-on einmal neu starten: Home Assistant → Add-ons → Yapaja Go → Neu
+1. Add-on einmal neu starten: Home Assistant → Add-ons → Yapaia Go → Neu
    starten.
 2. Danach den Ingress-Link erneut öffnen; bei Bedarf den Browser-Cache der
    Seite leeren (`Strg`+`Shift`+`R` bzw. `Cmd`+`Shift`+`R`).
@@ -406,7 +406,7 @@ Can't install ghcr.io/yapaja/yapaja-go-amd64:0.1.0:
 **Ursache (behoben):** `yapaja_go/config.yaml` deklarierte einen
 `image:`-Schlüssel. Steht dort ein `image:`, **zieht** der Supervisor dieses
 Image aus einer Registry und baut nichts selbst. Das genannte Image hat aber
-nie existiert — `yapaja` ist nicht einmal der Namensraum dieses Repositories,
+nie existiert — `yapaia` ist nicht einmal der Namensraum dieses Repositories,
 und kein Workflow hat das Add-on-Image je gebaut oder veröffentlicht.
 
 **Lösung:** Der Schlüssel ist entfernt. Der Supervisor baut das Add-on jetzt
@@ -560,7 +560,7 @@ unter `set -u` bei **jedem** Log-Aufruf ab.
 Folge: keiner der s6-Dienste konnte mehr protokollieren, und das Add-on-Log
 war als Diagnosemittel wertlos — genau dann, wenn man es braucht.
 
-**Lösung:** Die geteilte Variable heißt jetzt `YAPAJA_LOG_LEVEL`. Der Core
+**Lösung:** Die geteilte Variable heißt jetzt `YAPAIA_LOG_LEVEL`. Der Core
 braucht weiterhin `LOG_LEVEL` (pino); das setzt `core/run` lokal für genau
 diesen einen Prozess.
 

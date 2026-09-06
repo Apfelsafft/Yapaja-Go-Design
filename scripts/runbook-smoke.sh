@@ -229,7 +229,7 @@ EOF
 
 LITE_DB="$TMP_DIR/lite_search.db"
 set +e
-pnpm --filter @yapaja/core exec tsx src/search/lite/cli.ts \
+pnpm --filter @yapaia/core exec tsx src/search/lite/cli.ts \
   --places "$PLACES" --streets "$STREETS" --out "$LITE_DB" > "$TMP_DIR/lite.txt" 2>&1
 LITE_RC=$?
 set -e

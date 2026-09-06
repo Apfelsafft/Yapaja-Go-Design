@@ -1,7 +1,7 @@
 # Kickoff-Prompt: Komplette Umsetzung starten
 
 Dieses Dokument enthält **einen einzigen Copy-Paste-Prompt**, der die gesamte
-Umsetzung von Yapaja Go startet, plus die **Modell-Zuordnungsmatrix** und die
+Umsetzung von Yapaia Go startet, plus die **Modell-Zuordnungsmatrix** und die
 **Abnahme-Anleitung** für den Menschen am Ende.
 
 ## Voraussetzungen (einmalig, ~10 Minuten)
@@ -23,7 +23,7 @@ Umsetzung von Yapaja Go startet, plus die **Modell-Zuordnungsmatrix** und die
 ## 1. DER MASTER-PROMPT (ab hier kopieren)
 
 ```
-Du bist der ORCHESTRATOR für die vollständige Umsetzung der App "Yapaja Go"
+Du bist der ORCHESTRATOR für die vollständige Umsetzung der App "Yapaia Go"
 (browserbasierte Offline-Navigations-App für Wohnmobile). Deine Aufgabe ist es,
 die gesamte Implementierung eigenständig zu steuern, bis Release-Gate G4
 erreicht ist oder du auf einen definierten Stopp-Grund triffst. Du schreibst
@@ -251,11 +251,11 @@ alle Gate-Kommentare in den Issues #1–#11 verlinkt und grün.
 
 ### 3.3 Ziel-Umgebung (dein Mini-PC, ~1–2 Std. inkl. Downloads)
 
-1. HA-Add-on-Repo in Home Assistant hinzufügen → Yapaja Go installieren →
+1. HA-Add-on-Repo in Home Assistant hinzufügen → Yapaia Go installieren →
    Region Deutschland laden → UI über die HA-Seitenleiste öffnen (Ingress).
 2. USB-GPS-Maus anschließen → Settings → GPS-Quelle: gpsd → Fix abwarten
    (kalt < 60 s), Position plausibel.
-3. HA: Gerät „Yapaja Go" unter MQTT-Integrationen → Entitäten (Speed, ETA,
+3. HA: Gerät „Yapaia Go" unter MQTT-Integrationen → Entitäten (Speed, ETA,
    Anweisung, Höhe …) vorhanden; Test-Automation: `select.yapaja_profile`
    umschalten wirkt in der App.
 4. Erst danach: echte Probefahrt nach Hardware-Checkliste

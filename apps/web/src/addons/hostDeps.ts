@@ -11,8 +11,8 @@
  */
 
 import React from 'react';
-import type { Widget } from '@yapaja/ui';
-import type { Position } from '@yapaja/shared';
+import type { Widget } from '@yapaia/ui';
+import type { Position } from '@yapaia/shared';
 import type { HostBridgeDeps } from './bridge.js';
 import { usePositionStore } from '../position/positionStore.js';
 import { useNavStore } from '../drive/navStore.js';

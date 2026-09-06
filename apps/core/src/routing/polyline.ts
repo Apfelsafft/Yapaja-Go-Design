@@ -14,7 +14,7 @@
  * auditable in isolation.
  */
 
-import { appendAll } from '@yapaja/shared';
+import { appendAll } from '@yapaia/shared';
 
 export interface LatLon {
   lat: number;

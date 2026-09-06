@@ -34,7 +34,7 @@
  * bei einer Anzeige im Fahrzeug ist das die falsche Sorte Fehler.
  */
 
-import type { SpeedSegment } from '@yapaja/shared';
+import type { SpeedSegment } from '@yapaia/shared';
 
 /** Eine Kante aus der `/trace_attributes`-Antwort (nur, was hier zaehlt). */
 export interface TraceAttributesEdge {

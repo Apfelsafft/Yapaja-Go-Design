@@ -6,7 +6,7 @@
  * DEVICES/WATCH).
  */
 
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 
 /** Shape of a gpsd `TPV` (Time-Position-Velocity) report. All fields are
  * optional/untrusted -- gpsd omits fields it has no data for, and older

@@ -6,7 +6,7 @@
  * with a hint about which catalog region (if any) would cover it.
  */
 
-import type { LatLng } from '@yapaja/shared';
+import type { LatLng } from '@yapaia/shared';
 import { RoutingError } from './errors.js';
 
 /** Represents a region with geographical bounds. */

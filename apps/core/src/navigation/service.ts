@@ -34,8 +34,8 @@ import type {
   RouteAvoidOverrides,
   RouteRequest,
   VehicleProfile,
-} from '@yapaja/shared';
-import { checkNavState } from '@yapaja/shared';
+} from '@yapaia/shared';
+import { checkNavState } from '@yapaia/shared';
 import type {
   EventBus,
   ExtrapolatedPositionPayload,

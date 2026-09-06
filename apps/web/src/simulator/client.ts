@@ -34,7 +34,7 @@ export class SimulatorDisabledError extends Error {
   constructor() {
     super(
       'Der GPS-Simulator ist gesperrt. Einschalten in Home Assistant unter ' +
-        'Einstellungen → Add-ons → Yapaja Go → Konfiguration → „gps_simulator", ' +
+        'Einstellungen → Add-ons → Yapaia Go → Konfiguration → „gps_simulator", ' +
         'danach das Add-on neu starten.',
     );
     this.name = 'SimulatorDisabledError';

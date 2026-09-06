@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { Favorite, HistoryEntry } from '@yapaja/shared';
+import type { Favorite, HistoryEntry } from '@yapaia/shared';
 
 vi.mock('./client.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./client.js')>();

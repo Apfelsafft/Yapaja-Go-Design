@@ -5,7 +5,7 @@
  * every other web client in this app.
  */
 
-import type { AddonManifest } from '@yapaja/shared';
+import type { AddonManifest } from '@yapaia/shared';
 
 export interface InstalledAddon {
   id: string;

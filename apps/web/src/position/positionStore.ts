@@ -13,7 +13,7 @@
  */
 
 import { create } from 'zustand';
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 import { buildWebSocketUrl, currentWsUrlLocation } from '../net/wsUrl.js';
 
 interface PositionStoreState {
@@ -85,18 +85,18 @@ export const usePositionStore = create<PositionStoreState>((set) => ({
 declare global {
   interface Window {
     /**
-     * Debug/E2E hook (E02-T5), mirrors `window.__yapajaMapController`
+     * Debug/E2E hook (E02-T5), mirrors `window.__yapaiaMapController`
      * (apps/web/src/map/MapView.tsx): exposes the position store so
      * Playwright can assert on `extrapolated`/`lastRealUpdateTime` directly
      * (`getState()`) instead of inferring them from the DOM. Read-only in
      * intent -- production code must still go through `usePositionStore`.
      */
-    __yapajaPositionStore?: typeof usePositionStore;
+    __yapaiaPositionStore?: typeof usePositionStore;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaPositionStore = usePositionStore;
+  window.__yapaiaPositionStore = usePositionStore;
 }
 
 /**

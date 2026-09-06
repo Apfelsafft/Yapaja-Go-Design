@@ -8,7 +8,7 @@
  * eigenes `CHANGELOG.md`. Für die menschenlesbare Release-Übersicht an
  * EINER Stelle (`CHANGELOG.md` im Repo-Root, per Aufgabenstellung
  * ausdrücklich als Pfad genannt) übernimmt dieses Skript den jeweils
- * neuesten Abschnitt aus `apps/core/CHANGELOG.md` — `@yapaja/core` ist die
+ * neuesten Abschnitt aus `apps/core/CHANGELOG.md` — `@yapaia/core` ist die
  * Add-on-API-tragende Paketversion (Wargame W-11), also der Kandidat mit
  * der größten Signalwirkung, falls mehrere gruppierte Pakete gleichzeitig
  * einen Eintrag bekämen.

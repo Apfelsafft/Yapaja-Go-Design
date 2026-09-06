@@ -4,7 +4,7 @@ Kurze Antworten auf wiederkehrende Fragen. Für konkrete Fehlerbilder siehe
 [Troubleshooting](troubleshooting.md) — dort steht Symptom → Ursache →
 Lösung für jeden kritischen Fall.
 
-**Braucht Yapaja Go eine Internetverbindung?**
+**Braucht Yapaia Go eine Internetverbindung?**
 Nein, im laufenden Betrieb nicht. Karten, Routing (Valhalla) und Suche
 (Photon bzw. die eingebaute Lite-Suche) laufen vollständig offline, sobald
 eine Kartenregion einmal heruntergeladen und der Routing-Graph gebaut wurde.
@@ -21,7 +21,7 @@ eines im Gehäuse verbauten Empfängers — deutlich zuverlässigerer Empfang im
 Fahrzeug. Siehe [Installations-Guide → USB-GPS-Durchreichung](installation.md#usb-gps-durchreichung)
 für die Einrichtung.
 
-**Kann ich Yapaja Go ohne echtes GPS ausprobieren?**
+**Kann ich Yapaia Go ohne echtes GPS ausprobieren?**
 Ja — der eingebaute GPS-Simulator kann jede berechnete Route (oder eine
 GPX-Datei) mit einstellbarer Geschwindigkeit „abfahren". Siehe
 [Erste Schritte → Abschnitt 6](erste-schritte.md#6-ohne-echtes-gps-testen-simulator).

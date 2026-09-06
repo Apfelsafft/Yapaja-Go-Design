@@ -87,7 +87,7 @@ export default function PreflightPanel(): React.ReactElement {
       setError(
         err instanceof Error
           ? `Die Prüfung konnte nicht ausgeführt werden: ${err.message} ` +
-            'Wenn hier gar nichts ankommt, läuft der Yapaja-Dienst selbst nicht — ' +
+            'Wenn hier gar nichts ankommt, läuft der Yapaia-Dienst selbst nicht — ' +
             'sehen Sie im Home-Assistant-Add-on unter „Protokoll" nach.'
           : 'Die Prüfung konnte nicht ausgeführt werden.',
       );

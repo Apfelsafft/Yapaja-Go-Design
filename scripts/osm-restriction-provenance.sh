@@ -36,7 +36,7 @@
 #
 # Voraussetzungen: osmium-tool (Debian/Ubuntu: apt-get install -y osmium-tool)
 # und pnpm (der TS-Teil laeuft ueber das bereits vorhandene tsx aus
-# @yapaja/core — KEINE neue Abhaengigkeit).
+# @yapaia/core — KEINE neue Abhaengigkeit).
 #
 # Artefakte: e2e/golden-routes/.tmp/ (gitignored) — der Zwischenextrakt und
 # der maschinenlesbare Report, den der nightly-Job als Artefakt hochlaedt.
@@ -107,7 +107,7 @@ SOURCE_LABEL="$(basename "$PBF") (extract used for the Valhalla graph; filtered 
 echo "== [3/3] Werte gegen e2e/golden-routes.json aus =="
 cd "$REPO_ROOT"
 if [ "$MODE" = "verify" ]; then
-  pnpm --filter @yapaja/core exec tsx "$CLI" verify \
+  pnpm --filter @yapaia/core exec tsx "$CLI" verify \
     --candidates "$GEOJSON" \
     --region de \
     --source-label "$SOURCE_LABEL" \
@@ -116,7 +116,7 @@ if [ "$MODE" = "verify" ]; then
 else
   KIND="${1:-maxheight}"
   LIMIT="${2:-25}"
-  pnpm --filter @yapaja/core exec tsx "$CLI" discover \
+  pnpm --filter @yapaia/core exec tsx "$CLI" discover \
     --candidates "$GEOJSON" \
     --kind "$KIND" \
     --limit "$LIMIT" \

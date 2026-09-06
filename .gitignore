@@ -56,7 +56,7 @@ test-results/
 # `COPY apps/web/dist apps/core/public` build step.
 apps/core/public/
 # apps/core's default SQLite path (data/db/yapaja.db) is CWD-relative; the
-# e2e-spawned core processes (and any local `pnpm --filter @yapaja/core start`)
+# e2e-spawned core processes (and any local `pnpm --filter @yapaia/core start`)
 # create this next to the source tree.
 apps/core/data/
 

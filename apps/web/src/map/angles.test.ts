@@ -43,7 +43,7 @@ describe('der kleinste Weg zwischen zwei Winkeln', () => {
 
 describe('zeigen zwei Winkel in dieselbe Richtung?', () => {
   // ─── DIE GEMESSENEN PAARE ─────────────────────────────────────────────────
-  // Links, was Yapaja setzt (GPS-Kurs, 0..360), rechts, was MapLibre danach
+  // Links, was Yapaia setzt (GPS-Kurs, 0..360), rechts, was MapLibre danach
   // zurueckgibt. Im Browser gemessen, nicht angenommen. Genau diese Paare
   // hielt der alte Vergleich fuer grundverschieden -- und drehte deshalb
   // endlos weiter.

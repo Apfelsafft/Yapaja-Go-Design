@@ -15,7 +15,7 @@
  * as-is so the caller can tell "cancelled" apart from "really failed".
  */
 
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 
 interface ApiErrorBody {
   error: { code: string; message: string; details?: Record<string, unknown> };

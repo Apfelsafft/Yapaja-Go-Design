@@ -24,11 +24,11 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@yapaja/shared": ["packages/shared/src"],
-      "@yapaja/ui": ["packages/ui/src"],
-      "@yapaja/addon-sdk": ["packages/addon-sdk/src"],
-      "@yapaja/core/*": ["apps/core/src/*"],
-      "@yapaja/web/*": ["apps/web/src/*"]
+      "@yapaia/shared": ["packages/shared/src"],
+      "@yapaia/ui": ["packages/ui/src"],
+      "@yapaia/addon-sdk": ["packages/addon-sdk/src"],
+      "@yapaia/core/*": ["apps/core/src/*"],
+      "@yapaia/web/*": ["apps/web/src/*"]
     }
   },
   "include": ["apps/**/*.ts", "apps/**/*.tsx", "packages/**/*.ts", "packages/**/*.tsx", "services/**/*.ts", "services/**/*.tsx"]

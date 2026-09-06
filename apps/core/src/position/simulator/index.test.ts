@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { checkPosition, validatePosition, type Position } from '@yapaja/shared';
+import { checkPosition, validatePosition, type Position } from '@yapaia/shared';
 import { EventBus } from '../../bus/index.js';
 import { PositionService } from '../service.js';
 import { SimulatorSource } from './index.js';

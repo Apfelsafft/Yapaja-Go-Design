@@ -19,7 +19,7 @@ export type { Migration } from './types.js';
 export { MigrationError } from './types.js';
 export { backupDatabase, rotateBackups, MAX_BACKUPS } from './backup.js';
 
-/** Every migration Yapaja Go ships, in the order they were added. */
+/** Every migration Yapaia Go ships, in the order they were added. */
 export const MIGRATIONS: readonly Migration[] = [
   baseline,
   addons,

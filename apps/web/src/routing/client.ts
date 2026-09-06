@@ -9,7 +9,7 @@
  * callers can branch on specific codes (e.g. 409 `NO_POSITION`).
  */
 
-import type { Route, RouteRequest } from '@yapaja/shared';
+import type { Route, RouteRequest } from '@yapaia/shared';
 
 interface ApiErrorBody {
   error: { code: string; message: string; details?: Record<string, unknown> };

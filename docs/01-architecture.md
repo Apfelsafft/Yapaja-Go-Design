@@ -5,7 +5,7 @@
 ```
 ┌────────────────────────── Mini-PC (Proxmox) ──────────────────────────┐
 │                                                                       │
-│  ┌───────────── VM/LXC oder HAOS-Add-on: Yapaja Go ────────────────┐  │
+│  ┌───────────── VM/LXC oder HAOS-Add-on: Yapaia Go ────────────────┐  │
 │  │                                                                 │  │
 │  │  ┌───────────────┐   ┌─────────────────────────────────────┐    │  │
 │  │  │ yapaja-core   │   │ Daten-Services (Docker/Prozesse)    │    │  │
@@ -143,7 +143,7 @@ yapaja-go/
 │   └── web/             # React-SPA/PWA
 ├── packages/
 │   ├── shared/          # JSON-Schemata, TS-Typen, Event-Definitionen (Single Source)
-│   ├── addon-sdk/       # @yapaja/addon-sdk – postMessage-Bridge + Typen
+│   ├── addon-sdk/       # @yapaia/addon-sdk – postMessage-Bridge + Typen
 │   └── ui/              # wiederverwendbare UI-Komponenten (Widgets)
 ├── services/
 │   ├── valhalla/        # Dockerfile, valhalla.json-Template, Daten-Download-Skripte
@@ -161,7 +161,7 @@ yapaja-go/
 Tooling: pnpm workspaces, ESLint (typescript-eslint, strict), Prettier, Vitest,
 Playwright, GitHub Actions, Conventional Commits, Changesets für Versionierung.
 
-## 4. Ressourcen-Budget (Deutschland-Extrakt, Referenz N100/8 GB, Anteil Yapaja ≤ 4 GB)
+## 4. Ressourcen-Budget (Deutschland-Extrakt, Referenz N100/8 GB, Anteil Yapaia ≤ 4 GB)
 
 | Komponente | RAM (Ziel) | Disk | CPU (Idle/Last) |
 |---|---|---|---|

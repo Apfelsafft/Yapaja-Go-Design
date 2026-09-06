@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AddonBridge, type HostBridgeDeps } from './bridge.js';
-import { BRIDGE_METHODS, METHOD_SCOPES, type AddonScope, type BridgeMethod } from '@yapaja/addon-sdk';
+import { BRIDGE_METHODS, METHOD_SCOPES, type AddonScope, type BridgeMethod } from '@yapaia/addon-sdk';
 
 /**
  * THE key security test (docs/05 §2, Wargame W-10): for EVERY bridge method,

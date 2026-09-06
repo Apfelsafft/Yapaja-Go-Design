@@ -86,11 +86,11 @@ if (typeof window !== 'undefined') {
 
 declare global {
   interface Window {
-    /** Debug/E2E hook, mirrors `window.__yapajaDriveLockStore`/`__yapajaThemeStore`. */
-    __yapajaPwaStore?: typeof usePwaStore;
+    /** Debug/E2E hook, mirrors `window.__yapaiaDriveLockStore`/`__yapaiaThemeStore`. */
+    __yapaiaPwaStore?: typeof usePwaStore;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaPwaStore = usePwaStore;
+  window.__yapaiaPwaStore = usePwaStore;
 }

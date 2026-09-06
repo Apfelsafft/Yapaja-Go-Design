@@ -1,6 +1,6 @@
-# Yapaja Go (Home Assistant Add-on)
+# Yapaia Go (Home Assistant Add-on)
 
-Packages Yapaja Go — offline motorhome navigation (`apps/core` + `apps/web`
+Packages Yapaia Go — offline motorhome navigation (`apps/core` + `apps/web`
 in the parent repo) — as a Home Assistant add-on: single container, s6-overlay-
 supervised, MQTT-integrated, served through HA Ingress.
 
@@ -73,7 +73,7 @@ if a `repository.yaml` sits in its ROOT, and it then looks for add-ons in
 directories one level below that root, each containing a `config.yaml`. So
 this package lives at `yapaja_go/` (repo root), not two levels deep — that
 is what makes **Settings → Add-ons → Add-on Store → ⋮ → Repositories →
-`https://github.com/Apfelsafft/Yapaja-Go-Design`** actually list "Yapaja Go".
+`https://github.com/Apfelsafft/Yapaja-Go-Design`** actually list "Yapaia Go".
 
 ## CI strategy
 

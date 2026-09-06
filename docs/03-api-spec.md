@@ -185,10 +185,10 @@ Server → Client: `{topic, payload, ts}`. Topics == interne Event-Bus-Topics:
 
 ## 4. MQTT-Topics (Bridge zu Home Assistant)
 
-Basis-Prefix konfigurierbar, Default `yapaja`. QoS 1, `retain` für Zustands-Topics.
+Basis-Prefix konfigurierbar, Default `yapaia`. QoS 1, `retain` für Zustands-Topics.
 Alle Payloads JSON. HA-Auto-Discovery unter `homeassistant/...` (siehe docs/04).
 
-### Publiziert von Yapaja Go (Status)
+### Publiziert von Yapaia Go (Status)
 | Topic | Inhalt | Retain |
 |---|---|---|
 | `yapaja/status` | `online|offline` (LWT!) | ✔ |
@@ -203,7 +203,7 @@ Alle Payloads JSON. HA-Auto-Discovery unter `homeassistant/...` (siehe docs/04).
 | `yapaja/event/#` | flüchtige Events (deviation, arrived, gps_lost, reroute) | ✘ |
 | `yapaja/addon/{id}/*` | Add-on-Events (E09-T8): 1:1-Republish von `events.publish` (`addon/{id}/*` auf dem internen Bus, docs/05 §2) unter demselben, um `{id}` erweiterten Namensraum. Rate-Limit 5 msg/s pro Add-on (Drossel-Log bei Überschreitung), Payload ≤ 16 KB, pro Add-on abschaltbar ("In Home Assistant verfügbar", Store-Detailseite). Details/Sicherheitsbetrachtung: `apps/core/src/mqtt/addonTopic.ts`. | ✘ |
 
-### Kommandos an Yapaja Go (HA → App)
+### Kommandos an Yapaia Go (HA → App)
 | Topic | Payload | Wirkung |
 |---|---|---|
 | `yapaja/cmd/destination` | `{query?: string, lat?: number, lon?: number, autostart?: bool}` | Ziel setzen (wie REST `/navigation/destination`) |

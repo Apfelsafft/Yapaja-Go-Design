@@ -7,8 +7,8 @@
  * `shell/wsStore.ts`'s module doc comment for the connection boundary).
  */
 
-import type { NavState } from '@yapaja/shared';
-import type { Widget } from '@yapaja/ui';
+import type { NavState } from '@yapaia/shared';
+import type { Widget } from '@yapaia/ui';
 import SpeedLimitSign from '../../drive/SpeedLimitSign.js';
 
 export const speedLimitWidget: Widget = {

@@ -2,7 +2,7 @@
 
 ## Produktvision
 
-Yapaja Go ist die Navigations-Zentrale für das vernetzte Wohnmobil:
+Yapaia Go ist die Navigations-Zentrale für das vernetzte Wohnmobil:
 eine browserbasierte Turn-by-Turn-Navigation, die **komplett offline** funktioniert,
 **Fahrzeugmaße und -gewicht** bei der Routenberechnung respektiert und sich nahtlos in
 **Home Assistant** integriert – auf Hardware, die ohnehin im Fahrzeug verbaut ist
@@ -22,8 +22,8 @@ Sygic Truck, Offline-Fähigkeit von iGO/OsmAnd – als offene, erweiterbare Plat
 | Komponente | Annahme |
 |---|---|
 | Mini-PC | Intel N100 / N5105-Klasse, 4 Kerne, 8–16 GB RAM |
-| Virtualisierung | Proxmox VE; Yapaja Go in VM/LXC **oder** als HA-Add-on in der HAOS-VM |
-| Verfügbar für Yapaja Go | ~2 Kerne, 2–4 GB RAM, 20–60 GB Disk (je nach Kartenregion) |
+| Virtualisierung | Proxmox VE; Yapaia Go in VM/LXC **oder** als HA-Add-on in der HAOS-VM |
+| Verfügbar für Yapaia Go | ~2 Kerne, 2–4 GB RAM, 20–60 GB Disk (je nach Kartenregion) |
 | Anzeige | Tablet/Monitor im Fahrzeug, Browser (Chromium/Firefox), Touch, 1280×800 aufwärts |
 | GPS | Browser-Geolocation ODER USB-GPS-Maus (u-blox-Klasse, NMEA) am Host |
 | Netz | Meist offline; sporadisch LTE/WLAN für Updates & Add-on-Store |

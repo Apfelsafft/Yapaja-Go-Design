@@ -1,15 +1,15 @@
 /**
  * ETA widget (E07-T1, docs/06 Section 1 drive-mode sketch: "ETA 17:42").
- * Uses `@yapaja/shared`'s `formatEta` (per the task spec) -- the Core
+ * Uses `@yapaia/shared`'s `formatEta` (per the task spec) -- the Core
  * publishes `NavState.eta` as a UTC ISO-8601 instant; `formatEta` is the
  * ONE place that renders it as a local clock time (W-22, see
  * `packages/shared/src/formatEta.ts`'s doc comment) so every consumer
  * (this widget, MQTT-adjacent tooling, ...) agrees.
  */
 
-import type { NavState } from '@yapaja/shared';
-import { formatEta } from '@yapaja/shared';
-import type { Widget } from '@yapaja/ui';
+import type { NavState } from '@yapaia/shared';
+import { formatEta } from '@yapaia/shared';
+import type { Widget } from '@yapaia/ui';
 
 export const etaWidget: Widget = {
   id: 'eta',

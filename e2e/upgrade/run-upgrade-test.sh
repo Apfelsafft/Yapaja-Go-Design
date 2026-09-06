@@ -37,7 +37,7 @@ fail() {
 }
 
 cleanup() {
-  YAPAJA_CORE_IMAGE="${NEW_IMAGE}" docker compose -f "$COMPOSE_FILE" down -v --remove-orphans >/dev/null 2>&1 || true
+  YAPAIA_CORE_IMAGE="${NEW_IMAGE}" docker compose -f "$COMPOSE_FILE" down -v --remove-orphans >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -58,7 +58,7 @@ wait_healthy() {
 # --- Phase 1: start the PREVIOUS release, create data ------------------
 
 log "Starting PREV_IMAGE=${PREV_IMAGE}"
-YAPAJA_CORE_IMAGE="${PREV_IMAGE}" docker compose -f "$COMPOSE_FILE" up -d
+YAPAIA_CORE_IMAGE="${PREV_IMAGE}" docker compose -f "$COMPOSE_FILE" up -d
 wait_healthy 'prev'
 
 log 'Creating a profile, a favorite, and a settings key on the old version'
@@ -85,10 +85,10 @@ log 'Wrote settings.layouts marker'
 # --- Phase 2: swap to the NEW image on the SAME volume ------------------
 
 log 'Stopping prev container (keeping the data volume)'
-YAPAJA_CORE_IMAGE="${PREV_IMAGE}" docker compose -f "$COMPOSE_FILE" stop core
+YAPAIA_CORE_IMAGE="${PREV_IMAGE}" docker compose -f "$COMPOSE_FILE" stop core
 
 log "Starting NEW_IMAGE=${NEW_IMAGE} against the same data volume"
-YAPAJA_CORE_IMAGE="${NEW_IMAGE}" docker compose -f "$COMPOSE_FILE" up -d core
+YAPAIA_CORE_IMAGE="${NEW_IMAGE}" docker compose -f "$COMPOSE_FILE" up -d core
 wait_healthy 'new'
 
 # --- Phase 3: assert data survived ---------------------------------------

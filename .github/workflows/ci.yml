@@ -121,7 +121,7 @@ jobs:
       # PLAYWRIGHT_BROWSERS_PATH; the playwright config falls back to Playwright's
       # own browser resolution when that env var is unset, so install it here.
       - name: Install Playwright Chromium
-        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+        run: pnpm --filter @yapaia/web exec playwright install --with-deps chromium
 
       # globalSetup builds web+core and starts the core; run the suite.
       - name: Run E2E tests
@@ -171,7 +171,7 @@ jobs:
       # PLAYWRIGHT_BROWSERS_PATH nicht; die Config faellt dann auf Playwrights
       # eigene Aufloesung zurueck, also hier installieren (wie im e2e-Job).
       - name: Install Playwright Chromium
-        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+        run: pnpm --filter @yapaia/web exec playwright install --with-deps chromium
 
       # e2e/ ist KEIN Workspace-Paket, `pnpm typecheck` (= `pnpm -r`) deckt es
       # nicht ab -- gleiche Begruendung wie beim golden-routes-Job.
@@ -246,7 +246,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
-        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+        run: pnpm --filter @yapaia/web exec playwright install --with-deps chromium
 
       # e2e/ ist KEIN Workspace-Paket, `pnpm typecheck` (= `pnpm -r`) deckt es
       # nicht ab -- gleiche Begruendung wie bei golden-routes/security.
@@ -323,7 +323,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
-        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+        run: pnpm --filter @yapaia/web exec playwright install --with-deps chromium
 
       - name: Degradation proof (200 ms fixture must turn the pipeline red)
         run: pnpm perf:degradation-proof
@@ -453,7 +453,7 @@ jobs:
         run: pnpm wargame:check
 
       # Plausibilität (E10-T5): ein major-Bump auf eine Add-on-API-
-      # Paketgrenze (@yapaja/core, @yapaja/addon-sdk) OHNE benannten
+      # Paketgrenze (@yapaia/core, @yapaia/addon-sdk) OHNE benannten
       # "## Breaking Change"-Abschnitt lässt bereits DIESEN PR fehlschlagen
       # -- nicht erst beim Release. Bei null offenen Changesets ist das ein
       # No-Op (siehe scripts/changeset-breaking-check.mjs).
@@ -525,7 +525,7 @@ jobs:
         run: curl -f http://localhost:8080/api/v1/health
 
       - name: Check home page
-        run: curl -fs http://localhost:8080/ | grep -q "Yapaja Go"
+        run: curl -fs http://localhost:8080/ | grep -q "Yapaia Go"
 
       - name: Verify non-root user
         run: '[ "$(docker exec core whoami)" != "root" ]'
@@ -945,7 +945,7 @@ jobs:
       # ausgefuehrt, das ausgeliefert wird.
       - name: Der ausgelieferte Index-Bauer (dist/lite-index.js) baut denselben Index
         run: |
-          pnpm --filter @yapaja/core build
+          pnpm --filter @yapaia/core build
           test -f apps/core/dist/lite-index.js \
             || { echo "::error::apps/core/dist/lite-index.js fehlt -- fuehrt tsup den Einstiegspunkt 'lite-index'?"; exit 1; }
 

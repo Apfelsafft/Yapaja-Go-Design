@@ -2,7 +2,7 @@
 /**
  * Build script for the Track-Recorder reference add-on (E09-T5,
  * docs/addon-dev-guide.md §2.4). Produces two esbuild bundles (both
- * self-contained -- no bare `@yapaja/*` import specifiers left, resolved
+ * self-contained -- no bare `@yapaia/*` import specifiers left, resolved
  * straight from source via `alias`, same reasoning as
  * `../poi-campsites/build.mjs`) plus the installable tarball:
  *
@@ -27,8 +27,8 @@ const DIST_DIR = join(__dirname, 'dist');
 const STAGE_DIR = join(DIST_DIR, '_stage');
 
 const ALIAS = {
-  '@yapaja/addon-sdk': join(REPO_ROOT, 'packages', 'addon-sdk', 'src', 'index.ts'),
-  '@yapaja/shared': join(REPO_ROOT, 'packages', 'shared', 'src', 'index.ts'),
+  '@yapaia/addon-sdk': join(REPO_ROOT, 'packages', 'addon-sdk', 'src', 'index.ts'),
+  '@yapaia/shared': join(REPO_ROOT, 'packages', 'shared', 'src', 'index.ts'),
 };
 
 function bundleUi() {

@@ -24,7 +24,7 @@ import { trackRequests, collectPageErrors } from './support/network.js';
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
   await page.waitForFunction(
-    () => Boolean((window as any).__yapajaMapController?.getMap?.()),
+    () => Boolean((window as any).__yapaiaMapController?.getMap?.()),
     undefined,
     { timeout: 15_000 }
   );
@@ -33,14 +33,14 @@ async function waitForMapReady(page: Page): Promise<void> {
 /** Read the live degradation level via the store. */
 function readDegradationLevel(page: Page): Promise<number> {
   return page.evaluate(() => {
-    return (window as any).__yapajaDegrade?.level ?? -1;
+    return (window as any).__yapaiaDegrade?.level ?? -1;
   });
 }
 
 /** Read the override setting from the store. */
 function readOverride(page: Page): Promise<string> {
   return page.evaluate(() => {
-    return (window as any).__yapajaDegrade?.override ?? 'unknown';
+    return (window as any).__yapaiaDegrade?.override ?? 'unknown';
   });
 }
 
@@ -48,7 +48,7 @@ function readOverride(page: Page): Promise<string> {
 /** Verify that the degradation store is exposed to the window for E2E access. */
 async function waitForDegrade(page: Page): Promise<void> {
   await page.waitForFunction(
-    () => Boolean((window as any).__yapajaDegrade),
+    () => Boolean((window as any).__yapaiaDegrade),
     undefined,
     { timeout: 15_000 }
   );
@@ -131,7 +131,7 @@ test.describe('Performance Watchdog', () => {
 
     // Set override to high
     await page.evaluate(() => {
-      (window as any).__yapajaDegrade.setOverride('high');
+      (window as any).__yapaiaDegrade.setOverride('high');
     });
 
     // Override should be high
@@ -169,7 +169,7 @@ test.describe('Performance Watchdog', () => {
 
     // Set override to low
     await page.evaluate(() => {
-      (window as any).__yapajaDegrade.setOverride('low');
+      (window as any).__yapaiaDegrade.setOverride('low');
     });
 
     // Level should jump to 3
@@ -190,14 +190,14 @@ test.describe('Performance Watchdog', () => {
 
     // Set to low first
     await page.evaluate(() => {
-      (window as any).__yapajaDegrade.setOverride('low');
+      (window as any).__yapaiaDegrade.setOverride('low');
     });
     let level = await readDegradationLevel(page);
     expect(level).toBe(3);
 
     // Switch to auto
     await page.evaluate(() => {
-      (window as any).__yapajaDegrade.setOverride('auto');
+      (window as any).__yapaiaDegrade.setOverride('auto');
     });
 
     // Override should be auto
@@ -222,7 +222,7 @@ test.describe('Performance Watchdog', () => {
 
     // Set override to low
     await page.evaluate(() => {
-      (window as any).__yapajaDegrade.setOverride('low');
+      (window as any).__yapaiaDegrade.setOverride('low');
     });
 
     // Reload

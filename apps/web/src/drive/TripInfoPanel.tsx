@@ -24,8 +24,8 @@
  */
 
 import React from 'react';
-import type { NavState } from '@yapaja/shared';
-import { formatEta } from '@yapaja/shared';
+import type { NavState } from '@yapaia/shared';
+import { formatEta } from '@yapaia/shared';
 import { formatDistance, formatDuration } from '../routing/format.js';
 import { TRIP_INFO_BOTTOM_PX } from '../shell/mapControlLayout.js';
 

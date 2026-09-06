@@ -4,8 +4,8 @@
  * formatter the route-summary panel uses).
  */
 
-import type { NavState } from '@yapaja/shared';
-import type { Widget } from '@yapaja/ui';
+import type { NavState } from '@yapaia/shared';
+import type { Widget } from '@yapaia/ui';
 import { formatDuration } from '../../routing/format.js';
 
 export const timeWidget: Widget = {

@@ -1,18 +1,18 @@
 # 04 – Home-Assistant-Integration
 
-Yapaja Go und Home Assistant laufen auf demselben Mini-PC (Proxmox: HAOS-VM +
-Yapaja-LXC/VM, **oder** Yapaja als HA-Add-on direkt in HAOS). Die Integration hat
+Yapaia Go und Home Assistant laufen auf demselben Mini-PC (Proxmox: HAOS-VM +
+Yapaia-LXC/VM, **oder** Yapaia als HA-Add-on direkt in HAOS). Die Integration hat
 drei Säulen: **MQTT** (primär, robust, entkoppelt), **REST beidseitig** (gezielte
 Aktionen), **HA-Add-on-Packaging** (Installation & UI-Zugriff via Ingress).
 
 ## 1. MQTT (primärer Kanal)
 
-- Broker: der in HA übliche **Mosquitto**. Yapaja-Core verbindet sich als Client
+- Broker: der in HA übliche **Mosquitto**. Yapaia-Core verbindet sich als Client
   (mqtt.js), Reconnect mit Exponential-Backoff, **LWT** auf `yapaja/status = offline`.
 - Topics/Payloads: siehe `docs/03-api-spec.md` §4. Ein gemeinsames Schema mit WS —
   keine Sonderformate für HA.
 - **Auto-Discovery:** Beim Start (und bei `homeassistant/status = online`, d. h.
-  HA-Neustart) publiziert Yapaja Discovery-Configs (retained) unter
+  HA-Neustart) publiziert Yapaia Discovery-Configs (retained) unter
   `homeassistant/<component>/yapaja_<objekt>/config`:
 
 | HA-Entität | Typ | Quelle |
@@ -31,18 +31,18 @@ Aktionen), **HA-Add-on-Packaging** (Installation & UI-Zugriff via Ingress).
 | `button.yapaja_stop` / `pause` / `resume` | button → cmd/navigation | – |
 | `select.yapaja_profile` | select (Profilnamen) → cmd/profile | profiles |
 
-  Alle Entitäten hängen an einem HA-**Device** „Yapaja Go" (identifiers:
+  Alle Entitäten hängen an einem HA-**Device** „Yapaia Go" (identifiers:
   `yapaja_go`, sw_version, configuration_url → App-URL).
 - Damit sind in HA ohne YAML sofort Dashboards, Automationen („Wenn ETA < 30 min →
   Boiler an"), TTS-Ansagen über HA-Speaker etc. möglich.
 
 ## 2. REST beidseitig
 
-- **HA → Yapaja:** die komplette Core-REST-API (docs/03 §2), nutzbar via
+- **HA → Yapaia:** die komplette Core-REST-API (docs/03 §2), nutzbar via
   `rest_command`. Wichtigster Endpunkt: `POST /api/v1/navigation/destination`
   (Ziel setzen + optional Autostart) – für Automationen wie „Klick auf Karte im
   HA-Dashboard ⇒ Ziel im Navi".
-- **Yapaja → HA:** Core kann die HA-REST-API rufen (Long-Lived-Token in Settings,
+- **Yapaia → HA:** Core kann die HA-REST-API rufen (Long-Lived-Token in Settings,
   im Add-on automatisch via `SUPERVISOR_TOKEN`/`http://supervisor/core/api`).
   V1-Nutzung bewusst klein: HA-Notifications (`notify`) und TTS-Ansagen über
   HA-Mediaplayer als optionaler Ausgabekanal für Navigationsansagen.
@@ -53,7 +53,7 @@ Aktionen), **HA-Add-on-Packaging** (Installation & UI-Zugriff via Ingress).
 **Entscheidung (aktualisiert in `feat/gui-install-path`):** **dieses Monorepo
 ist selbst das Add-on-Repository.** Nutzer tragen unter *Einstellungen →
 Add-ons → Add-on Store → ⋮ → Repositories* die URL
-`https://github.com/Apfelsafft/Yapaja-Go-Design` ein und bekommen „Yapaja Go"
+`https://github.com/Apfelsafft/Yapaja-Go-Design` ein und bekommen „Yapaia Go"
 als installierbares Add-on angezeigt.
 
 **Warum die Struktur so und nicht anders ist:** Der Supervisor erkennt ein
@@ -95,7 +95,7 @@ Kernpunkte:
 - **USB-GPS:** `usb: true` + udev; gpsd läuft im Add-on-Container.
 - **Kartendaten nach `/share/yapaja/`** (PMTiles, Valhalla-Graph, Photon-Index),
   nicht ins Container-FS – Add-on-Updates dürfen keine Daten-Downloads erzwingen.
-- **Ressourcen-Realität:** HAOS-VM braucht dann RAM für HA **und** Yapaja-Services.
+- **Ressourcen-Realität:** HAOS-VM braucht dann RAM für HA **und** Yapaia-Services.
   Empfehlung in DOCS.md: HAOS-VM ≥ 6 GB bei DE-Karten; wer knapp ist, nimmt die
   Standalone-Compose-Variante im eigenen LXC. Beide Wege dokumentieren.
 - Add-on-Optionen (config.yaml `options/schema`): Kartenregion, MQTT-Prefix,
@@ -135,7 +135,7 @@ gefahrenen Distanz sendet (`configuration.yaml` / UI-Automation-YAML):
 
 ```yaml
 automation:
-  - alias: "Yapaja Go: Aufzeichnung beendet -> Benachrichtigung"
+  - alias: "Yapaia Go: Aufzeichnung beendet -> Benachrichtigung"
     trigger:
       - platform: mqtt
         topic: "yapaja/addon/com.yapaja.track-recorder/stopped"
@@ -153,7 +153,7 @@ Und ein `input_boolean`/Statuslicht, das anzeigt, ob gerade aufgezeichnet wird:
 
 ```yaml
 automation:
-  - alias: "Yapaja Go: Recorder-Status-Helper setzen"
+  - alias: "Yapaia Go: Recorder-Status-Helper setzen"
     trigger:
       - platform: mqtt
         topic: "yapaja/addon/com.yapaja.track-recorder/started"

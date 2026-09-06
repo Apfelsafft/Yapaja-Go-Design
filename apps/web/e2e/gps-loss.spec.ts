@@ -82,7 +82,7 @@ test.describe('GPS loss (W-01)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(SIMULATOR_CORE_BASE_URL + '/');
     await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-    await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()));
+    await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()));
   });
 
   test.afterEach(async ({ page }) => {
@@ -107,7 +107,7 @@ test.describe('GPS loss (W-01)', () => {
     // below would be vacuously true on a simulator that never started).
     await expect
       .poll(
-        () => page.evaluate(() => window.__yapajaPositionStore?.getState().position !== null),
+        () => page.evaluate(() => window.__yapaiaPositionStore?.getState().position !== null),
         { timeout: 20_000 },
       )
       .toBe(true);
@@ -119,7 +119,7 @@ test.describe('GPS loss (W-01)', () => {
     // banner must not be on screen. (The previous version slept 1.5 s and
     // hoped, which is precisely the wall-clock coupling E10-T1 removes.)
     const freshSnapshot = await page.evaluate(() => {
-      const lastRealUpdateTime = window.__yapajaPositionStore?.getState().lastRealUpdateTime ?? null;
+      const lastRealUpdateTime = window.__yapaiaPositionStore?.getState().lastRealUpdateTime ?? null;
       return {
         msSinceLastFix: lastRealUpdateTime === null ? null : Date.now() - lastRealUpdateTime,
         bannerPresent: Boolean(document.querySelector('[data-testid="gps-loss-banner"]')),
@@ -178,7 +178,7 @@ test.describe('GPS loss (W-01)', () => {
     // dead-reckoned guess -- with no active route (noopDeadReckoningProvider,
     // E04-T6 ships the real math), `pos/extrapolated` must never have fired.
     const extrapolatedWhileLost = await page.evaluate(
-      () => window.__yapajaPositionStore?.getState().extrapolated ?? null,
+      () => window.__yapaiaPositionStore?.getState().extrapolated ?? null,
     );
     expect(extrapolatedWhileLost).toBe(false);
 
@@ -187,7 +187,7 @@ test.describe('GPS loss (W-01)', () => {
     await expect(page.getByText(BANNER_TEXT)).toBeHidden({ timeout: 15_000 });
 
     const stateAfterRecovery = await page.evaluate(() => {
-      const s = window.__yapajaPositionStore?.getState();
+      const s = window.__yapaiaPositionStore?.getState();
       return s ? { extrapolated: s.extrapolated, hasPosition: s.position !== null } : null;
     });
     expect(stateAfterRecovery).toEqual({ extrapolated: false, hasPosition: true });
@@ -219,13 +219,13 @@ test.describe('GPS loss (W-01)', () => {
     // PositionPuck's style-readiness guard), which can land slightly after
     // the canvas is visible. Wait for the layer before querying its paint.
     await page.waitForFunction(
-      () => Boolean(window.__yapajaMapController?.getMap()?.getLayer('position-puck-layer')),
+      () => Boolean(window.__yapaiaMapController?.getMap()?.getLayer('position-puck-layer')),
       undefined,
       { timeout: 10_000 },
     );
 
     const transitions = await page.evaluate(() => {
-      const map = window.__yapajaMapController?.getMap();
+      const map = window.__yapaiaMapController?.getMap();
       if (!map) return null;
       return {
         puckColor: map.getPaintProperty('position-puck-layer', 'circle-color-transition'),

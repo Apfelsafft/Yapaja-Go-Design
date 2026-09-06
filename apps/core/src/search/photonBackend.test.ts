@@ -4,7 +4,7 @@
  * intercepted via the injectable `fetchImpl` seam -- no live Photon needed.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { validateSearchResult } from '@yapaja/shared';
+import { validateSearchResult } from '@yapaia/shared';
 import { GeocoderBackendError } from './errors.js';
 import { PhotonBackend } from './photonBackend.js';
 import type { FetchLike, HttpResponseLike } from './httpTypes.js';

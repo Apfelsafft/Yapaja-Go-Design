@@ -23,7 +23,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { createServer, type Server, type Socket } from 'node:net';
 import { Aedes } from 'aedes';
 import { connect as mqttConnect, type MqttClient } from 'mqtt';
-import type { Favorite, Route, RouteRequest, VehicleProfile } from '@yapaja/shared';
+import type { Favorite, Route, RouteRequest, VehicleProfile } from '@yapaia/shared';
 import { EventBus } from '../bus/index.js';
 import { NavigationService, type RouteProvider, type RerouteProvider } from '../navigation/service.js';
 import { encodePolyline6 } from '../routing/polyline.js';
@@ -246,7 +246,7 @@ function routePoints(): LatLon[] {
 
 const DEVICE: DiscoveryDevice = {
   identifiers: ['yapaja_go'],
-  name: 'Yapaja Go',
+  name: 'Yapaia Go',
   sw_version: '9.9.9-test',
   configuration_url: 'http://homeassistant.local:8080',
 };

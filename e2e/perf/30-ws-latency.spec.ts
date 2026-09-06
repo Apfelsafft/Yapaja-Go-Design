@@ -4,7 +4,7 @@
  * Gemessen wird der VOLLE Weg, den docs/00 meint ("GPS-Update -> UI"):
  * vom Absenden eines Fixes an `POST /api/v1/position/browser` bis zu dem
  * Moment, in dem GENAU DIESE Position im UI-Store der Seite steht
- * (`window.__yapajaPositionStore`). Dazwischen liegen HTTP-Annahme,
+ * (`window.__yapaiaPositionStore`). Dazwischen liegen HTTP-Annahme,
  * `PositionService`, der Event-Bus, die WS-Verteilung und der
  * Store-Update -- also alles ausser dem GPS-Empfaenger selbst.
  *
@@ -75,7 +75,7 @@ test('[Perf] WS-Latenz Position -> UI < 500 ms', async ({ browser, request }) =>
     await page.goto(`${PERF_CORE_BASE_URL}/`, { timeout: 120_000 });
     await waitForMapLoaded(page);
     await page.waitForFunction(
-      () => window.__yapajaPositionStore?.getState().isConnected === true,
+      () => window.__yapaiaPositionStore?.getState().isConnected === true,
       undefined,
       { timeout: 60_000 },
     );
@@ -92,7 +92,7 @@ test('[Perf] WS-Latenz Position -> UI < 500 ms', async ({ browser, request }) =>
         spacingMs: number;
         latStep: number;
       }) => {
-        const store = window.__yapajaPositionStore;
+        const store = window.__yapaiaPositionStore;
         if (!store) throw new Error('Position-Store nicht verfuegbar');
         const out: number[] = [];
         for (let i = 0; i < count + warmup; i += 1) {

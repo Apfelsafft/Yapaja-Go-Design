@@ -3,7 +3,7 @@
  * emoji, same lightweight approach as `ProfileChip`'s 🚐 -- no icon library
  * dependency is added for this task ("keine neuen Dependencies").
  * `SearchResult.type` is a free-form string from Photon/Nominatim/the
- * coordinate parser (`@yapaja/shared`'s `SearchResult['type']` comment:
+ * coordinate parser (`@yapaia/shared`'s `SearchResult['type']` comment:
  * "e.g. city, street, coordinates"), so this is a best-effort lookup with a
  * generic pin fallback for anything not explicitly listed.
  */

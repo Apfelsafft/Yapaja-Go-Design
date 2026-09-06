@@ -25,7 +25,7 @@
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 import type { PositionService, PositionSource } from '../service.js';
 import { decodePolyline6 } from './polyline.js';
 import { parseGpxTrackPoints } from './gpx.js';

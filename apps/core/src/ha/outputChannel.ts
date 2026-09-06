@@ -1,7 +1,7 @@
 /**
  * HA output channel (E08-T3, docs/04 §2): a core-side bus subscriber that
  * forwards navigation announcements + events to Home Assistant, gated entirely
- * by Settings (default OFF). It is the Yapaja -> HA direction (the MQTT bridge
+ * by Settings (default OFF). It is the Yapaia -> HA direction (the MQTT bridge
  * is the parameter/telemetry direction).
  *
  *  - `nav/instruction`  -> HA TTS via `tts.speak` (configurable service +
@@ -20,7 +20,7 @@
  */
 
 import type { ArrivedPayload, EventBus, GpsLostPausedPayload } from '../bus/index.js';
-import type { NavInstructionPayload } from '@yapaja/shared';
+import type { NavInstructionPayload } from '@yapaia/shared';
 import {
   resolveHaConfig,
   type HaConfig,
@@ -141,7 +141,7 @@ export class HaOutputChannel {
     if (!config || !config.notify.enabled) return;
     const name = payload.destination?.name;
     await this.call(config, config.notify.service, {
-      title: 'Yapaja Go',
+      title: 'Yapaia Go',
       message: name ? `Ziel erreicht: ${name}` : 'Ziel erreicht.',
     });
   }
@@ -155,7 +155,7 @@ export class HaOutputChannel {
     if (!payload || typeof payload.message !== 'string' || payload.message.trim() === '') return;
     const label = typeof payload.addon_name === 'string' && payload.addon_name !== '' ? payload.addon_name : payload.addon_id;
     await this.call(config, config.notify.service, {
-      title: `Yapaja Go – ${label}`,
+      title: `Yapaia Go – ${label}`,
       message: payload.title ? `${payload.title}: ${payload.message}` : payload.message,
     });
   }
@@ -165,7 +165,7 @@ export class HaOutputChannel {
     const config = this.resolve();
     if (!config || !config.notify.enabled) return;
     await this.call(config, config.notify.service, {
-      title: 'Yapaja Go',
+      title: 'Yapaia Go',
       message: 'GPS-Signal verloren – Navigation pausiert.',
     });
   }

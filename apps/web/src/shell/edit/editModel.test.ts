@@ -6,10 +6,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { WidgetRegistry } from '@yapaja/ui';
-import type { Widget, WidgetSize } from '@yapaja/ui';
+import { WidgetRegistry } from '@yapaia/ui';
+import type { Widget, WidgetSize } from '@yapaia/ui';
 import type { SlotLayout, WidgetInstance } from '../layout.js';
-import { SLOT_IDS } from '@yapaja/ui';
+import { SLOT_IDS } from '@yapaia/ui';
 import {
   SLOT_SIZE_POLICY,
   slotAcceptsSize,

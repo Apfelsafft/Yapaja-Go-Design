@@ -21,7 +21,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import type { Favorite, RouteAvoidOverrides } from '@yapaja/shared';
+import type { Favorite, RouteAvoidOverrides } from '@yapaia/shared';
 import { useMapStore } from '../state/mapStore.js';
 import { useProfileStore } from '../profiles/store.js';
 import { useUiStore } from '../ui/store.js';

@@ -25,7 +25,7 @@ RUN pnpm build
 # Wipe first: a filtered install does not prune the previously populated
 # .pnpm store from the full dev install above.
 RUN rm -rf node_modules apps/core/node_modules apps/web/node_modules packages/shared/node_modules \
-  && pnpm install --prod --frozen-lockfile --filter @yapaja/core...
+  && pnpm install --prod --frozen-lockfile --filter @yapaia/core...
 
 # Runtime stage
 FROM node:22-slim

@@ -6,7 +6,7 @@
  *
  * SECURITY POSTURE -- when is auth ENFORCED?
  * -----------------------------------------
- * Yapaja Go is an OFFLINE motorhome device that normally runs on a trusted
+ * Yapaia Go is an OFFLINE motorhome device that normally runs on a trusted
  * LAN (or as a Home-Assistant add-on behind HA's own ingress auth). A fresh
  * install ships with NO token, and we deliberately keep the API OPEN in that
  * state so the device is never "bricked" before an operator has had a chance

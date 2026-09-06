@@ -20,13 +20,13 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import type { Position, SearchResult } from '@yapaja/shared';
+import type { Position, SearchResult } from '@yapaia/shared';
 import { SEARCH_CORE_BASE_URL, SEARCH_SPEEDLOCK_CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors, trackRequests } from './support/network.js';
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -77,7 +77,7 @@ async function fillSearchAndAwaitResponse(page: Page, query: string): Promise<vo
 async function waitForCameraSettled(page: Page): Promise<void> {
   await page.waitForFunction(
     () => {
-      const map = window.__yapajaMapController?.getMap?.();
+      const map = window.__yapaiaMapController?.getMap?.();
       if (!map) return false;
       return !map.isMoving();
     },
@@ -196,7 +196,7 @@ test('type "Vad" -> suggestions appear -> select -> map flies + bottom sheet sho
   await waitForCameraSettled(page);
   const distanceToVaduz = await page.evaluate(
     ({ lng, lat }) => {
-      const map = window.__yapajaMapController?.getMap();
+      const map = window.__yapaiaMapController?.getMap();
       if (!map) return null;
       const c = map.getCenter();
       return Math.hypot(c.lng - lng, c.lat - lat);
@@ -355,7 +355,7 @@ test('die Trefferliste beginnt mit dem naechsten Ergebnis', async ({ page }) => 
     data: browserFixBody(),
   });
   await expect
-    .poll(() => page.evaluate(() => window.__yapajaPositionStore?.getState().position?.lat ?? null), {
+    .poll(() => page.evaluate(() => window.__yapaiaPositionStore?.getState().position?.lat ?? null), {
       timeout: 10_000,
     })
     .not.toBeNull();

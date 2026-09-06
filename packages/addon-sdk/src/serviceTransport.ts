@@ -17,7 +17,7 @@
  * of anything this file does or doesn't do.
  */
 
-import type { NavState, Position, Route, RouteRequest } from '@yapaja/shared';
+import type { NavState, Position, Route, RouteRequest } from '@yapaia/shared';
 import type { PositionUpdate } from './protocol.js';
 import { AddonTransportError, RemoteCallError, ScopeDeniedError, UnsupportedOnTransportError } from './errors.js';
 import { assertCoreCompatible } from './version.js';
@@ -27,7 +27,7 @@ import type {
   NavControlDestinationResult,
   NavControlStartParams,
   SdkFetchInit,
-  YapajaAddon,
+  YapaiaAddon,
 } from './types.js';
 
 const TRANSPORT = 'service';
@@ -291,12 +291,12 @@ function env(name: string): string | undefined {
  * Connects the service transport: resolves `apiUrl`/`token`/`addonId` (from
  * options, falling back to the process-contract env vars), checks the Core's
  * reported version for major-compatibility (unless skipped), and returns a
- * {@link YapajaAddon}. The WS connection itself is opened LAZILY, on the
+ * {@link YapaiaAddon}. The WS connection itself is opened LAZILY, on the
  * first `position.subscribe`/`nav.subscribe` call -- a service add-on that
  * only ever does REST (storage, events, fetch, nav.control) never pays for a
  * socket it doesn't use.
  */
-export async function connectServiceAddon(options: ServiceTransportOptions = {}): Promise<YapajaAddon> {
+export async function connectServiceAddon(options: ServiceTransportOptions = {}): Promise<YapaiaAddon> {
   const apiUrl = (options.apiUrl ?? env('YAPAJA_API_URL'))?.replace(/\/+$/, '');
   const token = options.token ?? env('YAPAJA_TOKEN');
   const addonId = options.addonId ?? env('YAPAJA_ADDON_ID');
@@ -345,7 +345,7 @@ export async function connectServiceAddon(options: ServiceTransportOptions = {})
 
   const asState = (v: unknown): NavState => dataOf(v) as NavState;
 
-  const client: YapajaAddon = {
+  const client: YapaiaAddon = {
     transport: TRANSPORT,
     addonId,
     // No endpoint reports a token's granted scopes back to the holder of

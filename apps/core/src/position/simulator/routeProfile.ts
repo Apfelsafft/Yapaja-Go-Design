@@ -34,7 +34,7 @@
  * heikel, weil die Fahrt danach „echt" aussieht.
  */
 
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { buildRouteGeometry } from '../../navigation/mapMatching.js';
 import {
   buildSpeedSegmentAnchors,

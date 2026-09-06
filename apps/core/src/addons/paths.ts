@@ -3,13 +3,13 @@
  * §2/§5). Mirrors `apps/core/src/map/paths.ts`'s "validate name, then
  * resolve+prefix-check" pattern -- same defense-in-depth idea: the add-on
  * `id` is already validated by the shared manifest schema
- * (`ADDON_ID_PATTERN`, `@yapaja/shared`) before it ever reaches here, but
+ * (`ADDON_ID_PATTERN`, `@yapaia/shared`) before it ever reaches here, but
  * every function in this file re-validates and re-checks the resolved path
  * itself, never trusting a single upstream check alone.
  */
 
 import { join, resolve, sep } from 'path';
-import { ADDON_ID_PATTERN } from '@yapaja/shared';
+import { ADDON_ID_PATTERN } from '@yapaia/shared';
 
 /** Same pattern the manifest schema enforces on `id` -- compiled once here
  *  for the Core's own defense-in-depth re-check. */

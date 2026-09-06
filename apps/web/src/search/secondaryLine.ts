@@ -21,7 +21,7 @@
  * aber nie auf einen Text, der bloss den Namen wiederholt.
  */
 
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 
 /**
  * Was unter dem Namen steht — oder `null`, wenn es dazu nichts zu sagen gibt.

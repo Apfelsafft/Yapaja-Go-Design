@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import type { VehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile } from '@yapaia/shared';
 import VehicleSilhouette from './VehicleSilhouette.js';
 import {
   validateProfile,

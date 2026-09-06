@@ -23,21 +23,21 @@ import { trackRequests, collectPageErrors } from './support/network.js';
 /** Read the live map bearing via the E2E debug hook. */
 function readBearing(page: Page): Promise<number | null> {
   return page.evaluate(
-    () => (window as any).__yapajaMapController?.getMap()?.getBearing?.() ?? null
+    () => (window as any).__yapaiaMapController?.getMap()?.getBearing?.() ?? null
   );
 }
 
 /** Read the live map pitch via the E2E debug hook. */
 function readPitch(page: Page): Promise<number | null> {
   return page.evaluate(
-    () => (window as any).__yapajaMapController?.getMap()?.getPitch?.() ?? null
+    () => (window as any).__yapaiaMapController?.getMap()?.getPitch?.() ?? null
   );
 }
 
 /** Rotate the map programmatically (simulates a 2-finger rotate / heading turn). */
 async function setBearing(page: Page, deg: number): Promise<void> {
   await page.evaluate((d) => {
-    const map = (window as any).__yapajaMapController?.getMap?.();
+    const map = (window as any).__yapaiaMapController?.getMap?.();
     map?.setBearing(d);
   }, deg);
 }
@@ -46,7 +46,7 @@ async function setBearing(page: Page, deg: number): Promise<void> {
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
   await page.waitForFunction(
-    () => Boolean((window as any).__yapajaMapController?.getMap?.()),
+    () => Boolean((window as any).__yapaiaMapController?.getMap?.()),
     undefined,
     { timeout: 15_000 }
   );
@@ -216,7 +216,7 @@ test('re-center: bringt die Karte nach einem Schwenk zurück zur Position', asyn
   // Eine Position setzen (dieser Core hat keine eigene Quelle).
   const HOME = { lat: 47.141, lon: 9.521 };
   await page.evaluate((home) => {
-    window.__yapajaPositionStore?.getState().setRealPosition({
+    window.__yapaiaPositionStore?.getState().setRealPosition({
       lat: home.lat,
       lon: home.lon,
       alt: null,
@@ -235,10 +235,10 @@ test('re-center: bringt die Karte nach einem Schwenk zurück zur Position', asyn
 
   // Kamera wegbewegen, wie es eine Suche tut (programmatisch, kein Schwenk).
   await page.evaluate(() => {
-    window.__yapajaMapController?.getMap()?.jumpTo({ center: [8.25, 49.22], zoom: 12 });
+    window.__yapaiaMapController?.getMap()?.jumpTo({ center: [8.25, 49.22], zoom: 12 });
   });
   const movedAway = await page.evaluate(() => {
-    const c = window.__yapajaMapController?.getMap()?.getCenter();
+    const c = window.__yapaiaMapController?.getMap()?.getCenter();
     return c ? { lat: c.lat, lon: c.lng } : null;
   });
   expect(movedAway).not.toBeNull();
@@ -250,7 +250,7 @@ test('re-center: bringt die Karte nach einem Schwenk zurück zur Position', asyn
     .poll(
       async () =>
         page.evaluate(() => {
-          const c = window.__yapajaMapController?.getMap()?.getCenter();
+          const c = window.__yapaiaMapController?.getMap()?.getCenter();
           return c ? { lat: c.lat, lon: c.lng } : null;
         }),
       { timeout: 5_000 },
@@ -261,7 +261,7 @@ test('re-center: bringt die Karte nach einem Schwenk zurück zur Position', asyn
   // gewandert ist, hat meist auch herausgezoomt und stand danach zwar richtig,
   // aber in einer Uebersicht ohne erkennbare Strassen.
   await expect
-    .poll(() => page.evaluate(() => window.__yapajaMapController?.getMap()?.getZoom() ?? null), {
+    .poll(() => page.evaluate(() => window.__yapaiaMapController?.getMap()?.getZoom() ?? null), {
       timeout: 5_000,
     })
     .toBeGreaterThanOrEqual(15);
@@ -280,7 +280,7 @@ test('re-center: zoomt nicht heraus, wenn man bereits naeher dran ist', async ({
 
   const HOME = { lat: 47.141, lon: 9.521 };
   await page.evaluate((home) => {
-    window.__yapajaPositionStore?.getState().setRealPosition({
+    window.__yapaiaPositionStore?.getState().setRealPosition({
       lat: home.lat,
       lon: home.lon,
       alt: null,
@@ -298,12 +298,12 @@ test('re-center: zoomt nicht heraus, wenn man bereits naeher dran ist', async ({
 
   // Deutlich naeher als die Mindeststufe, und woanders.
   await page.evaluate(() => {
-    window.__yapajaMapController?.getMap()?.jumpTo({ center: [8.25, 49.22], zoom: 18 });
+    window.__yapaiaMapController?.getMap()?.jumpTo({ center: [8.25, 49.22], zoom: 18 });
   });
 
   await reCenterBtn.click();
   await expect
-    .poll(() => page.evaluate(() => window.__yapajaMapController?.getMap()?.getZoom() ?? null), {
+    .poll(() => page.evaluate(() => window.__yapaiaMapController?.getMap()?.getZoom() ?? null), {
       timeout: 5_000,
     })
     .toBeGreaterThanOrEqual(18);
@@ -329,7 +329,7 @@ test('follow-me: manueller Schwenk pausiert das Mitziehen', async ({ page }) => 
   }
 
   await expect
-    .poll(() => page.evaluate(() => window.__yapajaFollowMeStore?.getState().isPaused ?? null), {
+    .poll(() => page.evaluate(() => window.__yapaiaFollowMeStore?.getState().isPaused ?? null), {
       timeout: 5_000,
     })
     .toBe(true);

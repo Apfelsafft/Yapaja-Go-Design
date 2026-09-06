@@ -13,7 +13,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { DRIVE_LOCK_CORE_BASE_URL, FIXTURE_REGION } from './support/constants.js';
 import { collectPageErrors } from './support/network.js';
@@ -77,7 +77,7 @@ async function postSpeed(page: Page, speedMs: number, progressM = 0): Promise<vo
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -90,7 +90,7 @@ async function startNavigation(page: Page): Promise<void> {
 }
 
 async function navStatus(page: Page): Promise<string | null> {
-  return page.evaluate(() => window.__yapajaNavStore?.getState().navState?.status ?? null);
+  return page.evaluate(() => window.__yapaiaNavStore?.getState().navState?.status ?? null);
 }
 
 test.describe('Speed-Lock (E07-T4)', () => {
@@ -189,7 +189,7 @@ test.describe('Speed-Lock (E07-T4)', () => {
     // for the session" mechanism, `driveLockStore.ts`), not just held in
     // in-memory component state.
     expect(
-      await page.evaluate(() => window.sessionStorage.getItem('yapaja:driveLock:passengerOverride')),
+      await page.evaluate(() => window.sessionStorage.getItem('yapaia:driveLock:passengerOverride')),
     ).toBe('true');
 
     // Close the panel and reopen it -- still unlocked (session-remembered),
@@ -257,7 +257,7 @@ test.describe('Speed-Lock (E07-T4)', () => {
     await page.goto(DRIVE_LOCK_CORE_BASE_URL + '/');
     await waitForMapReady(page);
     await expect
-      .poll(() => page.evaluate(() => window.__yapajaDriveLockStore?.getState().thresholdKmh ?? null), {
+      .poll(() => page.evaluate(() => window.__yapaiaDriveLockStore?.getState().thresholdKmh ?? null), {
         timeout: 5_000,
       })
       .toBe(20);

@@ -7,17 +7,17 @@
  * hat. Changesets selbst kennt KEINE eingebaute "Breaking"-Kategorie -- es
  * kennt nur major/minor/patch je Paket. Ein Bump allein ("major") sagt einem
  * Add-on-Autor nicht, WAS gebrochen ist; dieses Skript macht "major auf
- * @yapaja/core oder @yapaja/addon-sdk" und "Breaking-Change-Abschnitt
+ * @yapaia/core oder @yapaia/addon-sdk" und "Breaking-Change-Abschnitt
  * vorhanden" zu einer MASCHINELL geprüften Paarung, nicht zu einer bloßen
  * Konvention -- genau das ist mit "erzwungen" statt "dokumentiert" gemeint.
  *
- * Warum genau diese zwei Pakete: `@yapaja/core`s package.json-Version ist
+ * Warum genau diese zwei Pakete: `@yapaia/core`s package.json-Version ist
  * die `core_api`-Semver-Range, gegen die JEDES installierte Add-on beim
  * Core-Start geprüft wird (Wargame W-11, `apps/core/src/addons/
- * installService.ts`); `@yapaja/addon-sdk` ist das Paket, das Add-on-Autoren
+ * installService.ts`); `@yapaia/addon-sdk` ist das Paket, das Add-on-Autoren
  * tatsächlich importieren (`docs/addon-dev-guide.md`). Ein major-Bump von
- * irgendeinem anderen Workspace-Paket (`@yapaja/shared`, `@yapaja/ui`,
- * `@yapaja/web`) berührt die Add-on-API nicht und braucht diesen Abschnitt
+ * irgendeinem anderen Workspace-Paket (`@yapaia/shared`, `@yapaia/ui`,
+ * `@yapaia/web`) berührt die Add-on-API nicht und braucht diesen Abschnitt
  * nicht.
  *
  * Da der generierte CHANGELOG.md (`@changesets/cli`s Default-Changelog-
@@ -39,7 +39,7 @@ export const REPO_ROOT = resolve(__dirname, '..');
 export const CHANGESET_DIR = join(REPO_ROOT, '.changeset');
 
 /** Pakete, deren major-Bump die Add-on-API betrifft (siehe Doku-Kommentar oben). */
-export const ADDON_API_PACKAGES = ['@yapaja/core', '@yapaja/addon-sdk'];
+export const ADDON_API_PACKAGES = ['@yapaia/core', '@yapaia/addon-sdk'];
 
 /** Muss als eigene Markdown-Überschrift im Changeset-Text stehen. */
 export const BREAKING_HEADING_RE = /^##\s*Breaking Change\b/im;
@@ -123,7 +123,7 @@ function main() {
 
   if (check && violations.length > 0) {
     console.error(
-      `\nFEHLER: ${violations.length} Changeset(s) bumpen @yapaja/core und/oder @yapaja/addon-sdk auf ` +
+      `\nFEHLER: ${violations.length} Changeset(s) bumpen @yapaia/core und/oder @yapaia/addon-sdk auf ` +
         'major, ohne einen "## Breaking Change"-Abschnitt zu benennen (Plausibilitätskriterium ' +
         'E10-T5: "Changelog erwähnt Breaking Changes der Add-on-API explizit").',
     );

@@ -15,13 +15,13 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import type { Route, RouteRequest } from '@yapaja/shared';
+import type { Route, RouteRequest } from '@yapaia/shared';
 import { CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors } from './support/network.js';
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -29,7 +29,7 @@ async function waitForMapReady(page: Page): Promise<void> {
 async function waitForCameraIdle(page: Page): Promise<void> {
   await page.waitForFunction(
     () => {
-      const map = window.__yapajaMapController?.getMap();
+      const map = window.__yapaiaMapController?.getMap();
       return Boolean(map) && !map!.isMoving();
     },
     undefined,
@@ -121,7 +121,7 @@ async function findPointOnMainRoute(page: Page): Promise<{ x: number; y: number 
   for (const candidate of candidates) {
     const result = await page.evaluate(
       ({ candidate, boxX, boxY }) => {
-        const map = window.__yapajaMapController?.getMap();
+        const map = window.__yapaiaMapController?.getMap();
         if (!map) return null;
         const p = map.project(candidate as [number, number]);
         const pageX = boxX + p.x;

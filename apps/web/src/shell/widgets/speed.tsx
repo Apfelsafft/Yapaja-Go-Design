@@ -4,8 +4,8 @@
  * changes (docs/06 Section 3: "tabellarische Ziffern für Tempo/ETA").
  */
 
-import type { NavState } from '@yapaja/shared';
-import type { Widget } from '@yapaja/ui';
+import type { NavState } from '@yapaia/shared';
+import type { Widget } from '@yapaia/ui';
 
 export const speedWidget: Widget = {
   id: 'speed',

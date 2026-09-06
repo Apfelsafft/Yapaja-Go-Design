@@ -20,7 +20,7 @@
 import * as tar from 'tar-stream';
 import { createGzip } from 'zlib';
 import type { Readable } from 'stream';
-import type { AddonManifest } from '@yapaja/shared';
+import type { AddonManifest } from '@yapaia/shared';
 
 export interface TarEntrySpec {
   name: string;

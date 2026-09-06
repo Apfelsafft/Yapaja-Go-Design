@@ -3,7 +3,7 @@
  * distance, initial bearing, straight-line interpolation between two
  * points, and destination-point projection (used by the `jump`/`detour`
  * mutations). Kept local to the simulator rather than added to
- * `@yapaja/shared` -- these are simulator-internal implementation details,
+ * `@yapaia/shared` -- these are simulator-internal implementation details,
  * not part of the public API contract.
  */
 

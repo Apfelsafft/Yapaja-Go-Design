@@ -19,7 +19,7 @@
  */
 
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
-import type { ApiError } from '@yapaja/shared';
+import type { ApiError } from '@yapaia/shared';
 import { AddonRepository } from './repository.js';
 import { AddonStorageService, AddonStorageError } from './storageService.js';
 

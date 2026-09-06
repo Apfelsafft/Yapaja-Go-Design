@@ -1,5 +1,5 @@
 {
-  "name": "@yapaja/addon-sdk",
+  "name": "@yapaia/addon-sdk",
   "version": "0.1.0",
   "description": "The add-on author SDK (E09-T2/T3/T4, docs/05 §3): the UNTRUSTED, add-on-side client for BOTH add-on kinds -- a postMessage client for UI add-ons (sandboxed iframe) and a REST+WS client for service add-ons (Core-spawned child process / external container) -- plus the postMessage wire protocol the UI transport and the host (apps/web/src/addons) agree on. The REAL scope enforcement always lives host/Core-side; this package is a convenience layer only.",
   "type": "module",
@@ -18,7 +18,7 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@yapaja/shared": "workspace:*"
+    "@yapaia/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.12.12",

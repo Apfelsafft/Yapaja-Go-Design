@@ -12,12 +12,12 @@ We have a quick list of common questions to get you started engaging with this p
 ## Projektspezifisch (E10-T5)
 
 - **`"fixed"`-Gruppierung** (`config.json`): alle fünf Workspace-Pakete
-  (`@yapaja/core`, `@yapaja/web`, `@yapaja/shared`, `@yapaja/ui`,
-  `@yapaja/addon-sdk`) versionieren **gemeinsam** — das ist EIN Produkt
-  (Yapaja Go), keine unabhängig veröffentlichten Bibliotheken. Ein
+  (`@yapaia/core`, `@yapaia/web`, `@yapaia/shared`, `@yapaia/ui`,
+  `@yapaia/addon-sdk`) versionieren **gemeinsam** — das ist EIN Produkt
+  (Yapaia Go), keine unabhängig veröffentlichten Bibliotheken. Ein
   Changeset gegen irgendeines davon hebt die Versionsnummer aller fünf an.
 - **Breaking-Change-Pflichtfeld, maschinell erzwungen:** ein Changeset mit
-  `major` auf `@yapaja/core` **oder** `@yapaja/addon-sdk` (die
+  `major` auf `@yapaia/core` **oder** `@yapaia/addon-sdk` (die
   Add-on-API-Grenze, siehe `docs/addon-dev-guide.md` §0) MUSS im Fließtext
   einen `## Breaking Change`-Abschnitt haben — geprüft von
   `scripts/changeset-breaking-check.mjs`, CI-Gate in `.github/workflows/
@@ -26,7 +26,7 @@ We have a quick list of common questions to get you started engaging with this p
   fehlschlagen — das ist mit "erzwungen" statt "dokumentiert" gemeint
   (Plausibilitätskriterium aus `tasks/E10-qualitaet-release.md` §E10-T5).
 - **Root-`CHANGELOG.md`** fasst den generierten `apps/core/CHANGELOG.md`
-  (dort landen die eigentlichen Changesets-Einträge, weil `@yapaja/core`
+  (dort landen die eigentlichen Changesets-Einträge, weil `@yapaia/core`
   die Add-on-API trägt) für die GitHub-Release-Notes zusammen —
   `scripts/sync-root-changelog.mjs` macht diesen Schritt, siehe dort für
   Details.

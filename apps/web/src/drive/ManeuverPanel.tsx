@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import type { Maneuver, NavState } from '@yapaja/shared';
+import type { Maneuver, NavState } from '@yapaia/shared';
 import { useNavState, useNavStore } from './navStore.js';
 import { useRoutingStore } from '../routing/store.js';
 import { ManeuverArrow } from './arrows.js';

@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { LatLng } from '@yapaja/shared';
+import type { LatLng } from '@yapaia/shared';
 import { checkCoverage, type InstalledRegionsProvider } from './coverageCheck.js';
 import { RoutingError } from './errors.js';
 

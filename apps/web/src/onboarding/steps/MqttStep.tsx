@@ -74,7 +74,7 @@ export default function MqttStep(): React.ReactElement {
   return (
     <div className="space-y-3" data-testid="onboarding-step-mqtt">
       <p className="text-sm text-slate-600 dark:text-slate-300">
-        Optional: Verbinde Yapaja Go mit einem MQTT-Broker (z. B. für Home-Assistant-Integration).
+        Optional: Verbinde Yapaia Go mit einem MQTT-Broker (z. B. für Home-Assistant-Integration).
         Kann jederzeit übersprungen werden.
       </p>
       <input

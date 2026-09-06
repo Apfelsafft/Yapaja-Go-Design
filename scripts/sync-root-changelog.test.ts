@@ -13,7 +13,7 @@ import { extractLatestSection, mergeIntoRootChangelog, extractRootSection } from
 // Realistische Form dessen, was `@changesets/cli/changelog` tatsaechlich
 // erzeugt: neueste Version zuerst, "### Major/Minor/Patch Changes"-
 // Unterabschnitte mit Bullet-Punkten aus den Changeset-Zusammenfassungen.
-const PACKAGE_CHANGELOG_FIXTURE = `# @yapaja/core
+const PACKAGE_CHANGELOG_FIXTURE = `# @yapaia/core
 
 ## 1.2.0
 
@@ -42,7 +42,7 @@ describe('extractLatestSection', () => {
   });
 
   it('gibt null zurück, wenn keine Versionsüberschrift existiert (noch nie versioniert)', () => {
-    expect(extractLatestSection('# @yapaja/core\n\nNoch keine Releases.\n')).toBeNull();
+    expect(extractLatestSection('# @yapaia/core\n\nNoch keine Releases.\n')).toBeNull();
   });
 
   it('funktioniert auch, wenn es nur EINEN Versionsabschnitt gibt (Dateiende statt nächster Überschrift)', () => {

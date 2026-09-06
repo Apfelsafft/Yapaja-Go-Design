@@ -23,7 +23,7 @@
 import { createReadStream } from 'fs';
 import { stat as fsStat } from 'fs/promises';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import type { ApiError } from '@yapaja/shared';
+import type { ApiError } from '@yapaia/shared';
 import { parseRegionParam, resolveGraphDir, resolveRegionFilePath, resolveTilesDir } from './paths.js';
 import { parseRange } from './range.js';
 import { listRegions, type MapRegionInfo } from './regions.js';

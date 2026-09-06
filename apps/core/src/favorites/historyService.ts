@@ -5,7 +5,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import type { HistoryEntry } from '@yapaja/shared';
+import type { HistoryEntry } from '@yapaia/shared';
 import { getDb, rowToHistoryEntry, historyEntryToRow, type HistoryRow } from '../db/index.js';
 
 export class HistoryError extends Error {

@@ -75,7 +75,7 @@ jobs:
           tags: yapaja-go:ci
           build-args: |
             BUILD_FROM=ghcr.io/gis-ops/docker-valhalla/valhalla:latest
-            YAPAJA_REPO=${{ github.repository }}
+            YAPAIA_REPO=${{ github.repository }}
             YAPAJA_REF=${{ steps.ref.outputs.value }}
             BUILD_VERSION=ci-${{ github.sha }}
           cache-from: type=gha
@@ -198,7 +198,7 @@ jobs:
           # Der Endnachweis: nicht nur vorhanden, sondern lauffaehig. Ohne
           # s6/Supervisor gestartet, damit der Test nicht an einer fehlenden
           # HA-Umgebung haengt -- geprueft wird der Core selbst.
-          # `LOG_LEVEL`, nicht `YAPAJA_LOG_LEVEL`: die Umbenennung macht sonst
+          # `LOG_LEVEL`, nicht `YAPAIA_LOG_LEVEL`: die Umbenennung macht sonst
           # das s6-Startskript (`rootfs/.../core/run`), das hier bewusst
           # uebersprungen wird.
           docker run -d --name yapaja-ci -p 18099:8080 \

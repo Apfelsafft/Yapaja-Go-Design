@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { VehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile } from '@yapaia/shared';
 import { formatDimensions, needsDimensionConfirmation } from './unconfirmedDimensions.js';
 
 function profile(overrides: Partial<VehicleProfile> = {}): VehicleProfile {

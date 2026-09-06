@@ -50,11 +50,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export const UNKNOWN_VERSION = '0.0.0';
 
 /**
- * Das Env, das das Add-on-Image setzt (`ENV YAPAJA_ADDON_VERSION=${BUILD_VERSION}`).
+ * Das Env, das das Add-on-Image setzt (`ENV YAPAIA_ADDON_VERSION=${BUILD_VERSION}`).
  * `BUILD_VERSION` reicht der HA-Supervisor bei jedem Bau aus `config.yaml`
  * herein -- dieselbe Zahl, die er in der Oberflaeche anzeigt.
  */
-export const ADDON_VERSION_ENV = 'YAPAJA_ADDON_VERSION';
+export const ADDON_VERSION_ENV = 'YAPAIA_ADDON_VERSION';
 
 /**
  * Die Version des CORES -- der Vertrag fuer `core_api` von Fremd-Add-ons.

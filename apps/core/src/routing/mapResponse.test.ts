@@ -4,8 +4,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { LatLng } from '@yapaja/shared';
-import { validateRoute } from '@yapaja/shared';
+import type { LatLng } from '@yapaia/shared';
+import { validateRoute } from '@yapaia/shared';
 import { buildRouteWarnings, haversineMeters, mapValhallaResponse } from './mapResponse.js';
 import { decodePolyline6, encodePolyline6, joinLegShapes } from './polyline.js';
 import type { ValhallaRouteResponse, ValhallaTrip } from './types.js';

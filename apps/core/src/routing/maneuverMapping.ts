@@ -3,7 +3,7 @@
  *
  * Valhalla returns `maneuver.type` as an INTEGER enum
  * (`valhalla::DirectionsLeg::Maneuver::Type`). Our app-internal `ManeuverType`
- * (`@yapaja/shared`) is a small, coarse vocabulary used to pick the turn icon:
+ * (`@yapaia/shared`) is a small, coarse vocabulary used to pick the turn icon:
  *   'straight' | 'continue' | 'turn_left' | 'turn_right'
  *   | 'roundabout_enter' | 'roundabout_exit' | (any other string).
  *
@@ -28,7 +28,7 @@
  *    unrecognised type.
  */
 
-import type { ManeuverType } from '@yapaja/shared';
+import type { ManeuverType } from '@yapaia/shared';
 
 export const VALHALLA_MANEUVER_TYPE: Readonly<Record<number, ManeuverType>> = {
   0: 'continue', // kNone

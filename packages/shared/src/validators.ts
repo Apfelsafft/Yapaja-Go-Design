@@ -45,7 +45,7 @@ addFormats(ajv);
  *
  * `ajv.compile()` generates JavaScript at runtime and evaluates it with
  * `new Function()`. Doing that at MODULE LOAD meant that merely importing
- * anything from `@yapaja/shared` -- even `formatEta` -- executed thirteen
+ * anything from `@yapaia/shared` -- even `formatEta` -- executed thirteen
  * `new Function()` calls as a side effect of the barrel export.
  *
  * In Node that is invisible. In a browser under the Core's

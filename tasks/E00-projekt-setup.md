@@ -21,7 +21,7 @@ Prettier, Vitest je Paket, Root-Skripte `lint`, `typecheck`, `test`, `build`, `d
 `apps/core`: Fastify-Server (Port 8080, konfigurierbar via `PORT`), Endpunkt
 `GET /api/v1/health` → `{status:'ok', version:<aus package.json>, services:{}}`,
 strukturiertes Logging (pino), graceful shutdown (SIGTERM). `apps/web`: Vite-React-
-App, rendert Platzhalter-Shell „Yapaja Go" mit Tailwind; Dev-Proxy `/api` → 8080.
+App, rendert Platzhalter-Shell „Yapaia Go" mit Tailwind; Dev-Proxy `/api` → 8080.
 **Wichtig (W-15):** Vite `base: './'` und ausschließlich relative Asset-Pfade.
 `packages/shared`: leeres Paket mit Beispiel-Export und Test.
 
@@ -52,7 +52,7 @@ Wertebereiche der Schemata exakt wie dokumentiert (z. B. `height_m: 1.0–4.5`).
 **Akzeptanzkriterien:**
 1. Jeder Typ hat Schema + generierten Typ + Validator; ein Index exportiert alles.
 2. `plausibility.ts` deckt alle Invarianten aus docs/03 §5 ab.
-3. Andere Pakete können `@yapaja/shared` importieren (Core nutzt es ab E02).
+3. Andere Pakete können `@yapaia/shared` importieren (Core nutzt es ab E02).
 
 **Pflicht-Tests:** je Schema min. 1 gültiges + 2 ungültige Beispiele;
 Plausibilität: Tabellentests inkl. Grenzwerte (speed 249.9 ok / 250 fail; alt −450/4900;

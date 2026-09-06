@@ -17,7 +17,7 @@
  * valid pair, no coords result is returned (falls through to Photon).
  */
 
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 
 const SWAP_NOTE = 'Koordinaten evtl. vertauscht?';
 

@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { NavState } from '@yapaja/shared';
+import type { NavState } from '@yapaia/shared';
 import { tripInfoLabels, MISSING } from './TripInfoPanel.js';
 
 function nav(overrides: Partial<NavState> = {}): NavState {

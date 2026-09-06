@@ -4,8 +4,8 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import type { VehicleProfile, ApiError } from '@yapaja/shared';
-import { validateVehicleProfile, getValidationErrorsVehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile, ApiError } from '@yapaia/shared';
+import { validateVehicleProfile, getValidationErrorsVehicleProfile } from '@yapaia/shared';
 import { ProfileService } from './service.js';
 
 interface RouteParams {

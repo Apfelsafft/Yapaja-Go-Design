@@ -29,7 +29,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { Buffer } from 'node:buffer';
-import type { ApiError } from '@yapaja/shared';
+import type { ApiError } from '@yapaia/shared';
 import { InstallService, MAX_TARBALL_COMPRESSED_BYTES, type AddonLifecycleListener } from './installService.js';
 import { AddonError } from './errors.js';
 import { downloadTarball } from './download.js';

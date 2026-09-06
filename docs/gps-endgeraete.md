@@ -4,7 +4,7 @@
 Ergebnis des 0.1.6-Tests eingebaut werden kann.
 
 Die Ausgangsfrage: Telefon, iPad und Android-Autoradio haben alle einen
-GPS-Sensor. Yapaja wird ohnehin per Browser bedient. Wie kommen diese Daten
+GPS-Sensor. Yapaia wird ohnehin per Browser bedient. Wie kommen diese Daten
 in die Navigation?
 
 Die kurze Antwort vorweg: **es sind zwei Wege, und der naheliegende ist
@@ -40,7 +40,7 @@ Es fehlt also **nicht** die Anbindung. Es fehlen zwei Dinge davor.
 ## 2 Blocker A — der eigentliche Grund, warum es heute nicht geht
 
 Der Browser gibt den GPS-Sensor nur in einem **secure context** frei. Das ist
-eine Regel des Browsers, keine Einstellung von Yapaja und nichts, was das
+eine Regel des Browsers, keine Einstellung von Yapaia und nichts, was das
 Add-on umgehen kann.
 
 Der Aufruf im Test lautet `http://camperassistant.local:8123/…` — also
@@ -196,7 +196,7 @@ Das ist in B-03 nachgetragen.
 
 **Sofort, ohne auf Code zu warten:**
 
-* Zum **Ausprobieren** über Nabu Casa (`https://….ui.nabu.casa`) auf Yapaja
+* Zum **Ausprobieren** über Nabu Casa (`https://….ui.nabu.casa`) auf Yapaia
   gehen und Standortzugriff erlauben. Damit ist Blocker A weg, und mit der
   Korrektur aus §3 läuft die Position stabil. Zum tatsächlichen Fahren ist
   das aber der falsche Weg — dafür (b) aus §2.
@@ -205,7 +205,7 @@ Das ist in B-03 nachgetragen.
   Folgefehler.
 
 **Für den Dauerbetrieb:** Weg (b) aus §2 — eigenes Zertifikat. Danach
-funktionieren Telefon, iPad und Autoradio ohne weitere Änderung an Yapaja.
+funktionieren Telefon, iPad und Autoradio ohne weitere Änderung an Yapaia.
 
 **Falls die Companion App ohnehin schon läuft:** Rückmeldung, welche
 `device_tracker`-Entität sie liefert und in welchem Intervall. Dann lässt

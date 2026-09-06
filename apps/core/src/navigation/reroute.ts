@@ -20,7 +20,7 @@
  *     auto-rerouting that spot and suggest "avoid segment").
  */
 
-import type { LatLng } from '@yapaja/shared';
+import type { LatLng } from '@yapaia/shared';
 import { haversineM } from './geo.js';
 
 // --- thresholds (E04-T4 spec) ----------------------------------------------

@@ -8,7 +8,7 @@
  * "whichever arrived last wins" behaviour without needing a second store.
  */
 
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 
 export function latestPosition(data: Readonly<Record<string, unknown>>): Position | null {
   const update = data['pos/update'] as Position | undefined;

@@ -75,11 +75,11 @@ export const useLayoutStore = create<LayoutStoreState>((set, get) => ({
 
 declare global {
   interface Window {
-    /** Debug/E2E hook, mirrors `window.__yapajaPositionStore`/`__yapajaNavStore`. */
-    __yapajaShellLayoutStore?: typeof useLayoutStore;
+    /** Debug/E2E hook, mirrors `window.__yapaiaPositionStore`/`__yapaiaNavStore`. */
+    __yapaiaShellLayoutStore?: typeof useLayoutStore;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaShellLayoutStore = useLayoutStore;
+  window.__yapaiaShellLayoutStore = useLayoutStore;
 }

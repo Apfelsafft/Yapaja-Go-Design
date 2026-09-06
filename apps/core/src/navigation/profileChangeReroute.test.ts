@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { Position, Route, VehicleProfile } from '@yapaja/shared';
+import type { Position, Route, VehicleProfile } from '@yapaia/shared';
 import { EventBus } from '../bus/index.js';
 import {
   NavigationService,

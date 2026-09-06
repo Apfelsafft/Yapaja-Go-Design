@@ -35,8 +35,8 @@ export async function waitForHealth(baseUrl: string, timeoutMs: number): Promise
 
 /** Builds the production web + core artifacts (never the dev server). */
 export function buildApps(): void {
-  execSync('pnpm --filter @yapaja/web build', { cwd: REPO_ROOT, stdio: 'inherit' });
-  execSync('pnpm --filter @yapaja/core build', { cwd: REPO_ROOT, stdio: 'inherit' });
+  execSync('pnpm --filter @yapaia/web build', { cwd: REPO_ROOT, stdio: 'inherit' });
+  execSync('pnpm --filter @yapaia/core build', { cwd: REPO_ROOT, stdio: 'inherit' });
 }
 
 /** Stages the built web app as the Core's static `public/` dir, exactly like

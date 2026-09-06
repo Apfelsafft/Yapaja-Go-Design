@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { buildServer } from '../index.js';
 import { closeDb } from '../db/index.js';
 import type { FastifyInstance } from 'fastify';
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 
 function browserFixBody(overrides: Partial<Omit<Position, 'source'>> = {}): Omit<Position, 'source'> {
   return {

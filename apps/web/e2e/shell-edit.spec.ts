@@ -76,7 +76,7 @@ async function waitForSavedSlotToContain(page: Page, slotId: string, widgetId: s
       () =>
         page.evaluate(
           ({ slotId, widgetId }) => {
-            const raw = window.localStorage.getItem('yapaja:shell:layouts');
+            const raw = window.localStorage.getItem('yapaia:shell:layouts');
             if (!raw) return false;
             try {
               const parsed = JSON.parse(raw) as { drive?: { slots?: Record<string, Array<{ widgetId: string }>> } };

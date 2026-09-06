@@ -26,7 +26,7 @@
  *     with the future web UI (E07).
  */
 
-import type { Maneuver, Route } from '@yapaja/shared';
+import type { Maneuver, Route } from '@yapaia/shared';
 import type { RouteGeometry } from './mapMatching.js';
 
 // --- 1. Maneuver anchors + planned-time segments ----------------------------

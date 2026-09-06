@@ -3,10 +3,10 @@
  * registered once at module load. Add-on-registered widgets (docs/05
  * Section 4, E09) will register into a `WidgetRegistry` the same way --
  * this module is just the CORE catalogue's registration point, not the
- * registry mechanism itself (that's `@yapaja/ui`'s `WidgetRegistry` class).
+ * registry mechanism itself (that's `@yapaia/ui`'s `WidgetRegistry` class).
  */
 
-import { WidgetRegistry } from '@yapaja/ui';
+import { WidgetRegistry } from '@yapaia/ui';
 import { speedWidget } from './speed.js';
 import { speedLimitWidget } from './speedLimit.js';
 import { etaWidget } from './eta.js';

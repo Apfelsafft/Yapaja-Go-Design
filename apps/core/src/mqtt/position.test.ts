@@ -3,7 +3,7 @@
  * mandatory unit test: "extrapolated-Filter", docs/03 §4 / E02-T5 stub).
  */
 import { describe, it, expect } from 'vitest';
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 import type { ExtrapolatedPositionPayload } from '../bus/index.js';
 import { isRealPosition } from './position.js';
 

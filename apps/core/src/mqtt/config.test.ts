@@ -1,7 +1,7 @@
 /**
  * Unit tests for `resolveMqttConfig` (E08-T1): the bridge is OPTIONAL --
  * `null` whenever no broker is configured anywhere (acceptance criterion 4),
- * settings win over env when both are present, default prefix is `yapaja`.
+ * settings win over env when both are present, default prefix is `yapaia`.
  */
 import { describe, it, expect } from 'vitest';
 import {

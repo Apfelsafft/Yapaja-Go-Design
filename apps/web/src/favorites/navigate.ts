@@ -8,7 +8,7 @@
  * Anlage aktive").
  *
  * This holds structurally, not by convention: `Favorite` (see
- * `@yapaja/shared`) has no `profile_id` field at all -- there is nothing to
+ * `@yapaia/shared`) has no `profile_id` field at all -- there is nothing to
  * read the "creation-time profile" FROM. The active profile is read fresh
  * via `useProfileStore.getState()` on every call, exactly like
  * `RoutingPanel`'s "Route hierhin" button does for a searched/clicked
@@ -17,7 +17,7 @@
 import { useProfileStore } from '../profiles/store.js';
 import { useRoutingStore } from '../routing/store.js';
 import { useFavoritesStore } from './store.js';
-import type { Favorite } from '@yapaja/shared';
+import type { Favorite } from '@yapaia/shared';
 
 /**
  * Sets the routing store's destination to `favorite` and immediately

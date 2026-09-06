@@ -1,7 +1,7 @@
 /**
  * The SERVER-SIDE route -> required-scope table for add-on principals
  * (E09-T3, docs/05 §2, Wargame W-14). This is the exact server-side mirror of
- * `@yapaja/addon-sdk`'s `METHOD_SCOPES` (which governs the FRONTEND
+ * `@yapaia/addon-sdk`'s `METHOD_SCOPES` (which governs the FRONTEND
  * postMessage bridge, E09-T2): one table, consulted from ONE hook, never
  * ad-hoc checks sprinkled through route handlers.
  *
@@ -26,12 +26,12 @@
  *    combined with `net.fetch` (see `installService.ts#computeScopeWarnings`).
  */
 
-import type { ADDON_PERMISSION_SCOPES } from '@yapaja/shared';
+import type { ADDON_PERMISSION_SCOPES } from '@yapaia/shared';
 import { decodePathSegments, normalizeRequestPath } from '../auth/authGuard.js';
 
 /** The v1 permission scopes (docs/05 §2 table), derived from the ONE list in
- *  `@yapaja/shared` so this table can never drift from the manifest schema.
- *  Structurally identical to `@yapaja/addon-sdk`'s `AddonScope` (the frontend
+ *  `@yapaia/shared` so this table can never drift from the manifest schema.
+ *  Structurally identical to `@yapaia/addon-sdk`'s `AddonScope` (the frontend
  *  bridge's copy) -- the Core deliberately does not depend on the add-on SDK
  *  package, which is published for untrusted add-on authors. */
 export type AddonScope = (typeof ADDON_PERMISSION_SCOPES)[number];

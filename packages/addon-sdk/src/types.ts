@@ -18,7 +18,7 @@ import type {
   Position,
   Route,
   RouteRequest,
-} from '@yapaja/shared';
+} from '@yapaia/shared';
 import type {
   AddLayerParams,
   AddMarkersParams,
@@ -66,7 +66,7 @@ export interface SdkFetchInit {
   signal?: AbortSignal;
 }
 
-export interface YapajaAddon {
+export interface YapaiaAddon {
   /** Which wire protocol this client is actually speaking. */
   readonly transport: TransportKind;
   /** This add-on's own id. */

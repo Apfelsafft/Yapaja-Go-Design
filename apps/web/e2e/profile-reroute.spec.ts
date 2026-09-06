@@ -33,7 +33,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { PROFILE_REROUTE_CORE_BASE_URL, PROFILE_REROUTE_VALHALLA_PORT } from './support/constants.js';
 import { collectPageErrors, trackRequests } from './support/network.js';
@@ -106,14 +106,14 @@ async function activateProfileViaApi(page: Page, id: string): Promise<void> {
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
 
 async function waitForWsConnected(page: Page): Promise<void> {
   await expect
-    .poll(() => page.evaluate(() => window.__yapajaNavStore?.getState().isConnected ?? false), {
+    .poll(() => page.evaluate(() => window.__yapaiaNavStore?.getState().isConnected ?? false), {
       timeout: 10_000,
     })
     .toBe(true);
@@ -142,15 +142,15 @@ async function driveTo(page: Page, progressM: number): Promise<void> {
 }
 
 async function navStatus(page: Page): Promise<string | null> {
-  return page.evaluate(() => window.__yapajaNavStore?.getState().navState?.status ?? null);
+  return page.evaluate(() => window.__yapaiaNavStore?.getState().navState?.status ?? null);
 }
 
 async function navRouteId(page: Page): Promise<string | null> {
-  return page.evaluate(() => window.__yapajaNavStore?.getState().navState?.route_id ?? null);
+  return page.evaluate(() => window.__yapaiaNavStore?.getState().navState?.route_id ?? null);
 }
 
 async function activeProfileId(page: Page): Promise<string | null> {
-  return page.evaluate(() => window.__yapajaProfileStore?.getState().activeProfile?.id ?? null);
+  return page.evaluate(() => window.__yapaiaProfileStore?.getState().activeProfile?.id ?? null);
 }
 
 test.describe('E06-T3 Flow 5: profile change during navigation -> reroute coupling', () => {

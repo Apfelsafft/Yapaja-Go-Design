@@ -1,5 +1,5 @@
 /**
- * `@yapaja/addon-sdk` -- the add-on author's SDK (docs/05 §3, E09-T2/T3/T4):
+ * `@yapaia/addon-sdk` -- the add-on author's SDK (docs/05 §3, E09-T2/T3/T4):
  * ONE typed client surface for BOTH add-on kinds, auto-detecting which
  * transport to speak:
  *
@@ -11,7 +11,7 @@
  * `connectAddon()` is the entry point most add-ons should use:
  *
  * ```ts
- * import { connectAddon } from '@yapaja/addon-sdk';
+ * import { connectAddon } from '@yapaia/addon-sdk';
  * const addon = await connectAddon();
  * const unsub = addon.position.subscribe((pos) => console.log(pos));
  * ```
@@ -55,7 +55,7 @@ export type {
   NavControlDestinationResult,
   NavControlStartParams,
   SdkFetchInit,
-  YapajaAddon,
+  YapaiaAddon,
 } from './types.js';
 
 // --- transports --------------------------------------------------------------
@@ -81,12 +81,12 @@ export type {
   Route,
   RouteRequest,
   VehicleProfile,
-} from '@yapaja/shared';
+} from '@yapaia/shared';
 
 import { detectTransport, type TransportKind } from './detect.js';
 import { connectPostMessage, type PostMessageTransportOptions } from './postMessageTransport.js';
 import { connectServiceAddon, type ServiceTransportOptions } from './serviceTransport.js';
-import type { YapajaAddon } from './types.js';
+import type { YapaiaAddon } from './types.js';
 
 export interface ConnectAddonOptions {
   /** Force a transport instead of auto-detecting (`detectTransport()`). */
@@ -100,12 +100,12 @@ export interface ConnectAddonOptions {
 /**
  * THE entry point (docs/05 §3): auto-detects whether this process is a UI
  * add-on or a service add-on (`detectTransport()`) and connects over the
- * matching transport, returning ONE typed {@link YapajaAddon} surface either
+ * matching transport, returning ONE typed {@link YapaiaAddon} surface either
  * way. Pass `{ transport: 'postMessage' | 'service' }` to skip detection
  * (mainly for tests, or the rare add-on that legitimately runs both ways and
  * wants to force one).
  */
-export async function connectAddon(options: ConnectAddonOptions = {}): Promise<YapajaAddon> {
+export async function connectAddon(options: ConnectAddonOptions = {}): Promise<YapaiaAddon> {
   // `async` is load-bearing here, not stylistic: `detectTransport()` throws
   // SYNCHRONOUSLY when neither signal is present, and callers reasonably
   // expect `connectAddon()` to always return a Promise (never throw directly)

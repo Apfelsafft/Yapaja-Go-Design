@@ -25,7 +25,7 @@
  * too: vi.useFakeTimers() patches globalThis, not the 'node:timers' module
  * exports, and this controller's tests rely on fake timers. */
 
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 import type { EventBus, GpsSourceChangedPayload } from '../bus/index.js';
 import type { PositionService } from './service.js';
 

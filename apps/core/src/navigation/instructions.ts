@@ -19,7 +19,7 @@
  *     progress -> active `SpeedSegment` -> `speed_limit_kmh` lookup.
  */
 
-import type { Maneuver, ManeuverType, SpeedSegment } from '@yapaja/shared';
+import type { Maneuver, ManeuverType, SpeedSegment } from '@yapaia/shared';
 import type { ManeuverAnchor } from './eta.js';
 import type { RouteGeometry } from './mapMatching.js';
 

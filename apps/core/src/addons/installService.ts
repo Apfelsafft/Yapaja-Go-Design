@@ -1,7 +1,7 @@
 /**
  * Orchestrates the add-on install/update/lifecycle pipeline (E09-T1, docs/05
  * §2/§5). This is the ONE place that ties together: sha256 verification,
- * the 50 MB size caps, manifest validation (`@yapaja/shared`), the
+ * the 50 MB size caps, manifest validation (`@yapaia/shared`), the
  * `core_api` semver-range check (Wargame W-11), the two-step scope-confirm
  * gate (`pendingStore.ts`), the hardened extractor (`extract.ts`), the
  * update-with-rollback swap, and the DB row (`repository.ts`).
@@ -39,8 +39,8 @@ import { mkdir, rename, rm } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { Buffer } from 'node:buffer';
-import type { AddonManifest } from '@yapaja/shared';
-import { validateAddonManifest, getValidationErrorsAddonManifest, satisfies } from '@yapaja/shared';
+import type { AddonManifest } from '@yapaia/shared';
+import { validateAddonManifest, getValidationErrorsAddonManifest, satisfies } from '@yapaia/shared';
 import { extractAddonTarball } from './extract.js';
 import { AddonError, TarballSecurityError } from './errors.js';
 import { securityEventLog, type SecurityVector } from '../security/securityEvents.js';

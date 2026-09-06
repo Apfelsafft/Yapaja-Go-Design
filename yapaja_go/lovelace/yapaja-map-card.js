@@ -1,5 +1,5 @@
 /**
- * Yapaja Go — Lovelace-Karte: die Karte mit eingezeichneter Route.
+ * Yapaia Go — Lovelace-Karte: die Karte mit eingezeichneter Route.
  *
  * ─── WOFUER ─────────────────────────────────────────────────────────────────
  * Gefragt: „Die Idee des Navi in HA war ja, die Navigation oder auch nur Teile
@@ -44,7 +44,7 @@ const DEFAULT_HEIGHT = 400;
 /** Slug des Add-ons. Muss zu `yapaja_go/config.yaml` passen. */
 const ADDON_SLUG = 'yapaja_go';
 
-class YapajaMapCard extends HTMLElement {
+class YapaiaMapCard extends HTMLElement {
   constructor() {
     super();
     this._config = {};
@@ -101,7 +101,7 @@ class YapajaMapCard extends HTMLElement {
       const ingressUrl = info && info.data && info.data.ingress_url;
       if (!ingressUrl) {
         throw new Error(
-          'Das Add-on meldet keinen Ingress-Pfad. Ist „Yapaja Go" installiert und gestartet?',
+          'Das Add-on meldet keinen Ingress-Pfad. Ist „Yapaia Go" installiert und gestartet?',
         );
       }
       // Legt das Sitzungs-Cookie an, ohne das der Rahmen eine 401 bekäme.
@@ -142,7 +142,7 @@ class YapajaMapCard extends HTMLElement {
       body = `<div class="msg">Karte wird geladen …</div>`;
     } else {
       body = `<iframe src="${escapeHtml(this._frameUrl)}"
-                      title="Yapaja Go — Karte"
+                      title="Yapaia Go — Karte"
                       allow="geolocation"></iframe>`;
     }
 
@@ -203,7 +203,7 @@ function escapeHtml(value) {
 }
 
 if (!customElements.get(CARD_TAG)) {
-  customElements.define(CARD_TAG, YapajaMapCard);
+  customElements.define(CARD_TAG, YapaiaMapCard);
 }
 
 // Damit die Karte im grafischen Karten-Auswahldialog auftaucht statt nur
@@ -212,7 +212,7 @@ window.customCards = window.customCards || [];
 if (!window.customCards.some((card) => card.type === CARD_TAG)) {
   window.customCards.push({
     type: CARD_TAG,
-    name: 'Yapaja Go — Karte',
+    name: 'Yapaia Go — Karte',
     description: 'Die Karte mit eingezeichneter Route und eigener Position.',
     preview: false,
   });

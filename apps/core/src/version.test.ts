@@ -71,7 +71,7 @@ describe('Add-on-Version (was der Betreiber laeuft)', () => {
   });
 
   it('ignoriert ein leeres oder nur aus Leerzeichen bestehendes Env', async () => {
-    // Ein `ENV YAPAJA_ADDON_VERSION=` ohne Wert (oder ein BUILD_VERSION, das
+    // Ein `ENV YAPAIA_ADDON_VERSION=` ohne Wert (oder ein BUILD_VERSION, das
     // der Supervisor nicht gesetzt hat) darf nicht als Version durchgehen --
     // sonst meldete health eine leere Zeichenkette.
     process.env[ADDON_VERSION_ENV] = '   ';

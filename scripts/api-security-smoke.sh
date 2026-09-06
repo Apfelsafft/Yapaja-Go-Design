@@ -57,8 +57,8 @@ fail() { CHECKS=$((CHECKS + 1)); FAILURES=$((FAILURES + 1)); printf '  \033[31mF
 # ueberspringt den Schritt bewusst (CI baut in einem eigenen Schritt davor).
 if [[ "${SMOKE_SKIP_BUILD:-0}" != "1" ]]; then
   log "Baue Web + Core (frischer Stand) ..."
-  pnpm --filter @yapaja/web build >/dev/null
-  pnpm --filter @yapaja/core build >/dev/null
+  pnpm --filter @yapaia/web build >/dev/null
+  pnpm --filter @yapaia/core build >/dev/null
 fi
 
 # public/ genau wie apps/core/Dockerfile stagen (COPY apps/web/dist apps/core/public).

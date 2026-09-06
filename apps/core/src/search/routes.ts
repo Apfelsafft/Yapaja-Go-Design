@@ -12,7 +12,7 @@
  * VALIDATION_ERROR -- a degraded backend chain is not a client error.
  */
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
-import type { ApiError, SearchResult } from '@yapaja/shared';
+import type { ApiError, SearchResult } from '@yapaia/shared';
 import { CoordsBackend } from './coordsBackend.js';
 import type { SearchRegionsProvider } from './coverage.js';
 import type { FetchLike } from './httpTypes.js';

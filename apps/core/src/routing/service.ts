@@ -8,8 +8,8 @@
  * with 500 -- an unplausible route is NEVER delivered.
  */
 
-import type { LatLng, Position, Route, RouteRequest, VehicleProfile } from '@yapaja/shared';
-import { checkRoute } from '@yapaja/shared';
+import type { LatLng, Position, Route, RouteRequest, VehicleProfile } from '@yapaia/shared';
+import { checkRoute } from '@yapaia/shared';
 import { RouteCache, type RouteCacheOptions } from './cache.js';
 import { checkCoverage, type InstalledRegionsProvider } from './coverageCheck.js';
 import { RoutingError } from './errors.js';

@@ -9,7 +9,7 @@
  *  - out_of_coverage marking is applied to whichever backend's results win
  */
 import { describe, it, expect, vi } from 'vitest';
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 import { GeocoderBackendError } from './errors.js';
 import type { SearchRegionsProvider } from './coverage.js';
 import { SearchService } from './service.js';

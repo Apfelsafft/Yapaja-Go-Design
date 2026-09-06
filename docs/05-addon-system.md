@@ -10,7 +10,7 @@ einen Store; klare API; begrenzte Rechte (Sandbox + Scopes).
 ### Typ A: Frontend-Add-on (UI-Plugin)
 - Läuft als **sandboxed `<iframe>`** (eigene Origin `/addons/{id}/ui/`,
   `sandbox="allow-scripts"`, CSP) und/oder registriert **Map-Layer** und **Widgets**.
-- Kommuniziert ausschließlich über das **postMessage-SDK** `@yapaja/addon-sdk`.
+- Kommuniziert ausschließlich über das **postMessage-SDK** `@yapaia/addon-sdk`.
 - Beispiele: POI-Overlay (Stellplätze), Track-Planung-UI, Kamera-Ansicht.
 
 ### Typ B: Service-Add-on (Backend-Plugin)
@@ -71,12 +71,12 @@ Gefährliche Kombinationen (z. B. `nav.control` + `net.fetch`) bekommen einen ro
 Hinweis. `route.propose` kann eine Route nie ohne Nutzerbestätigung aktivieren —
 ein Add-on darf das Fahrzeug niemals „still" umleiten (Wargame W-10).
 
-## 3. Add-on-SDK (`@yapaja/addon-sdk`)
+## 3. Add-on-SDK (`@yapaia/addon-sdk`)
 
 TypeScript-Paket, kapselt postMessage (UI) bzw. REST/WS (Service) hinter einer API:
 
 ```ts
-const yapaja = await YapajaAddon.connect();          // handshake, prüft Scopes
+const yapaia = await YapaiaAddon.connect();          // handshake, prüft Scopes
 yapaja.position.subscribe(pos => …);                 // pos.read
 yapaja.nav.state();                                  // nav.read
 yapaja.map.addLayer({ id, type:'geojson', data });   // map.layer.write

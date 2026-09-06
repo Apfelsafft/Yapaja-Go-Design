@@ -1,6 +1,6 @@
 # Kiosk-Betrieb (E07-T5)
 
-Yapaja Go läuft im Wohnmobil typischerweise als **Vollbild-Kiosk** auf einem
+Yapaia Go läuft im Wohnmobil typischerweise als **Vollbild-Kiosk** auf einem
 Mini-PC (N100-Klasse, siehe docs/00 §Zielhardware): kein Fenstermanager, keine
 Adressleiste, kein versehentliches Wegnavigieren — der Bildschirm zeigt
 ausschließlich die App, startet automatisch nach dem Boot und erholt sich
@@ -82,7 +82,7 @@ nötig.
 
 ```ini
 [Unit]
-Description=Yapaja Go Kiosk
+Description=Yapaia Go Kiosk
 After=graphical.target network-online.target yapaja-core.service
 Wants=network-online.target
 

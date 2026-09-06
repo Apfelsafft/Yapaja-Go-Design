@@ -31,7 +31,7 @@ describe('Static serving with public/ directory', () => {
     publicDir = mkdtempSync(join(tmpdir(), 'yapaja-public-'));
     writeFileSync(
       join(publicDir, 'index.html'),
-      '<!DOCTYPE html><html><head><title>Yapaja Go</title></head><body></body></html>'
+      '<!DOCTYPE html><html><head><title>Yapaia Go</title></head><body></body></html>'
     );
   });
 
@@ -45,7 +45,7 @@ describe('Static serving with public/ directory', () => {
     const response = await fastify.inject({ method: 'GET', url: '/' });
 
     expect(response.statusCode).toBe(200);
-    expect(response.body).toContain('Yapaja Go');
+    expect(response.body).toContain('Yapaia Go');
 
     await fastify.close();
   });
@@ -56,7 +56,7 @@ describe('Static serving with public/ directory', () => {
     const response = await fastify.inject({ method: 'GET', url: '/unbekannt' });
 
     expect(response.statusCode).toBe(200);
-    expect(response.body).toContain('Yapaja Go');
+    expect(response.body).toContain('Yapaia Go');
 
     await fastify.close();
   });
@@ -85,7 +85,7 @@ describe('HA-Ingress <base href> injection (Flow 9 simulation, E08-T4)', () => {
     publicDir = mkdtempSync(join(tmpdir(), 'yapaja-ingress-'));
     writeFileSync(
       join(publicDir, 'index.html'),
-      '<!DOCTYPE html><html><head><title>Yapaja Go</title></head><body></body></html>'
+      '<!DOCTYPE html><html><head><title>Yapaia Go</title></head><body></body></html>'
     );
   });
 
@@ -133,7 +133,7 @@ describe('HA-Ingress <base href> injection (Flow 9 simulation, E08-T4)', () => {
     expect(response.statusCode).toBe(200);
     expect(response.body).not.toContain('<base');
     expect(response.body).toBe(
-      '<!DOCTYPE html><html><head><title>Yapaja Go</title></head><body></body></html>'
+      '<!DOCTYPE html><html><head><title>Yapaia Go</title></head><body></body></html>'
     );
 
     await fastify.close();
@@ -158,7 +158,7 @@ describe('HA-Ingress <base href> injection (Flow 9 simulation, E08-T4)', () => {
     expect(response.body).not.toContain('"><script>');
     expect(response.body).not.toContain('<base');
     expect(response.body).toBe(
-      '<!DOCTYPE html><html><head><title>Yapaja Go</title></head><body></body></html>'
+      '<!DOCTYPE html><html><head><title>Yapaia Go</title></head><body></body></html>'
     );
 
     await fastify.close();

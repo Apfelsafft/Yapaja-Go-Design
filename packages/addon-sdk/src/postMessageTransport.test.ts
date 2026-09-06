@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { connectPostMessage } from './postMessageTransport.js';
 import { ADDON_MESSAGE_NS, ADDON_PROTOCOL_VERSION, METHOD_SCOPES, BRIDGE_METHODS } from './protocol.js';
 import { AddonTimeoutError, ScopeDeniedError, UnsupportedOnTransportError } from './errors.js';
-import type { YapajaAddon } from './types.js';
+import type { YapaiaAddon } from './types.js';
 
 /**
  * The postMessage transport is add-on-side convenience only, but it still
@@ -39,7 +39,7 @@ function lastPosted(win: MockWindow): Record<string, unknown> {
 async function connectHandshaken(scopes: string[] = ['pos.read', 'map.layer.write']): Promise<{
   host: MockWindow;
   addon: MockWindow;
-  client: YapajaAddon;
+  client: YapaiaAddon;
 }> {
   const host = makeWindow();
   const addon = makeWindow();

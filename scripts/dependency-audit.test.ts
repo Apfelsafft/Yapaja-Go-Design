@@ -149,7 +149,7 @@ describe('severityFromCvssScore', () => {
 describe('Prod-/Dev-Trennung', () => {
   const listJson = [
     {
-      name: '@yapaja/core',
+      name: '@yapaia/core',
       dependencies: {
         fastify: { version: '5.11.2', dependencies: { 'find-my-way': { version: '9.7.0' } } },
       },

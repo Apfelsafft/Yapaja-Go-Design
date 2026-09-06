@@ -10,7 +10,7 @@
 
 import { mergeLayouts, type LayoutsSettingsValue } from './layout.js';
 
-const LOCAL_STORAGE_KEY = 'yapaja:shell:layouts';
+const LOCAL_STORAGE_KEY = 'yapaia:shell:layouts';
 
 function apiUrl(path: string): string {
   return `${import.meta.env.BASE_URL}${path}`;
