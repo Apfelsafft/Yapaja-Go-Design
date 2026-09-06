@@ -7,8 +7,8 @@
  * reload-recovery-prompt concept of its own to gate on.
  */
 
-import type { NavState } from '@yapaja/shared';
-import type { Widget } from '@yapaja/ui';
+import type { NavState } from '@yapaia/shared';
+import type { Widget } from '@yapaia/ui';
 import ManeuverPanel from '../../drive/ManeuverPanel.js';
 
 export const nextInstructionWidget: Widget = {

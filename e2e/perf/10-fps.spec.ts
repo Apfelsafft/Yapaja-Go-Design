@@ -91,7 +91,7 @@ function environment(): EnvironmentSignature {
 /** Faehrt das Pan/Zoom-Skript ab und liefert die Bild-Rate im Fenster. */
 async function measurePanZoomFps(page: import('@playwright/test').Page): Promise<FpsResult> {
   return page.evaluate(async (legDurationMs: number) => {
-    const map = window.__yapajaMapController?.getMap?.();
+    const map = window.__yapaiaMapController?.getMap?.();
     if (!map) throw new Error('Karte nicht registriert');
 
     const start = map.getCenter();
@@ -216,7 +216,7 @@ test.describe('[Perf] Bild-Rate (W-04)', () => {
       // Erst messen, wenn wirklich Positionen ankommen -- sonst waere es
       // dieselbe Messung wie oben, nur mit anderem Namen.
       await page.waitForFunction(
-        () => Boolean(window.__yapajaPositionStore?.getState().position),
+        () => Boolean(window.__yapaiaPositionStore?.getState().position),
         undefined,
         { timeout: 30_000 },
       );

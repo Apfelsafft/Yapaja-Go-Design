@@ -11,8 +11,8 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { ApiError, SearchResult } from '@yapaja/shared';
-import { validateSearchResult } from '@yapaja/shared';
+import type { ApiError, SearchResult } from '@yapaia/shared';
+import { validateSearchResult } from '@yapaia/shared';
 import { searchPlugin, type SearchRoutesOptions } from './routes.js';
 import type { GeocoderBackend } from './types.js';
 import type { SearchRegionsProvider } from './coverage.js';

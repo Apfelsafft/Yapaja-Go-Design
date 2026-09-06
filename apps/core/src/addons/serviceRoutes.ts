@@ -21,7 +21,7 @@
 
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { Buffer } from 'node:buffer';
-import type { ApiError } from '@yapaja/shared';
+import type { ApiError } from '@yapaia/shared';
 import type { EventBus } from '../bus/index.js';
 import { AddonRepository } from './repository.js';
 import type { AddonServiceHost } from './service-host.js';

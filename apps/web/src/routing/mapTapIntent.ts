@@ -28,7 +28,7 @@
  * steht an EINER Stelle, statt sich ueber `if`-Zweige zu verteilen.
  */
 
-import type { NavState } from '@yapaja/shared';
+import type { NavState } from '@yapaia/shared';
 import { DRIVE_ACTIVE_STATUSES } from '../drive/driveActive.js';
 
 /**

@@ -1,4 +1,4 @@
-# Home Assistant Add-on configuration for Yapaja Go (E08-T4, docs/04 §3).
+# Home Assistant Add-on configuration for Yapaia Go (E08-T4, docs/04 §3).
 #
 # Schema reference: https://developers.home-assistant.io/docs/add-ons/configuration
 # Linted (nightly, continue-on-error) via frenck/action-addon-linter -- see
@@ -7,10 +7,10 @@
 # (yapaja_go/config.test.ts) so a flaky/unavailable third-party
 # Action can never block a merge -- see yapaja_go/PACKAGING.md "CI strategy".
 
-name: "Yapaja Go"
+name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.6.6"
+version: "0.6.7"
 url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
 
 # amd64 covers typical Mini-PC/NUC installs; aarch64 covers Raspberry Pi
@@ -45,7 +45,7 @@ init: false
 # default and the add-on linter rejects that (nightly, E10-T4).
 ingress: true
 panel_icon: "mdi:map-marker-path"
-panel_title: "Yapaja Go"
+panel_title: "Yapaia Go"
 
 # Ingress-only by default (docs/04 §3: "ports: {} (ingress-only)"). Direct
 # (non-Ingress) HTTP access is an OPT-IN an operator can add locally by
@@ -93,7 +93,7 @@ services:
 usb: true
 udev: true
 
-# Yapaja -> HA REST calls (HA-TTS output channel, notifications; E08-T3,
+# Yapaia -> HA REST calls (HA-TTS output channel, notifications; E08-T3,
 # docs/04 §2) go through the Supervisor's proxied Core API
 # (http://supervisor/core/api + SUPERVISOR_TOKEN) instead of a manually
 # configured long-lived token when running as an add-on.
@@ -127,7 +127,7 @@ homeassistant_api: true
 # findet, ist keine.
 #
 # `ha_tracker` genuegt jetzt fuer sich allein: gibt es genau EINEN
-# `device_tracker` mit Koordinaten -- der Normalfall --, waehlt Yapaja ihn
+# `device_tracker` mit Koordinaten -- der Normalfall --, waehlt Yapaia ihn
 # selbst. Gibt es mehrere, wird bewusst KEINER geraten (der zweite koennte
 # das Telefon einer anderen Person sein); dann nennt die Installationspruefung
 # sie beim Namen und man traegt den gewuenschten unten ein.
@@ -184,7 +184,7 @@ options:
   # solange ENABLE_SIMULATOR nicht gesetzt ist. Die Funktion war gebaut,
   # getestet -- und hinter einer Tuer ohne Klinke.
   #
-  # Wieder einschalten: Einstellungen -> Add-ons -> Yapaja Go ->
+  # Wieder einschalten: Einstellungen -> Add-ons -> Yapaia Go ->
   # Konfiguration, Haken setzen, Add-on neu starten. Kein SSH noetig.
   gps_simulator: false
 
@@ -204,7 +204,7 @@ schema:
 # Steht hier ein `image:`, ZIEHT der Supervisor dieses Image aus einer
 # Registry und baut NICHTS lokal. Bis 2026-09-02 stand hier
 # `ghcr.io/yapaja/yapaja-go-{arch}`. Dieses Image existiert nicht und hat nie
-# existiert: `yapaja` ist nicht einmal der Namensraum dieses Repositories
+# existiert: `yapaia` ist nicht einmal der Namensraum dieses Repositories
 # (das waere `apfelsafft`), und kein einziger Workflow hat je
 # `yapaja_go/Dockerfile` gebaut oder gepusht -- `publish-images` in
 # `release.yml` baut `apps/core/Dockerfile`, also den eigenstaendigen Core,

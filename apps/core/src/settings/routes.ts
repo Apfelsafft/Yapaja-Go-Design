@@ -9,7 +9,7 @@
  *                              merged settings map, `{ data: ... }`
  */
 import type { FastifyPluginAsync } from 'fastify';
-import type { ApiError } from '@yapaja/shared';
+import type { ApiError } from '@yapaia/shared';
 import { SettingsService } from './service.js';
 
 interface SettingsKeyParams {

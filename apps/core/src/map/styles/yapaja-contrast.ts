@@ -1,5 +1,5 @@
 /**
- * „Yapaja Kontrast" — Barrierefreiheit (docs/06 §6).
+ * „Yapaia Kontrast" — Barrierefreiheit (docs/06 §6).
  *
  * Heller Grund, schwarze Beschriftung, kräftig gezeichnete Straßen
  * (`roadWidthScale` in der Palette), zurückgenommene Flächen. Die POI-Dichte
@@ -13,10 +13,10 @@ import { PLACEHOLDER_TILE_URL, REDUCED_POI_CLASSES, REGION_SOURCE_ID } from './c
 import { GLYPHS_URL } from './fonts.js';
 import type { MapStyleDocument, SymbolLayer } from './types.js';
 
-export const YAPAJA_CONTRAST_STYLE_ID = 'yapaja-contrast';
-export const YAPAJA_CONTRAST_STYLE_NAME = 'Yapaja Kontrast';
+export const YAPAIA_CONTRAST_STYLE_ID = 'yapaja-contrast';
+export const YAPAIA_CONTRAST_STYLE_NAME = 'Yapaia Kontrast';
 
-export function buildYapajaContrastStyle(): MapStyleDocument {
+export function buildYapaiaContrastStyle(): MapStyleDocument {
   const layers = buildBaseLayers(CONTRAST_PALETTE).map((layer) =>
     layer.id === 'poi-labels'
       ? ({
@@ -28,7 +28,7 @@ export function buildYapajaContrastStyle(): MapStyleDocument {
 
   return {
     version: 8,
-    name: YAPAJA_CONTRAST_STYLE_NAME,
+    name: YAPAIA_CONTRAST_STYLE_NAME,
     glyphs: GLYPHS_URL,
     sources: { [REGION_SOURCE_ID]: { type: 'vector', url: PLACEHOLDER_TILE_URL } },
     layers,

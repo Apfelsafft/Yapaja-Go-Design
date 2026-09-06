@@ -9,7 +9,7 @@
  *
  * WOZU
  * ----
- * Yapaja Go besteht nicht nur aus dem Core-Prozess. Damit navigiert werden
+ * Yapaia Go besteht nicht nur aus dem Core-Prozess. Damit navigiert werden
  * kann, müssen daneben Dinge existieren, die NICHT im Add-on-Image stecken,
  * weil sie gerätespezifisch und gigabytegroß sind: die Kartenkacheln
  * (`*.pmtiles`), der Valhalla-Routinggraph, ein Suchindex (Photon ODER der
@@ -40,7 +40,7 @@
  * `severity` trennt „geht gar nicht" von „geht, aber eingeschränkt":
  *
  *   - `required`  fehlt → die Kernfunktion (Karte + Route) ist unbenutzbar
- *   - `recommended` fehlt → Yapaja läuft, eine Teilfunktion fehlt
+ *   - `recommended` fehlt → Yapaia läuft, eine Teilfunktion fehlt
  *   - `optional`  fehlt → reine Zusatzfunktion, kein Mangel
  *
  * `remedy` ist der eigentliche Zweck der Datei: eine Anweisung in ganzen
@@ -492,7 +492,7 @@ async function checkPosition(
         'oder /dev/ttyUSB0). Haben Sie gar keinen USB-Empfänger, ist „gps_source: usb" ' +
         'schlicht die falsche Einstellung — stellen Sie sie auf „ha_tracker" ' +
         '(Position aus der Home-Assistant-Companion-App) oder auf „none" ' +
-        '(Position aus dem Browser). Solange gpsd fehlt, kann Yapaja die Position ' +
+        '(Position aus dem Browser). Solange gpsd fehlt, kann Yapaia die Position ' +
         'weiterhin aus dem Browser beziehen — Telefon, Tablet oder Autoradio liefern ' +
         'sie über die Standortfreigabe der Seite (ADR-007: gpsd > Browser > ' +
         'Companion App > Simulator). Achtung: der Browser gibt den Standort nur über ' +
@@ -528,7 +528,7 @@ async function checkPosition(
               HA_TRACKER_SETUP_HINT) +
           ' Tragen Sie den gewünschten Namen in der Add-on-Konfiguration unter ' +
           '„ha_device_tracker" ein — oder lassen Sie das Feld leer und setzen Sie ' +
-          '„gps_source" auf „ha_tracker", dann sucht Yapaja selbst, solange es ' +
+          '„gps_source" auf „ha_tracker", dann sucht Yapaia selbst, solange es ' +
           'genau einen gibt.',
       };
     }
@@ -542,7 +542,7 @@ async function checkPosition(
   }
 
   if (haTrackerSelected) {
-    // „gps_source: ha_tracker" ohne Entity-ID heisst: Yapaja sucht selbst.
+    // „gps_source: ha_tracker" ohne Entity-ID heisst: Yapaia sucht selbst.
     // Was dabei herauskommt, haengt allein an dem, was Home Assistant hat --
     // also steht es hier, mit Namen.
     if (trackers === null) {
@@ -588,7 +588,7 @@ async function checkPosition(
       status: 'warn',
       detail:
         `Als Positionsquelle ist die Companion App gewählt, aber es gibt ${trackers.length} ` +
-        'Tracker mit Koordinaten. Yapaja rät nicht, welcher gemeint ist — der zweite ' +
+        'Tracker mit Koordinaten. Yapaia rät nicht, welcher gemeint ist — der zweite ' +
         'könnte das Telefon einer anderen Person sein.',
       remedy: `${found ?? ''} Tragen Sie den gewünschten in der Add-on-Konfiguration unter „ha_device_tracker" ein.`,
     };
@@ -609,10 +609,10 @@ async function checkPosition(
       'der Karte den Standortzugriff. Damit der Browser überhaupt fragt, muss die ' +
       'Seite über HTTPS erreichbar sein (bei Home-Assistant-Ingress ist das der Fall, ' +
       'sofern Home Assistant selbst über HTTPS läuft — läuft es über http://, gibt ' +
-      'der Browser den Sensor NICHT frei, und daran kann Yapaja nichts ändern). ' +
+      'der Browser den Sensor NICHT frei, und daran kann Yapaia nichts ändern). ' +
       'Ohne HTTPS ist der Weg über die Home-Assistant-Companion-App der richtige: ' +
       'in der Add-on-Konfiguration „gps_source" auf „ha_tracker" stellen. Gibt es ' +
-      'genau eine `device_tracker`-Entität mit Koordinaten, sucht Yapaja sie selbst; ' +
+      'genau eine `device_tracker`-Entität mit Koordinaten, sucht Yapaia sie selbst; ' +
       'gibt es mehrere, nennt diese Prüfung sie danach beim Namen, und Sie tragen die ' +
       'gewünschte unter „ha_device_tracker" ein. Für einen fest eingebauten ' +
       'USB-Empfänger stattdessen „gps_source" auf „usb" stellen.',
@@ -720,12 +720,12 @@ function checkMqtt(env: Record<string, string | undefined>): PreflightCheck {
   return {
     ...base,
     status: 'warn',
-    detail: 'Kein MQTT-Broker konfiguriert — Yapaja meldet keine Entitäten an Home Assistant.',
+    detail: 'Kein MQTT-Broker konfiguriert — Yapaia meldet keine Entitäten an Home Assistant.',
     remedy:
       'Rein optional. Wenn Home Assistant Fahrtdaten (Position, verbleibende Strecke, ' +
       'Ankunftszeit) sehen soll, tragen Sie in der Add-on-Konfiguration die ' +
       'Broker-URL ein — bei einem HAOS-Standardaufbau ist das das Mosquitto-Add-on. ' +
-      'Ohne MQTT navigiert Yapaja unverändert.',
+      'Ohne MQTT navigiert Yapaia unverändert.',
   };
 }
 

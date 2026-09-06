@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { checkPosition, validatePosition } from '@yapaja/shared';
+import { checkPosition, validatePosition } from '@yapaia/shared';
 import { mapTpvToPosition, extractSatelliteCount, isGpsdTpv, isGpsdSky } from './mapping.js';
 
 const FALLBACK_TS = '2026-07-10T10:00:00.000Z';

@@ -32,7 +32,7 @@
 #      Polygon-Geometrien und berechnet dann selbst einen Zentroid (siehe
 #      extract.ts) -- falls das osmium-Verhalten hier je abweicht, bricht
 #      der Build trotzdem nicht.
-#   3. `tsx src/search/lite/cli.ts` (im @yapaja/core-Workspace) liest beide
+#   3. `tsx src/search/lite/cli.ts` (im @yapaia/core-Workspace) liest beide
 #      GeoJSONSeq-Dateien, normalisiert + filtert (extract.ts), baut eine
 #      neue SQLite-FTS5-DB (lite_search.db, trigram-Tokenizer, buildIndex.ts)
 #      in einer TEMP-Datei und tauscht sie per `rename(2)` atomar ein
@@ -120,7 +120,7 @@ osmium tags-filter --overwrite -o "$WORK_DIR/streets.osm.pbf" "$PBF" w/highway
 # spaeter die deutschen Suchbegriffe vergibt. Von Hand gepflegt wuerden die
 # beiden frueher oder spaeter auseinanderlaufen, und zwar lautlos.
 echo "== Filtere Sonderziele (amenity/shop/tourism/leisure) aus $PBF =="
-mapfile -t POI_FILTERS < <(pnpm --silent --filter @yapaja/core exec tsx src/search/lite/cli.ts --print-osmium-filters)
+mapfile -t POI_FILTERS < <(pnpm --silent --filter @yapaia/core exec tsx src/search/lite/cli.ts --print-osmium-filters)
 if [ "${#POI_FILTERS[@]}" -eq 0 ]; then
   echo "FEHLER: keine POI-Filter erhalten." >&2
   exit 1
@@ -145,7 +145,7 @@ osmium export --overwrite --geometry-types=point,linestring,polygon -f geojsonse
 echo "== Baue lite_search.db (tsx-CLI, atomarer Swap nach $OUT_DB) =="
 (
   cd "$REPO_ROOT"
-  pnpm --filter @yapaja/core exec tsx src/search/lite/cli.ts \
+  pnpm --filter @yapaia/core exec tsx src/search/lite/cli.ts \
     --places "$WORK_DIR/places.geojsonseq" \
     --streets "$WORK_DIR/streets.geojsonseq" \
     --pois "$WORK_DIR/pois.geojsonseq" \

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import type { NavInstructionPayload, NavState } from '@yapaja/shared';
+import type { NavInstructionPayload, NavState } from '@yapaia/shared';
 import { useNavStore } from './navStore.js';
 
 function makeNavState(overrides: Partial<NavState> = {}): NavState {

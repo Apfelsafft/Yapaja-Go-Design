@@ -2,7 +2,7 @@
  * `GeocoderBackend` wrapper around the coordinate parser (E05-T1, chain step 1).
  * Pure/no network -- always resolves immediately.
  */
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 import { parseCoordinates } from './coordinateParser.js';
 import type { GeocoderBackend, ReverseQuery, SearchQuery } from './types.js';
 

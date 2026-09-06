@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import type { Widget } from '@yapaja/ui';
+import type { Widget } from '@yapaia/ui';
 
 function formatClock(date: Date): string {
   return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', hour12: false });

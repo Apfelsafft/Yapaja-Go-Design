@@ -2,7 +2,7 @@
  * Geodesy helpers for the safety-critical map-matcher (E04-T1).
  *
  * Kept LOCAL to the navigation module (not imported from the simulator's
- * `geo.ts` nor from `@yapaja/shared`): the matcher is on the turn-by-turn
+ * `geo.ts` nor from `@yapaia/shared`): the matcher is on the turn-by-turn
  * safety path, and coupling its geometry to an unrelated helper would let a
  * change there silently alter where a fix snaps onto the route. The formulae
  * are a handful of well-established lines, easy to audit in isolation.

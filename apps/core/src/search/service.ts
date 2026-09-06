@@ -24,7 +24,7 @@
  * request (rule: keine stillen Fehler, but also no hard failure for a
  * merely degraded chain).
  */
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 import { markOutOfCoverage, type SearchRegionsProvider } from './coverage.js';
 import { isGeocoderBackendError } from './errors.js';
 import type {

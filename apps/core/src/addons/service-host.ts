@@ -63,7 +63,7 @@
 
 import { spawn as nodeSpawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
-import type { AddonManifest } from '@yapaja/shared';
+import type { AddonManifest } from '@yapaia/shared';
 import type { EventBus } from '../bus/index.js';
 import { resolveAddonDir, resolveAddonsRootDir, resolveAddonStorageRootDir, resolveEntryPath } from './paths.js';
 import { AddonRepository, type AddonRecord } from './repository.js';

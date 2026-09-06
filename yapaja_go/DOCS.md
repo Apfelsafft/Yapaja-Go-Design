@@ -1,4 +1,4 @@
-# Yapaja Go — Home Assistant Add-on
+# Yapaia Go — Home Assistant Add-on
 
 Offline-capable motorhome navigation (maps, truck/RV-aware routing, GPS,
 search) running as a Home Assistant add-on, with a full MQTT + Auto-Discovery
@@ -8,7 +8,7 @@ integration into HA (docs/04-home-assistant.md §1–2 in the main repo).
 
 1. Settings → Add-ons → Add-on Store → ⋮ → Repositories → add this
    repository's URL.
-2. Find "Yapaja Go" in the store, click Install.
+2. Find "Yapaia Go" in the store, click Install.
 3. **Before starting it the first time**, open the add-on's Configuration
    tab and set at least `region` (see "Configuration options" below) —
    without it the add-on starts into an onboarding-ish idle state rather
@@ -21,7 +21,7 @@ integration into HA (docs/04-home-assistant.md §1–2 in the main repo).
 ## RAM recommendation (IMPORTANT — read before installing on a shared HAOS-VM)
 
 Home Assistant itself, Mosquitto, and any other add-ons you run all share
-the SAME HAOS-VM's RAM budget as Yapaja Go. The reference "Mini-PC" budget
+the SAME HAOS-VM's RAM budget as Yapaia Go. The reference "Mini-PC" budget
 from the main repo (docs/01-architecture.md §4) is per-*service*, not
 per-VM:
 
@@ -31,7 +31,7 @@ per-VM:
 | Valhalla (routing, DE-scale map) | ≤ 1.5 GB |
 | Photon (search, DE-scale index, default `-Xmx1g`) | ~600 MB – 1 GB RSS (`Xmx` + 150–300 MB JVM overhead) |
 | gpsd | negligible (a few MB) |
-| **Yapaja subtotal** | **~2.4 – 2.9 GB** |
+| **Yapaia subtotal** | **~2.4 – 2.9 GB** |
 
 Add Home Assistant Core + Supervisor + Mosquitto + whatever else you run
 (commonly another 1–1.5 GB+) and a comfortable **HAOS-VM should have ≥ 6 GB
@@ -74,7 +74,7 @@ plugged-in GPS receiver.
 3. Check the add-on log: the internal `gpsd` service logs either "found GPS
    device at /dev/ttyACMx" or a warning that it's still waiting for one
    (retried every 15 s, does not crash the add-on).
-4. In the Yapaja Go UI, Settings → GPS should show a live fix once gpsd has
+4. In the Yapaia Go UI, Settings → GPS should show a live fix once gpsd has
    one.
 
 If you don't have (or don't yet have) a GPS receiver connected, leave
@@ -85,13 +85,13 @@ sensor, from the Home Assistant Companion App (see below).
 ## Position from the Home Assistant Companion App
 
 The browser only releases its GPS sensor over HTTPS. If Home Assistant runs
-over plain `http://`, no phone, tablet or car radio will give Yapaja a
+over plain `http://`, no phone, tablet or car radio will give Yapaia a
 position, and no add-on setting can change that. The Companion App reports to
 Home Assistant instead of to the browser, and keeps reporting with the screen
 locked.
 
 Set `gps_source: ha_tracker`. That is normally all: if exactly one
-`device_tracker` entity in Home Assistant carries coordinates, Yapaja picks it
+`device_tracker` entity in Home Assistant carries coordinates, Yapaia picks it
 itself. If there are several, none is guessed — the second one could be
 someone else's phone, and a navigation that silently follows it is worse than
 one that asks. In that case the preflight check (🩺) names the candidates and
@@ -106,10 +106,10 @@ not a replacement for a live browser fix.
 | Option | Type | Default | Meaning |
 |---|---|---|---|
 | `region` | string (optional) | *(empty)* | Which map region to use. Empty = onboarding/no-data state (E08-T5 builds the full setup wizard; this add-on version simply doesn't crash without one). |
-| `mqtt_prefix` | string | `yapaja` | MQTT topic prefix (docs/03-api-spec.md §4). |
+| `mqtt_prefix` | string | `yapaia` | MQTT topic prefix (docs/03-api-spec.md §4). |
 | `photon_enabled` | bool | `true` | Full-text search via Photon. `false` = RAM-saver, falls back to the offline lite-search index (W-12). |
 | `gps_source` | `usb` \| `network` \| `ha_tracker` \| `none` | `none` | Where the Core's position service gets a GPS fix from. `usb`/`network` start gpsd; `ha_tracker` reads a Home Assistant `device_tracker` (Companion App); `none` leaves the browser as the source. Browser positions are accepted at **every** value. |
-| `ha_device_tracker` | string (optional) | *(empty)* | Which `device_tracker` entity to read, e.g. `device_tracker.my_phone`. Only needed with `gps_source: ha_tracker` **and** more than one candidate — with exactly one, Yapaja picks it itself. |
+| `ha_device_tracker` | string (optional) | *(empty)* | Which `device_tracker` entity to read, e.g. `device_tracker.my_phone`. Only needed with `gps_source: ha_tracker` **and** more than one candidate — with exactly one, Yapaia picks it itself. |
 | `log_level` | `debug` \| `info` \| `warn` \| `error` | `info` | Core log verbosity (pino). |
 | `photon_xmx_mb` | int 256–4096 | `1024` | Photon JVM heap cap (`-Xmx`). See the RAM table above. |
 | `valhalla_memory_mb` | int 512–8192 | `2048` | Documented RAM budget for Valhalla; informational (Valhalla's actual runtime cache size is set at graph-build time, not per-start — see `yapaja_go/rootfs/.../valhalla/run`'s comment). |
@@ -117,7 +117,7 @@ not a replacement for a live browser fix.
 
 ## Test drive (GPS simulator)
 
-Yapaja can drive a planned route by itself, at each section's own speed
+Yapaia can drive a planned route by itself, at each section's own speed
 limit, with a fast-forward slider (1× to 32×). Useful for checking a route,
 the turn instructions and the announcements without moving the vehicle.
 
@@ -125,7 +125,7 @@ the turn instructions and the announcements without moving the vehicle.
 the whole add-on process, which must never happen by accident while driving.
 To unlock it:
 
-1. Settings → Add-ons → Yapaja Go → **Configuration**
+1. Settings → Add-ons → Yapaia Go → **Configuration**
 2. Tick `gps_simulator`, save
 3. **Restart** the add-on
 
@@ -144,7 +144,7 @@ again after the next restart.
 ## MQTT
 
 Automatic: with the Mosquitto add-on (or any add-on providing the `mqtt`
-service) installed and running, Yapaja Go picks up its host/credentials via
+service) installed and running, Yapaia Go picks up its host/credentials via
 the Supervisor's Services API — no manual entry. See
 `docs/04-home-assistant.md` §1 in the main repo for the full topic/entity
 table that then appears under HA's MQTT integration (Auto-Discovery).
@@ -170,7 +170,7 @@ E08-T4 that per-PR CI structurally cannot:
 ### 1. Flow 9 — Add-on install + Ingress UI (acceptance #1)
 
 1. Fresh HAOS VM, add this repository under Add-ons → Repositories.
-2. Install "Yapaja Go", set a small `region` (e.g. Liechtenstein, for a
+2. Install "Yapaia Go", set a small `region` (e.g. Liechtenstein, for a
    fast test cycle — see the main repo's `services/valhalla/build-tiles.sh`
    for how a region's tiles get built; for this manual protocol, pre-stage
    a built region's data under `/share/yapaja/` before starting the
@@ -189,8 +189,8 @@ E08-T4 that per-PR CI structurally cannot:
 
 ### 2. MQTT auto-configuration (acceptance #2)
 
-1. With the Mosquitto add-on installed and running, start Yapaja Go.
-2. In HA: Settings → Devices & Services → MQTT → confirm a "Yapaja Go"
+1. With the Mosquitto add-on installed and running, start Yapaia Go.
+2. In HA: Settings → Devices & Services → MQTT → confirm a "Yapaia Go"
    device appears with the full entity table from
    `docs/04-home-assistant.md` §1, populated with live values during a
    simulator drive.
@@ -214,7 +214,7 @@ E08-T4 that per-PR CI structurally cannot:
 1. Plug a USB GPS receiver into the HAOS host before starting the add-on.
 2. Confirm the add-on log's `gpsd` service line reports the found device
    (see "USB-GPS passthrough" above).
-3. Confirm the Yapaja Go UI's GPS status shows a live fix (outdoors / with
+3. Confirm the Yapaia Go UI's GPS status shows a live fix (outdoors / with
    a view of the sky, or using a GPS signal simulator/replay device).
 4. Unplug it while the add-on is running → confirm gpsd logs the loss and
    the Core degrades to its documented "GPS lost" behavior (dead-reckoning

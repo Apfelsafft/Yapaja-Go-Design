@@ -124,10 +124,10 @@ export default function DriveOverlay(): React.ReactElement {
 declare global {
   interface Window {
     /** Debug/E2E hook: whether the Web Speech API is available in THIS browser (headless test browsers sometimes lack it). */
-    __yapajaSpeechAvailable?: () => boolean;
+    __yapaiaSpeechAvailable?: () => boolean;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaSpeechAvailable = isSpeechAvailable;
+  window.__yapaiaSpeechAvailable = isSpeechAvailable;
 }

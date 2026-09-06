@@ -11,11 +11,11 @@
  * ein neuer Stil erscheint im Kartenmenue ohne Aenderung am Frontend.
  */
 
-import { YAPAJA_CONTRAST_STYLE_ID, YAPAJA_CONTRAST_STYLE_NAME, buildYapajaContrastStyle } from './yapaja-contrast.js';
-import { YAPAJA_DARK_STYLE_ID, YAPAJA_DARK_STYLE_NAME, buildYapajaDarkStyle } from './yapaja-dark.js';
-import { YAPAJA_LIGHT_STYLE_ID, YAPAJA_LIGHT_STYLE_NAME, buildYapajaLightStyle } from './yapaja-light.js';
-import { YAPAJA_OUTDOOR_STYLE_ID, YAPAJA_OUTDOOR_STYLE_NAME, buildYapajaOutdoorStyle } from './yapaja-outdoor.js';
-import { YAPAJA_MINIMAL_STYLE_ID, YAPAJA_MINIMAL_STYLE_NAME, buildYapajaMinimalStyle } from './yapaja-minimal.js';
+import { YAPAIA_CONTRAST_STYLE_ID, YAPAIA_CONTRAST_STYLE_NAME, buildYapaiaContrastStyle } from './yapaja-contrast.js';
+import { YAPAIA_DARK_STYLE_ID, YAPAIA_DARK_STYLE_NAME, buildYapaiaDarkStyle } from './yapaja-dark.js';
+import { YAPAIA_LIGHT_STYLE_ID, YAPAIA_LIGHT_STYLE_NAME, buildYapaiaLightStyle } from './yapaja-light.js';
+import { YAPAIA_OUTDOOR_STYLE_ID, YAPAIA_OUTDOOR_STYLE_NAME, buildYapaiaOutdoorStyle } from './yapaja-outdoor.js';
+import { YAPAIA_MINIMAL_STYLE_ID, YAPAIA_MINIMAL_STYLE_NAME, buildYapaiaMinimalStyle } from './yapaja-minimal.js';
 import type { MapStyleDocument } from './types.js';
 
 export interface StyleSummary {
@@ -29,11 +29,11 @@ interface StyleRegistryEntry extends StyleSummary {
 }
 
 const STYLE_REGISTRY: StyleRegistryEntry[] = [
-  { id: YAPAJA_LIGHT_STYLE_ID, name: YAPAJA_LIGHT_STYLE_NAME, build: buildYapajaLightStyle },
-  { id: YAPAJA_DARK_STYLE_ID, name: YAPAJA_DARK_STYLE_NAME, build: buildYapajaDarkStyle },
-  { id: YAPAJA_OUTDOOR_STYLE_ID, name: YAPAJA_OUTDOOR_STYLE_NAME, build: buildYapajaOutdoorStyle },
-  { id: YAPAJA_CONTRAST_STYLE_ID, name: YAPAJA_CONTRAST_STYLE_NAME, build: buildYapajaContrastStyle },
-  { id: YAPAJA_MINIMAL_STYLE_ID, name: YAPAJA_MINIMAL_STYLE_NAME, build: buildYapajaMinimalStyle },
+  { id: YAPAIA_LIGHT_STYLE_ID, name: YAPAIA_LIGHT_STYLE_NAME, build: buildYapaiaLightStyle },
+  { id: YAPAIA_DARK_STYLE_ID, name: YAPAIA_DARK_STYLE_NAME, build: buildYapaiaDarkStyle },
+  { id: YAPAIA_OUTDOOR_STYLE_ID, name: YAPAIA_OUTDOOR_STYLE_NAME, build: buildYapaiaOutdoorStyle },
+  { id: YAPAIA_CONTRAST_STYLE_ID, name: YAPAIA_CONTRAST_STYLE_NAME, build: buildYapaiaContrastStyle },
+  { id: YAPAIA_MINIMAL_STYLE_ID, name: YAPAIA_MINIMAL_STYLE_NAME, build: buildYapaiaMinimalStyle },
 ];
 
 /** Lists all available styles for `GET /api/v1/map/styles` (`{id, name}[]`). */

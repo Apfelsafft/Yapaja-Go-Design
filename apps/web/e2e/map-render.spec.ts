@@ -32,7 +32,7 @@ test('start viewport is inside the installed region bounds (never [0, 0])', asyn
   await page.goto(CORE_BASE_URL + '/');
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
 
-  const center = await page.evaluate(() => window.__yapajaMapController?.getMap()?.getCenter());
+  const center = await page.evaluate(() => window.__yapaiaMapController?.getMap()?.getCenter());
   expect(center).toBeTruthy();
   // Fixture bounds (see apps/core/src/map/__fixtures__/pmtiles-fixture.ts
   // FIXTURE_BOUNDS): roughly western/central Europe, nowhere near [0, 0].

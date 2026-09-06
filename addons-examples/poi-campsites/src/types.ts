@@ -1,6 +1,6 @@
 /**
  * Shared types for the POI-Overlay reference add-on (E09-T5, docs/05 §6.1).
- * Kept dependency-free (no `@yapaja/*` imports) so `filterPois.ts`/`geo.ts`
+ * Kept dependency-free (no `@yapaia/*` imports) so `filterPois.ts`/`geo.ts`
  * stay trivially unit-testable without pulling in the SDK.
  */
 

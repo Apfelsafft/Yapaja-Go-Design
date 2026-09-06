@@ -16,7 +16,7 @@
  * with the app's fully-offline design.
  */
 import { statSync } from 'fs';
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 import { GeocoderBackendError } from '../errors.js';
 import type { GeocoderBackend, ReverseQuery, SearchLogger, SearchQuery } from '../types.js';
 import { LiteIndexReader } from './reader.js';

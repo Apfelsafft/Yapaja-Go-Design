@@ -55,7 +55,7 @@ export async function installColdStartProbe(page: Page): Promise<void> {
   await page.addInitScript(() => {
     window.__perfMapInteractiveAt = new Promise<number>((resolve) => {
       const check = (): void => {
-        const map = window.__yapajaMapController?.getMap?.();
+        const map = window.__yapaiaMapController?.getMap?.();
         if (map && map.loaded() && map.isStyleLoaded()) {
           resolve(performance.now());
           return;
@@ -75,7 +75,7 @@ export async function readColdStartMs(page: Page): Promise<number> {
 export async function waitForMapLoaded(page: Page, timeout = 60_000): Promise<void> {
   await page.waitForFunction(
     () => {
-      const map = window.__yapajaMapController?.getMap?.();
+      const map = window.__yapaiaMapController?.getMap?.();
       return Boolean(map && map.loaded());
     },
     undefined,

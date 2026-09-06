@@ -1,5 +1,5 @@
 /**
- * 001_baseline -- the schema Yapaja Go shipped with BEFORE the migration
+ * 001_baseline -- the schema Yapaia Go shipped with BEFORE the migration
  * runner existed (E08-T6). These are the exact four `CREATE TABLE`
  * statements that used to live inline in `db/index.ts::createDb` --
  * column-for-column unchanged, so a brand-new database created through the

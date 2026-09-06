@@ -90,7 +90,7 @@ Beleg (Screenshot/Video-Zeitstempel bzw. Log-Auszug mit Zeitstempeln):
 
 ### 5. Zugriff vom Telefon inkl. Browser-GPS
 
-Der Bedienweg, für den Yapaja eigentlich gebaut ist: das Gerät läuft im
+Der Bedienweg, für den Yapaia eigentlich gebaut ist: das Gerät läuft im
 Fahrzeug, bedient wird es über den Browser eines Telefons, Tablets oder
 Android-Autoradios. Diese Kette ist bislang **nur im E2E-Setup** geprüft
 (simulierte Geolocation, Ingress-Sub-Pfad als Flow 9) — nie auf echter
@@ -112,7 +112,7 @@ ist erwiesenermaßen fehleranfällig.
       (Prioritätskette `gpsd > browser > simulator`, ADR-007).
       Hinweis: die Geolocation-API des Browsers verlangt **HTTPS** — über
       nacktes `http://<LAN-IP>` blockiert der Browser den Standortzugriff,
-      nicht Yapaja.
+      nicht Yapaia.
 - [ ] Auffälligkeiten (Verbindungsabbrüche beim Displaysperren, Position
       friert ein, Reconnect nach Tunnel):
 

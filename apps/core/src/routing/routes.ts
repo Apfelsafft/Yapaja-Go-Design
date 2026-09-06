@@ -11,8 +11,8 @@
  */
 
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
-import type { ApiError, RouteRequest } from '@yapaja/shared';
-import { validateRouteRequest } from '@yapaja/shared';
+import type { ApiError, RouteRequest } from '@yapaia/shared';
+import { validateRouteRequest } from '@yapaia/shared';
 import { isRoutingError, type RoutingError } from './errors.js';
 import { type InstalledRegionsProvider } from './coverageCheck.js';
 import {

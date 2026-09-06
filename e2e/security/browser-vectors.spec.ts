@@ -131,7 +131,7 @@ test('VEKTOR bridge.scope_denied: eine Methode ohne deklarierten Scope wird host
   // (a) blocked: the call was refused AND no such layer exists on the map.
   await expect(frame.getByTestId('evil-undeclared-scope-ok')).toHaveText('false');
   const layerPresent = await page.evaluate((layerId) => {
-    const map = window.__yapajaMapController?.getMap?.();
+    const map = window.__yapaiaMapController?.getMap?.();
     return Boolean(map && (map.getSource(layerId) || map.getLayer(layerId)));
   }, `addon:${UI_EVIL_ADDON_ID}:evil-layer`);
   expect(layerPresent).toBe(false);
@@ -306,7 +306,7 @@ test('Deaktivieren entfernt die UI des Add-ons rückstandsfrei', async ({ page }
   );
   expect(disable.status()).toBe(200);
   await page.evaluate(async () => {
-    await window.__yapajaRefreshAddons?.();
+    await window.__yapaiaRefreshAddons?.();
   });
 
   await expect(page.getByTestId(`addon-frame-${UI_EVIL_ADDON_ID}`)).toHaveCount(0, { timeout: 15_000 });

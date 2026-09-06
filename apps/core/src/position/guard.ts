@@ -13,7 +13,7 @@
  *    guard enforces it independently since it's meant to protect *any*
  *    source, not just a well-behaved one).
  *  - Value-range violations (speed, altitude, heading -- via
- *    `@yapaja/shared`'s `checkPosition`) are rejected.
+ *    `@yapaia/shared`'s `checkPosition`) are rejected.
  *  - Jump/drift detection: implied ground speed between this fix and the
  *    last *accepted* fix (great-circle distance / elapsed time) > 300 m/s
  *    ⇒ reject. Exception (W-02, ferry/transport/device-restart case): after
@@ -34,7 +34,7 @@
  * KLÄRUNGSBEDARF in the task write-up.
  */
 
-import { checkPosition, type Position } from '@yapaja/shared';
+import { checkPosition, type Position } from '@yapaia/shared';
 
 export interface GuardOptions {
   /** Implied-speed jump threshold in m/s. Default 300 (docs/07 §3a). */

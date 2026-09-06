@@ -32,7 +32,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { compareVersions } from '@yapaja/shared';
+import { compareVersions } from '@yapaia/shared';
 import { useUiStore } from '../ui/store.js';
 import DriveLockGate from '../drive/DriveLockGate.js';
 import { fetchAddons, type InstalledAddon } from '../addons/client.js';

@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { LatLng, Position, RouteRequest, VehicleProfile } from '@yapaja/shared';
+import type { LatLng, Position, RouteRequest, VehicleProfile } from '@yapaia/shared';
 import { RoutingService, type PositionLookup, type ProfileLookup } from './service.js';
 import { RoutingError } from './errors.js';
 import { type InstalledRegionsProvider } from './coverageCheck.js';

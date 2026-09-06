@@ -13,8 +13,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import type { Position } from '@yapaja/shared';
-import type { Widget, WidgetRenderContext } from '@yapaja/ui';
+import type { Position } from '@yapaia/shared';
+import type { Widget, WidgetRenderContext } from '@yapaia/ui';
 import { deriveSignalState, type GpsSignalState } from '../../position/gpsSignal.js';
 import { wasStandingStill } from '../../position/standstill.js';
 

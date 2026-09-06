@@ -5,7 +5,7 @@
  * Drive mode is reached the same way `drive.spec.ts`/`nav-control.spec.ts`
  * do (POST a synthetic route + position fixes directly at the Core, no live
  * Valhalla/geocoder in this harness). Dark mode is forced via
- * `window.__yapajaThemeStore` -> `getState().setMode('dark')` (mirrors
+ * `window.__yapaiaThemeStore` -> `getState().setMode('dark')` (mirrors
  * `theme.spec.ts`'s own direct-store-mutation pattern), against this spec's
  * OWN dedicated core (`A11Y_CORE_BASE_URL`) so persisting the theme mode
  * here can never leak into another parallel spec sharing a port.
@@ -13,7 +13,7 @@
 
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { A11Y_CORE_BASE_URL } from './support/constants.js';
 
@@ -74,7 +74,7 @@ async function postSpeed(page: Page, speedMs: number, progressM = 0): Promise<vo
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -90,7 +90,7 @@ async function enterDriveMode(page: Page): Promise<void> {
 
 async function setDarkTheme(page: Page): Promise<void> {
   await page.evaluate(() => {
-    window.__yapajaThemeStore?.getState().setMode('dark');
+    window.__yapaiaThemeStore?.getState().setMode('dark');
   });
   await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(true);
 }

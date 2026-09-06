@@ -90,19 +90,19 @@ export const useFollowMeStore = create<FollowMeState>((set, get) => {
 declare global {
   interface Window {
     /**
-     * Debug/E2E-Zugriff, wie `__yapajaMapController` (map/MapView.tsx) und
-     * `__yapajaPositionStore` (position/positionStore.ts): damit Playwright
+     * Debug/E2E-Zugriff, wie `__yapaiaMapController` (map/MapView.tsx) und
+     * `__yapaiaPositionStore` (position/positionStore.ts): damit Playwright
      * den Pausen-Zustand direkt lesen kann, statt ihn aus der Sichtbarkeit
      * eines Knopfes zu erschliessen. Seit der Re-Center-Knopf nicht mehr an
      * der Pause haengt (0.3.3), waere dieser Umweg schlicht falsch.
      * Nur lesend gedacht -- Produktionscode geht weiter ueber die Hooks.
      */
-    __yapajaFollowMeStore?: typeof useFollowMeStore;
+    __yapaiaFollowMeStore?: typeof useFollowMeStore;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaFollowMeStore = useFollowMeStore;
+  window.__yapaiaFollowMeStore = useFollowMeStore;
 }
 
 /**

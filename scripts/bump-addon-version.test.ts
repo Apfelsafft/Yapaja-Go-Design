@@ -22,11 +22,11 @@ describe('normalizeVersion', () => {
 });
 
 describe('bumpVersionLine', () => {
-  const fixture = 'name: "Yapaja Go"\nversion: "0.1.0"\nslug: yapaja_go\n';
+  const fixture = 'name: "Yapaia Go"\nversion: "0.1.0"\nslug: yapaja_go\n';
 
   it('ersetzt nur die version-Zeile, lässt den Rest unangetastet', () => {
     const result = bumpVersionLine(fixture, '1.0.0');
-    expect(result).toBe('name: "Yapaja Go"\nversion: "1.0.0"\nslug: yapaja_go\n');
+    expect(result).toBe('name: "Yapaia Go"\nversion: "1.0.0"\nslug: yapaja_go\n');
   });
 
   it('wirft, wenn keine version-Zeile gefunden wird', () => {

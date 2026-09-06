@@ -7,7 +7,7 @@
  * status).
  */
 
-import type { Widget } from '@yapaja/ui';
+import type { Widget } from '@yapaia/ui';
 import { latestPosition } from './positionUtils.js';
 
 export const altitudeWidget: Widget = {

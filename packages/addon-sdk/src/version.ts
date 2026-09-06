@@ -18,8 +18,8 @@
  * {@link IncompatibleCoreError} up front instead of silently misbehaving
  * against an API surface it was never built against.
  *
- * DELIBERATELY NOT `import { isValidSemver } from '@yapaja/shared'` (found
- * while building the E09-T5 reference add-ons): `@yapaja/shared`'s package
+ * DELIBERATELY NOT `import { isValidSemver } from '@yapaia/shared'` (found
+ * while building the E09-T5 reference add-ons): `@yapaia/shared`'s package
  * entry point (`src/index.ts`) also re-exports `validators.ts`, which runs
  * `ajv.compile(...)` -- AJV's default strategy generates and evaluates
  * validator functions via `new Function(...)` -- as a MODULE-LOAD-TIME side
@@ -33,10 +33,10 @@
  * fail at load with a CSP violation, regardless of whether
  * `assertCoreCompatible`/`isCoreCompatible` are ever actually called.
  * `protocol.ts`'s `AddonScope` already keeps its own local copy instead of a
- * runtime `@yapaja/shared` dependency for the same class of reason ("the
+ * runtime `@yapaia/shared` dependency for the same class of reason ("the
  * public SDK has no dependency on the Core's shared package") -- this is
  * that same rule applied here. The two-line regex below is the exact subset
- * `@yapaja/shared/src/semver.ts#isValidSemver` implements (full, valid
+ * `@yapaia/shared/src/semver.ts#isValidSemver` implements (full, valid
  * `major.minor.patch[-prerelease]`, no `v` prefix, no partial versions).
  */
 

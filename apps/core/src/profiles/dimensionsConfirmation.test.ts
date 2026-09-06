@@ -26,7 +26,7 @@ import {
   type ProfileInput,
 } from './service.js';
 import { closeDb } from '../db/index.js';
-import type { VehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile } from '@yapaia/shared';
 
 let dir: string;
 let service: ProfileService;

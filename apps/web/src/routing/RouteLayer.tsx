@@ -50,7 +50,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import type { LatLng } from '@yapaja/shared';
+import type { LatLng } from '@yapaia/shared';
 import { useMapStore } from '../state/mapStore.js';
 import { runWhenStyleReady } from '../map/styleReady.js';
 import { useNavStore } from '../drive/navStore.js';

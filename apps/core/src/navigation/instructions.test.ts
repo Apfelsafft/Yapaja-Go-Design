@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { Maneuver, SpeedSegment } from '@yapaja/shared';
+import type { Maneuver, SpeedSegment } from '@yapaia/shared';
 import {
   BASE_ANNOUNCE_THRESHOLDS_M,
   IMMEDIATE_THRESHOLD_INDEX,

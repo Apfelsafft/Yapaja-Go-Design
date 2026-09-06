@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { Maneuver } from '@yapaja/shared';
+import type { Maneuver } from '@yapaia/shared';
 import { isDriveActive, findFollowingManeuver } from './ManeuverPanel.js';
 
 function maneuver(overrides: Partial<Maneuver> = {}): Maneuver {

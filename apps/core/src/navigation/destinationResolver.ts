@@ -20,8 +20,8 @@
  * `cmd/result`'s `error` field.
  */
 
-import type { LatLng, Route, NavState, RouteRequest, SearchResult } from '@yapaja/shared';
-import { validateLatLng } from '@yapaja/shared';
+import type { LatLng, Route, NavState, RouteRequest, SearchResult } from '@yapaia/shared';
+import { validateLatLng } from '@yapaia/shared';
 import { isRoutingError } from '../routing/errors.js';
 import { isNavigationError } from './errors.js';
 import type {

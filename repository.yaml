@@ -20,6 +20,6 @@
 # `config.yaml`. Eine Aufspaltung in ein separates `yapaja-go-ha-addon`-Repo
 # (docs/04-home-assistant.md §3) bleibt als spaeterer Release-Schritt
 # moeglich, ist aber fuer den GUI-Installationsweg nicht mehr noetig.
-name: "Yapaja Go"
+name: "Yapaia Go"
 url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
 maintainer: "Apfelsafft <apfelsafft@gmail.com>"

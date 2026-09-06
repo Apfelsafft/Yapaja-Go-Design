@@ -34,11 +34,11 @@ export const useHandednessStore = create<HandednessStoreState>((set) => ({
 
 declare global {
   interface Window {
-    /** Debug/E2E hook, mirrors `window.__yapajaThemeStore`. */
-    __yapajaHandednessStore?: typeof useHandednessStore;
+    /** Debug/E2E hook, mirrors `window.__yapaiaThemeStore`. */
+    __yapaiaHandednessStore?: typeof useHandednessStore;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaHandednessStore = useHandednessStore;
+  window.__yapaiaHandednessStore = useHandednessStore;
 }

@@ -270,12 +270,12 @@ export default function PositionPuck(): null {
       }
 
       source?.setData({ type: 'FeatureCollection', features });
-      // Debug-/E2E-Haken, wie `__yapajaMapController` und
-      // `__yapajaFollowMeStore`: die GEZEICHNETE Stelle, synchron lesbar.
+      // Debug-/E2E-Haken, wie `__yapaiaMapController` und
+      // `__yapaiaFollowMeStore`: die GEZEICHNETE Stelle, synchron lesbar.
       // Ueber die Kartenquelle geht das nicht brauchbar -- `getData()` laeuft
       // ueber den Worker und brauchte gemessen rund 300 ms je Abfrage, womit
       // sich eine Bewegung von gut einer Sekunde nicht abtasten laesst.
-      if (typeof window !== 'undefined') window.__yapajaPuckPosition = an;
+      if (typeof window !== 'undefined') window.__yapaiaPuckPosition = an;
     };
 
     // ─── VON DER LETZTEN STELLE ZUR NEUEN WANDERN ───────────────────────────
@@ -376,6 +376,6 @@ function getHeadingEndpoint(
 declare global {
   interface Window {
     /** Debug/E2E: wo der Puck gerade GEZEICHNET ist (nicht die letzte Meldung). */
-    __yapajaPuckPosition?: SmoothFix;
+    __yapaiaPuckPosition?: SmoothFix;
   }
 }

@@ -15,7 +15,7 @@
  */
 
 import { create } from 'zustand';
-import type { WidgetData } from '@yapaja/addon-sdk';
+import type { WidgetData } from '@yapaia/addon-sdk';
 
 export interface AddonWidgetEntry {
   addonId: string;

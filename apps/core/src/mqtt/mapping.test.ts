@@ -4,7 +4,7 @@
  * with `speed_kmh` vs `speed_limit_kmh` (docs/03 §4/§5).
  */
 import { describe, it, expect } from 'vitest';
-import type { Maneuver, NavInstructionPayload, NavState, Route } from '@yapaja/shared';
+import type { Maneuver, NavInstructionPayload, NavState, Route } from '@yapaia/shared';
 import {
   buildAltitudePayload,
   buildDestinationPayload,

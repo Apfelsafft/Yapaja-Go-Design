@@ -551,7 +551,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
           discoveryPrefix: discoveryConfig.discoveryPrefix,
           device: {
             identifiers: ['yapaja_go'],
-            name: 'Yapaja Go',
+            name: 'Yapaia Go',
             // SAME version `/api/v1/health` reports (`readAddonVersion()` above).
             sw_version: version,
             configuration_url: discoveryConfig.configurationUrl,
@@ -566,7 +566,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     mqttBridge?.dispose();
   });
 
-  // HA output channel (E08-T3, docs/04 §2): OPTIONAL Yapaja -> HA direction --
+  // HA output channel (E08-T3, docs/04 §2): OPTIONAL Yapaia -> HA direction --
   // an "HA-TTS" announcement sink (W-23: mutually exclusive with browser TTS,
   // selected by Settings `ha.announce_sink`) plus arrival / GPS-lost HA
   // notifications. Always constructed (it's just a bus subscriber); it does

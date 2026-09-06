@@ -27,7 +27,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { NAV_CONTROL_CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors, trackRequests } from './support/network.js';
@@ -113,7 +113,7 @@ async function createAndActivateProfile(page: Page, name = 'E2E Nav-Control Test
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -147,18 +147,18 @@ async function driveTo(page: Page, progressM: number, speedMs = 3): Promise<void
 }
 
 async function readPitch(page: Page): Promise<number | null> {
-  return page.evaluate(() => window.__yapajaMapController?.getMap()?.getPitch?.() ?? null);
+  return page.evaluate(() => window.__yapaiaMapController?.getMap()?.getPitch?.() ?? null);
 }
 
 async function readCenter(page: Page): Promise<{ lat: number; lon: number } | null> {
   return page.evaluate(() => {
-    const center = window.__yapajaMapController?.getMap()?.getCenter?.();
+    const center = window.__yapaiaMapController?.getMap()?.getCenter?.();
     return center ? { lat: center.lat, lon: center.lng } : null;
   });
 }
 
 async function navStatus(page: Page): Promise<string | null> {
-  return page.evaluate(() => window.__yapajaNavStore?.getState().navState?.status ?? null);
+  return page.evaluate(() => window.__yapaiaNavStore?.getState().navState?.status ?? null);
 }
 
 test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
@@ -253,7 +253,7 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
     await expect(page.getByTestId('drive-controls')).toHaveCount(0);
     await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('idle');
     const destinationAfterStop = await page.evaluate(
-      () => window.__yapajaNavStore?.getState().navState?.destination,
+      () => window.__yapaiaNavStore?.getState().navState?.destination,
     );
     expect(destinationAfterStop).toBeNull();
 
@@ -264,9 +264,9 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
     await expect(page.getByTestId('destination-sheet')).toBeVisible({ timeout: 5_000 });
     await expect(page.getByTestId('route-summary-panel')).toBeVisible();
     expect(
-      await page.evaluate(() => Boolean(window.__yapajaMapController?.getMap()?.getLayer('route-main-accent'))),
+      await page.evaluate(() => Boolean(window.__yapaiaMapController?.getMap()?.getLayer('route-main-accent'))),
     ).toBe(true);
-    expect(await page.evaluate(() => window.__yapajaRoutingStore?.getState().activeRouteId)).toBe(ROUTE.id);
+    expect(await page.evaluate(() => window.__yapaiaRoutingStore?.getState().activeRouteId)).toBe(ROUTE.id);
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);

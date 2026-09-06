@@ -2,7 +2,7 @@
  * Category -> icon mapping for favorite chips (E05-T3). Plain emoji, same
  * lightweight approach as `search/icons.ts` -- no icon library dependency.
  */
-import type { Favorite } from '@yapaja/shared';
+import type { Favorite } from '@yapaia/shared';
 
 const CATEGORY_ICONS: Record<Favorite['category'], string> = {
   home: '🏠',

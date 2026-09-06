@@ -6,7 +6,7 @@
  */
 
 import { create } from 'zustand';
-import type { Favorite, HistoryEntry } from '@yapaja/shared';
+import type { Favorite, HistoryEntry } from '@yapaia/shared';
 import * as client from './client.js';
 import type { FavoriteCreateInput, FavoriteUpdateInput, HistoryRecordInput } from './client.js';
 import { FavoriteApiError } from './client.js';

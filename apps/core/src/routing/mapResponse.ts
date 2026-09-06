@@ -1,6 +1,6 @@
 /**
  * Map a Valhalla `/route` response onto the app-internal `Route[]` contract
- * (`@yapaja/shared`). Pure functions -- no I/O, fully unit-tested against a
+ * (`@yapaia/shared`). Pure functions -- no I/O, fully unit-tested against a
  * realistic fixture.
  */
 
@@ -12,7 +12,7 @@ import type {
   RouteLeg,
   RouteWarning,
   SpeedSegment,
-} from '@yapaja/shared';
+} from '@yapaia/shared';
 import { mapManeuverType } from './maneuverMapping.js';
 import { joinLegShapes } from './polyline.js';
 import type { ValhallaRouteResponse, ValhallaTrip } from './types.js';
@@ -21,7 +21,7 @@ const EARTH_RADIUS_M = 6371000;
 
 /**
  * Great-circle distance in metres. Matches the Haversine used inside
- * `@yapaja/shared`'s `checkRoute` (same Earth radius) so the ROUTE_TOO_LONG
+ * `@yapaia/shared`'s `checkRoute` (same Earth radius) so the ROUTE_TOO_LONG
  * warning and the plausibility gate agree on the straight-line reference.
  */
 export function haversineMeters(from: LatLng, to: LatLng): number {

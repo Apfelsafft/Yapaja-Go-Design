@@ -3,7 +3,7 @@
  * RoutingService produces (request) and consumes (response).
  *
  * These are deliberately NARROW: we only model the fields we actually build or
- * read. They are NOT re-exports of `@yapaja/shared` -- the shared package owns
+ * read. They are NOT re-exports of `@yapaia/shared` -- the shared package owns
  * the app-internal `Route`/`Maneuver` contract, this file owns the external
  * Valhalla contract, and the mapping between the two lives in
  * `./profileMapping.ts` (outbound) and `./mapResponse.ts` (inbound).

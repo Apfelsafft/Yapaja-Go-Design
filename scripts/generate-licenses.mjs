@@ -219,7 +219,7 @@ export function renderDocument({ prodPackages, devOnlyCount, violations }) {
 
   p('## 1. Kartendaten — OpenStreetMap / ODbL');
   p();
-  p('Yapaja Go erhebt keine eigenen Kartendaten; alle Geometrien, Restriktionen und');
+  p('Yapaia Go erhebt keine eigenen Kartendaten; alle Geometrien, Restriktionen und');
   p('POIs stammen aus OpenStreetMap (docs/00 „Rechtliches"). OSM-Daten stehen unter der');
   p('**Open Database License (ODbL) 1.0**, die eine sichtbare Namensnennung verlangt.');
   p();

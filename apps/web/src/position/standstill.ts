@@ -58,7 +58,7 @@
  * nur dauerhaft geleuchtet und damit auch die echten Warnungen entwertet.
  */
 
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 
 /**
  * Bis zu welcher Geschwindigkeit ein Fahrzeug als stehend gilt (m/s).

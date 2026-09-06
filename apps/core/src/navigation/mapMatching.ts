@@ -20,7 +20,7 @@
  * matcher and the route producer agree on every vertex.
  */
 
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { decodePolyline6 } from '../routing/polyline.js';
 import {
   bearingDeg,

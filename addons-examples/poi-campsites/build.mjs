@@ -3,12 +3,12 @@
  * Build script for the "Stellplätze-Overlay" reference add-on (E09-T5,
  * docs/addon-dev-guide.md §1.4). Produces:
  *
- *   1. `ui/bundle.js` -- `src/main.ts` (which imports `@yapaja/addon-sdk`)
+ *   1. `ui/bundle.js` -- `src/main.ts` (which imports `@yapaia/addon-sdk`)
  *      bundled by esbuild into ONE self-contained ES module with NO bare
  *      import specifiers left (a sandboxed add-on iframe has no
  *      node_modules/import-map resolution, only same-origin `<script>`
  *      loads -- see `apps/core/src/addons/ui-host.ts`'s CSP). esbuild
- *      resolves `@yapaja/addon-sdk`/`@yapaja/shared` straight from their
+ *      resolves `@yapaia/addon-sdk`/`@yapaia/shared` straight from their
  *      TypeScript SOURCE via `alias` (this package is deliberately not a
  *      pnpm workspace member -- see ../README.md -- so there is no
  *      node_modules-linked build of either to depend on).
@@ -49,8 +49,8 @@ function bundleUi() {
     minify: false,
     loader: { '.geojson': 'json' },
     alias: {
-      '@yapaja/addon-sdk': join(REPO_ROOT, 'packages', 'addon-sdk', 'src', 'index.ts'),
-      '@yapaja/shared': join(REPO_ROOT, 'packages', 'shared', 'src', 'index.ts'),
+      '@yapaia/addon-sdk': join(REPO_ROOT, 'packages', 'addon-sdk', 'src', 'index.ts'),
+      '@yapaia/shared': join(REPO_ROOT, 'packages', 'shared', 'src', 'index.ts'),
     },
     logLevel: 'info',
   });

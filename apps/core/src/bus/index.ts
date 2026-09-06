@@ -15,7 +15,7 @@ import {
   type NavState,
   type NavInstructionPayload,
   type Position,
-} from '@yapaja/shared';
+} from '@yapaia/shared';
 
 /**
  * Topics with a statically-known payload shape. More topics will be added
@@ -293,7 +293,7 @@ type TopicValidator = (data: unknown) => boolean;
 
 /**
  * Per-topic payload validators. Only topics with a schema in
- * `@yapaja/shared` are validated here; unlisted topics pass through
+ * `@yapaia/shared` are validated here; unlisted topics pass through
  * unchecked until a schema is added for them (see task E02-T1 scope note).
  */
 const topicValidators: Partial<Record<KnownBusTopic, TopicValidator>> = {

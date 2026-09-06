@@ -5,8 +5,8 @@
  * formatter").
  */
 
-import type { NavState } from '@yapaja/shared';
-import type { Widget } from '@yapaja/ui';
+import type { NavState } from '@yapaia/shared';
+import type { Widget } from '@yapaia/ui';
 import { formatDistance } from '../../routing/format.js';
 
 export const distanceWidget: Widget = {

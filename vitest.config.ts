@@ -7,11 +7,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
-      '@yapaja/shared': path.resolve(__dirname, 'packages/shared/src'),
-      '@yapaja/ui': path.resolve(__dirname, 'packages/ui/src'),
-      '@yapaja/addon-sdk': path.resolve(__dirname, 'packages/addon-sdk/src'),
-      '@yapaja/core': path.resolve(__dirname, 'apps/core/src'),
-      '@yapaja/web': path.resolve(__dirname, 'apps/web/src'),
+      '@yapaia/shared': path.resolve(__dirname, 'packages/shared/src'),
+      '@yapaia/ui': path.resolve(__dirname, 'packages/ui/src'),
+      '@yapaia/addon-sdk': path.resolve(__dirname, 'packages/addon-sdk/src'),
+      '@yapaia/core': path.resolve(__dirname, 'apps/core/src'),
+      '@yapaia/web': path.resolve(__dirname, 'apps/web/src'),
     },
   },
   test: {
@@ -26,7 +26,7 @@ export default defineConfig({
       // E09-T5 reference add-ons (docs/05 §6): deliberately NOT pnpm
       // workspace members (addons-examples/README.md), but their unit tests
       // still run as part of the ONE `npx vitest run` suite everyone uses --
-      // the `@yapaja/addon-sdk`/`@yapaja/shared` aliases below already
+      // the `@yapaia/addon-sdk`/`@yapaia/shared` aliases below already
       // resolve for them exactly like for every other package.
       'addons-examples/**/*.test.ts',
       // E10-T2: die Auswertungs-/Schwellenlogik der Performance-Pipeline

@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { buildServer } from '../index.js';
 import { closeDb } from '../db/index.js';
 import type { FastifyInstance } from 'fastify';
-import type { VehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile } from '@yapaia/shared';
 
 describe('Profile Routes Integration', () => {
   let server: FastifyInstance;

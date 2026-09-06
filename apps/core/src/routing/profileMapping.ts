@@ -40,7 +40,7 @@
  *    profile itself is never mutated.
  */
 
-import type { LatLng, RouteAvoidOverrides, RouteRequest, VehicleProfile } from '@yapaja/shared';
+import type { LatLng, RouteAvoidOverrides, RouteRequest, VehicleProfile } from '@yapaia/shared';
 import type {
   ValhallaExcludeLocation,
   ValhallaExcludePolygonRing,

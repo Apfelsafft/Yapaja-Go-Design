@@ -10,7 +10,7 @@
  * Sandbox-Escape-Angriffs-Fixture aus E09-T6, kein Referenz-Add-on), ob sein
  * deklarierter `core_api`-Semver-Range mit der Version erfüllt ist, die
  * `apps/core/package.json` gerade trägt -- mit derselben `satisfies()`-
- * Funktion aus `@yapaja/shared`, die auch der echte Installationspfad
+ * Funktion aus `@yapaia/shared`, die auch der echte Installationspfad
  * benutzt (`apps/core/src/addons/installService.ts`, Wargame W-11), nicht
  * einer zweiten, separat driftenden Implementierung.
  *
@@ -22,11 +22,11 @@
  * Versionsstand -- der Fall, den ein Release tatsächlich ausrollt.
  *
  * Warum `.ts` + `tsx` statt `.mjs` + `node` (wie die übrigen `scripts/*.mjs`):
- * `@yapaja/shared` wird im gesamten Monorepo über `tsconfig.base.json`s
+ * `@yapaia/shared` wird im gesamten Monorepo über `tsconfig.base.json`s
  * `paths`-Alias direkt auf dessen TS-Quellcode aufgelöst (TypeScript/tsup/
  * tsx/Vitest verstehen das) -- NICHT über die paketbasierte `exports`-
  * Auflösung auf ein gebautes `dist/`. Ein simples `node <script>.mjs` kennt
- * diesen Alias nicht und bräuchte stattdessen `@yapaja/shared`s gebautes
+ * diesen Alias nicht und bräuchte stattdessen `@yapaia/shared`s gebautes
  * `dist/index.js` -- das ist real, aber (unabhängig von dieser Aufgabe)
  * kaputt: `packages/shared`s `tsc`-Output referenziert relative Importe ohne
  * `.js`-Endung, was Node im ESM-Modus ablehnt (`ERR_MODULE_NOT_FOUND`) --
@@ -37,14 +37,14 @@
  * eigenständigen Packaging-Bug "nebenbei" zu reparieren.
  *
  * Verwendung (siehe root `package.json`s `addon-compat:check`):
- *   pnpm --filter @yapaja/core exec tsx ../../scripts/addon-compat-check.ts            # Bericht
- *   pnpm --filter @yapaja/core exec tsx ../../scripts/addon-compat-check.ts --check    # zusätzlich Exit 1 bei Inkompatibilität
+ *   pnpm --filter @yapaia/core exec tsx ../../scripts/addon-compat-check.ts            # Bericht
+ *   pnpm --filter @yapaia/core exec tsx ../../scripts/addon-compat-check.ts --check    # zusätzlich Exit 1 bei Inkompatibilität
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { satisfies, isValidRange } from '@yapaja/shared';
+import { satisfies, isValidRange } from '@yapaia/shared';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(__dirname, '..');

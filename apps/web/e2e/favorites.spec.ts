@@ -21,13 +21,13 @@
  * 5. Fully offline + no console/page errors.
  */
 import { test, expect, type Page } from '@playwright/test';
-import type { Route, SearchResult } from '@yapaja/shared';
+import type { Route, SearchResult } from '@yapaia/shared';
 import { FAVORITES_CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors, trackRequests } from './support/network.js';
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -205,7 +205,7 @@ test('[Flow 6] create favorite via destination sheet -> reload -> route via the 
   await expect(page.getByTestId('destination-sheet')).toBeVisible();
   await expect(page.getByTestId('destination-title')).toHaveText('Mein Lieblingsplatz');
   await expect(page.getByTestId('route-summary-panel')).toBeVisible({ timeout: 10_000 });
-  expect(await page.evaluate(() => window.__yapajaRoutingStore?.getState().activeRouteId)).toBe(
+  expect(await page.evaluate(() => window.__yapaiaRoutingStore?.getState().activeRouteId)).toBe(
     MAIN_ROUTE.id,
   );
 
@@ -224,7 +224,7 @@ test('[Flow 6] create favorite via destination sheet -> reload -> route via the 
   // ...and it is the SAME record the UI just routed to: the routing store's
   // destination carries the persisted favorite's name and coordinates.
   const routed = await page.evaluate(() => {
-    const state = window.__yapajaRoutingStore?.getState();
+    const state = window.__yapaiaRoutingStore?.getState();
     return state
       ? { name: state.destinationName, latlng: state.destination }
       : null;
@@ -268,10 +268,10 @@ test('active-profile invariant (e2e): tapping a favorite uses the profile active
   // polls/fetches profiles on mount; re-fetch explicitly here to avoid a
   // race against that background refresh).
   await page.evaluate(async () => {
-    await window.__yapajaProfileStore?.getState().fetchProfiles();
+    await window.__yapaiaProfileStore?.getState().fetchProfiles();
   });
   await expect
-    .poll(() => page.evaluate(() => window.__yapajaProfileStore?.getState().activeProfile?.id))
+    .poll(() => page.evaluate(() => window.__yapaiaProfileStore?.getState().activeProfile?.id))
     .toBe(profileBId);
 
   await ensureFavoritesDrawerOnTab(page, 'favorites');

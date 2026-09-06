@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { closeDb } from '../db/index.js';
-import type { VehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile } from '@yapaia/shared';
 import { ProfileService } from './service.js';
 
 describe('ProfileService', () => {

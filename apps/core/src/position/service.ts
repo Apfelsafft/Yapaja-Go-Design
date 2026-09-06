@@ -8,7 +8,7 @@
  * selection and the publishing behavior around it (ADR-007).
  */
 
-import { checkPosition, validatePosition, type Position } from '@yapaja/shared';
+import { checkPosition, validatePosition, type Position } from '@yapaia/shared';
 import type { EventBus } from '../bus/index.js';
 
 /* eslint-disable no-undef -- setTimeout/setInterval/clear* are standard Node

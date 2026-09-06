@@ -8,9 +8,9 @@
  * is trivially unit-testable without mounting anything.
  */
 
-import type { SlotId, Widget, WidgetSize } from '@yapaja/ui';
-import { SLOT_IDS } from '@yapaja/ui';
-import type { WidgetRegistry } from '@yapaja/ui';
+import type { SlotId, Widget, WidgetSize } from '@yapaia/ui';
+import { SLOT_IDS } from '@yapaia/ui';
+import type { WidgetRegistry } from '@yapaia/ui';
 import type { SlotLayout, WidgetInstance } from '../layout.js';
 
 /**

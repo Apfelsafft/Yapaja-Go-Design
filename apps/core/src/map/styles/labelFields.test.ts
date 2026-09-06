@@ -29,7 +29,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { parseStyleOptions, applyStyleOptions } from './options';
-import { buildYapajaLightStyle } from './yapaja-light';
+import { buildYapaiaLightStyle } from './yapaja-light';
 
 /** Was `OmtLanguageUtils.getNames` an jedes beschriftbare Element schreibt. */
 const TILE_NAME_FIELDS: ReadonlySet<string> = new Set([
@@ -48,7 +48,7 @@ describe('Sprachwahl der Beschriftung', () => {
   // ─── DER EIGENTLICHE PUNKT ────────────────────────────────────────────────
   it('beschriftet nur aus Feldern, die es in den Kacheln gibt', () => {
     for (const lang of OFFERED_LANGS) {
-      const styled = applyStyleOptions(buildYapajaLightStyle(), { lang });
+      const styled = applyStyleOptions(buildYapaiaLightStyle(), { lang });
       const symbols = styled.layers.filter((l) => l.type === 'symbol');
       expect(symbols.length, 'kein Symbol-Layer — Test prüft nichts').toBeGreaterThan(0);
 

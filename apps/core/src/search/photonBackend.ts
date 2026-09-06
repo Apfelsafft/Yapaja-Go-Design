@@ -8,7 +8,7 @@
  * ("Photon down -> next backend + degraded, never a crash"). Hard 3s
  * timeout per request.
  */
-import type { SearchResult } from '@yapaja/shared';
+import type { SearchResult } from '@yapaia/shared';
 import { GeocoderBackendError } from './errors.js';
 import { defaultFetch, type FetchLike, type HttpResponseLike } from './httpTypes.js';
 import type { GeocoderBackend, ReverseQuery, SearchLogger, SearchQuery } from './types.js';

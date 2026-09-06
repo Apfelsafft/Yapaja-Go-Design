@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { setTimeout } from 'node:timers';
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { LatLng, Route, RouteRequest, SearchResult, VehicleProfile } from '@yapaja/shared';
+import type { LatLng, Route, RouteRequest, SearchResult, VehicleProfile } from '@yapaia/shared';
 import { EventBus } from '../bus/index.js';
 import { encodePolyline6 } from '../routing/polyline.js';
 import { RoutingError } from '../routing/errors.js';

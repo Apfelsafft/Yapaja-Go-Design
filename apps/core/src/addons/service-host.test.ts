@@ -22,7 +22,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { AddonManifest } from '@yapaja/shared';
+import type { AddonManifest } from '@yapaia/shared';
 import { closeDb, getDb } from '../db/index.js';
 import { EventBus } from '../bus/index.js';
 import { AddonRepository } from './repository.js';

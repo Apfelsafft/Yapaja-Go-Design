@@ -4,8 +4,8 @@
  * ─── DIE MELDUNG ────────────────────────────────────────────────────────────
  * „Und das schlimmste, nach kurzer Zeit verschwindet die gesamte Anzeige und
  * man sieht nur noch einen blanken Screen. Nur die HA Menüs sind noch da, die
- * Yapaja Oberfläche ist weg. Wenn ich auf ein anderes HA Menü wechsle und dann
- * wieder zurück zu Yapaja ist alles wieder da und ich werde gefragt ob ich die
+ * Yapaia Oberfläche ist weg. Wenn ich auf ein anderes HA Menü wechsle und dann
+ * wieder zurück zu Yapaia ist alles wieder da und ich werde gefragt ob ich die
  * Navigation fortsetzen möchte. Bei Bestätigung wird weiter navigiert aber die
  * blaue Streckenlinie fehlt jetzt."
  *
@@ -51,7 +51,7 @@ test.afterAll(async () => {
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -90,7 +90,7 @@ async function planeUndFahre(page: Page): Promise<string> {
   const route = ((await res.json()) as { data: Array<{ id: string }> }).data[0];
 
   await page.evaluate((r) => {
-    window.__yapajaRoutingStore?.setState({ routes: [r] as never, activeRouteId: (r as { id: string }).id });
+    window.__yapaiaRoutingStore?.setState({ routes: [r] as never, activeRouteId: (r as { id: string }).id });
   }, route as never);
 
   const start = await page.request.post(`${LONG_DRIVE_CORE_BASE_URL}/api/v1/navigation/start`, {
@@ -227,7 +227,7 @@ test.describe('Eine laengere Testfahrt', () => {
     // versteht -- die Ebene gaebe es dann nicht. Dass sie da ist UND einen
     // Ausdruck traegt, ist der Beleg, dass der Ausdruck gilt.
     const farben = await page.evaluate(() => {
-      const map = window.__yapajaMapController?.getMap?.();
+      const map = window.__yapaiaMapController?.getMap?.();
       if (!map) return null;
       return {
         akzent: map.getPaintProperty('route-main-accent', 'line-color'),
@@ -340,7 +340,7 @@ test.describe('Eine laengere Testfahrt', () => {
   // ─── DER BLANKE BILDSCHIRM, ENDLICH MIT URSACHE ───────────────────────────
   // „Den Zoom konnte ich nicht testen da es gleich gecrasht ist."
   //
-  // In den Kurs-Modi dreht Yapaja die Karte dem Fahrzeug nach. Die Abfrage,
+  // In den Kurs-Modi dreht Yapaia die Karte dem Fahrzeug nach. Die Abfrage,
   // ob ueberhaupt gedreht werden muss, verglich den GPS-Kurs (0..360) mit dem
   // Kartenwinkel -- und den speichert MapLibre GEWICKELT. Im Browser
   // gemessen: gesetzt 200, gelesen -160. Der alte Vergleich las daraus 360
@@ -388,7 +388,7 @@ test.describe('Eine laengere Testfahrt', () => {
         // Und die Karte zeigt wirklich dorthin -- der Vergleich waere sonst
         // auch dadurch zu erfuellen, dass gar nicht mehr gedreht wird.
         const gelesen = await page.evaluate(
-          () => window.__yapajaMapController!.getMap!()!.getBearing(),
+          () => window.__yapaiaMapController!.getMap!()!.getBearing(),
         );
         const abstand = Math.abs(((kurs - gelesen + 540) % 360) - 180);
         expect(abstand, `Kartenwinkel bei Kurs ${kurs}: ${gelesen}`).toBeLessThan(1);
@@ -403,7 +403,7 @@ test.describe('Eine laengere Testfahrt', () => {
 
 /** Die Breite, auf der der blaue Punkt GERADE gezeichnet ist. */
 async function puckLat(page: Page): Promise<number | null> {
-  return page.evaluate(() => window.__yapajaPuckPosition?.lat ?? null);
+  return page.evaluate(() => window.__yapaiaPuckPosition?.lat ?? null);
 }
 
 /**
@@ -421,7 +421,7 @@ async function tasteAb(page: Page, dauerMs: number): Promise<number[]> {
       const werte: number[] = [];
       const start = performance.now();
       const schritt = (): void => {
-        const lat = window.__yapajaPuckPosition?.lat;
+        const lat = window.__yapaiaPuckPosition?.lat;
         if (typeof lat === 'number') werte.push(lat);
         if (performance.now() - start < ms) requestAnimationFrame(schritt);
         else fertig(werte);
@@ -434,7 +434,7 @@ async function tasteAb(page: Page, dauerMs: number): Promise<number[]> {
 /** Wo das Fahrzeug im Bild sitzt, als Anteil der Kartenhoehe von oben. */
 async function fahrzeugImBild(page: Page): Promise<number> {
   return page.evaluate(() => {
-    const map = window.__yapajaMapController!.getMap!()!;
+    const map = window.__yapaiaMapController!.getMap!()!;
     return map.project(map.getCenter()).y / map.getCanvas().clientHeight;
   });
 }
@@ -481,7 +481,7 @@ async function fahreZu(page: Page, index: number): Promise<void> {
 /** Die `part`-Eigenschaften der aktiven Route, in Zeichenreihenfolge. */
 async function teileDerRoute(page: Page): Promise<string[]> {
   return page.evaluate(async () => {
-    const map = window.__yapajaMapController?.getMap?.();
+    const map = window.__yapaiaMapController?.getMap?.();
     const source = map?.getSource('route-main-source') as
       | { getData?: () => Promise<unknown> }
       | undefined;
@@ -499,7 +499,7 @@ async function teileDerRoute(page: Page): Promise<string[]> {
  */
 async function geometrieDerTeile(page: Page): Promise<{ grauM: number; luecke: number }> {
   return page.evaluate(async () => {
-    const map = window.__yapajaMapController?.getMap?.();
+    const map = window.__yapaiaMapController?.getMap?.();
     const source = map?.getSource('route-main-source') as
       | { getData?: () => Promise<unknown> }
       | undefined;

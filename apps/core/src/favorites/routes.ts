@@ -15,8 +15,8 @@
  *  - DELETE /history            -> clear all, 204
  */
 import type { FastifyPluginAsync } from 'fastify';
-import type { ApiError, Favorite, HistoryEntry } from '@yapaja/shared';
-import { validateFavorite, getValidationErrorsFavorite } from '@yapaja/shared';
+import type { ApiError, Favorite, HistoryEntry } from '@yapaia/shared';
+import { validateFavorite, getValidationErrorsFavorite } from '@yapaia/shared';
 import { FavoriteError, FavoriteService } from './service.js';
 import { HistoryError, HistoryService } from './historyService.js';
 

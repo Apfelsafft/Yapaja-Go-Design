@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 import { EventBus } from './index.js';
 
 function makePosition(overrides: Partial<Position> = {}): Position {

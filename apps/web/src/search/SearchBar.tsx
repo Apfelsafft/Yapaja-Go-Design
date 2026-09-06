@@ -4,7 +4,7 @@
  *
  * Placement: top-CENTER. The real top-bar ships with E07; until then this
  * is placed so it clears the two corners that are already taken (see
- * `ProfilesPanel`'s placement comment): top-left has the "Yapaja Go" brand
+ * `ProfilesPanel`'s placement comment): top-left has the "Yapaia Go" brand
  * badge + the profile chip (`left-44`), top-right has MapLibre's own
  * zoom/compass `NavigationControl` + `RegionsPanel`. Top-center is free of
  * persistent controls, so that's where this sits.
@@ -35,7 +35,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { Favorite, SearchResult } from '@yapaja/shared';
+import type { Favorite, SearchResult } from '@yapaia/shared';
 import { useMapStore } from '../state/mapStore.js';
 import { useRoutingStore } from '../routing/store.js';
 import { formatDistance } from '../routing/format.js';

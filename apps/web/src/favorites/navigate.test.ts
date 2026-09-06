@@ -5,7 +5,7 @@
  * TIME, never one captured/frozen when the favorite was created.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { Favorite, VehicleProfile } from '@yapaja/shared';
+import type { Favorite, VehicleProfile } from '@yapaia/shared';
 
 vi.mock('../routing/store.js', () => {
   const requestRoute = vi.fn().mockResolvedValue(undefined);

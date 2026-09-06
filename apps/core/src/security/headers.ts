@@ -82,8 +82,8 @@ import fp from 'fastify-plugin';
 export interface SecurityHeaderOptions {
   /**
    * Value for the CSP `frame-ancestors` directive. Defaults to `'self'`.
-   * An operator embedding Yapaja Go in a dashboard on a DIFFERENT origin sets
-   * `YAPAJA_FRAME_ANCESTORS` to that origin (e.g. `'self' https://dash.lan`);
+   * An operator embedding Yapaia Go in a dashboard on a DIFFERENT origin sets
+   * `YAPAIA_FRAME_ANCESTORS` to that origin (e.g. `'self' https://dash.lan`);
    * the empty/unset case keeps the safe default rather than falling open.
    */
   frameAncestors?: string;
@@ -99,7 +99,7 @@ export const DEFAULT_FRAME_ANCESTORS = "'self'";
  * back to the default here is fail-CLOSED, not fail-open.
  */
 export function resolveFrameAncestors(env: Record<string, string | undefined>): string {
-  const raw = env.YAPAJA_FRAME_ANCESTORS;
+  const raw = env.YAPAIA_FRAME_ANCESTORS;
   if (typeof raw !== 'string') return DEFAULT_FRAME_ANCESTORS;
   const trimmed = raw.trim();
   return trimmed.length > 0 ? trimmed : DEFAULT_FRAME_ANCESTORS;

@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { NavState } from '@yapaja/shared';
+import type { NavState } from '@yapaia/shared';
 
 const mockMap = { getZoom: vi.fn(() => 14) };
 

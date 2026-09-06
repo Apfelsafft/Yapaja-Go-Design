@@ -5,7 +5,7 @@
  * Die naheliegende Quelle für ein Telefon, ein Tablet oder ein
  * Android-Autoradio ist der Browser (`browserSource.ts`). Der Browser gibt den
  * GPS-Sensor aber NUR in einem sicheren Kontext frei — Home Assistant über
- * `http://…:8123` erreicht, und die Ortung ist gesperrt, egal was Yapaja tut.
+ * `http://…:8123` erreicht, und die Ortung ist gesperrt, egal was Yapaia tut.
  * Genau dieser Fall liegt im Betrieb vor (siehe `docs/gps-endgeraete.md`).
  *
  * Die Home-Assistant-Companion-App umgeht das vollständig: sie meldet an Home
@@ -29,7 +29,7 @@
  * nächste Priorität zurück (ADR-007).
  */
 
-import { checkPosition, type Position } from '@yapaja/shared';
+import { checkPosition, type Position } from '@yapaia/shared';
 import { fetchHaStates, type HaClientLogger, type HaEntityState } from '../../ha/client.js';
 import type { HaConnection } from '../../ha/config.js';
 import { PlausibilityGuard } from '../guard.js';

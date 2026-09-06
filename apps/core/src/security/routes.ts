@@ -55,7 +55,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import type { ApiError } from '@yapaja/shared';
+import type { ApiError } from '@yapaia/shared';
 import {
   SECURITY_VECTORS,
   SecurityEventLog,

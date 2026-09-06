@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { NavState } from '@yapaja/shared';
+import type { NavState } from '@yapaia/shared';
 import { mapTapIntent, ROUTE_TAP_RADIUS_PX, type MapTapContext } from './mapTapIntent.js';
 
 function ctx(overrides: Partial<MapTapContext> = {}): MapTapContext {

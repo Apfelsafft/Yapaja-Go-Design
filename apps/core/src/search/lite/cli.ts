@@ -23,7 +23,7 @@ import { fileURLToPath } from 'url';
 import { normalizeGeoJsonSeqLine, type NormalizedRecord } from './extract.js';
 import { buildLiteIndexFile } from './buildIndex.js';
 import { osmiumFilters } from './poiCategories.js';
-import { appendAll } from '@yapaja/shared';
+import { appendAll } from '@yapaia/shared';
 import { PlaceLocator, type PlacePoint } from './placeLocator.js';
 import { LEGACY_LITE_SEARCH_DB, liteSearchDbPathForRegion } from './paths.js';
 import { readLiteIndexMeta } from './reader.js';

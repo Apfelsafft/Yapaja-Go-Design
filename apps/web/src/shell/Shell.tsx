@@ -30,9 +30,9 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ShellMode, SlotId, Widget } from '@yapaja/ui';
-import { SLOT_IDS } from '@yapaja/ui';
-import type { Position } from '@yapaja/shared';
+import type { ShellMode, SlotId, Widget } from '@yapaia/ui';
+import { SLOT_IDS } from '@yapaia/ui';
+import type { Position } from '@yapaia/shared';
 import { resolveSlotWidgets, defaultLayout, type WidgetInstance, type SlotLayout } from './layout.js';
 import { useLayoutStore } from './layoutStore.js';
 import { shellWidgetRegistry } from './widgets/registry.js';

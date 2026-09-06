@@ -4,7 +4,7 @@
  * registers them and vanish the instant the add-on is disabled (the store is
  * cleared by the bridge teardown) -- no user layout edit needed.
  *
- * Slot -> screen position mirrors the shell's slot vocabulary (`@yapaja/ui`
+ * Slot -> screen position mirrors the shell's slot vocabulary (`@yapaia/ui`
  * `SLOT_IDS`); an unknown slot falls back to top-right. Rendering is purely
  * presentational -- `AddonWidgetView` owns the per-widget live data.
  */

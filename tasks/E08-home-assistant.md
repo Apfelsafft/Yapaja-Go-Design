@@ -48,7 +48,7 @@ für JSON-Payloads. `select.yapaja_profile`-Options dynamisch aus Profilliste
 `mqtt.discovery: false`).
 
 **Akzeptanz:** 1. Gegen echtes HA (docker-compose-Testsetup mit HA-Container,
-nightly) erscheinen alle Entitäten am Gerät „Yapaja Go" und zeigen Werte einer
+nightly) erscheinen alle Entitäten am Gerät „Yapaia Go" und zeigen Werte einer
 Simulator-Fahrt; 2. HA-Neustart-Simulation → Entitäten wieder da; 3. Button/
 Select in HA steuern die App nachweislich.
 **Pflicht-Tests:** Unit: Config-Payloads gegen eingefrorene Snapshots (jede

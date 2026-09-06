@@ -21,7 +21,7 @@ import { trackRequests, collectPageErrors } from './support/network.js';
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -157,16 +157,16 @@ test.describe('style switching', () => {
     await viewModeBtn.click(); // 2d-course
     await viewModeBtn.click(); // 3d-course
     await expect
-      .poll(() => page.evaluate(() => window.__yapajaMapController?.getMap()?.getPitch()), { timeout: 5_000 })
+      .poll(() => page.evaluate(() => window.__yapaiaMapController?.getMap()?.getPitch()), { timeout: 5_000 })
       .toBeGreaterThan(50);
 
     const targetCamera = { center: [8.4, 49.0] as [number, number], zoom: 12.5, bearing: 37, pitch: 20 };
     await page.evaluate((camera) => {
-      window.__yapajaMapController?.setCamera(camera);
+      window.__yapaiaMapController?.setCamera(camera);
     }, targetCamera);
 
     await expect
-      .poll(() => page.evaluate(() => window.__yapajaMapController?.getMap()?.getZoom()))
+      .poll(() => page.evaluate(() => window.__yapaiaMapController?.getMap()?.getZoom()))
       .toBeCloseTo(targetCamera.zoom, 1);
 
     await openStylePanel(page);
@@ -176,7 +176,7 @@ test.describe('style switching', () => {
       .toBeLessThan(0.3);
 
     const camera = await page.evaluate(() => {
-      const map = window.__yapajaMapController?.getMap();
+      const map = window.__yapaiaMapController?.getMap();
       const center = map?.getCenter();
       return center
         ? { lng: center.lng, lat: center.lat, zoom: map?.getZoom(), bearing: map?.getBearing(), pitch: map?.getPitch() }
@@ -198,7 +198,7 @@ test.describe('style switching', () => {
     await waitForMapReady(page);
 
     await page.evaluate(() => {
-      const map = window.__yapajaMapController?.getMap();
+      const map = window.__yapaiaMapController?.getMap();
       if (!map) {
         throw new Error('no live map');
       }
@@ -215,7 +215,7 @@ test.describe('style switching', () => {
     });
 
     await expect(
-      await page.evaluate(() => Boolean(window.__yapajaMapController?.getMap()?.getLayer('e2e-dummy-layer'))),
+      await page.evaluate(() => Boolean(window.__yapaiaMapController?.getMap()?.getLayer('e2e-dummy-layer'))),
     ).toBe(true);
 
     await openStylePanel(page);
@@ -228,18 +228,18 @@ test.describe('style switching', () => {
     // assert the dummy layer/source are still present on the SAME map.
     await expect
       .poll(() =>
-        page.evaluate(() => Boolean(window.__yapajaMapController?.getMap()?.getLayer('e2e-dummy-layer'))),
+        page.evaluate(() => Boolean(window.__yapaiaMapController?.getMap()?.getLayer('e2e-dummy-layer'))),
       )
       .toBe(true);
     expect(
-      await page.evaluate(() => Boolean(window.__yapajaMapController?.getMap()?.getSource('e2e-dummy-source'))),
+      await page.evaluate(() => Boolean(window.__yapaiaMapController?.getMap()?.getSource('e2e-dummy-source'))),
     ).toBe(true);
 
     // Switch again (contrast) — must still survive a second switch.
     await selectStyle(page, 'yapaja-contrast');
     await expect
       .poll(() =>
-        page.evaluate(() => Boolean(window.__yapajaMapController?.getMap()?.getLayer('e2e-dummy-layer'))),
+        page.evaluate(() => Boolean(window.__yapaiaMapController?.getMap()?.getLayer('e2e-dummy-layer'))),
       )
       .toBe(true);
   });
@@ -258,7 +258,7 @@ test.describe('style options', () => {
     await expect
       .poll(() =>
         page.evaluate(() => {
-          const layer = window.__yapajaMapController?.getMap()?.getStyle()?.layers?.find((l) => l.id === 'poi-labels');
+          const layer = window.__yapaiaMapController?.getMap()?.getStyle()?.layers?.find((l) => l.id === 'poi-labels');
           return (layer as { layout?: { visibility?: string } } | undefined)?.layout?.visibility;
         }),
       )
@@ -268,7 +268,7 @@ test.describe('style options', () => {
     await expect
       .poll(() =>
         page.evaluate(() => {
-          const layer = window.__yapajaMapController?.getMap()?.getStyle()?.layers?.find((l) => l.id === 'poi-labels');
+          const layer = window.__yapaiaMapController?.getMap()?.getStyle()?.layers?.find((l) => l.id === 'poi-labels');
           return (layer as { layout?: { visibility?: string } } | undefined)?.layout?.visibility;
         }),
       )
@@ -282,7 +282,7 @@ test.describe('style options', () => {
 
     async function currentPlaceLabelSize(): Promise<number | undefined> {
       return page.evaluate(() => {
-        const layer = window.__yapajaMapController
+        const layer = window.__yapaiaMapController
           ?.getMap()
           ?.getStyle()
           ?.layers?.find((l) => l.id === 'place-labels');
@@ -311,7 +311,7 @@ test.describe('style options', () => {
     await expect
       .poll(() =>
         page.evaluate(() => {
-          const layer = window.__yapajaMapController
+          const layer = window.__yapaiaMapController
             ?.getMap()
             ?.getStyle()
             ?.layers?.find((l) => l.id === 'place-labels');
@@ -372,7 +372,7 @@ test.describe('style options', () => {
       .poll(
         () =>
           page.evaluate(() => {
-            const layers = window.__yapajaMapController?.getMap()?.getStyle()?.layers ?? [];
+            const layers = window.__yapaiaMapController?.getMap()?.getStyle()?.layers ?? [];
             const poi = layers.find((l) => l.id === 'poi-labels') as { layout?: { visibility?: string } } | undefined;
             return poi?.layout?.visibility;
           }),

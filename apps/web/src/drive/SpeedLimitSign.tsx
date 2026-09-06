@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import type { NavState } from '@yapaja/shared';
+import type { NavState } from '@yapaia/shared';
 import { useNavState, useNavStore } from './navStore.js';
 import { isDriveActive } from './ManeuverPanel.js';
 import { TOP_RIGHT_INSET_PX } from '../shell/mapControlLayout.js';

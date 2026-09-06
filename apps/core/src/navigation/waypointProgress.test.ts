@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { LatLng } from '@yapaja/shared';
+import type { LatLng } from '@yapaia/shared';
 import { buildRouteGeometryFromPoints } from './mapMatching.js';
 import {
   anchorWaypoints,

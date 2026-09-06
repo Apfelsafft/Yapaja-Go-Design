@@ -14,7 +14,7 @@
  * - Source selection: nicht senden, wenn der Core eine ANDERE Quelle erzwingt
  */
 
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 
 export type BrowserSourceError =
   | 'insecure-context'

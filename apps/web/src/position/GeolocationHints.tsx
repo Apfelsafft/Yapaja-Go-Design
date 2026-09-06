@@ -30,7 +30,7 @@ export default function GeolocationHints({ sourceState }: GeolocationHintsProps)
             <p className="font-semibold">Standortzugriff nicht verfügbar (unsicherer Kontext)</p>
             <p className="text-sm">
               Der Browser gibt den GPS-Sensor nur über HTTPS frei. Diese Seite läuft über
-              HTTP — daran kann Yapaja nichts ändern, das entscheidet der Browser.
+              HTTP — daran kann Yapaia nichts ändern, das entscheidet der Browser.
             </p>
             {/* „Nutze Home Assistant Ingress (immer HTTPS)" stand hier bis
                 2026-09-02 und war schlicht falsch: Ingress erbt das Protokoll

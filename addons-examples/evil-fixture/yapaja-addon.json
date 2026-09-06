@@ -3,7 +3,7 @@
   "name": "EVIL FIXTURE -- DO NOT INSTALL",
   "version": "1.0.0",
   "core_api": "*",
-  "author": "Yapaja Go (E09-T6 Sicherheits-Testsuite)",
+  "author": "Yapaia Go (E09-T6 Sicherheits-Testsuite)",
   "license": "MIT",
   "description": "TEST-FIXTURE. Versucht systematisch JEDE verbotene Aktion (Sandbox-Escape, Scope-Umgehung, Egress, Storage-/FS-/Topic-Escape, Token-Replay). Gehoert NIEMALS in Registry oder Store.",
   "requires_online": false,

@@ -66,7 +66,7 @@ describe('yapaja_go/config.yaml is valid YAML with the required HA add-on keys',
 
   it('has the required top-level identity fields', () => {
     const config = loadConfig();
-    expect(config.name).toBe('Yapaja Go');
+    expect(config.name).toBe('Yapaia Go');
     expect(config.slug).toBe('yapaja_go');
     expect(typeof config.version).toBe('string');
     expect(config.version.length).toBeGreaterThan(0);
@@ -210,7 +210,7 @@ describe('repository layout makes the add-on discoverable via the HA GUI', () =>
     const parsed = load(readFileSync(join(REPO_ROOT, 'repository.yaml'), 'utf-8'));
     expect(typeof parsed).toBe('object');
     const repo = parsed as { name?: string; url?: string; maintainer?: string };
-    expect(repo.name).toBe('Yapaja Go');
+    expect(repo.name).toBe('Yapaia Go');
     expect(repo.url).toMatch(/^https:\/\/github\.com\/.+/);
     expect(typeof repo.maintainer).toBe('string');
     expect((repo.maintainer ?? '').length).toBeGreaterThan(0);
@@ -237,7 +237,7 @@ describe('repository layout makes the add-on discoverable via the HA GUI', () =>
  *
  *   1. `config.yaml` deklarierte `image: ghcr.io/yapaja/yapaja-go-{arch}`.
  *      Steht dort ein `image:`, ZIEHT der Supervisor und baut nicht. Dieses
- *      Image existierte nie -- `yapaja` ist nicht einmal der Namensraum
+ *      Image existierte nie -- `yapaia` ist nicht einmal der Namensraum
  *      dieses Repositories, und kein Workflow hat `yapaja_go/Dockerfile` je
  *      gebaut oder gepusht.
  *   2. Der Dockerfile kopierte aus der REPO-WURZEL (`COPY apps/ ...`). Der
@@ -662,12 +662,12 @@ describe('die Installation kann tatsaechlich durchlaufen', () => {
   /** Der Core braucht `LOG_LEVEL` trotzdem (pino). Wenn es nicht mehr global
    *  kommt, muss es lokal gesetzt werden -- sonst ist die Option des
    *  Betreibers stillschweigend wirkungslos. */
-  it('core/run setzt LOG_LEVEL lokal aus YAPAJA_LOG_LEVEL', () => {
+  it('core/run setzt LOG_LEVEL lokal aus YAPAIA_LOG_LEVEL', () => {
     const run = readFileSync(
       join(ROOTFS_DIR, 'etc/s6-overlay/s6-rc.d/core/run'),
       'utf-8',
     );
-    expect(run).toMatch(/export\s+LOG_LEVEL=.*YAPAJA_LOG_LEVEL/);
+    expect(run).toMatch(/export\s+LOG_LEVEL=.*YAPAIA_LOG_LEVEL/);
   });
 
   /**

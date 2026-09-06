@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import type { ManeuverType } from '@yapaja/shared';
+import type { ManeuverType } from '@yapaia/shared';
 
 export type ArrowKey =
   | 'turn_left'

@@ -18,7 +18,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { SHELL_CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors, trackRequests } from './support/network.js';
@@ -191,7 +191,7 @@ test.describe('Widget shell (E07-T1)', () => {
     expect(driveWsUrls).toHaveLength(1);
 
     // The in-page store's own open-counter corroborates the network-level count.
-    const socketOpens = await page.evaluate(() => window.__yapajaShellWsStore?.getState().socketOpens ?? -1);
+    const socketOpens = await page.evaluate(() => window.__yapaiaShellWsStore?.getState().socketOpens ?? -1);
     expect(socketOpens).toBe(1);
 
     expect(pageErrors).toEqual([]);
@@ -212,14 +212,14 @@ test.describe('Widget shell (E07-T1)', () => {
     // Simulate what E07-T2's drag-and-drop editor will do: place a widget
     // via the layout store directly (no editor UI exists yet, out of scope).
     await page.evaluate(() => {
-      window.__yapajaShellLayoutStore?.getState().setSlotWidgets('explore', 'top-bar', [
+      window.__yapaiaShellLayoutStore?.getState().setSlotWidgets('explore', 'top-bar', [
         { instanceId: 'e2e-clock', widgetId: 'clock', size: 'S' },
       ]);
     });
 
     // Wait for the debounced save (local + server) to land.
     await expect
-      .poll(() => page.evaluate(() => window.localStorage.getItem('yapaja:shell:layouts')), { timeout: 5_000 })
+      .poll(() => page.evaluate(() => window.localStorage.getItem('yapaia:shell:layouts')), { timeout: 5_000 })
       .toContain('e2e-clock');
     await expect
       .poll(
@@ -304,7 +304,7 @@ test.describe('Widget shell (E07-T1)', () => {
           updatedAt: Date.now(),
         },
       };
-      window.localStorage.setItem('yapaja:shell:layouts', JSON.stringify(layouts));
+      window.localStorage.setItem('yapaia:shell:layouts', JSON.stringify(layouts));
     });
 
     await page.reload();

@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { LatLng, Position, Route, RouteRequest, VehicleProfile } from '@yapaja/shared';
+import type { LatLng, Position, Route, RouteRequest, VehicleProfile } from '@yapaia/shared';
 import { EventBus } from '../bus/index.js';
 import {
   NavigationService,

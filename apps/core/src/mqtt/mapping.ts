@@ -3,7 +3,7 @@
  * functions only -- no bus/MQTT-client access -- so each mapping is
  * independently unit-testable.
  */
-import type { ManeuverType, NavInstructionPayload, NavState, Route } from '@yapaja/shared';
+import type { ManeuverType, NavInstructionPayload, NavState, Route } from '@yapaia/shared';
 
 /**
  * `ManeuverType` -> mdi icon name for `yapaja/nav/instruction`'s `icon`
@@ -117,7 +117,7 @@ export interface MqttRouteSummaryPayload {
  * `yapaja/route/summary` (docs/03 §4): `via` is the ordered list of unique,
  * non-empty street names encountered across the route's maneuvers -- the
  * same `street_names` Valhalla already attaches to each `Maneuver`
- * (`@yapaja/shared`), deduplicated in first-seen order (no invented ranking).
+ * (`@yapaia/shared`), deduplicated in first-seen order (no invented ranking).
  */
 export function buildRouteSummaryPayload(route: Route): MqttRouteSummaryPayload {
   const seen = new Set<string>();

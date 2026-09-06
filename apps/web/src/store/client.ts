@@ -8,7 +8,7 @@
  * (ingress-sub-path-safe, W-15).
  */
 
-import type { AddonManifest } from '@yapaja/shared';
+import type { AddonManifest } from '@yapaia/shared';
 import type { InstalledAddon } from '../addons/client.js';
 
 export interface RegistryEntryView {

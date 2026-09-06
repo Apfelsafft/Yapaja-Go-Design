@@ -11,7 +11,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import type { ApiError, Route } from '@yapaja/shared';
+import type { ApiError, Route } from '@yapaia/shared';
 import type { PositionService } from '../service.js';
 import {
   SimulatorSource,

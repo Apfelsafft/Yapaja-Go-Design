@@ -1,7 +1,7 @@
 # Valhalla Routing Service
 
 Valhalla liefert Routenberechnung (inkl. LKW/Wohnmobil-Costing), Turn-by-Turn-
-Manöver, Isochronen und Map-Matching für Yapaja Go. Der Service läuft als Teil
+Manöver, Isochronen und Map-Matching für Yapaia Go. Der Service läuft als Teil
 des Docker-Compose-Stacks (`docker compose --profile routing up -d`).
 
 ## ADR-014: gis-ops Auto-Build-Image statt offiziellem `valhalla/valhalla`

@@ -191,11 +191,11 @@ export const shellWsManager = new ShellWsManager(
 
 declare global {
   interface Window {
-    /** Debug/E2E hook, mirrors `window.__yapajaPositionStore`/`__yapajaNavStore`. */
-    __yapajaShellWsStore?: typeof useShellWsStore;
+    /** Debug/E2E hook, mirrors `window.__yapaiaPositionStore`/`__yapaiaNavStore`. */
+    __yapaiaShellWsStore?: typeof useShellWsStore;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaShellWsStore = useShellWsStore;
+  window.__yapaiaShellWsStore = useShellWsStore;
 }

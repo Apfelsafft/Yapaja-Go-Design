@@ -32,7 +32,7 @@
  *      does the banner disappear.
  *
  *   4. DISABLE TEARS DOWN IMMEDIATELY: after `POST /addons/:id/disable` +
- *      the imperative `window.__yapajaRefreshAddons()` reconcile hook, the
+ *      the imperative `window.__yapaiaRefreshAddons()` reconcile hook, the
  *      iframe, the map layer, and the widget are ALL gone -- no residue.
  *
  * Runs against its own dedicated core (`ADDON_UI_CORE_BASE_URL`) with its own
@@ -64,7 +64,7 @@ const MAP_LAYER_ID = `addon:${ADDON_ID}:route`;
 
 /**
  * The fixture add-on's UI. Deliberately hand-rolls the raw postMessage wire
- * protocol (`@yapaja/addon-sdk`'s `protocol.ts`) instead of shipping the
+ * protocol (`@yapaia/addon-sdk`'s `protocol.ts`) instead of shipping the
  * built SDK bundle -- no bundler step needed for a tiny fixture, and it
  * proves the bridge enforces the protocol/scopes regardless of whether the
  * (untrusted, replaceable) SDK is used at all, exactly as `bridge.ts`'s doc
@@ -169,7 +169,7 @@ const FIXTURE_ADDON_JS = `(function () {
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -207,7 +207,7 @@ async function installAndEnableFixture(page: Page): Promise<void> {
   expect(enableResponse.status()).toBe(200);
 
   await page.evaluate(async () => {
-    await window.__yapajaRefreshAddons?.();
+    await window.__yapaiaRefreshAddons?.();
   });
 }
 
@@ -273,7 +273,7 @@ test.describe('Add-on UI runtime (E09-T2, W-10)', () => {
       .poll(
         async () =>
           page.evaluate((layerId) => {
-            const map = window.__yapajaMapController?.getMap?.();
+            const map = window.__yapaiaMapController?.getMap?.();
             return Boolean(map && map.getSource(layerId) && map.getLayer(layerId));
           }, MAP_LAYER_ID),
         { timeout: 10_000 },
@@ -308,7 +308,7 @@ test.describe('Add-on UI runtime (E09-T2, W-10)', () => {
     const disableResponse = await page.request.post(`${ADDON_UI_CORE_BASE_URL}/api/v1/addons/${ADDON_ID}/disable`);
     expect(disableResponse.status()).toBe(200);
     await page.evaluate(async () => {
-      await window.__yapajaRefreshAddons?.();
+      await window.__yapaiaRefreshAddons?.();
     });
 
     await expect(frame).toHaveCount(0, { timeout: 10_000 });
@@ -317,7 +317,7 @@ test.describe('Add-on UI runtime (E09-T2, W-10)', () => {
       .poll(
         async () =>
           page.evaluate((layerId) => {
-            const map = window.__yapajaMapController?.getMap?.();
+            const map = window.__yapaiaMapController?.getMap?.();
             return Boolean(map && (map.getSource(layerId) || map.getLayer(layerId)));
           }, MAP_LAYER_ID),
         { timeout: 10_000 },

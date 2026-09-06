@@ -6,7 +6,7 @@
  * `[lon, lat]` tuple order for `exclude_polygons`.
  */
 
-import type { LatLng } from '@yapaja/shared';
+import type { LatLng } from '@yapaia/shared';
 
 const EARTH_RADIUS_M = 6371000;
 

@@ -5,8 +5,8 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { LatLng, Position, Route, RouteRequest, VehicleProfile } from '@yapaja/shared';
-import { validateRoute } from '@yapaja/shared';
+import type { LatLng, Position, Route, RouteRequest, VehicleProfile } from '@yapaia/shared';
+import { validateRoute } from '@yapaia/shared';
 import { routingPlugin } from './routes.js';
 import type { FetchLike, FetchResponseLike } from './valhallaClient.js';
 import { encodePolyline6 } from './polyline.js';

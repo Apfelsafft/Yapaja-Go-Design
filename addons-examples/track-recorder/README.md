@@ -30,7 +30,7 @@ Host-Bridge, der Service spricht REST/WS mit dem Core. Es gibt keinen
 direkten Kanal zwischen beiden. Die SDK-Oberfläche bietet:
 
 - `events.publish` -- aber **kein** `events.subscribe` auf der UI-Seite (nur
-  `publish`, siehe `YapajaAddon.events` in `types.ts`) -- die UI könnte also
+  `publish`, siehe `YapaiaAddon.events` in `types.ts`) -- die UI könnte also
   ein vom Service publiziertes `addon/{id}/*`-Event gar nicht empfangen.
 - `storage.get`/`storage.set` -- **auf BEIDEN Transports vorhanden** (siehe
   `types.ts`'s Doku pro Methode) und daher der einzige tatsächlich

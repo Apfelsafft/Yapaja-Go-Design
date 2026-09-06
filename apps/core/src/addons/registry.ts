@@ -37,7 +37,7 @@
 import { URL } from 'node:url';
 import { Buffer } from 'node:buffer';
 import { ADDON_ID_RE } from './paths.js';
-import { ADDON_PERMISSION_SCOPES, ADDON_NET_FETCH_PATTERN, isValidSemver, isValidRange } from '@yapaja/shared';
+import { ADDON_PERMISSION_SCOPES, ADDON_NET_FETCH_PATTERN, isValidSemver, isValidRange } from '@yapaia/shared';
 import { downloadTarball } from './download.js';
 import { SettingsService } from '../settings/service.js';
 

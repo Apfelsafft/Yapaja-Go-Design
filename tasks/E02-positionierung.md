@@ -11,7 +11,7 @@ vereinheitlicht im Core, live in der Karte. **Gate-Beitrag G1.**
 - **Pfade:** `apps/core/src/bus/`, `apps/core/src/position/`
 
 **Aufgabe:** Implementiere den internen typisierten Event-Bus (publish/subscribe
-auf Topics mit Schema-Validierung via `@yapaja/shared` — invalide Payloads werfen
+auf Topics mit Schema-Validierung via `@yapaia/shared` — invalide Payloads werfen
 im Dev, loggen+droppen in Prod). Darauf: `PositionService`, der Quellen
 (`gpsd|browser|simulator`) registriert, die aktive Quelle nach Priorität wählt
 (konfigurierbar, Default gpsd > browser > simulator; Quelle „aktiv" = Fixes in

@@ -37,7 +37,7 @@
 set -euo pipefail
 
 PLANETILER_VERSION="${PLANETILER_VERSION:-v0.10.2}"
-TOOLS_DIR="${YAPAJA_TOOLS_DIR:-/share/yapaja/tools}"
+TOOLS_DIR="${YAPAIA_TOOLS_DIR:-/share/yapaja/tools}"
 JAR_PATH="${PLANETILER_JAR:-$TOOLS_DIR/planetiler-$PLANETILER_VERSION.jar}"
 
 if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then

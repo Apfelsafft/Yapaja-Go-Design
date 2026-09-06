@@ -1,7 +1,7 @@
 /**
  * E01-T2 acceptance criterion #2: base gestures work — zoom via
  * double-tap/buttons and pan both change the live map state, verified
- * through the MapController (`window.__yapajaMapController`), exactly the
+ * through the MapController (`window.__yapaiaMapController`), exactly the
  * way other future modules (position, routing) are meant to read it.
  */
 
@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function getZoom(page: import('@playwright/test').Page): Promise<number> {
-  const zoom = await page.evaluate(() => window.__yapajaMapController?.getMap()?.getZoom());
+  const zoom = await page.evaluate(() => window.__yapaiaMapController?.getMap()?.getZoom());
   if (typeof zoom !== 'number') {
     throw new Error('MapController did not return a live map/zoom');
   }
@@ -25,7 +25,7 @@ async function getCenter(
   page: import('@playwright/test').Page,
 ): Promise<{ lng: number; lat: number }> {
   const center = await page.evaluate(() => {
-    const c = window.__yapajaMapController?.getMap()?.getCenter();
+    const c = window.__yapaiaMapController?.getMap()?.getCenter();
     return c ? { lng: c.lng, lat: c.lat } : null;
   });
   if (!center) {
@@ -91,7 +91,7 @@ test('MapController.setCamera moves the camera (used by other modules like posit
   const targetZoom = initialZoom + 2;
 
   await page.evaluate((zoom) => {
-    window.__yapajaMapController?.setCamera({ zoom });
+    window.__yapaiaMapController?.setCamera({ zoom });
   }, targetZoom);
 
   await expect.poll(() => getZoom(page), { timeout: 5_000 }).toBeCloseTo(targetZoom, 1);

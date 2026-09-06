@@ -82,7 +82,7 @@ declare global {
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -106,7 +106,7 @@ async function buildInstallAndEnable(page: Page): Promise<void> {
   expect(enableResponse.status()).toBe(200);
 
   await page.evaluate(async () => {
-    await window.__yapajaRefreshAddons?.();
+    await window.__yapaiaRefreshAddons?.();
   });
 }
 

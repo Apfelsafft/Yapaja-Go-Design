@@ -8,7 +8,7 @@
  * unreachable in normal operation; it exists as an independently testable
  * invariant and defense-in-depth against a future subscribe mistake.
  */
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 import type { ExtrapolatedPositionPayload } from '../bus/index.js';
 
 export function isRealPosition(pos: Position | ExtrapolatedPositionPayload): pos is Position {

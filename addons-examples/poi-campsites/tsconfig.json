@@ -4,7 +4,7 @@
     "noEmit": true,
     "lib": ["ES2020", "DOM"],
     "types": [],
-    // Resolve `@yapaja/addon-sdk`/`@yapaja/shared` to SOURCE (inherited from
+    // Resolve `@yapaia/addon-sdk`/`@yapaia/shared` to SOURCE (inherited from
     // tsconfig.base.json's `paths`) -- this package is deliberately NOT a
     // pnpm workspace member (see ../README.md), so there is no
     // node_modules-linked package to resolve to. `noEmit: true` means this

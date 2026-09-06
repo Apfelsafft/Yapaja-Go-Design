@@ -1,8 +1,8 @@
 /**
- * „Yapaja Reduziert" — bewusst ruhig.
+ * „Yapaia Reduziert" — bewusst ruhig.
  *
  * ─── WARUM ES DIESEN STIL GIBT ──────────────────────────────────────────────
- * Bis 0.3.6 sahen ALLE Yapaja-Karten so aus wie dieser hier, und das war kein
+ * Bis 0.3.6 sahen ALLE Yapaia-Karten so aus wie dieser hier, und das war kein
  * Entwurf, sondern eine Lücke: die Stile zeichneten nur drei der sechzehn
  * vorhandenen Ebenen. Gemeldet wurde es als „irgendwie langweilig".
  *
@@ -22,8 +22,8 @@ import { PLACEHOLDER_TILE_URL, REGION_SOURCE_ID } from './constants.js';
 import { GLYPHS_URL } from './fonts.js';
 import type { MapStyleDocument } from './types.js';
 
-export const YAPAJA_MINIMAL_STYLE_ID = 'yapaja-minimal';
-export const YAPAJA_MINIMAL_STYLE_NAME = 'Yapaja Reduziert';
+export const YAPAIA_MINIMAL_STYLE_ID = 'yapaja-minimal';
+export const YAPAIA_MINIMAL_STYLE_NAME = 'Yapaia Reduziert';
 
 /** Was in diesem Stil nicht gezeichnet wird. Als Liste von Ebenen-IDs, damit
  *  eine neue Ebene in `baseLayers.ts` hier sichtbar auftaucht, statt
@@ -44,10 +44,10 @@ export const OMITTED_LAYER_IDS: ReadonlySet<string> = new Set([
   'mountain-peak-labels',
 ]);
 
-export function buildYapajaMinimalStyle(): MapStyleDocument {
+export function buildYapaiaMinimalStyle(): MapStyleDocument {
   return {
     version: 8,
-    name: YAPAJA_MINIMAL_STYLE_NAME,
+    name: YAPAIA_MINIMAL_STYLE_NAME,
     glyphs: GLYPHS_URL,
     sources: { [REGION_SOURCE_ID]: { type: 'vector', url: PLACEHOLDER_TILE_URL } },
     layers: buildBaseLayers(LIGHT_PALETTE).filter((layer) => !OMITTED_LAYER_IDS.has(layer.id)),

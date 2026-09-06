@@ -43,10 +43,10 @@ describe('sanitizeIngressPath', () => {
 
 describe('injectBaseHref', () => {
   it('inserts <base href> immediately after the opening <head> tag', () => {
-    const html = '<!DOCTYPE html><html><head><title>Yapaja Go</title></head><body></body></html>';
+    const html = '<!DOCTYPE html><html><head><title>Yapaia Go</title></head><body></body></html>';
     const result = injectBaseHref(html, '/api/hassio_ingress/abc123');
     expect(result).toBe(
-      '<!DOCTYPE html><html><head><base href="/api/hassio_ingress/abc123/"><title>Yapaja Go</title></head><body></body></html>'
+      '<!DOCTYPE html><html><head><base href="/api/hassio_ingress/abc123/"><title>Yapaia Go</title></head><body></body></html>'
     );
   });
 

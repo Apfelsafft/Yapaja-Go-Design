@@ -24,8 +24,8 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import type { ApiError } from '@yapaja/shared';
-import { satisfies } from '@yapaja/shared';
+import type { ApiError } from '@yapaia/shared';
+import { satisfies } from '@yapaia/shared';
 import { RegistryService, RegistryError, type RegistryEntry, type RegistryCacheSnapshot } from './registry.js';
 
 function createErrorResponse(code: string, message: string): ApiError {

@@ -23,7 +23,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { TOUCH_TARGETS_CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors } from './support/network.js';
@@ -92,7 +92,7 @@ async function postSpeed(page: Page, speedMs: number, progressM = 0): Promise<vo
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }

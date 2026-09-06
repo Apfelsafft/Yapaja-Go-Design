@@ -11,7 +11,7 @@
  * die eine Liste und in die andere nicht.
  */
 
-import type { NavState } from '@yapaja/shared';
+import type { NavState } from '@yapaia/shared';
 
 /** Die Zustaende, in denen wirklich gefahren wird. */
 export const DRIVE_ACTIVE_STATUSES: ReadonlySet<NavState['status']> = new Set([

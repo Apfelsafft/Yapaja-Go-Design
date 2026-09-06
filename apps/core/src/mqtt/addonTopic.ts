@@ -42,7 +42,7 @@
  */
 
 import { Buffer } from 'node:buffer';
-import { ADDON_ID_PATTERN } from '@yapaja/shared';
+import { ADDON_ID_PATTERN } from '@yapaia/shared';
 
 /** Belt-and-suspenders re-check of the add-on id segment. By construction an
  *  `addon/*` bus topic's id was already validated against this exact pattern

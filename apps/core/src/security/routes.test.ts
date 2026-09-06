@@ -11,7 +11,7 @@ import type { FastifyInstance } from 'fastify';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { AddonManifest } from '@yapaja/shared';
+import type { AddonManifest } from '@yapaia/shared';
 import { buildServer } from '../index.js';
 import { closeDb } from '../db/index.js';
 import { AddonRepository } from '../addons/repository.js';

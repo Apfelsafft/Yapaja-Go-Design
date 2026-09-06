@@ -9,7 +9,7 @@
  * shape so callers can branch on specific codes (e.g. `HOME_ALREADY_EXISTS`).
  */
 
-import type { Favorite, HistoryEntry } from '@yapaja/shared';
+import type { Favorite, HistoryEntry } from '@yapaia/shared';
 
 interface ApiErrorBody {
   error: { code: string; message: string; details?: Record<string, unknown> };

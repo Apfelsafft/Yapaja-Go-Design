@@ -2,7 +2,7 @@
  * Shared constants for the style documents + transforms.
  */
 
-/** Vector source id used by every Yapaja-served style. */
+/** Vector source id used by every Yapaia-served style. */
 export const REGION_SOURCE_ID = 'yapaja-region';
 
 /**
@@ -13,7 +13,7 @@ export const REGION_SOURCE_ID = 'yapaja-region';
  * loudly (unresolvable URL) rather than silently pointing at the wrong
  * region.
  */
-export const PLACEHOLDER_TILE_URL = 'pmtiles://__YAPAJA_REGION_TILES__';
+export const PLACEHOLDER_TILE_URL = 'pmtiles://__YAPAIA_REGION_TILES__';
 
 /**
  * Symbol layer ids are how the transforms in `options.ts` classify layers:

@@ -42,7 +42,7 @@ export interface DiscoveryEntity {
 }
 
 export interface BuildDiscoveryOptions {
-  /** Yapaja state-topic prefix (E08-T1's `prefix`, default `'yapaja'`). */
+  /** Yapaia state-topic prefix (E08-T1's `prefix`, default `'yapaja'`). */
   statePrefix: string;
   /** HA discovery-topic prefix (default `'homeassistant'`). */
   discoveryPrefix: string;

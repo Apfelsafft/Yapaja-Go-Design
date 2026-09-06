@@ -54,7 +54,7 @@ entschieden und dokumentiert hat — sie sind **nicht** neu erfunden:
 
 1. **„Compose-Setup" → echte gebaute Core-Prozesse.**
    `support/globalSetup.ts` + `support/coreProcess.ts` bauen die echten
-   Produktionsartefakte (`pnpm --filter @yapaja/{web,core} build`), stagen
+   Produktionsartefakte (`pnpm --filter @yapaia/{web,core} build`), stagen
    `apps/web/dist` genau wie `apps/core/Dockerfile` es tut, und starten pro
    Szenario einen eigenen Core-Prozess auf einem eigenen Port mit
    `DB_PATH=:memory:` (⇒ frische DB je Suite, kein geteilter Zustand).

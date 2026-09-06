@@ -144,7 +144,7 @@ declare global {
      * Debug/E2E hook: exposes the degradation store so Playwright can query
      * the current degradation level and override setting.
      */
-    __yapajaDegrade?: {
+    __yapaiaDegrade?: {
       level: DegradationLevel;
       override: QualityOverride;
       setOverride: (override: QualityOverride) => void;
@@ -267,7 +267,7 @@ export const useDegradationStore = create<DegradationState>((set, get) => ({
 
 // Expose the degradation store to window for E2E testing
 if (typeof window !== 'undefined') {
-  window.__yapajaDegrade = {
+  window.__yapaiaDegrade = {
     get level() {
       return useDegradationStore.getState().level;
     },

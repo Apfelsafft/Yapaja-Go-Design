@@ -10,6 +10,39 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.6.7
+
+**Das Logo ist da — und der Name wird richtig geschrieben: Yapaia.**
+
+Im Add-on-Store steht jetzt das Logo, das Symbol erscheint als App-Icon auf
+dem Startbildschirm, und in der Kopfzeile der Karte sitzt das Emblem neben
+dem Namen.
+
+Überall, wo der Name zu **lesen** ist, steht ab jetzt **Yapaia** mit i: in
+der Oberfläche, im Add-on-Store, in Meldungen und in der gesamten
+Dokumentation.
+
+### Was absichtlich „Yapaja" bleibt
+
+Nicht jedes Vorkommen ist nur ein Wort. An einigen hängt etwas, das Ihnen
+gehört — sie umzubenennen würde es stilllegen. Diese bleiben deshalb:
+
+| Bleibt | Warum |
+|---|---|
+| Add-on-Kennung `yapaja_go` | Daran erkennt Home Assistant das Add-on. Eine Änderung ließe Ihre Installation verschwinden; Sie müssten neu installieren und alle Einstellungen erneut setzen. |
+| Datenordner `/share/yapaja/` | Dort liegen Ihre heruntergeladenen Karten. Ein neuer Pfad hieße: alles noch einmal laden. |
+| Entitäten `sensor.yapaja_…` | Ihre Verläufe, Automationen und Dashboards hängen an genau diesen Namen. |
+| MQTT-Themen `yapaja/…` | Dasselbe, eine Ebene tiefer. |
+| Datenbank `yapaja.db` | Ihre Favoriten, Ihr Verlauf, Ihre Profile. |
+| Dashboard-Karte `yapaja-map-card.js` | Die Ressource, die Sie in Ihrem Dashboard eingetragen haben. |
+| Add-on-Schnittstelle `YAPAJA_TOKEN` u. a. | Vertrag mit installierten Add-ons. |
+| Repository-Name | Von Ihnen so benannt. |
+
+Wenn Sie eines davon trotzdem umbenannt haben möchten, sagen Sie welches —
+es geht, kostet aber jeweils genau das, was in der Spalte rechts steht.
+
+---
+
 ## 0.6.6
 
 **Der blaue Punkt springt nicht mehr — er fährt.**
@@ -21,7 +54,7 @@ bewegen."* Mit dem Verdacht, der Simulator liefere zu grobe Punkte.
 Erst nachgemessen. Der Verdacht stimmt **halb**:
 
 - Bei **einfacher Geschwindigkeit** meldet der Simulator eine Position pro
-  Sekunde, und Yapaja gibt höchstens eine pro Sekunde weiter — also genau so
+  Sekunde, und Yapaia gibt höchstens eine pro Sekunde weiter — also genau so
   oft wie ein echter GPS-Empfänger. Bei 50 km/h sind das Sprünge von 13,9 m.
   Mit echtem GPS hätten Sie dasselbe gesehen.
 - Im **Zeitraffer** stimmt er dagegen ganz: bei 32× entstehen 32 Positionen
@@ -88,7 +121,7 @@ gecrasht"*. Der Absturzbildschirm aus 0.6.1 hat den Text geliefert:
 
 Es lag an der **Fahrtrichtung**, und nur an ihr.
 
-In den Kurs-Modi (*Karte dreht mit*) dreht Yapaja die Karte dem Fahrzeug nach.
+In den Kurs-Modi (*Karte dreht mit*) dreht Yapaia die Karte dem Fahrzeug nach.
 Vor jedem Drehen wird geprüft, ob es überhaupt nötig ist — sonst würde sich
 die Kamera endlos selbst nachjustieren. Diese Prüfung verglich den GPS-Kurs
 (0–360°) mit dem Kartenwinkel. MapLibre speichert den aber **gewickelt**: aus
@@ -137,7 +170,7 @@ soll aber auf einen Blick erkennen, wohin es **weitergeht**.
 Jetzt liegt hinter dem Fahrzeug ein gedämpftes Grau, vor ihm das gewohnte
 Blau. Die Trennstelle wandert mit — sie sitzt genau dort, wo Sie gerade sind,
 und zwar auf dem Meter: die Anzeige rechnet nichts eigenes aus, sondern nimmt
-den Fortschritt, den Yapaja ohnehin schon aus dem Kartenabgleich kennt.
+den Fortschritt, den Yapaia ohnehin schon aus dem Kartenabgleich kennt.
 
 Im Zweifel bleibt alles blau. Solange nicht sicher ist, wie weit die Fahrt
 gediehen ist (kurz nach einer Neuberechnung etwa), wird nichts eingegraut:
@@ -146,7 +179,7 @@ grau heißt „liegt hinter Ihnen", und was noch kommt, darf nie so aussehen.
 **Nach dem GPS-Simulator kommt die echte Ortung zurück.**
 
 Dabei aufgefallen, und es hätte jeden getroffen, der den Simulator einmal
-benutzt: Beim Start klemmt Yapaja die Positionsquelle auf den Simulator fest,
+benutzt: Beim Start klemmt Yapaia die Positionsquelle auf den Simulator fest,
 damit dessen Fahrt auch wirklich ankommt. Beim **Beenden** wurde diese Klemme
 nicht wieder gelöst. Danach sendete der Simulator nichts mehr — und jede
 andere Quelle war gesperrt. Ergebnis: keine Position mehr, bis das Add-on neu
@@ -197,7 +230,7 @@ Vier Dinge aus deiner Testfahrt.
 > „Nach kurzer Zeit verschwindet die gesamte Anzeige und man sieht nur noch
 > einen blanken Screen. Nur die HA Menüs sind noch da."
 
-Yapaja war nicht hängen geblieben, sondern **abgeräumt**. Geht beim Zeichnen
+Yapaia war nicht hängen geblieben, sondern **abgeräumt**. Geht beim Zeichnen
 etwas schief und fängt es niemand auf, entfernt React die ganze Oberfläche —
 das ist seine Regel: lieber nichts zeigen als etwas Falsches. Nur gab es hier
 nirgends eine Stelle, die das auffängt. Aus jedem Fehler wurde deshalb ein
@@ -205,7 +238,7 @@ leerer Rahmen, ohne Hinweis und ohne Weg zurück.
 
 Jetzt erscheint stattdessen eine Meldung mit dem **echten Fehlertext**, einem
 großen „Neu laden"-Knopf und dem wichtigsten Satz zuerst: *die Navigation läuft
-weiter*. Sie liegt im Yapaja-Dienst, nicht in der Anzeige — die Ansagen kommen
+weiter*. Sie liegt im Yapaia-Dienst, nicht in der Anzeige — die Ansagen kommen
 also weiter, während du den Knopf suchst.
 
 **Das ist eine Auffangstelle, keine Ursachenbehebung.** Ich konnte deinen
@@ -373,7 +406,7 @@ alte Strecke.
 > zurück) eventuell als Schieberegler."
 
 Ein Knopf mit einem Kolben (🧪) rechts an der Karte. Route planen, „Route
-abfahren" drücken — Yapaja fährt sie ab, Abschnitt für Abschnitt mit dem dort
+abfahren" drücken — Yapaia fährt sie ab, Abschnitt für Abschnitt mit dem dort
 geltenden Tempolimit. Pause, Weiter, Stopp. Der Zeitraffer ist ein
 Schieberegler mit den Stufen 1×, 2×, 4×, 8×, 16×, 32×, und er lässt sich
 **während der Fahrt** verstellen, ohne dass die Strecke von vorn beginnt.
@@ -393,7 +426,7 @@ Zeiten hinterher.
 
 **Der Simulator ist ab Werk gesperrt, und das bleibt so.** Er ersetzt die echte
 GPS-Position für das ganze Add-on — auf einem fahrenden Fahrzeug darf das nicht
-aus Versehen passieren. Einschalten: Einstellungen → Add-ons → Yapaja Go →
+aus Versehen passieren. Einschalten: Einstellungen → Add-ons → Yapaia Go →
 Konfiguration → Haken bei `gps_simulator` → Add-on neu starten. Ohne Haken
 erscheint der Knopf gar nicht erst. Kein SSH nötig, wie gewohnt.
 
@@ -412,7 +445,7 @@ Fehler wiederholt; sie stehen jetzt in einer gemeinsamen Reihe.
 > „Bitte füge bei aktiver Navigation weitere Infos ein. Entfernung,
 > geschätzte Dauer, geschätzte Ankunftszeit."
 
-Diese drei Werte hat Yapaja Go die ganze Zeit berechnet — sie waren nur
+Diese drei Werte hat Yapaia Go die ganze Zeit berechnet — sie waren nur
 nirgends zu sehen. Sie standen ausschließlich als Bausteine für ein selbst
 zusammengestelltes Dashboard bereit; wer keines gebaut hatte, bekam sie nie
 zu Gesicht. Jetzt stehen sie während der Fahrt unten in der Mitte.
@@ -554,7 +587,7 @@ Finger bedient, im Fahrzeug, oft in Bewegung.
 
 ## 0.5.3
 
-**Neu: Yapaja Go fragt einmal nach, ob die Maße deines Fahrzeugs stimmen.**
+**Neu: Yapaia Go fragt einmal nach, ob die Maße deines Fahrzeugs stimmen.**
 
 Beim ersten Start legt das Add-on ein Profil „Camper" an — **3,00 m hoch,
 2,20 m breit, 6,50 m lang, 3,5 t**. Diese Zahlen sind **geraten**. Sie müssen
@@ -571,7 +604,7 @@ Wer also den Hinweis bestätigt und den Fahrzeug-Schritt übersprungen hat, ist
 mit geratenen Maßen navigiert. Bei einem 3,20-m-Wohnmobil plant die Route dann
 mit 3,00 m: **20 cm zu niedrig**, und aufgefallen wäre es unter einer Brücke.
 
-Ab dieser Version fragt Yapaja Go **einmal** nach — mit den Zahlen im Klartext,
+Ab dieser Version fragt Yapaia Go **einmal** nach — mit den Zahlen im Klartext,
 damit ein falscher Wert sofort auffällt:
 
 > Routen werden gerade für **3,00 m hoch · 2,20 m breit · 6,50 m lang · 3,5 t**
@@ -609,7 +642,7 @@ Auskunft aussah.
 
 Das klingt klein, war es aber nicht: wer meldet „bei mir geht das nicht",
 nennt zuerst seine Version — und diese Angabe war wertlos. Auch die Anzeige in
-Home Assistant selbst (Gerät „Yapaja Go", Feld *Softwareversion*) stand auf
+Home Assistant selbst (Gerät „Yapaia Go", Feld *Softwareversion*) stand auf
 0.0.0.
 
 Jetzt steht dort die Add-on-Version, dieselbe, die der Store anzeigt.
@@ -767,7 +800,7 @@ jetzt als eigene Dashboard-Karte.
    nach `www/yapaja/` gelegt.
 2. Einstellungen → Dashboards → ⋮ → **Ressourcen** → *Ressource hinzufügen*
    URL `/local/yapaja/yapaja-map-card.js`, Typ **JavaScript-Modul**.
-3. Im Dashboard *Karte hinzufügen* → „Yapaja Go — Karte".
+3. Im Dashboard *Karte hinzufügen* → „Yapaia Go — Karte".
 
 Als YAML:
 
@@ -945,11 +978,11 @@ Kyrillisch. Nichts davon wird nachgeladen: es funktioniert ohne Netz.
 
 | | |
 |---|---|
-| **Yapaja Hell** | heller Tagesstil |
-| **Yapaja Dunkel** | für die Nacht, eigene Farben statt einfach invertiert |
-| **Yapaja Natur** | Landschaft und Wege treten hervor — für die Suche nach Stell- und Campingplätzen |
-| **Yapaja Kontrast** | kräftige Straßen, ruhige Flächen, große Beschriftung |
-| **Yapaja Reduziert** | nur das Nötige, für lange Fahrten ohne Ablenkung |
+| **Yapaia Hell** | heller Tagesstil |
+| **Yapaia Dunkel** | für die Nacht, eigene Farben statt einfach invertiert |
+| **Yapaia Natur** | Landschaft und Wege treten hervor — für die Suche nach Stell- und Campingplätzen |
+| **Yapaia Kontrast** | kräftige Straßen, ruhige Flächen, große Beschriftung |
+| **Yapaia Reduziert** | nur das Nötige, für lange Fahrten ohne Ablenkung |
 
 **Behoben: „Deutsch" bei der Beschriftung löschte die ganze Beschriftung.**
 Unter ⚙️ → „Sprache der Labels" führte die Wahl „Deutsch" oder „English" dazu,
@@ -1119,7 +1152,7 @@ Stelle, an der man nachsieht, nicht findet, ist keine.
 
 `gps_source` hat jetzt einen vierten Wert: **`ha_tracker`**. Er genügt für
 sich allein — gibt es genau eine `device_tracker`-Entität mit Koordinaten
-(der Normalfall), sucht Yapaja sie selbst. Das Textfeld darunter ist nur noch
+(der Normalfall), sucht Yapaia sie selbst. Das Textfeld darunter ist nur noch
 nötig, wenn es mehrere gibt; dann wird bewusst **keiner geraten**, denn der
 zweite könnte das Telefon einer anderen Person sein, und die Navigation würde
 ihr stillschweigend folgen.
@@ -1159,7 +1192,7 @@ später über einen Favoriten losfährst.
 **Neu: Position aus der Home-Assistant-Companion-App.**
 
 Der Browser gibt seinen GPS-Sensor nur über HTTPS frei. Läuft Home Assistant
-über `http://`, bekommt Yapaja vom Telefon, Tablet oder Autoradio also gar
+über `http://`, bekommt Yapaia vom Telefon, Tablet oder Autoradio also gar
 keine Position — daran kann das Add-on nichts ändern. Die Companion App
 umgeht das: sie meldet an Home Assistant, nicht an den Browser, und liefert
 auch bei gesperrtem Bildschirm weiter.
@@ -1329,7 +1362,7 @@ das Add-on den freien Platz auf der einen Platte und arbeitete dann auf einer
 anderen — bei einer kleinen Region unauffällig, bei Rheinland-Pfalz wäre der
 Lauf nach Stunden am Platz gescheitert.
 
-**Browser-Standort:** Wer Yapaja auf Telefon, Tablet oder Autoradio öffnet,
+**Browser-Standort:** Wer Yapaia auf Telefon, Tablet oder Autoradio öffnet,
 konnte den Gerätestandort bisher nicht dauerhaft nutzen — nach etwa fünf
 Sekunden hörte die App auf, Positionen zu senden, und es erschien im Wechsel
 „GPS-Signal verloren". Das ist behoben.

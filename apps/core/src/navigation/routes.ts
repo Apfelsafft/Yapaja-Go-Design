@@ -11,8 +11,8 @@
  */
 
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
-import type { ApiError, LatLng, RouteAvoidOverrides } from '@yapaja/shared';
-import { validateLatLng, validateRoute } from '@yapaja/shared';
+import type { ApiError, LatLng, RouteAvoidOverrides } from '@yapaia/shared';
+import { validateLatLng, validateRoute } from '@yapaia/shared';
 import { isNavigationError } from './errors.js';
 import { isRoutingError } from '../routing/errors.js';
 import {

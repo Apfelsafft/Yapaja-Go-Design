@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 import { EventBus } from '../bus/index.js';
 import { PositionService, type PositionSourceName } from './service.js';
 

@@ -2,7 +2,7 @@
  * Die blaue Linie nach einem Neuladen zurueckholen.
  *
  * ─── DIE MELDUNG ────────────────────────────────────────────────────────────
- * „Wenn ich auf ein anderes HA Menü wechsle und dann wieder zurück zu Yapaja
+ * „Wenn ich auf ein anderes HA Menü wechsle und dann wieder zurück zu Yapaia
  * ist alles wieder da und ich werde gefragt ob ich die Navigation fortsetzen
  * möchte. Bei Bestätigung wird weiter navigiert aber die blaue Streckenlinie
  * fehlt jetzt."

@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { WidgetRegistry } from '@yapaja/ui';
-import type { Widget } from '@yapaja/ui';
+import { WidgetRegistry } from '@yapaia/ui';
+import type { Widget } from '@yapaia/ui';
 import {
   defaultLayout,
   mergeLayouts,

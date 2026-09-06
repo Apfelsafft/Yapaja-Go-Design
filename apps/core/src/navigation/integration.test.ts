@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { NavState, Route } from '@yapaja/shared';
-import { checkNavState } from '@yapaja/shared';
+import type { NavState, Route } from '@yapaia/shared';
+import { checkNavState } from '@yapaia/shared';
 import { EventBus } from '../bus/index.js';
 import { PositionService } from '../position/service.js';
 import { SimulatorSource } from '../position/simulator/index.js';

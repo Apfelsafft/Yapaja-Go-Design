@@ -15,7 +15,7 @@
 
 import { randomUUID } from 'crypto';
 import { Buffer } from 'node:buffer';
-import type { AddonManifest } from '@yapaja/shared';
+import type { AddonManifest } from '@yapaia/shared';
 
 /** How long an unconfirmed pending install stays valid. */
 export const PENDING_TTL_MS = 15 * 60 * 1000; // 15 minutes

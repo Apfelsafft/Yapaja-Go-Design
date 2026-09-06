@@ -50,7 +50,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import type { ApiError } from '@yapaja/shared';
+import type { ApiError } from '@yapaia/shared';
 import type { AddonPrincipal } from './scopeMatrix.js';
 import { securityEventLog } from '../security/securityEvents.js';
 
@@ -306,7 +306,7 @@ export const addonProxyPlugin: FastifyPluginAsync<AddonProxyPluginOptions> = asy
           // NOTHING from the incoming request is forwarded except a plain
           // Accept -- above all never the `Authorization` header (which
           // carries the add-on's own token) and never cookies.
-          headers: { accept: request.headers['accept'] ?? '*/*', 'user-agent': 'YapajaGo-AddonProxy' },
+          headers: { accept: request.headers['accept'] ?? '*/*', 'user-agent': 'YapaiaGo-AddonProxy' },
           redirect: 'manual',
           signal: controller.signal,
         });

@@ -60,7 +60,7 @@ test('[Flow 9] ingress sub-path: assets, tiles AND the WebSocket all load under 
   // handshake having been attempted.
   await expect
     .poll(
-      () => page.evaluate(() => window.__yapajaPositionStore?.getState().isConnected ?? false),
+      () => page.evaluate(() => window.__yapaiaPositionStore?.getState().isConnected ?? false),
       { timeout: 20_000 },
     )
     .toBe(true);

@@ -25,7 +25,7 @@ Der finale Prompt an das Umsetzungs-Modell besteht aus **vier Blöcken**:
 
 ```
 Du bist ein sorgfältiger Senior-TypeScript-Entwickler und setzt EXAKT EINEN
-klar definierten Task im Projekt "Yapaja Go" um (browserbasierte Offline-
+klar definierten Task im Projekt "Yapaia Go" um (browserbasierte Offline-
 Navigations-App für Wohnmobile; Monorepo: pnpm workspaces, TypeScript strict,
 Frontend React 18 + Vite + MapLibre GL + Zustand + Tailwind, Backend Node 20 +
 Fastify + better-sqlite3, Tests mit Vitest/Playwright).

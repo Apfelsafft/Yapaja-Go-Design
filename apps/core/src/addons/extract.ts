@@ -66,7 +66,7 @@ export const MANIFEST_FILENAME = 'yapaja-addon.json';
 /** Neutral, non-writable anchor used to run the traversal-resolve check in
  *  dry-run mode (`destDir === null`) -- never actually touched on disk;
  *  `resolveEntryPath` only ever does pure `path.resolve` arithmetic. */
-const DRY_RUN_ANCHOR = '/__yapaja_addon_dry_run__';
+const DRY_RUN_ANCHOR = '/__yapaia_addon_dry_run__';
 
 export interface ExtractAddonTarballOptions {
   tarballBytes: Buffer;

@@ -12,7 +12,7 @@
  * codes (e.g. 409 `INVALID_TRANSITION`).
  */
 
-import type { LatLng, NavState, Route, RouteAvoidOverrides } from '@yapaja/shared';
+import type { LatLng, NavState, Route, RouteAvoidOverrides } from '@yapaia/shared';
 
 interface ApiErrorBody {
   error: { code: string; message: string; details?: Record<string, unknown> };

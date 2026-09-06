@@ -140,13 +140,13 @@ export const useThemeStore = create<ThemeStoreState>((set, get) => ({
 
 declare global {
   interface Window {
-    /** Debug/E2E hook, mirrors `window.__yapajaPositionStore`/`__yapajaShellLayoutStore`. */
-    __yapajaThemeStore?: typeof useThemeStore;
+    /** Debug/E2E hook, mirrors `window.__yapaiaPositionStore`/`__yapaiaShellLayoutStore`. */
+    __yapaiaThemeStore?: typeof useThemeStore;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaThemeStore = useThemeStore;
+  window.__yapaiaThemeStore = useThemeStore;
   // Apply the best-effort initial resolution (default mode `light`, see
   // `themeClient.ts`'s doc comment on `DEFAULT_THEME_MODE`) as soon as this
   // module loads, BEFORE React mounts/`ThemeController`'s effect runs and

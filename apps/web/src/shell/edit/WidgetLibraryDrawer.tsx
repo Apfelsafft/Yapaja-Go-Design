@@ -10,8 +10,8 @@
 import React from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import type { Widget } from '@yapaja/ui';
-import type { WidgetRegistry } from '@yapaja/ui';
+import type { Widget } from '@yapaia/ui';
+import type { WidgetRegistry } from '@yapaia/ui';
 import type { DragItemData } from './editModel.js';
 
 interface LibraryWidgetCardProps {

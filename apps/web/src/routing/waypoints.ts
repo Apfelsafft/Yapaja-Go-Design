@@ -19,7 +19,7 @@
  * niemand wollte.
  */
 
-import type { LatLng } from '@yapaja/shared';
+import type { LatLng } from '@yapaia/shared';
 
 /**
  * Hoechstzahl an Zwischenzielen.

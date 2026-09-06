@@ -11,7 +11,7 @@
  * comment on `DEFAULT_THEME_MODE` -- avoids every OTHER pre-existing e2e
  * spec non-deterministically going dark depending on real wall-clock time),
  * so these tests flip the live store straight to `'auto'` via
- * `window.__yapajaThemeStore.setState(...)` (mirrors the same
+ * `window.__yapaiaThemeStore.setState(...)` (mirrors the same
  * direct-store-mutation pattern `shell.spec.ts` already uses for its own
  * debug store hook) -- deliberately NOT through the `setMode` action, which
  * would `PATCH /api/v1/settings`'s `theme` key on this SHARED core and leak
@@ -24,7 +24,7 @@ import { CORE_BASE_URL } from './support/constants.js';
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -66,8 +66,8 @@ async function isHtmlDark(page: Page): Promise<boolean> {
  *  already-mocked clock. */
 async function forceAutoMode(page: Page): Promise<void> {
   await page.evaluate(() => {
-    window.__yapajaThemeStore?.setState({ mode: 'auto', override: null, lastAppliedTheme: null });
-    window.__yapajaThemeStore?.getState().tick();
+    window.__yapaiaThemeStore?.setState({ mode: 'auto', override: null, lastAppliedTheme: null });
+    window.__yapaiaThemeStore?.getState().tick();
   });
 }
 

@@ -19,7 +19,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AddonBridge, type HostBridgeDeps } from './bridge.js';
 import { buildHostBridgeDeps } from './hostDeps.js';
 import { fetchAddons, enabledUiAddons, addonUiSrc, type InstalledAddon } from './client.js';
-import type { AddonScope } from '@yapaja/addon-sdk';
+import type { AddonScope } from '@yapaia/addon-sdk';
 import AddonWidgetLayer from './AddonWidgetLayer.js';
 import AddonRouteProposalBanner from './AddonRouteProposalBanner.js';
 import { addonMapLayers } from './mapLayers.js';
@@ -119,11 +119,11 @@ export default function AddonHost(): React.ReactElement {
     const timer = window.setInterval(() => void refresh(), REFRESH_INTERVAL_MS);
     // Imperative refresh hook so an e2e (or the settings UI) can force an
     // immediate reconcile after toggling an add-on, without waiting for the poll.
-    window.__yapajaRefreshAddons = refresh;
+    window.__yapaiaRefreshAddons = refresh;
     return () => {
       cancelled = true;
       window.clearInterval(timer);
-      delete window.__yapajaRefreshAddons;
+      delete window.__yapaiaRefreshAddons;
     };
   }, []);
 
@@ -145,6 +145,6 @@ export default function AddonHost(): React.ReactElement {
 declare global {
   interface Window {
     /** E2E/imperative hook to force an immediate add-on reconcile. */
-    __yapajaRefreshAddons?: () => Promise<void>;
+    __yapaiaRefreshAddons?: () => Promise<void>;
   }
 }

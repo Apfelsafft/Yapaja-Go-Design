@@ -156,7 +156,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
-        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+        run: pnpm --filter @yapaia/web exec playwright install --with-deps chromium
 
       - name: Typecheck perf suite
         run: pnpm exec tsc --noEmit -p e2e/perf/tsconfig.json
@@ -300,7 +300,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
-        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+        run: pnpm --filter @yapaia/web exec playwright install --with-deps chromium
 
       - name: Typecheck security suite
         run: pnpm exec tsc --noEmit -p e2e/security/tsconfig.json
@@ -767,7 +767,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Playwright Chromium
-        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+        run: pnpm --filter @yapaia/web exec playwright install --with-deps chromium
       - name: Typecheck perf suite
         run: pnpm exec tsc --noEmit -p e2e/perf/tsconfig.json
       - name: Measure performance budgets
@@ -808,7 +808,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Playwright Chromium
-        run: pnpm --filter @yapaja/web exec playwright install --with-deps chromium
+        run: pnpm --filter @yapaia/web exec playwright install --with-deps chromium
       - name: Perf-Degradations-Nachweis
         run: pnpm perf:degradation-proof
 

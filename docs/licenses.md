@@ -12,7 +12,7 @@ Erfuellt E10-T4 (Lizenz-Inventar) und den Release-Gate-Punkt
 
 ## 1. Kartendaten — OpenStreetMap / ODbL
 
-Yapaja Go erhebt keine eigenen Kartendaten; alle Geometrien, Restriktionen und
+Yapaia Go erhebt keine eigenen Kartendaten; alle Geometrien, Restriktionen und
 POIs stammen aus OpenStreetMap (docs/00 „Rechtliches"). OSM-Daten stehen unter der
 **Open Database License (ODbL) 1.0**, die eine sichtbare Namensnennung verlangt.
 

@@ -23,8 +23,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: false,
       manifest: {
-        name: 'Yapaja Go',
-        short_name: 'Yapaja Go',
+        name: 'Yapaia Go',
+        short_name: 'Yapaia Go',
         description: 'Offline-Navigation für Wohnmobile',
         // Relative to the manifest's own URL (served next to index.html
         // under this file's `base: './'`) -- keeps the ingress sub-path
@@ -125,21 +125,21 @@ export default defineConfig({
   ],
   base: './',
   resolve: {
-    // ADR-012 (tsconfig.base.json `paths`) resolves `@yapaja/shared`/
-    // `@yapaja/ui` to SOURCE for `tsc`, and Vite's dev server/esbuild
+    // ADR-012 (tsconfig.base.json `paths`) resolves `@yapaia/shared`/
+    // `@yapaia/ui` to SOURCE for `tsc`, and Vite's dev server/esbuild
     // pre-bundling happen to pick that up too -- but Rollup's PRODUCTION
     // build resolves bare specifiers via real node_modules/package.json
     // resolution, which finds nothing (no app in this repo declares either
     // package as an npm dependency; `packages/*/dist` isn't a build
-    // prerequisite here, ADR-011/012). Every prior `@yapaja/shared` import in
+    // prerequisite here, ADR-011/012). Every prior `@yapaia/shared` import in
     // apps/web was `import type` (erased before Rollup ever sees it), so this
     // never surfaced until this task's `formatEta` (a real VALUE import,
     // E07-T1's eta widget). Mirrors `vitest.config.ts`'s alias -- same
     // "resolve to source" mechanism, extended to the Rollup build.
     alias: {
-      '@yapaja/shared': resolve(__dirname, '../../packages/shared/src'),
-      '@yapaja/ui': resolve(__dirname, '../../packages/ui/src'),
-      '@yapaja/addon-sdk': resolve(__dirname, '../../packages/addon-sdk/src'),
+      '@yapaia/shared': resolve(__dirname, '../../packages/shared/src'),
+      '@yapaia/ui': resolve(__dirname, '../../packages/ui/src'),
+      '@yapaia/addon-sdk': resolve(__dirname, '../../packages/addon-sdk/src'),
     },
   },
   server: {

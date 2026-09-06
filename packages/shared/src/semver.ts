@@ -8,7 +8,7 @@
  *
  * This deliberately hand-rolls the (small) subset of the npm-semver range
  * grammar this codebase actually needs, rather than pulling in the `semver`
- * package, to keep `@yapaja/shared` dependency-free beyond ajv. Supported:
+ * package, to keep `@yapaia/shared` dependency-free beyond ajv. Supported:
  *
  *  - exact versions:      "1.2.3", "1.2.3-beta.1"
  *  - caret ranges:        "^1.2.3", "^0.2.3", "^0.0.3", "^1.2", "^1", "^1.x"

@@ -14,7 +14,7 @@
 import type { RecordedPoint } from './recorder.js';
 
 const GPX_NAMESPACE = 'http://www.topografix.com/GPX/1/1';
-const CREATOR = 'Yapaja Go Track-Recorder (E09-T5 reference add-on)';
+const CREATOR = 'Yapaia Go Track-Recorder (E09-T5 reference add-on)';
 
 /** Minimal XML text-escaping for the handful of characters GPX's
  *  attribute/element text content needs escaped. Not a general XML

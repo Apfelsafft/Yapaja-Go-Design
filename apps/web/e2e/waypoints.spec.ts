@@ -52,7 +52,7 @@ test.afterAll(async () => {
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -107,7 +107,7 @@ async function planeMitZwischenzielen(page: Page, wps: Array<{ lat: number; lon:
 
   await page.evaluate(
     ({ ziel, stationen, profil }) => {
-      const store = window.__yapajaRoutingStore;
+      const store = window.__yapaiaRoutingStore;
       if (!store) throw new Error('Routing-Speicher fehlt');
       store.getState().setDestination(ziel as never);
       for (const s of stationen) {
@@ -167,7 +167,7 @@ test.describe('Zwischenziele', () => {
     // Speicher: geprueft werden soll die Bedienung.
     await page.getByTestId('destination-sheet').waitFor({ state: 'visible', timeout: 10_000 });
     const zweiteId = await page.evaluate(
-      () => window.__yapajaRoutingStore!.getState().waypoints[1].id,
+      () => window.__yapaiaRoutingStore!.getState().waypoints[1].id,
     );
     const vorher = valhallaStub.callCount();
     await page.getByTestId(`waypoint-up-${zweiteId}`).click();
@@ -186,7 +186,7 @@ test.describe('Zwischenziele', () => {
     await expect.poll(() => valhallaStub.callCount(), { timeout: 15_000 }).toBeGreaterThan(0);
 
     const ersteId = await page.evaluate(
-      () => window.__yapajaRoutingStore!.getState().waypoints[0].id,
+      () => window.__yapaiaRoutingStore!.getState().waypoints[0].id,
     );
     const vorher = valhallaStub.callCount();
     await page.getByTestId(`waypoint-remove-${ersteId}`).click();
@@ -208,7 +208,7 @@ test.describe('Zwischenziele', () => {
     await expect(page.getByTestId('waypoint-list')).toBeVisible({ timeout: 15_000 });
 
     const ids = await page.evaluate(() =>
-      window.__yapajaRoutingStore!.getState().waypoints.map((w) => w.id),
+      window.__yapaiaRoutingStore!.getState().waypoints.map((w) => w.id),
     );
     // Kein Umlauf: das erste kann nicht hoch, das letzte nicht runter.
     await expect(page.getByTestId(`waypoint-up-${ids[0]}`)).toBeDisabled();
@@ -234,7 +234,7 @@ test.describe('Zwischenziele', () => {
 
     // Fahrt starten mit der berechneten Route.
     const route = await page.evaluate(() => {
-      const s = window.__yapajaRoutingStore!.getState();
+      const s = window.__yapaiaRoutingStore!.getState();
       return s.routes.find((r) => r.id === s.activeRouteId) ?? s.routes[0];
     });
     const start = await page.request.post(`${WAYPOINTS_CORE_BASE_URL}/api/v1/navigation/start`, {
@@ -260,14 +260,14 @@ test.describe('Zwischenziele', () => {
       .poll(
         () =>
           page.evaluate(
-            () => window.__yapajaNavStore?.getState().navState?.distance_remaining_m ?? null,
+            () => window.__yapaiaNavStore?.getState().navState?.distance_remaining_m ?? null,
           ),
         { timeout: 15_000 },
       )
       .not.toBeNull();
     await expect
       .poll(
-        () => page.evaluate(() => window.__yapajaNavStore?.getState().navState?.status ?? null),
+        () => page.evaluate(() => window.__yapaiaNavStore?.getState().navState?.status ?? null),
         { timeout: 15_000 },
       )
       .toBe('navigating');
@@ -275,7 +275,7 @@ test.describe('Zwischenziele', () => {
     // Jetzt die Station anhaengen -- mitten in der Fahrt.
     const vorher = valhallaStub.callCount();
     await page.evaluate((wp) => {
-      window.__yapajaRoutingStore!.getState().addWaypoint(wp as never, null, null);
+      window.__yapaiaRoutingStore!.getState().addWaypoint(wp as never, null, null);
     }, WP_B);
 
     // Der Core hat neu angefragt, UND die Station war dabei.

@@ -1,6 +1,6 @@
 # Home Assistant Add-on Packaging (E08-T4)
 
-Packaging notes for the Yapaja Go add-on. See [`README.md`](./README.md) for
+Packaging notes for the Yapaia Go add-on. See [`README.md`](./README.md) for
 the add-on's own layout and [`DOCS.md`](./DOCS.md) for operator-facing
 install/RAM/GPS/update docs and the manual VM test protocol.
 
@@ -24,7 +24,7 @@ discovers add-ons as directories **one level below that root**, each with a
 
 An operator therefore adds
 `https://github.com/Apfelsafft/Yapaja-Go-Design` under **Settings → Add-ons →
-Add-on Store → ⋮ → Repositories** and gets "Yapaja Go" as an installable
+Add-on Store → ⋮ → Repositories** and gets "Yapaia Go" as an installable
 add-on. Everything else in this monorepo (`apps/`, `packages/`, `services/`,
 `docs/`, …) is simply ignored by the Supervisor, which only looks for
 directories containing a `config.yaml`.

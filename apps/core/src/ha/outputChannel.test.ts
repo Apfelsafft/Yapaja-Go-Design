@@ -157,7 +157,7 @@ describe('HaOutputChannel', () => {
 
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe('http://ha.local:8123/api/services/notify/mobile_app_phone');
-    expect(calls[0].body).toEqual({ title: 'Yapaja Go', message: 'Ziel erreicht: Vaduz' });
+    expect(calls[0].body).toEqual({ title: 'Yapaia Go', message: 'Ziel erreicht: Vaduz' });
     channel.dispose();
   });
 
@@ -203,7 +203,7 @@ describe('HaOutputChannel', () => {
     // The add-on NAME is always in the title -- an add-on can never make a
     // notification look like it came from the Core.
     expect(calls[0].body).toEqual({
-      title: 'Yapaja Go – Stauwarner',
+      title: 'Yapaia Go – Stauwarner',
       message: 'Stau A8: 12 km Stau voraus',
     });
     channel.dispose();

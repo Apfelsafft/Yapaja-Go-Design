@@ -112,7 +112,7 @@ else
   # W-06: the Core is fully functional without a broker -- so we simply don't
   # export MQTT_BROKER_URL. apps/core/src/mqtt/config.ts treats an absent
   # broker URL as "MQTT disabled" (see its own tests) rather than an error.
-  bashio::log.warning "init-yapaja-config: no MQTT service available (Mosquitto add-on not installed/started) -- Yapaja runs WITHOUT the Home-Assistant MQTT/discovery integration (W-06: fully functional otherwise)."
+  bashio::log.warning "init-yapaja-config: no MQTT service available (Mosquitto add-on not installed/started) -- Yapaia runs WITHOUT the Home-Assistant MQTT/discovery integration (W-06: fully functional otherwise)."
 fi
 # apps/core/src/mqtt/config.ts reads `MQTT_PREFIX` (NOT `MQTT_TOPIC_PREFIX`)
 # -- confirmed against that file before wiring this.
@@ -143,10 +143,10 @@ export_env "NODE_ENV" "production"
 # danach fast nur noch aus dieser Zeile, und keiner unserer s6-Dienste konnte
 # ueberhaupt etwas protokollieren.
 #
-# Deshalb heisst die geteilte Variable jetzt `YAPAJA_LOG_LEVEL`. Der Core
+# Deshalb heisst die geteilte Variable jetzt `YAPAIA_LOG_LEVEL`. Der Core
 # erwartet weiterhin `LOG_LEVEL` (pino) -- das setzt `core/run` lokal fuer
 # genau diesen einen Prozess, statt es global zu streuen.
-export_env "YAPAJA_LOG_LEVEL" "${LOG_LEVEL}"
+export_env "YAPAIA_LOG_LEVEL" "${LOG_LEVEL}"
 
 # ---- Data paths (W-16) ----
 export_env "DB_PATH" "${DATA_ROOT}/db/yapaja.db"

@@ -3,7 +3,7 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [
-    ["@yapaja/core", "@yapaja/web", "@yapaja/shared", "@yapaja/ui", "@yapaja/addon-sdk"]
+    ["@yapaia/core", "@yapaia/web", "@yapaia/shared", "@yapaia/ui", "@yapaia/addon-sdk"]
   ],
   "linked": [],
   "access": "restricted",

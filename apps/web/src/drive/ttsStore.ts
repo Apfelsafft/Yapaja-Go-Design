@@ -20,10 +20,10 @@ export const useTtsStore = create<TtsStoreState>((set) => ({
 
 declare global {
   interface Window {
-    __yapajaTtsStore?: typeof useTtsStore;
+    __yapaiaTtsStore?: typeof useTtsStore;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaTtsStore = useTtsStore;
+  window.__yapaiaTtsStore = useTtsStore;
 }

@@ -1,6 +1,6 @@
 /**
  * E10-T5 (docs/07 §7, docs/03 §1): OpenAPI `components.schemas`, built
- * directly from the SAME JSON-Schema objects `@yapaja/shared` exports for
+ * directly from the SAME JSON-Schema objects `@yapaia/shared` exports for
  * runtime AJV validation (`packages/shared/src/schemas/*`) -- imported, not
  * copied. docs/03-api-spec.md §1 names these schemas the intended "Single
  * Source of Truth" that "generate[s] ... OpenAPI-Doku"; this module is that
@@ -29,9 +29,9 @@ import {
   favoriteSchema,
   historyEntrySchema,
   addonManifestSchema,
-} from '@yapaja/shared';
+} from '@yapaia/shared';
 
-/** Component-schema name -> the real `@yapaja/shared` JSON Schema object. */
+/** Component-schema name -> the real `@yapaia/shared` JSON Schema object. */
 export const COMPONENT_SCHEMAS: Record<string, unknown> = {
   LatLng: latLngSchema,
   Position: positionSchema,

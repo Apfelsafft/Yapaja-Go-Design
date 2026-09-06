@@ -9,9 +9,9 @@
 import { describe, it, expect } from 'vitest';
 import { validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
-import { buildYapajaContrastStyle } from './yapaja-contrast.js';
-import { buildYapajaDarkStyle } from './yapaja-dark.js';
-import { buildYapajaLightStyle } from './yapaja-light.js';
+import { buildYapaiaContrastStyle } from './yapaja-contrast.js';
+import { buildYapaiaDarkStyle } from './yapaja-dark.js';
+import { buildYapaiaLightStyle } from './yapaja-light.js';
 import { listStyleSummaries, getStyleDocument } from './registry.js';
 import { rewriteSourceUrls, tileUrlForRegion } from './rewrite.js';
 import { applyStyleOptions, parseStyleOptions } from './options.js';
@@ -19,9 +19,9 @@ import { PLACEHOLDER_TILE_URL, REGION_SOURCE_ID } from './constants.js';
 import type { MapStyleDocument, SymbolLayer } from './types.js';
 
 const STYLE_BUILDERS: Record<string, () => MapStyleDocument> = {
-  'yapaja-light': buildYapajaLightStyle,
-  'yapaja-dark': buildYapajaDarkStyle,
-  'yapaja-contrast': buildYapajaContrastStyle,
+  'yapaja-light': buildYapaiaLightStyle,
+  'yapaja-dark': buildYapaiaDarkStyle,
+  'yapaja-contrast': buildYapaiaContrastStyle,
 };
 
 /** WCAG relative luminance of a `#rrggbb` hex color, in [0, 1]. */
@@ -82,19 +82,19 @@ describe('style spec validation', () => {
 
 describe('plausibility: dark vs light background luminance', () => {
   it('yapaja-light background is in the light range (luminance > 0.7)', () => {
-    expect(relativeLuminance(backgroundColor(buildYapajaLightStyle()))).toBeGreaterThan(0.7);
+    expect(relativeLuminance(backgroundColor(buildYapaiaLightStyle()))).toBeGreaterThan(0.7);
   });
 
   it('yapaja-dark background is in the dark range (luminance < 0.3)', () => {
-    expect(relativeLuminance(backgroundColor(buildYapajaDarkStyle()))).toBeLessThan(0.3);
+    expect(relativeLuminance(backgroundColor(buildYapaiaDarkStyle()))).toBeLessThan(0.3);
   });
 
   it('yapaja-contrast background is in the light range (luminance > 0.7)', () => {
-    expect(relativeLuminance(backgroundColor(buildYapajaContrastStyle()))).toBeGreaterThan(0.7);
+    expect(relativeLuminance(backgroundColor(buildYapaiaContrastStyle()))).toBeGreaterThan(0.7);
   });
 
   it('yapaja-dark is NOT yapaja-light merely inverted / same background', () => {
-    expect(backgroundColor(buildYapajaDarkStyle())).not.toBe(backgroundColor(buildYapajaLightStyle()));
+    expect(backgroundColor(buildYapaiaDarkStyle())).not.toBe(backgroundColor(buildYapaiaLightStyle()));
   });
 });
 
@@ -108,8 +108,8 @@ describe('yapaja-contrast: reduced POI, thick roads, high contrast baseline', ()
    * Breiten-Stuetzstellen, und zwar fuer JEDE Strassenklasse.
    */
   it('roads are thicker than in yapaja-light, across every road class', () => {
-    const contrast = buildYapajaContrastStyle().layers;
-    const light = buildYapajaLightStyle().layers;
+    const contrast = buildYapaiaContrastStyle().layers;
+    const light = buildYapaiaLightStyle().layers;
 
     // `type === 'line'` schliesst `road-labels` aus (eine Symbolebene), und
     // `road-path` ist bewusst NICHT skaliert: der Kontraststil soll befahrbare
@@ -143,7 +143,7 @@ describe('yapaja-contrast: reduced POI, thick roads, high contrast baseline', ()
   });
 
   it('poi-labels ships with a reduced-class filter by default', () => {
-    const poiLayer = buildYapajaContrastStyle().layers.find((l) => l.id === 'poi-labels') as SymbolLayer;
+    const poiLayer = buildYapaiaContrastStyle().layers.find((l) => l.id === 'poi-labels') as SymbolLayer;
     expect(poiLayer.filter).toBeDefined();
     expect(poiLayer.layout.visibility).toBe('visible');
   });
@@ -182,13 +182,13 @@ describe('registry', () => {
 
 describe('rewriteSourceUrls', () => {
   it('rewrites the vector source URL to a relative, page-relative tile URL', () => {
-    const style = rewriteSourceUrls(buildYapajaLightStyle(), 'germany');
+    const style = rewriteSourceUrls(buildYapaiaLightStyle(), 'germany');
     const source = style.sources[REGION_SOURCE_ID];
     expect(source.url).toBe('pmtiles://./tiles/germany.pmtiles');
   });
 
   it('never leaves the placeholder URL in a rewritten style', () => {
-    const style = rewriteSourceUrls(buildYapajaLightStyle(), 'germany');
+    const style = rewriteSourceUrls(buildYapaiaLightStyle(), 'germany');
     expect(JSON.stringify(style)).not.toContain(PLACEHOLDER_TILE_URL);
   });
 
@@ -200,13 +200,13 @@ describe('rewriteSourceUrls', () => {
   });
 
   it('is per-region: different regions produce different URLs', () => {
-    const a = rewriteSourceUrls(buildYapajaLightStyle(), 'germany');
-    const b = rewriteSourceUrls(buildYapajaLightStyle(), 'france');
+    const a = rewriteSourceUrls(buildYapaiaLightStyle(), 'germany');
+    const b = rewriteSourceUrls(buildYapaiaLightStyle(), 'france');
     expect(a.sources[REGION_SOURCE_ID].url).not.toBe(b.sources[REGION_SOURCE_ID].url);
   });
 
   it('does not mutate the input style document', () => {
-    const original = buildYapajaLightStyle();
+    const original = buildYapaiaLightStyle();
     const originalUrl = original.sources[REGION_SOURCE_ID].url;
     rewriteSourceUrls(original, 'germany');
     expect(original.sources[REGION_SOURCE_ID].url).toBe(originalUrl);
@@ -234,7 +234,7 @@ describe('parseStyleOptions', () => {
 
 describe('applyStyleOptions: lang', () => {
   it('rewrites text-field on every label layer to ["get", lang]', () => {
-    const style = applyStyleOptions(buildYapajaLightStyle(), { lang: 'name_de' });
+    const style = applyStyleOptions(buildYapaiaLightStyle(), { lang: 'name_de' });
     const placeLabels = style.layers.find((l) => l.id === 'place-labels') as SymbolLayer;
     const poiLabels = style.layers.find((l) => l.id === 'poi-labels') as SymbolLayer;
     expect(placeLabels.layout['text-field']).toEqual(['get', 'name_de']);
@@ -242,7 +242,7 @@ describe('applyStyleOptions: lang', () => {
   });
 
   it('does not touch non-symbol layers', () => {
-    const before = buildYapajaLightStyle();
+    const before = buildYapaiaLightStyle();
     const after = applyStyleOptions(before, { lang: 'name_en' });
     const beforeRoad = before.layers.find((l) => l.id === 'region-transportation');
     const afterRoad = after.layers.find((l) => l.id === 'region-transportation');
@@ -250,7 +250,7 @@ describe('applyStyleOptions: lang', () => {
   });
 
   it('leaves text-field untouched when lang is not provided', () => {
-    const before = buildYapajaLightStyle();
+    const before = buildYapaiaLightStyle();
     const after = applyStyleOptions(before, {});
     expect(after).toEqual(before);
   });
@@ -258,7 +258,7 @@ describe('applyStyleOptions: lang', () => {
 
 describe('applyStyleOptions: labelScale', () => {
   it('1.2 scales text-size up by 20% on every label layer', () => {
-    const base = buildYapajaLightStyle();
+    const base = buildYapaiaLightStyle();
     const basePlaceSize = (base.layers.find((l) => l.id === 'place-labels') as SymbolLayer).layout['text-size'] as number;
     const basePoiSize = (base.layers.find((l) => l.id === 'poi-labels') as SymbolLayer).layout['text-size'] as number;
 
@@ -271,7 +271,7 @@ describe('applyStyleOptions: labelScale', () => {
   });
 
   it('1.0 leaves text-size unchanged', () => {
-    const base = buildYapajaLightStyle();
+    const base = buildYapaiaLightStyle();
     const scaled = applyStyleOptions(base, { labelScale: '1.0' });
     const before = (base.layers.find((l) => l.id === 'place-labels') as SymbolLayer).layout['text-size'];
     const after = (scaled.layers.find((l) => l.id === 'place-labels') as SymbolLayer).layout['text-size'];
@@ -281,28 +281,28 @@ describe('applyStyleOptions: labelScale', () => {
 
 describe('applyStyleOptions: poi', () => {
   it('off hides the poi-labels layer and drops any filter', () => {
-    const style = applyStyleOptions(buildYapajaContrastStyle(), { poi: 'off' });
+    const style = applyStyleOptions(buildYapaiaContrastStyle(), { poi: 'off' });
     const poiLabels = style.layers.find((l) => l.id === 'poi-labels') as SymbolLayer;
     expect(poiLabels.layout.visibility).toBe('none');
     expect(poiLabels.filter).toBeUndefined();
   });
 
   it('full shows the poi-labels layer with no class filter', () => {
-    const style = applyStyleOptions(buildYapajaContrastStyle(), { poi: 'full' });
+    const style = applyStyleOptions(buildYapaiaContrastStyle(), { poi: 'full' });
     const poiLabels = style.layers.find((l) => l.id === 'poi-labels') as SymbolLayer;
     expect(poiLabels.layout.visibility).toBe('visible');
     expect(poiLabels.filter).toBeUndefined();
   });
 
   it('reduced shows the poi-labels layer with a class allowlist filter', () => {
-    const style = applyStyleOptions(buildYapajaLightStyle(), { poi: 'reduced' });
+    const style = applyStyleOptions(buildYapaiaLightStyle(), { poi: 'reduced' });
     const poiLabels = style.layers.find((l) => l.id === 'poi-labels') as SymbolLayer;
     expect(poiLabels.layout.visibility).toBe('visible');
     expect(poiLabels.filter).toBeDefined();
   });
 
   it('does not touch place-labels (not a POI layer)', () => {
-    const before = buildYapajaLightStyle();
+    const before = buildYapaiaLightStyle();
     const after = applyStyleOptions(before, { poi: 'off' });
     const beforePlace = before.layers.find((l) => l.id === 'place-labels');
     const afterPlace = after.layers.find((l) => l.id === 'place-labels');
@@ -310,10 +310,10 @@ describe('applyStyleOptions: poi', () => {
   });
 
   it('an explicit ?poi=full overrides yapaja-contrast baked-in reduced default', () => {
-    const contrastDefault = buildYapajaContrastStyle().layers.find((l) => l.id === 'poi-labels') as SymbolLayer;
+    const contrastDefault = buildYapaiaContrastStyle().layers.find((l) => l.id === 'poi-labels') as SymbolLayer;
     expect(contrastDefault.filter).toBeDefined(); // baseline is reduced
 
-    const overridden = applyStyleOptions(buildYapajaContrastStyle(), { poi: 'full' });
+    const overridden = applyStyleOptions(buildYapaiaContrastStyle(), { poi: 'full' });
     const poiLabels = overridden.layers.find((l) => l.id === 'poi-labels') as SymbolLayer;
     expect(poiLabels.filter).toBeUndefined();
   });

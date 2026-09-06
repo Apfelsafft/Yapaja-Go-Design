@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 import {
   distanceMeters,
   wasStandingStill,

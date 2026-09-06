@@ -15,7 +15,7 @@ zwei Dinge nach:
 
 > **Kein Vektor wird durch ein Test-Double „geblockt".** Es gibt in dieser Suite
 > keinen Mock, keinen Stub und keine „Schutz-abschaltbar"-Naht im Produktcode.
-> Der Core ist der echte, mit `pnpm --filter @yapaja/core build` gebaute
+> Der Core ist der echte, mit `pnpm --filter @yapaia/core build` gebaute
 > Prozess; der Browser ist ein echtes Chromium; das Add-on wird über die echte
 > zweistufige Install-API installiert.
 

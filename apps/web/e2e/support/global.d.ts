@@ -1,7 +1,7 @@
 /**
- * Editor/IDE convenience only: mirrors the `Window.__yapajaMapController`
+ * Editor/IDE convenience only: mirrors the `Window.__yapaiaMapController`
  * ambient declaration from `../../src/map/MapView.tsx` so spec files that
- * reference `window.__yapajaMapController` resolve without a red squiggle.
+ * reference `window.__yapaiaMapController` resolve without a red squiggle.
  * Not part of any `tsc --noEmit` program (e2e/ isn't included by
  * apps/web/tsconfig.json), so this has no effect on `pnpm typecheck`.
  */
@@ -17,15 +17,15 @@ import type { usePwaStore } from '../../src/pwa/pwaStore';
 
 declare global {
   interface Window {
-    __yapajaMapController?: typeof mapController;
-    __yapajaPositionStore?: typeof usePositionStore;
-    __yapajaRoutingStore?: typeof useRoutingStore;
-    __yapajaProfileStore?: typeof useProfileStore;
-    __yapajaNavStore?: typeof useNavStore;
-    __yapajaSpeechAvailable?: () => boolean;
-    __yapajaShellWsStore?: typeof useShellWsStore;
-    __yapajaShellLayoutStore?: typeof useLayoutStore;
-    __yapajaPwaStore?: typeof usePwaStore;
+    __yapaiaMapController?: typeof mapController;
+    __yapaiaPositionStore?: typeof usePositionStore;
+    __yapaiaRoutingStore?: typeof useRoutingStore;
+    __yapaiaProfileStore?: typeof useProfileStore;
+    __yapaiaNavStore?: typeof useNavStore;
+    __yapaiaSpeechAvailable?: () => boolean;
+    __yapaiaShellWsStore?: typeof useShellWsStore;
+    __yapaiaShellLayoutStore?: typeof useLayoutStore;
+    __yapaiaPwaStore?: typeof usePwaStore;
   }
 }
 

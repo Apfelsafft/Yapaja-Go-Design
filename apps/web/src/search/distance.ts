@@ -4,7 +4,7 @@
  *
  * `packages/shared/src/plausibility.ts` already has a Haversine
  * implementation, but it's a private, unexported helper (not part of
- * `@yapaja/shared`'s public surface, see `packages/shared/src/index.ts`) --
+ * `@yapaia/shared`'s public surface, see `packages/shared/src/index.ts`) --
  * and `packages/shared` is out of scope for this task ("packages/shared
  * NICHT ändern"). This re-implements the exact same formula rather than
  * reaching into the package's internals.
@@ -17,7 +17,7 @@
  * Formatter" requirement.
  */
 
-import type { LatLng } from '@yapaja/shared';
+import type { LatLng } from '@yapaia/shared';
 
 const EARTH_RADIUS_M = 6_371_000;
 

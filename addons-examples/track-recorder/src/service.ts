@@ -2,7 +2,7 @@
  * Track-Recorder (E09-T5, docs/05 §6.2) -- SERVICE entry point (Type B,
  * `service.entry`). Runs as a Core-spawned Node child process
  * (`apps/core/src/addons/service-host.ts`) and talks to the Core EXCLUSIVELY
- * through `@yapaja/addon-sdk`'s `connectAddon()` -- no raw `fetch`, no raw
+ * through `@yapaia/addon-sdk`'s `connectAddon()` -- no raw `fetch`, no raw
  * `WebSocket`, no internal imports (docs/05 §1B). Verified by
  * `addons-examples/no-raw-transport.test.ts`.
  *
@@ -34,7 +34,7 @@
  *    consumes at all.
  */
 
-import { connectAddon } from '@yapaja/addon-sdk';
+import { connectAddon } from '@yapaia/addon-sdk';
 import { createRecorderState, startRecording, stopRecording, applyFix, type RecorderState } from './recorder.js';
 import { buildGpx } from './gpx.js';
 import { totalDistanceMeters } from './distance.js';
@@ -61,7 +61,7 @@ interface TrackSummary {
 
 /**
  * The SERVICE transport's raw `position.subscribe` payload is the Core's
- * FULL `Position` shape (`@yapaja/shared`), including `lon` (NOT `lng`) and
+ * FULL `Position` shape (`@yapaia/shared`), including `lon` (NOT `lng`) and
  * a real `ts` -- see docs/addon-dev-guide.md's "position.subscribe payload
  * shape differs by transport" note (added while building this reference
  * add-on) and `apps/core/src/position/service.ts`'s

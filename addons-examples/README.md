@@ -1,6 +1,6 @@
 # Referenz-Add-ons (E09-T5, docs/05-addon-system.md §6)
 
-Zwei lebende Beispiele, die zusammen die komplette `@yapaja/addon-sdk`-Oberfläche
+Zwei lebende Beispiele, die zusammen die komplette `@yapaia/addon-sdk`-Oberfläche
 abdecken (docs/05 §6) und als Vorlage für Dritt-Add-ons dienen:
 
 - **[`poi-campsites/`](./poi-campsites)** -- Typ A (reines UI-Add-on): POI-Overlay
@@ -40,9 +40,9 @@ bauen/zu veröffentlichen.
 
 Was das konkret bedeutet:
 
-- **`@yapaja/addon-sdk` wird per esbuild `alias` direkt aus dessen
+- **`@yapaia/addon-sdk` wird per esbuild `alias` direkt aus dessen
   TypeScript-QUELLTEXT** (`packages/addon-sdk/src/index.ts`, ebenso
-  `@yapaja/shared`) **gebündelt** (siehe `*/build.mjs`), nicht über eine
+  `@yapaia/shared`) **gebündelt** (siehe `*/build.mjs`), nicht über eine
   `workspace:*`-Abhängigkeit aufgelöst -- es gibt keine node_modules-Verlinkung
   zu diesen Paketen. Das ist ohnehin nötig: die add-on Iframe/Prozess-Umgebung
   kennt gar kein `node_modules` (siehe unten), der fertige Bundle muss

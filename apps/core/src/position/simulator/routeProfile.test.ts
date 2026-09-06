@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { SpeedSegment } from '@yapaja/shared';
+import type { SpeedSegment } from '@yapaia/shared';
 import { encodePolyline6 } from '../../routing/polyline.js';
 import {
   routeSpeedProfile,

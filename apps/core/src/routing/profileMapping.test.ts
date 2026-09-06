@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { LatLng, VehicleProfile } from '@yapaja/shared';
+import type { LatLng, VehicleProfile } from '@yapaia/shared';
 import { buildTruckCostingOptions, buildValhallaRouteBody } from './profileMapping.js';
 
 function camper(overrides: Partial<VehicleProfile> = {}): VehicleProfile {

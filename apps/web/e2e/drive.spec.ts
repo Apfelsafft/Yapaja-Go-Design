@@ -28,7 +28,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import type { Route } from '@yapaja/shared';
+import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { DRIVE_CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors, trackRequests } from './support/network.js';
@@ -111,7 +111,7 @@ async function driveTo(page: Page, progressM: number, speedMs = 3): Promise<void
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.waitForFunction(() => Boolean(window.__yapajaMapController?.getMap?.()), undefined, {
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, {
     timeout: 15_000,
   });
 }
@@ -136,7 +136,7 @@ function parseDistanceM(text: string | null): number {
 }
 
 async function instructionSeq(page: Page): Promise<number> {
-  return page.evaluate(() => window.__yapajaNavStore?.getState().instructionSeq ?? 0);
+  return page.evaluate(() => window.__yapaiaNavStore?.getState().instructionSeq ?? 0);
 }
 
 test.describe('Drive basics (E04-T3, Flow 2)', () => {
@@ -182,7 +182,7 @@ test.describe('Drive basics (E04-T3, Flow 2)', () => {
     // the routing store already populated from "Route hierhin" -- seed it
     // directly so this test exercises that lookup for real.
     await page.evaluate((route: Route) => {
-      window.__yapajaRoutingStore?.setState({ routes: [route], activeRouteId: route.id });
+      window.__yapaiaRoutingStore?.setState({ routes: [route], activeRouteId: route.id });
     }, ROUTE);
 
     // -- W1 (~111 m): approaching maneuver 1 (Seestraße), first threshold(s) fire.
@@ -214,7 +214,7 @@ test.describe('Drive basics (E04-T3, Flow 2)', () => {
     const distanceAtW3 = await getManeuverDistanceM(page);
     expect(distanceAtW3).toBeLessThan(distanceAtW2);
     await expect.poll(() => instructionSeq(page), { timeout: 5_000 }).toBeGreaterThan(seqBeforeW3);
-    const sayAtW3 = await page.evaluate(() => window.__yapajaNavStore?.getState().lastInstruction?.say ?? '');
+    const sayAtW3 = await page.evaluate(() => window.__yapaiaNavStore?.getState().lastInstruction?.say ?? '');
     expect(sayAtW3.startsWith('Jetzt')).toBe(true);
     expect(sayAtW3).toContain('Seestraße');
 
@@ -230,7 +230,7 @@ test.describe('Drive basics (E04-T3, Flow 2)', () => {
     await expect(page.getByTestId('speed-limit-value')).toHaveText('80');
     await expect.poll(() => instructionSeq(page), { timeout: 5_000 }).toBeGreaterThan(seqBeforeW4);
     const newInstructionManeuverIndex = await page.evaluate(
-      () => window.__yapajaNavStore?.getState().lastInstruction?.maneuver.index ?? null,
+      () => window.__yapaiaNavStore?.getState().lastInstruction?.maneuver.index ?? null,
     );
     expect(newInstructionManeuverIndex).toBe(2); // maneuver 1 never announces again after being passed
 
@@ -238,7 +238,7 @@ test.describe('Drive basics (E04-T3, Flow 2)', () => {
     await driveTo(page, TOTAL_LENGTH_M - 5, 0);
     await expect(page.getByTestId('maneuver-panel')).toHaveCount(0, { timeout: 10_000 });
     await expect(page.getByTestId('speed-limit-sign')).toHaveCount(0);
-    const finalStatus = await page.evaluate(() => window.__yapajaNavStore?.getState().navState?.status ?? null);
+    const finalStatus = await page.evaluate(() => window.__yapaiaNavStore?.getState().navState?.status ?? null);
     expect(finalStatus).toBe('arrived');
 
     // TTS toggle exists and is togglable while a drive was active (checked
@@ -275,7 +275,7 @@ test.describe('Drive basics (E04-T3, Flow 2)', () => {
     // Whichever path this browser takes (real speech synthesis vs. the
     // WebAudio gong fallback), it must never throw -- the availability check
     // itself is exposed for direct inspection.
-    const speechAvailable = await page.evaluate(() => window.__yapajaSpeechAvailable?.() ?? null);
+    const speechAvailable = await page.evaluate(() => window.__yapaiaSpeechAvailable?.() ?? null);
     expect(typeof speechAvailable).toBe('boolean');
 
     expect(pageErrors).toEqual([]);
@@ -308,14 +308,14 @@ test.describe('Drive basics (E04-T3, Flow 2)', () => {
     expect(startResponse.ok()).toBe(true);
 
     await page.evaluate((route: Route) => {
-      window.__yapajaRoutingStore?.setState({ routes: [route], activeRouteId: route.id });
+      window.__yapaiaRoutingStore?.setState({ routes: [route], activeRouteId: route.id });
     }, ROUTE);
 
     await driveTo(page, 111);
     await expect(page.getByTestId('maneuver-panel')).toBeVisible({ timeout: 5_000 });
 
     const before = await page.evaluate(() => {
-      const s = window.__yapajaRoutingStore?.getState();
+      const s = window.__yapaiaRoutingStore?.getState();
       return { routes: s?.routes?.length ?? 0, activeRouteId: s?.activeRouteId ?? null };
     });
     expect(before.routes).toBe(1);
@@ -330,7 +330,7 @@ test.describe('Drive basics (E04-T3, Flow 2)', () => {
     await page.waitForTimeout(500);
 
     const after = await page.evaluate(() => {
-      const s = window.__yapajaRoutingStore?.getState();
+      const s = window.__yapaiaRoutingStore?.getState();
       return {
         routes: s?.routes?.length ?? 0,
         activeRouteId: s?.activeRouteId ?? null,
@@ -394,7 +394,7 @@ test.describe('Drive basics (E04-T3, Flow 2)', () => {
     // Bei ~11 km/h ist die naechste Stufe die dichteste (17). Ohne
     // Verdrahtung bliebe die Karte auf ihrem Anfangszoom stehen.
     await expect
-      .poll(() => page.evaluate(() => window.__yapajaMapController?.getMap?.()?.getZoom() ?? null), {
+      .poll(() => page.evaluate(() => window.__yapaiaMapController?.getMap?.()?.getZoom() ?? null), {
         timeout: 10_000,
       })
       .toBeGreaterThan(16);

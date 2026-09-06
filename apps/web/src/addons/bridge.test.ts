@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AddonBridge, type HostBridgeDeps } from './bridge.js';
-import { ADDON_MESSAGE_NS } from '@yapaja/addon-sdk';
+import { ADDON_MESSAGE_NS } from '@yapaia/addon-sdk';
 
 /**
  * Host-side bridge unit tests: the handshake, SOURCE-SPOOF rejection (a

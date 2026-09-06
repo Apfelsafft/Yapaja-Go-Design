@@ -1,6 +1,6 @@
 /**
  * Style / Settings Panel (E01-T4, preliminary — docs/06-ui-ux-guidelines.md
- * §6): lets the user pick a map style (`Yapaja Light` / `Dark` / `Contrast`)
+ * §6): lets the user pick a map style (`Yapaia Light` / `Dark` / `Contrast`)
  * and the label language / label scale / POI density options. All choices
  * persist via `useStyleStore` (localStorage).
  *
@@ -74,7 +74,7 @@ export default function StylePanel(): React.ReactElement {
 
   // Bottom-left is the one corner MapLibre's own NavigationControl (top-right,
   // added in MapView) and the other map FABs (compass/view-mode/re-center,
-  // all bottom-right, plus the "Yapaja Go" header badge top-left) don't use —
+  // all bottom-right, plus the "Yapaia Go" header badge top-left) don't use —
   // avoids a pointer-event-intercepting overlap with any of them.
   return (
     <div className="fixed bottom-4 left-4 z-10">

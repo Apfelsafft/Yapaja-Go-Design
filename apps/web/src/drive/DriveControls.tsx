@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import type { NavState } from '@yapaja/shared';
+import type { NavState } from '@yapaia/shared';
 import { pauseNavigation, resumeNavigation, stopNavigation, NavigationApiError } from './client.js';
 import { useNavStore } from './navStore.js';
 import { useHandednessStore } from '../shell/handednessStore.js';

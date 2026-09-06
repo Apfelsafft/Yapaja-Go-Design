@@ -3,7 +3,7 @@
  * Handles value ranges, field-level validation, and suspicious profile detection.
  */
 
-import type { VehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile } from '@yapaia/shared';
 
 export const RANGES = {
   height_m: { min: 1.0, max: 4.5, step: 0.01 },

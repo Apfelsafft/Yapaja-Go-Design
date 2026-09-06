@@ -20,7 +20,7 @@
  * `RerouteProvider`.
  */
 
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 import type { DeadReckoningProvider } from '../position/deadReckoning.js';
 import { bearingDeg } from './geo.js';
 import type { RouteGeometry } from './mapMatching.js';

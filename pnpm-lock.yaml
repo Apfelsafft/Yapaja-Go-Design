@@ -72,7 +72,7 @@ importers:
       '@fastify/websocket':
         specifier: ^11.3.0
         version: 11.3.0
-      '@yapaja/shared':
+      '@yapaia/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       better-sqlite3:
@@ -136,7 +136,7 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@18.3.1)
-      '@yapaja/ui':
+      '@yapaia/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       maplibre-gl:
@@ -206,7 +206,7 @@ importers:
 
   packages/addon-sdk:
     dependencies:
-      '@yapaja/shared':
+      '@yapaia/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:

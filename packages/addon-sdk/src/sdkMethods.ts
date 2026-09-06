@@ -1,6 +1,6 @@
 /**
  * The SDK-level method surface + its method -> required-scope table (docs/05
- * §3). `SdkMethod` names every operation `YapajaAddon` exposes across BOTH
+ * §3). `SdkMethod` names every operation `YapaiaAddon` exposes across BOTH
  * transports (some exist on only one -- see `types.ts`'s per-method docs and
  * `postMessageTransport.ts` / `serviceTransport.ts` for which throw
  * {@link UnsupportedOnTransportError}).

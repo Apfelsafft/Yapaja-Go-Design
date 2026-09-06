@@ -1,5 +1,5 @@
 /**
- * Error classes `@yapaja/addon-sdk` throws (docs/05 §3). All extend
+ * Error classes `@yapaia/addon-sdk` throws (docs/05 §3). All extend
  * {@link AddonSdkError}, which carries a machine-readable `code` alongside the
  * usual `Error` message, so add-on code can branch on `err.code` /
  * `instanceof` without parsing strings.
@@ -78,7 +78,7 @@ export class IncompatibleCoreError extends AddonSdkError {
   constructor(sdkVersion: string, coreVersion: string) {
     super(
       'INCOMPATIBLE_CORE',
-      `@yapaja/addon-sdk v${sdkVersion} requires the Core's major version to match its own; ` +
+      `@yapaia/addon-sdk v${sdkVersion} requires the Core's major version to match its own; ` +
         `the connected Core reports v${coreVersion}. Update the add-on SDK dependency or the Core ` +
         `so their major versions align before retrying.`,
     );

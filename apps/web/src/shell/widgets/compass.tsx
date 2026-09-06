@@ -5,7 +5,7 @@
  * never-fabricate-zero discipline as the speed-limit sign).
  */
 
-import type { Widget } from '@yapaja/ui';
+import type { Widget } from '@yapaia/ui';
 import { latestPosition } from './positionUtils.js';
 
 export const compassWidget: Widget = {

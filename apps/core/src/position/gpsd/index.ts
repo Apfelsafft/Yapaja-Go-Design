@@ -31,7 +31,7 @@
 
 import * as net from 'node:net';
 import { Buffer } from 'node:buffer';
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 import type { PositionService, PositionSource } from '../service.js';
 import { PlausibilityGuard } from '../guard.js';
 import { LineBuffer } from './lineBuffer.js';

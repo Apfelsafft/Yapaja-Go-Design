@@ -21,7 +21,7 @@ export default function PerfOverlay(): React.ReactElement | null {
       ? new URLSearchParams(window.location.search).has('perf')
       : false;
 
-  // Expose a test hook: tests can call window.__yapajaSetPerfStats to inject fps values
+  // Expose a test hook: tests can call window.__yapaiaSetPerfStats to inject fps values
   useEffect(() => {
     const handleSetStats = (event: Event) => {
       const customEvent = event as CustomEvent<{ fps: number }>;

@@ -30,7 +30,7 @@ zweierlei prüft:
 
 ## Warum rohes postMessage statt SDK?
 
-Das SDK (`@yapaja/addon-sdk`) ist **untrusted convenience code**: ein
+Das SDK (`@yapaia/addon-sdk`) ist **untrusted convenience code**: ein
 bösartiges Add-on tauscht es einfach aus. Ein Fixture, das brav durchs SDK
 geht, könnte deshalb gar nicht beweisen, dass die Durchsetzung host-seitig
 liegt. Dieses Fixture umgeht das SDK vollständig -- und wird identisch

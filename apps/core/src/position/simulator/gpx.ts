@@ -13,7 +13,7 @@
  *    convenience, not a channel for untrusted third-party uploads, so we
  *    don't need general-XML robustness for security reasons either.
  *  - One fewer runtime dependency to bundle/audit for a backend service
- *    that ships as a single Node binary (tsup bundles @yapaja/shared and
+ *    that ships as a single Node binary (tsup bundles @yapaia/shared and
  *    friends into apps/core/dist -- see apps/core/tsup.config.ts).
  * Trade-off: this parser is intentionally narrow. It does not handle GPX
  * extensions, multiple `<trk>`/`<trkseg>` elements (it flattens all trkpt

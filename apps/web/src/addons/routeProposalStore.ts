@@ -8,7 +8,7 @@
  */
 
 import { create } from 'zustand';
-import type { RouteProposeWaypoint } from '@yapaja/addon-sdk';
+import type { RouteProposeWaypoint } from '@yapaia/addon-sdk';
 
 export interface RouteProposal {
   /** Unique id for this proposal instance (dismiss/accept target). */

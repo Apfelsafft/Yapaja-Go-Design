@@ -29,13 +29,13 @@ describe('fetchStyleSummaries', () => {
 
   it('fetches from a BASE_URL-relative path and returns the data array', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ data: [{ id: 'yapaja-light', name: 'Yapaja Light' }] }),
+      jsonResponse({ data: [{ id: 'yapaja-light', name: 'Yapaia Light' }] }),
     );
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const summaries = await fetchStyleSummaries();
 
-    expect(summaries).toEqual([{ id: 'yapaja-light', name: 'Yapaja Light' }]);
+    expect(summaries).toEqual([{ id: 'yapaja-light', name: 'Yapaia Light' }]);
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('api/v1/map/styles'));
     expect(fetchMock.mock.calls[0][0]).not.toMatch(/^https?:\/\//); // relative, no foreign host
   });

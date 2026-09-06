@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import type { VehicleProfile } from '@yapaja/shared';
+import type { VehicleProfile } from '@yapaia/shared';
 
 interface ProfileChipProps {
   activeProfile: VehicleProfile | null;

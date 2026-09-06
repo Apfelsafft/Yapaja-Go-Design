@@ -9,7 +9,7 @@
  * unit-testable. `bridge.ts` maps the parsed, typed results onto the actual
  * Core services.
  */
-import type { LatLng } from '@yapaja/shared';
+import type { LatLng } from '@yapaia/shared';
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 

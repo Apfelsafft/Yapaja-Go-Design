@@ -21,7 +21,7 @@
  */
 
 import { create } from 'zustand';
-import type { LatLng, Route, RouteAvoidOverrides } from '@yapaja/shared';
+import type { LatLng, Route, RouteAvoidOverrides } from '@yapaia/shared';
 import * as client from './client.js';
 import { RoutingApiError } from './client.js';
 import {
@@ -379,15 +379,15 @@ export function selectAlternativeRoutes(state: RouteSelectionState): Route[] {
 declare global {
   interface Window {
     /**
-     * Debug/E2E hook, mirrors `window.__yapajaMapController` /
-     * `window.__yapajaPositionStore`: exposes the routing store so
+     * Debug/E2E hook, mirrors `window.__yapaiaMapController` /
+     * `window.__yapaiaPositionStore`: exposes the routing store so
      * Playwright can assert on `activeRouteId`/`status` directly.
      * Production code must still go through `useRoutingStore`.
      */
-    __yapajaRoutingStore?: typeof useRoutingStore;
+    __yapaiaRoutingStore?: typeof useRoutingStore;
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__yapajaRoutingStore = useRoutingStore;
+  window.__yapaiaRoutingStore = useRoutingStore;
 }

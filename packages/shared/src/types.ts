@@ -1,5 +1,5 @@
 /**
- * Core data types for Yapaja Go navigation application
+ * Core data types for Yapaia Go navigation application
  * Exact definitions from docs/03-api-spec.md Section 1
  */
 
@@ -164,7 +164,7 @@ export interface NavState {
   distance_to_maneuver_m: number | null;
   distance_remaining_m: number | null;
   duration_remaining_s: number | null;
-  eta: string | null; // ISO 8601 in UTC ('...Z'); Core is UTC-only (W-22). Client formats to the device's local TZ via @yapaja/shared formatEta.
+  eta: string | null; // ISO 8601 in UTC ('...Z'); Core is UTC-only (W-22). Client formats to the device's local TZ via @yapaia/shared formatEta.
   speed_kmh: number | null; // current speed
   speed_limit_kmh: number | null; // from map data, null = unknown
   altitude_m: number | null;

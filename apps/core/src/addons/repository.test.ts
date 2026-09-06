@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createDb } from '../db/index.js';
 import { AddonRepository } from './repository.js';
-import type { AddonManifest } from '@yapaja/shared';
+import type { AddonManifest } from '@yapaia/shared';
 
 function testManifest(overrides: Partial<AddonManifest> = {}): AddonManifest {
   return {

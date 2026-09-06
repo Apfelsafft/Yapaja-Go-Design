@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import type { Position } from '@yapaja/shared';
+import type { Position } from '@yapaia/shared';
 import { PlausibilityGuard } from './guard.js';
 
 const BASE_TS = Date.parse('2026-07-10T10:00:00.000Z');

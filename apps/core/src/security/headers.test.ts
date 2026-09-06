@@ -90,11 +90,11 @@ describe('resolveFrameAncestors', () => {
   it('falls back to the default for a blank value (never emits an empty directive)', () => {
     // An empty directive makes the whole policy malformed, and browsers drop
     // a malformed policy entirely -- i.e. blank must fail CLOSED, not open.
-    expect(resolveFrameAncestors({ YAPAJA_FRAME_ANCESTORS: '   ' })).toBe(DEFAULT_FRAME_ANCESTORS);
+    expect(resolveFrameAncestors({ YAPAIA_FRAME_ANCESTORS: '   ' })).toBe(DEFAULT_FRAME_ANCESTORS);
   });
 
   it('uses a configured value', () => {
-    expect(resolveFrameAncestors({ YAPAJA_FRAME_ANCESTORS: "'none'" })).toBe("'none'");
+    expect(resolveFrameAncestors({ YAPAIA_FRAME_ANCESTORS: "'none'" })).toBe("'none'");
   });
 });
 
@@ -106,7 +106,7 @@ describe('security headers on the assembled server (E10-T4)', () => {
     publicDir = mkdtempSync(join(tmpdir(), 'yapaja-sec-headers-'));
     writeFileSync(
       join(publicDir, 'index.html'),
-      '<!doctype html><html><head><title>Yapaja Go</title></head><body></body></html>',
+      '<!doctype html><html><head><title>Yapaia Go</title></head><body></body></html>',
     );
     writeFileSync(join(publicDir, 'asset.js'), 'export const x = 1;\n');
     process.env.DB_PATH = ':memory:';
