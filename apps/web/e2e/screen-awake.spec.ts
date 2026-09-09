@@ -26,6 +26,37 @@ async function ohneWakeLock(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Legt eine Schnittstelle unter, die IMMER zusagt -- und zaehlt die Anfragen.
+ *
+ * Warum untergelegt und nicht die echte genommen: ob ein Browser die Sperre
+ * WIRKLICH erteilt, haengt am Rechner, nicht an diesem Programm. Der
+ * CI-Rechner hat keinen Bildschirm und lehnt sie ab; dort griff dann der
+ * Video-Rueckfall, und der Test behauptete etwas ueber die Umgebung statt
+ * ueber den Quelltext. Was hier zu pruefen ist: dass Yapaia die
+ * Schnittstelle NIMMT, wenn es sie gibt.
+ */
+async function mitWakeLock(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    window.__wakeLockAnfragen = 0;
+    Object.defineProperty(navigator, 'wakeLock', {
+      configurable: true,
+      get: () => ({
+        request: async () => {
+          window.__wakeLockAnfragen = (window.__wakeLockAnfragen ?? 0) + 1;
+          return { release: async () => undefined, addEventListener: () => undefined };
+        },
+      }),
+    });
+  });
+}
+
+declare global {
+  interface Window {
+    __wakeLockAnfragen?: number;
+  }
+}
+
 /** Der Zustand, den `ScreenAwakeController` nach aussen meldet. */
 async function zustand(page: Page): Promise<{ methode: string; gewuenscht: boolean }> {
   return page.evaluate(() => {
@@ -47,11 +78,20 @@ async function videoSpielt(page: Page): Promise<boolean> {
 }
 
 test.describe('Bildschirm wachhalten', () => {
-  test('nutzt die Schnittstelle, wo es sie gibt', async ({ page }) => {
-    // 127.0.0.1 gilt dem Browser als sicherer Kontext, hier gibt es sie also.
+  test('nimmt die Schnittstelle, wo es sie gibt -- und nicht das Video', async ({ page }) => {
+    await mitWakeLock(page);
     await page.goto(CORE_BASE_URL);
     await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
+
     await expect.poll(async () => (await zustand(page)).methode).toBe('wakelock');
+    expect(await page.evaluate(() => window.__wakeLockAnfragen)).toBe(1);
+    // Genau EINE Anfrage, und kein Video daneben: zwei Wege gleichzeitig
+    // waeren kein doppelter Schutz, sondern ein Video, das niemand mehr
+    // anhaelt.
+    expect(
+      await page.locator('video').evaluate((v: HTMLVideoElement) => v.paused),
+      'das Video laeuft, obwohl die Sperre haelt',
+    ).toBe(true);
   });
 
   test('haelt ohne die Schnittstelle mit dem Video wach', async ({ page }) => {
