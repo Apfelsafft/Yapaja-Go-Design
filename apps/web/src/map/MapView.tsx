@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import maplibregl from 'maplibre-gl';
+// ─── NAMENSRAUM STATT STANDARD-EXPORT ─────────────────────────────────────
+// MapLibre 6 hat den Standard-Export entfernt (`TS1192: has no default
+// export`). Der Aufstieg war noetig, weil 5.x eine kritische XSS-Luecke
+// traegt (GHSA-jrc7-96c5-q579), die es nur in 6.4.1+ behoben gibt.
+import * as maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import { Protocol } from 'pmtiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -225,7 +229,7 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
 
     // Missing/dummy vector tiles (e.g. an empty fixture archive) must never
     // crash the app: log and keep the map interactive.
-    newMap.on('error', (event) => {
+    newMap.on('error', (event: { error?: unknown }) => {
       console.warn('[MapView] MapLibre error event', event.error);
     });
 
@@ -315,16 +319,23 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
     if (!map || !position) {
       return;
     }
+    // ─── EINE KAMERAFAHRT, MITTE UND WINKEL ZUSAMMEN ────────────────────────
+    // Hier stand seit 0.6.4 zusaetzlich `syncHeadingToBearing()`, damit sich
+    // die Karte nicht erst eine Meldung spaeter dreht. Das war die richtige
+    // Absicht am falschen Ort: die Funktion setzt den Winkel mit einem
+    // SPRUNG, und ein Sprung bricht die Kamerafahrt ab, die
+    // `updateFollowMePosition` gerade gestartet hat.
+    //
+    // Gemessen (1,3 s abgetastet, Kurs-Modus): aendert sich nur die Position,
+    // bewegt sich die Mitte ueber 19 Zwischenstaende und 111 m. Aendert sich
+    // AUCH der Kurs, blieb genau eine Mitte uebrig -- 0 m. Gemeldet als
+    // „die Karte zieht in groben Schritten nach" und „beim Abbiegen dreht sie
+    // in einem Rutsch".
+    //
+    // Der Winkel reist jetzt IN der Fahrt mit (`followMe.ts`), deshalb steht
+    // hier nur noch der eine Aufruf. Wer das Nachdrehen hier wieder
+    // hinzufuegt, wuergt die Verfolgung erneut ab.
     updateFollowMePosition();
-    // ─── UND DIE KARTE MITDREHEN ────────────────────────────────────────────
-    // Der Kurs aendert sich HIER -- also gehoert das Nachdrehen auch hierhin.
-    // Bisher haing es allein an `rotate`/`moveend` (siehe der Effekt
-    // darunter), lief also nur, wenn die Kamera aus einem anderen Grund
-    // bewegt wurde. Seit die Verfolgung fluessig animiert (0.6.1), kommt
-    // `moveend` erst am Ende der Animation: die Karte drehte sich gemessen
-    // eine ganze Meldung zu spaet. Steht das Fahrzeug still, bewegte sich
-    // die Kamera gar nicht -- dann drehte sie ueberhaupt nicht mit.
-    syncHeadingToBearing();
   }, [map, position]);
 
   // Sync heading to bearing for course modes + lock 2d-north bearing. Attaches

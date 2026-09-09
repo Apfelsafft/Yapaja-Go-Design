@@ -23,6 +23,8 @@ import { useMapStore } from '../state/mapStore';
 import { runWhenStyleReady } from '../map/styleReady';
 import { followAnimationMs } from '../map/followMe';
 import { interpolateFix, type SmoothFix } from './smoothing.js';
+import { headingArrowRing } from './headingArrow.js';
+import { metersPerPixel as mapMetersPerPixel } from '../map/scale.js';
 
 const STALE_POSITION_MS = 5000; // 5 seconds
 const INACCURACY_THRESHOLD_M = 100; // 100 meters
@@ -160,17 +162,26 @@ export default function PositionPuck(): null {
         },
       });
 
-      // Heading wedge (line from center in heading direction)
+      // ─── RICHTUNGSPFEIL ───────────────────────────────────────────────
+      // Gemeldet: „hat oft eine schmale blaue Linie die wahrscheinlich das
+      // aktuelle heading anzeigt. Koennen wir das aendern?" Hier stand eine
+      // 20 px lange Linie der Staerke 2 -- fadenduenn und im Augenwinkel
+      // waehrend der Fahrt kaum als Richtung zu lesen. Jetzt eine gefuellte
+      // Flaeche; Form und Masse stehen in `headingArrow.ts`.
+      //
+      // Der Filter geht ueber die GEOMETRIE, nicht ueber `heading`: die
+      // Punkt-Objekte tragen dieselbe Eigenschaft, und eine Flaechenebene
+      // wuerde sie zwar ignorieren -- aber dann stuende im Filter etwas
+      // anderes, als er wirklich meint.
       map.addLayer({
         id: `${PUCK_STATE.layerId}-heading`,
-        type: 'line',
+        type: 'fill',
         source: PUCK_STATE.sourceId,
-        filter: ['!=', ['get', 'heading'], null],
+        filter: ['==', ['geometry-type'], 'Polygon'],
         paint: {
-          'line-color': ['get', 'puck-color'],
-          'line-width': 2,
-          'line-opacity': 0.7,
-          'line-color-transition': PAINT_TRANSITION,
+          'fill-color': ['get', 'puck-color'],
+          'fill-opacity': 0.9,
+          'fill-color-transition': PAINT_TRANSITION,
         },
       });
 
@@ -207,15 +218,27 @@ export default function PositionPuck(): null {
     const ringGrowthM = Math.min(MAX_DISPLAY_ACCURACY_M, elapsedLostS * RING_GROWTH_M_PER_S);
     const displayAccuracyM = (position.accuracy ?? 0) + (isLost ? ringGrowthM : 0);
 
-    // Convert accuracy (meters) to pixels at current zoom level
-    const zoom = map.getZoom();
-    const metersPerPixel = 40075000 / (256 * Math.pow(2, zoom)); // Rough approximation
+    // ─── METER JE BILDPUNKT ─────────────────────────────────────────────────
+    // Die Umrechnung stand frueher als Einzeiler hier, mit dem Vermerk
+    // „Rough approximation" -- und war um das 2,95-fache daneben. Warum und
+    // was das angerichtet hat, steht in `map/scale.ts`. Sie hat jetzt eine
+    // Stelle, an der sie geprueft wird.
+    //
+    // Die Breite kommt aus der MELDUNG, nicht aus dem Zwischenschritt der
+    // Bewegung: innerhalb einer Sekunde Fahrt aendert sie sich um Bruchteile
+    // eines Meters, und so wird der Wert einmal je Meldung gerechnet statt
+    // einmal je Einzelbild.
+    const metersPerPixel = mapMetersPerPixel(map.getZoom(), position.lat);
+    // Ohne brauchbaren Massstab wird nichts gezeichnet, was von ihm abhaengt
+    // -- ein geratener Ring waere eine Aussage ueber die Genauigkeit, die
+    // niemand gepruefet hat.
+    if (metersPerPixel === null) return;
     const accuracyPixels = displayAccuracyM / metersPerPixel;
 
     interface GeoJSONFeature {
       type: 'Feature';
       geometry: {
-        type: 'Point' | 'LineString';
+        type: 'Point' | 'Polygon';
         coordinates: Array<number | number[]>;
       };
       properties: Record<string, unknown>;
@@ -227,17 +250,8 @@ export default function PositionPuck(): null {
 
     /** Zeichnet den Puck an EINER bestimmten Stelle -- der Rest bleibt gleich. */
     const zeichne = (an: SmoothFix): void => {
-      // Build heading line (from center, 20px in heading direction)
-      const headingGeometry =
-        an.heading !== null
-          ? {
-              type: 'LineString' as const,
-              coordinates: [
-                [an.lon, an.lat],
-                getHeadingEndpoint(an.lon, an.lat, an.heading, 20 / metersPerPixel),
-              ],
-            }
-          : null;
+      // Der Pfeil in Fahrtrichtung -- `null`, wenn kein Kurs gemeldet wird.
+      const pfeilRing = headingArrowRing(an.lon, an.lat, an.heading, metersPerPixel);
 
       const features: GeoJSONFeature[] = [
         {
@@ -255,12 +269,12 @@ export default function PositionPuck(): null {
         },
       ];
 
-      if (headingGeometry) {
+      if (pfeilRing) {
         features.push({
           type: 'Feature',
           geometry: {
-            type: 'LineString',
-            coordinates: headingGeometry.coordinates as Array<number[]>,
+            type: 'Polygon',
+            coordinates: [pfeilRing] as unknown as Array<number[]>,
           },
           properties: {
             'puck-color': puckColor,
@@ -347,31 +361,6 @@ export default function PositionPuck(): null {
   return null;
 }
 
-/**
- * Calculate endpoint of heading line given a distance in meters
- */
-function getHeadingEndpoint(
-  lon: number,
-  lat: number,
-  headingDegrees: number,
-  distanceMeters: number,
-): [number, number] {
-  // Convert to radians
-  const headingRad = (headingDegrees * Math.PI) / 180;
-  const latRad = (lat * Math.PI) / 180;
-
-  // Earth radius in meters
-  const R = 6371000;
-
-  // Calculate new position
-  const dLat = Math.cos(headingRad) * (distanceMeters / R);
-  const dLon = (Math.sin(headingRad) * (distanceMeters / R)) / Math.cos(latRad);
-
-  const newLat = lat + (dLat * 180) / Math.PI;
-  const newLon = lon + (dLon * 180) / Math.PI;
-
-  return [newLon, newLat];
-}
 
 declare global {
   interface Window {

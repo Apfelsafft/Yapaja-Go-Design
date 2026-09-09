@@ -337,6 +337,117 @@ test.describe('Eine laengere Testfahrt', () => {
     );
   });
 
+  // ─── DER RICHTUNGSPFEIL ───────────────────────────────────────────────────
+  // Gemeldet: „Der blaue Punkt hat oft eine schmale blaue Linie die
+  // wahrscheinlich das aktuelle heading anzeigt. Koennen wir das aendern?"
+  //
+  // Geprueft wird im echten Browser, weil `headingArrow.test.ts` nur die
+  // GEOMETRIE kennt: ob MapLibre die Flaechenebene und ihren Filter auch
+  // annimmt, sagt kein Einheitstest -- eine Ebene, die MapLibre still
+  // verwirft, faellt dort durch jedes Netz.
+  test('der Punkt traegt einen gefuellten Richtungspfeil, keine Linie mehr', async ({ page }) => {
+    test.setTimeout(60_000);
+    const consoleErrors: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error') consoleErrors.push(m.text());
+    });
+
+    await page.goto(LONG_DRIVE_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    await meldeKurs(page, 45, 0);
+
+    const ebene = await page.evaluate(() => {
+      const map = window.__yapaiaMapController!.getMap!()!;
+      const l = map.getLayer('position-puck-layer-heading') as { type?: string } | undefined;
+      return {
+        typ: l?.type ?? null,
+        farbe: JSON.stringify(map.getPaintProperty('position-puck-layer-heading', 'fill-color')),
+      };
+    });
+    expect(ebene.typ, 'eine Flaeche, keine Linie').toBe('fill');
+    expect(ebene.farbe, 'die Farbe kommt vom Punkt').toContain('puck-color');
+
+    // Und es wird wirklich ein Dreieck gezeichnet -- nicht nur eine Ebene,
+    // die nie etwas bekommt.
+    const ring = await page.evaluate(async () => {
+      const map = window.__yapaiaMapController!.getMap!()!;
+      const quelle = map.getSource('position-puck-source') as
+        | { getData?: () => Promise<unknown> }
+        | undefined;
+      if (!quelle?.getData) return null;
+      const daten = (await quelle.getData()) as {
+        features?: Array<{ geometry?: { type?: string; coordinates?: number[][][] } }>;
+      };
+      const flaeche = daten.features?.find((f) => f.geometry?.type === 'Polygon');
+      return flaeche?.geometry?.coordinates?.[0] ?? null;
+    });
+    expect(ring, 'ein Polygon in der Quelle').not.toBeNull();
+    expect(ring!.length, 'geschlossenes Dreieck').toBe(4);
+    expect(ring![0], 'erster Punkt gleich letztem').toEqual(ring![3]);
+
+    expect(consoleErrors, 'MapLibre hat nichts zu beanstanden').toEqual([]);
+  });
+
+  // ─── DIE KARTE ZIEHT MIT, AUCH WENN SICH DER KURS AENDERT ─────────────────
+  // Gemeldet: „Der blaue Punkt bewegt sich fluessig, allerdings auch aus dem
+  // Zentrum hinaus. Wenn die Karte nachzieht passiert das in groben
+  // Schritten" und „wenn man abbiegt dreht sich die Karte in einem Rutsch."
+  //
+  // Beides hatte eine Ursache: das Nachdrehen setzte den Winkel mit einem
+  // SPRUNG und brach damit die laufende Kamerafahrt ab. Gemessen blieb von
+  // 111 m Weg genau 0 uebrig, sobald sich der Kurs mit aenderte.
+  //
+  // Dieser Test haette das gefunden -- und genau diese Sorte Fehler ist
+  // zweimal passiert (0.6.4 hier, 0.6.5 mit `setPadding` und der Neigung).
+  // Deshalb wird die Bewegung jetzt gemessen, nicht nur ihr Endpunkt.
+  test('die Kamera zieht fluessig mit -- auch waehrend sich der Kurs aendert', async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await page.addInitScript(() => localStorage.setItem('yapaja.viewMode', '2d-course'));
+    await page.goto(LONG_DRIVE_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+
+    // Takt aufbauen -- die erste Meldung kann nicht animieren.
+    await meldeKurs(page, 0, 0);
+    await meldeKurs(page, 0, 1);
+
+    // Position UND Kurs aendern sich zugleich. Bewusst OHNE `await`: das
+    // Abtasten muss beginnen, waehrend die Kamerafahrt laeuft.
+    void page.request.post(`${LONG_DRIVE_CORE_BASE_URL}/api/v1/position/browser`, {
+      data: {
+        lat: 47.4 + 2 * 0.001,
+        lon: 9.7,
+        alt: null,
+        speed: 13.9,
+        heading: 30,
+        accuracy: 5,
+        fix: '3d',
+        ts: new Date().toISOString(),
+      },
+    });
+
+    const { mitten, wegM, winkelVon, winkelBis } = await tasteKameraAb(page, 1300);
+
+    // ─── SIE FAEHRT, STATT ZU SPRINGEN ──────────────────────────────────────
+    // Ein Sprung ergaebe genau EINE Mitte. Der Schwellwert liegt bewusst
+    // niedrig (5 statt 20): im Testbrowser kommen deutlich weniger
+    // Einzelbilder an als auf einem Geraet, und geprueft wird „faehrt",
+    // nicht „faehrt mit 60 Bildern je Sekunde".
+    expect(mitten, `verschiedene Kartenmitten (Weg ${wegM.toFixed(1)} m)`).toBeGreaterThan(5);
+
+    // ─── UND SIE KOMMT AUCH AN ──────────────────────────────────────────────
+    // Der Punkt der Meldung: die Mitte blieb stehen, waehrend der Puck
+    // weiterlief. Ein Schritt sind ~111 m.
+    expect(wegM, 'zurueckgelegter Weg der Kartenmitte').toBeGreaterThan(80);
+
+    // ─── DER WINKEL DREHT MIT, STATT ZU SPRINGEN ────────────────────────────
+    expect(Math.abs(((30 - winkelBis + 540) % 360) - 180), 'Winkel am Ende').toBeLessThan(2);
+    expect(Math.abs(winkelVon - winkelBis), 'der Winkel hat sich unterwegs bewegt').toBeGreaterThan(
+      1,
+    );
+  });
+
   // ─── DER BLANKE BILDSCHIRM, ENDLICH MIT URSACHE ───────────────────────────
   // „Den Zoom konnte ich nicht testen da es gleich gecrasht ist."
   //
@@ -428,6 +539,43 @@ async function tasteAb(page: Page, dauerMs: number): Promise<number[]> {
       };
       schritt();
     });
+  }, dauerMs);
+}
+
+/**
+ * Die Kamera im Browser abtasten: wie viele VERSCHIEDENE Mitten sieht man,
+ * und wie weit ist sie insgesamt gekommen?
+ *
+ * Von aussen ginge das nicht -- jede Abfrage ueber Playwright kostet zu viel
+ * Zeit, um eine Bewegung von gut einer Sekunde aufzuloesen (gemessen ~300 ms
+ * je Abfrage bei der Kartenquelle, siehe `tasteAb`).
+ */
+async function tasteKameraAb(
+  page: Page,
+  dauerMs: number,
+): Promise<{ mitten: number; wegM: number; winkelVon: number; winkelBis: number }> {
+  return page.evaluate((ms) => {
+    return new Promise<{ mitten: number; wegM: number; winkelVon: number; winkelBis: number }>(
+      (fertig) => {
+        const map = window.__yapaiaMapController!.getMap!()!;
+        const lats: number[] = [];
+        const winkel: number[] = [];
+        const start = performance.now();
+        const schritt = (): void => {
+          lats.push(map.getCenter().lat);
+          winkel.push(map.getBearing());
+          if (performance.now() - start < ms) requestAnimationFrame(schritt);
+          else
+            fertig({
+              mitten: new Set(lats.map((l) => l.toFixed(7))).size,
+              wegM: Math.abs(lats[lats.length - 1] - lats[0]) * 111_195,
+              winkelVon: winkel[0],
+              winkelBis: winkel[winkel.length - 1],
+            });
+        };
+        schritt();
+      },
+    );
   }, dauerMs);
 }
 

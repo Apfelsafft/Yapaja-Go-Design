@@ -16,6 +16,8 @@ import { usePositionStore } from '../position/positionStore';
 import { autoZoomFor, shouldApplyZoom } from './autoZoom.js';
 import { useNavStore } from '../drive/navStore.js';
 import { isDriveActive } from '../drive/driveActive.js';
+import { useViewModeStore, BEARING_TOLERANCE_DEG } from './viewMode.js';
+import { anglesMatch } from './angles.js';
 const PAUSE_DURATION = 10_000; // 10 seconds
 
 /**
@@ -134,8 +136,12 @@ export function initializeFollowMe(): () => void {
   }
 
   // Handler for user pan/drag (dragstart/movestart with originalEvent)
-  const handleUserInteraction = (e: Record<string, unknown>) => {
-    // Only pause if it was a user interaction (originalEvent exists)
+  //
+  // Der Typ steht ausdruecklich da: MapLibre 6 kennt seine Ereignisse genau,
+  // und `Record<string, unknown>` passt nicht mehr darauf. Gebraucht wird
+  // ohnehin nur das eine Feld -- ist es gesetzt, kam die Bewegung von einem
+  // Menschen und nicht von uns.
+  const handleUserInteraction = (e: { originalEvent?: unknown }): void => {
     if (e.originalEvent) {
       useFollowMeStore.getState().pause();
     }
@@ -279,12 +285,56 @@ export function updateFollowMePosition(): void {
   const dauer = followAnimationMs(lastFollowAtMs === null ? null : jetzt - lastFollowAtMs);
   lastFollowAtMs = jetzt;
 
+  // ─── EINE KAMERAFAHRT, NICHT ZWEI ─────────────────────────────────────────
+  // Gemeldet: „Der blaue Punkt bewegt sich fluessig, allerdings auch aus dem
+  // Zentrum hinaus. Wenn die Karte nachzieht passiert das in groben
+  // Schritten" und „wenn man abbiegt dreht sich die Karte in einem Rutsch".
+  //
+  // Beides hatte EINE Ursache, und sie war hausgemacht: seit 0.6.4 drehte
+  // `viewMode.ts#syncHeadingToBearing` die Karte direkt nach dieser Funktion
+  // nach -- mit einem SPRUNG. Ein Sprung bricht eine laufende Kamerafahrt ab.
+  // Im Browser gemessen, ueber 1,3 s abgetastet:
+  //
+  //   nur die Position aendert sich   -> 19 verschiedene Mitten, 111 m Weg
+  //   Position UND Kurs aendern sich  ->  1 Mitte,  0 Wechsel,   0 m Weg
+  //
+  // Die Verfolgung wurde also jedes Mal abgewuergt, wenn sich der Kurs auch
+  // nur um ein Grad aenderte -- und beim Abbiegen sprang der Winkel, statt
+  // sich zu drehen. Deshalb reist der Winkel jetzt IN derselben Fahrt mit:
+  // eine Bewegung, ein Zeitfenster, nichts, was etwas anderes abbricht.
+  const bearing = nextFollowBearing();
+
   mapController.setCamera(
-    zoom === null
-      ? { center: [position.lon, position.lat] }
-      : { center: [position.lon, position.lat], zoom },
+    {
+      center: [position.lon, position.lat],
+      ...(zoom === null ? {} : { zoom }),
+      ...(bearing === null ? {} : { bearing }),
+    },
     dauer === null ? undefined : { animate: true, duration: dauer },
   );
+}
+
+/**
+ * Der Kartenwinkel, den diese Fahrt mitnehmen soll -- oder `null`.
+ *
+ * Nur in den Kurs-Modi: `2d-north` haelt den Winkel fest bei 0, und dort
+ * gehoert er `viewMode.ts` (dessen Sperre ist eine Sperre, keine Verfolgung).
+ *
+ * Der Vergleich laeuft ueber `anglesMatch` -- also auf dem Kreis. Warum das
+ * hier keine Geschmacksfrage ist, steht in `map/angles.ts`: der lineare
+ * Vergleich war die Ursache des Absturzes in 0.6.4.
+ */
+function nextFollowBearing(): number | null {
+  if (useViewModeStore.getState().mode === '2d-north') return null;
+
+  const heading = usePositionStore.getState().position?.heading;
+  if (heading === null || heading === undefined || !Number.isFinite(heading)) return null;
+
+  const aktuell = mapController.getMap()?.getBearing();
+  if (typeof aktuell === 'number' && anglesMatch(aktuell, heading, BEARING_TOLERANCE_DEG)) {
+    return null; // steht schon richtig -- nichts mitzunehmen
+  }
+  return heading;
 }
 
 /**
