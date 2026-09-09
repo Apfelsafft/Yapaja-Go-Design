@@ -33,8 +33,26 @@ Aktionen), **HA-Add-on-Packaging** (Installation & UI-Zugriff via Ingress).
 
   Alle Entitäten hängen an einem HA-**Device** „Yapaia Go" (identifiers:
   `yapaja_go`, sw_version, configuration_url → App-URL).
+
+  **Die Entity-IDs oben gelten seit 0.6.9 wörtlich** — jede Discovery-Config
+  schickt ein `object_id` mit (`mqtt/discovery.ts`). Davor waren sie eine
+  Absichtserklärung: ohne `object_id` bildet Home Assistant die ID aus
+  Geräte- **plus** Entitätsnamen, also `sensor.yapaia_go_speed`, und der
+  Gerätename hat sich in 0.6.7 auch noch geändert. Bestehende Installationen
+  behalten ihre einmal vergebenen IDs (die Registrierung benennt nichts um) —
+  deshalb sucht `apps/core/src/ha/dashboard.ts` die IDs zur Laufzeit, statt
+  sie vorauszusetzen.
 - Damit sind in HA ohne YAML sofort Dashboards, Automationen („Wenn ETA < 30 min →
   Boiler an"), TTS-Ansagen über HA-Speaker etc. möglich.
+- **Eigenes Dashboard (0.6.9).** Das Add-on legt beim Start zwei Dateien unter
+  `<ha-config>/www/yapaja/` ab — also unter `/local/yapaja/`:
+  `yapaja-map-card.js` (die Karte MIT Route und eigener Position; sie rahmt
+  die Anzeigeseite `embed.html` des Add-ons, damit es nicht zwei Karten zu
+  pflegen gibt) und `dashboard.yaml`/`.txt` (ein fertiges Dashboard für den
+  Rohkonfigurationseditor, mit den zur Laufzeit gefundenen Entity-IDs). Die
+  Karte holt sich Slug und Ingress-Sitzung über
+  `hass.callWS({type: 'supervisor/api'})` — die drei genutzten Endpunkte sind
+  dort auch ohne Administratorrechte erlaubt (`hassio/websocket_api.py`).
 
 ## 2. REST beidseitig
 

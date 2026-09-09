@@ -49,7 +49,11 @@ export default defineConfig({
         // the multi-page build below) and their built JS/CSS -- globs the
         // BUILT `dist/` output (not source), which automatically picks up
         // whatever chunks either page's Rollup entry produced.
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+        // `mp4`/`webm`: das Wachhalte-Video (shell/screenAwake.ts). Ohne die
+        // beiden Endungen faellt es aus dem Vorrat -- und genau OFFLINE, wo
+        // dieses Programm zu Hause ist, liesse sich der Bildschirm dann nicht
+        // mehr wachhalten. Zusammen 2 KB.
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,mp4,webm}'],
         // MapLibre GL JS pushes the main chunk close to workbox's 2 MB
         // default precache-file-size ceiling; headroom for it to keep
         // growing without silently dropping out of the precache manifest.

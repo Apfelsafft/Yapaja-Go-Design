@@ -149,6 +149,11 @@ test.describe('PWA: manifest + Service Worker (E07-T5)', () => {
     expect(precachedUrls.some((p) => p.endsWith('/index.html'))).toBe(true);
     expect(precachedUrls.some((p) => p.endsWith('/shell.html'))).toBe(true);
     expect(precachedUrls.some((p) => p.endsWith('manifest.webmanifest'))).toBe(true);
+    // Das Wachhalte-Video (shell/screenAwake.ts). Es faellt aus dem Vorrat,
+    // sobald jemand `mp4`/`webm` aus `globPatterns` nimmt -- und dann liesse
+    // sich der Bildschirm ausgerechnet OFFLINE nicht mehr wachhalten.
+    expect(precachedUrls.some((p) => p.endsWith('/media/awake.mp4'))).toBe(true);
+    expect(precachedUrls.some((p) => p.endsWith('/media/awake.webm'))).toBe(true);
   });
 
   test('PLAUSIBILITY: /api/* and /tiles/* are never written into any Cache Storage entry', async ({ page }) => {

@@ -32,6 +32,9 @@ import { MqttBridge } from './mqtt/bridge.js';
 import { AuthGuard } from './auth/authGuard.js';
 import { authPlugin } from './auth/plugin.js';
 import { HaOutputChannel } from './ha/outputChannel.js';
+import { starteDashboardPflege } from './ha/dashboard.js';
+import { fetchHaStates } from './ha/client.js';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { serveIndexHtml } from './static/ingressHtml.js';
 import { systemPlugin } from './system/routes.js';
 import { readAddonVersion, readPackageVersion } from './version.js';
@@ -584,6 +587,36 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   });
   fastify.addHook('onClose', async () => {
     haOutputChannel.dispose();
+  });
+
+  // Fertiges Lovelace-Dashboard (`/local/yapaja/dashboard.yaml`).
+  //
+  // Nur im Add-on: `YAPAIA_HA_WWW_DIR` setzt das Init-Skript auf
+  // `<ha-config>/www/yapaja` -- denselben Ordner, in den es die Dashboard-Karte
+  // legt. Eigenstaendig laufende Cores haben kein HA-Verzeichnis, und dort
+  // passiert dann auch nichts (siehe `ha/dashboard.ts`).
+  const dashboardPflegeBeenden = starteDashboardPflege({
+    wwwDir: process.env.YAPAIA_HA_WWW_DIR ?? null,
+    verbindung: () => resolveHaConnection({ settings: settingsService }),
+    ladeZustaende: (verbindung) =>
+      fetchHaStates(verbindung, {
+        logger: {
+          info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+          warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+          error: (msg, meta) => fastify.log.error(meta ?? {}, msg),
+        },
+      }),
+    datei: {
+      mkdir,
+      writeFile,
+      logger: {
+        info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+        warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+      },
+    },
+  });
+  fastify.addHook('onClose', async () => {
+    dashboardPflegeBeenden();
   });
 
   fastify.get<{ Reply: HealthResponse }>('/api/v1/health', async (_request, _reply) => {

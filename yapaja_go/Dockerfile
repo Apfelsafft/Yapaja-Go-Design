@@ -396,7 +396,10 @@ COPY rootfs/ /
 # Sie wird beim Start nach `<ha-config>/www/yapaja/` kopiert
 # (rootfs/etc/yapaja/init-yapaja-config.sh) und ist danach als
 # `/local/yapaja/yapaja-map-card.js` dauerhaft erreichbar.
-COPY lovelace/ /usr/share/yapaja/lovelace/
+#
+# Genau DIESE eine Datei, nicht der ganze Ordner: daneben liegt seit 0.6.9
+# ihre Pruefung (`yapaja-map-card.test.ts`), und die gehoert nicht ins Abbild.
+COPY lovelace/yapaja-map-card.js /usr/share/yapaja/lovelace/yapaja-map-card.js
 
 # All `run`/`up`/`finish` scripts must be executable; git preserves the exec
 # bit set on them in this repo, but this RUN is a belt-and-braces guarantee

@@ -149,6 +149,44 @@ the Supervisor's Services API — no manual entry. See
 `docs/04-home-assistant.md` §1 in the main repo for the full topic/entity
 table that then appears under HA's MQTT integration (Auto-Discovery).
 
+## Your own Lovelace dashboard
+
+Two files are placed under Home Assistant's `www/yapaja/` on every add-on
+start, i.e. reachable at `/local/yapaja/…`:
+
+| File | What it is |
+|---|---|
+| `yapaja-map-card.js` | The custom card that shows the map **with the route and your own position** (it frames the add-on's own `embed.html`, so offline tiles and route styling are identical to the app). |
+| `dashboard.yaml` (and the identical `dashboard.txt`) | A ready-made dashboard: map, next instruction with arrow + distance, speed gauge, speeding warning, destination / remaining distance / ETA / speed limit / state, vehicle profile and pause/resume/stop buttons. The `.txt` twin exists so the browser *shows* the text instead of downloading it. |
+
+Setup, all from the GUI:
+
+1. **Settings → Dashboards → ⋮ → Resources → Add resource**
+   URL `/local/yapaja/yapaja-map-card.js`, type **JavaScript module**.
+   Without this step the map tile stays empty — this is the single most
+   common reason the dashboard "doesn't work".
+2. Open `http://<your-ha>:8123/local/yapaja/dashboard.txt` and copy it.
+3. **Settings → Dashboards → Add dashboard → New dashboard from scratch**.
+4. In the new dashboard: pencil → ⋮ → **Raw configuration editor**, replace
+   everything with the copied text, save.
+
+**Why `dashboard.yaml` is generated rather than shipped:** the entity IDs are
+not fixed. Before 0.6.9 the MQTT discovery sent no `object_id`, so Home
+Assistant derived IDs from the *device* name plus the entity name
+(`sensor.yapaia_go_speed`), and the device name itself changed in 0.6.7. The
+add-on therefore looks up, 30 s after start, which entities actually exist
+(`apps/core/src/ha/dashboard.ts`) and writes those IDs into the file. Entities
+it cannot find get the documented name, and the add-on log says which ones.
+
+If the map card reports that no add-on was found, the Supervisor gave this
+add-on a different slug than expected (it prefixes the repository, e.g.
+`abc12345_yapaja_go`). The card searches for it; you can also pin it:
+
+```yaml
+type: custom:yapaja-map-card
+addon: abc12345_yapaja_go
+```
+
 ## Data & updates (W-16)
 
 All map/routing/search/database data lives under `/share/yapaja/` on the

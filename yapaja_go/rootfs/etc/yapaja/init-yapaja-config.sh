@@ -231,9 +231,16 @@ export_env "HA_API_URL" "http://supervisor/core/api"
 #
 # Kopiert wird bei JEDEM Start, damit ein Add-on-Update auch die Karte
 # aktualisiert. Beruehrt wird ausschliesslich diese eine Datei.
-CARD_SRC="/usr/share/yapaja/lovelace/yapaja-map-card.js"
+# Beide Pfade sind ueberschreibbar, und beide stehen im Betrieb IMMER auf der
+# Vorgabe -- genau wie `S6_CONTAINER_ENVIRONMENT_DIR` weiter oben und aus
+# demselben Grund: `config.test.ts` fuehrt dieses Skript wirklich AUS. Ohne
+# die Klammern liesse sich dieser ganze Block nicht pruefen (im Testcontainer
+# gibt es weder /homeassistant noch das Image-Verzeichnis), und er ist der
+# Block, der beim Fehlschlagen am stillsten ist: die Karte fehlt im
+# Dashboard, und nirgends steht, warum.
+CARD_SRC="${YAPAIA_CARD_SRC:-/usr/share/yapaja/lovelace/yapaja-map-card.js}"
 HA_CONFIG_DIR=""
-for candidate in /homeassistant /config; do
+for candidate in ${YAPAIA_HA_CONFIG_DIRS:-/homeassistant /config}; do
   if [ -d "$candidate" ]; then
     HA_CONFIG_DIR="$candidate"
     break
@@ -248,6 +255,12 @@ else
   CARD_DIR="${HA_CONFIG_DIR}/www/yapaja"
   if mkdir -p "$CARD_DIR" && cp "$CARD_SRC" "${CARD_DIR}/yapaja-map-card.js"; then
     bashio::log.info "init-yapaja-config: Dashboard-Karte bereitgestellt unter /local/yapaja/yapaja-map-card.js (als Ressource vom Typ 'JavaScript-Modul' eintragen)."
+    # Derselbe Ordner, aus dem der Core auch das fertige Dashboard ablegt
+    # (`/local/yapaja/dashboard.yaml`, siehe apps/core/src/ha/dashboard.ts).
+    # Der Core kann den Pfad nicht selbst raten: welcher der beiden
+    # moeglichen Mount-Punkte gilt, weiss nur dieses Skript -- es hat gerade
+    # nachgesehen.
+    export_env "YAPAIA_HA_WWW_DIR" "$CARD_DIR"
   else
     bashio::log.warning "init-yapaja-config: Dashboard-Karte konnte nicht nach ${CARD_DIR} kopiert werden."
   fi

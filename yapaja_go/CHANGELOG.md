@@ -10,6 +10,90 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.6.9
+
+**Das iPad geht während der Fahrt nicht mehr in den Sperrbildschirm.**
+
+Gefragt: *„Nach gewisser Zeit geht das iPad in den Sperrbildschirm. Bitte
+verhindere dies bei der Nutzung von Yapaia. Quasi analog zu Maps, das kann
+auch immer offen bleiben."*
+
+Solange Yapaia zu sehen ist, bleibt der Bildschirm an — in der App **und** in
+der Dashboard-Kachel. Kein Schalter, nichts einzustellen.
+
+Der gerade Weg dorthin (`navigator.wakeLock`) steht Browsern allerdings nur
+über **HTTPS** zur Verfügung. Ihr Home Assistant läuft über einfaches HTTP im
+LAN, also gibt es diese Schnittstelle auf dem iPad **gar nicht** — egal wie
+neu das iOS ist. Yapaia hält den Bildschirm deshalb zusätzlich auf dem Weg
+wach, den auch andere Web-Anwendungen nehmen: mit einem 2 × 2 Bildpunkte
+großen, stummen, endlos laufenden Video (zusammen 2 KB, ohne Tonspur — es
+unterbricht Ihre Musik nicht). Beide Wege sind geprüft, auch offline: das
+Video liegt im Zwischenspeicher der App.
+
+**Die Karte im eigenen Dashboard funktioniert jetzt.**
+
+Gemeldet: *„Die Möglichkeit die Karte in einem eigenen Dashboard anzuzeigen
+klappt nicht."* Sie hatte zwei Fehler, von denen jeder für sich schon
+gereicht hätte:
+
+1. **Der Add-on-Name war falsch geraten.** In der Karte stand fest
+   `yapaja_go`. So heißt das Add-on aber nur, wenn es aus dem eingebauten
+   Store käme. Bei einem eigenen Repository stellt der Supervisor eine
+   Prüfsumme voran (`abc12345_yapaja_go`). Die Kachel suchte also ein Add-on,
+   das es unter diesem Namen nicht gibt. Sie sucht jetzt selbst — und lässt
+   sich notfalls über `addon:` von Hand sagen, wie es heißt.
+2. **Die Anmeldung wurde weggeworfen.** Die Karte holte sich eine Sitzung
+   beim Supervisor und legte sie dann nicht ab. Ohne dieses Cookie beantwortet
+   Home Assistant jeden Aufruf im Rahmen mit „nicht erlaubt", und die Kachel
+   bleibt leer. Die Sitzung wird jetzt gesetzt — und jede Minute verlängert,
+   damit ein Dashboard, das im Wohnmobil stundenlang offen steht, nicht
+   irgendwann still ausgeht.
+
+**Und es gibt ein fertiges Dashboard zum Einfügen.**
+
+Gefragt: *„Kannst du ein ha Lovelace Dashboard für mich erstellen in dem die
+Karte mit Route und eigener Position angezeigt wird sowie weitere Karten für
+die nächste richtungsanzeige, aktuelle Geschwindigkeit und Entfernungen bzw
+eta."*
+
+Das Add-on legt es beim Start unter **`/local/yapaja/dashboard.yaml`** ab —
+und Wort für Wort dasselbe noch einmal als `dashboard.txt`, weil Safari eine
+`.yaml`-Datei je nach Home-Assistant-Fassung herunterlädt statt sie
+anzuzeigen, und auf einem iPad ist sie damit praktisch weg.
+
+Öffnen Sie also `http://<ihr-ha>:8123/local/yapaja/dashboard.txt`,
+kopieren Sie den Inhalt, und dann:
+
+1. Einstellungen → Dashboards → ⋮ → Ressourcen → Ressource hinzufügen
+   URL `/local/yapaja/yapaja-map-card.js`, Typ **JavaScript-Modul**
+   *(einmalig — ohne diesen Schritt bleibt die Kartenkachel leer)*
+2. Einstellungen → Dashboards → Dashboard hinzufügen → Neu von Grund auf
+3. Im neuen Dashboard: Stift → ⋮ → Rohkonfigurationseditor
+4. Alles ersetzen, speichern.
+
+Drin sind: die Karte mit Route und eigener Position, die nächste Anweisung mit
+Richtungspfeil und Entfernung, ein Tacho, eine Warnung bei zu hohem Tempo,
+Ziel/Reststrecke/Ankunft/Tempolimit/Zustand sowie Fahrzeugprofil und die
+Schaltflächen Pause/Weiter/Beenden.
+
+**Warum die Datei erzeugt und nicht einfach mitgeliefert wird:** weil die
+Namen der Entitäten nicht feststanden. Die Dokumentation nannte seit jeher
+`sensor.yapaja_speed` — Home Assistant hat sie aber aus Geräte- **plus**
+Entitätsnamen gebildet, also etwa `sensor.yapaia_go_speed`. Ein fest
+mitgeliefertes Dashboard hätte bei Ihnen in jeder Kachel „Entität nicht
+verfügbar" gezeigt. Das Add-on sieht deshalb 30 Sekunden nach dem Start in
+Home Assistant nach, welche Entitäten es **wirklich** gibt, und trägt genau
+die ein.
+
+Ab dieser Version gibt Yapaia die Namen zudem selbst vor
+(`sensor.yapaja_speed`, `sensor.yapaja_eta` …), damit sie nicht mehr am
+Anzeigenamen des Geräts hängen. **Ihre bestehenden Entitäten werden dadurch
+nicht umbenannt** — Home Assistant behält einmal vergebene Namen, und Ihre
+Automatisierungen laufen unverändert weiter. Nur neue Installationen bekommen
+die kurzen Namen.
+
+---
+
 ## 0.6.8
 
 **Die Karte zieht jetzt wirklich mit — und dreht sich in die Kurve, statt zu springen.**

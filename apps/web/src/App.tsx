@@ -8,6 +8,7 @@ import SpeedDisplay from './drive/SpeedDisplay.js';
 import ThemeController from './theme/ThemeController.js';
 import DriveLockController from './drive/DriveLockController.js';
 import HandednessController from './shell/HandednessController.js';
+import ScreenAwakeController from './shell/ScreenAwakeController.js';
 import TopBar from './shell/TopBar.js';
 import UpdatePrompt from './pwa/UpdatePrompt.js';
 import OnboardingWizard from './onboarding/OnboardingWizard.js';
@@ -20,6 +21,10 @@ export default function App(): React.ReactElement {
       <ThemeController />
       <DriveLockController />
       <HandednessController />
+      {/* Der Bildschirm bleibt an, solange Yapaia zu sehen ist -- „quasi
+          analog zu Maps". Ueber einfaches HTTP gibt es `navigator.wakeLock`
+          nicht; dann uebernimmt das stumme Video (shell/screenAwake.ts). */}
+      <ScreenAwakeController />
       <MapView />
       <PositionInitializer />
       {/* Marke, Fahrzeugprofil und Suche liegen in EINER Flex-Zeile
