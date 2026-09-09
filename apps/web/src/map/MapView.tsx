@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import maplibregl from 'maplibre-gl';
+// ─── NAMENSRAUM STATT STANDARD-EXPORT ─────────────────────────────────────
+// MapLibre 6 hat den Standard-Export entfernt (`TS1192: has no default
+// export`). Der Aufstieg war noetig, weil 5.x eine kritische XSS-Luecke
+// traegt (GHSA-jrc7-96c5-q579), die es nur in 6.4.1+ behoben gibt.
+import * as maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import { Protocol } from 'pmtiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -225,7 +229,7 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
 
     // Missing/dummy vector tiles (e.g. an empty fixture archive) must never
     // crash the app: log and keep the map interactive.
-    newMap.on('error', (event) => {
+    newMap.on('error', (event: { error?: unknown }) => {
       console.warn('[MapView] MapLibre error event', event.error);
     });
 

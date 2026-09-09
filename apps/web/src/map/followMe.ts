@@ -136,8 +136,12 @@ export function initializeFollowMe(): () => void {
   }
 
   // Handler for user pan/drag (dragstart/movestart with originalEvent)
-  const handleUserInteraction = (e: Record<string, unknown>) => {
-    // Only pause if it was a user interaction (originalEvent exists)
+  //
+  // Der Typ steht ausdruecklich da: MapLibre 6 kennt seine Ereignisse genau,
+  // und `Record<string, unknown>` passt nicht mehr darauf. Gebraucht wird
+  // ohnehin nur das eine Feld -- ist es gesetzt, kam die Bewegung von einem
+  // Menschen und nicht von uns.
+  const handleUserInteraction = (e: { originalEvent?: unknown }): void => {
     if (e.originalEvent) {
       useFollowMeStore.getState().pause();
     }

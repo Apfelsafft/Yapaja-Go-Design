@@ -67,6 +67,21 @@ Bildpunkten — vollständig unter dem Positionspunkt verborgen. Der Ring war
 die ganze Zeit da; zu sehen war er nie. Ab jetzt zeigt er, wie genau die
 Position wirklich ist.
 
+### Eine Sicherheitsmeldung, offen benannt
+
+Die Kartenbibliothek MapLibre hat in der von uns verwendeten Version eine
+gemeldete Lücke (XSS in ihrer HTML-Bereinigung). Behoben ist sie erst in
+einer neuen Hauptversion — und die **zerbricht die Karte**: keine Straßennamen
+mehr, und Tipper auf die Route treffen nicht. Eine Karte ohne Beschriftung im
+Fahrzeug wäre schlimmer als diese Lücke, denn Yapaia füttert den betroffenen
+Pfad gar nicht: es gibt keine Popups, und der einzige HTML-Text ist eine feste
+Zeile aus unserem eigenen Quelltext.
+
+Die Meldung ist deshalb mit Begründung und **Ablaufdatum** hinterlegt — die
+Prüfung im Bauprozess schlägt von selbst wieder an, wenn bis dahin nichts
+passiert ist. Der Umstieg auf die neue Hauptversion ist die eigentliche
+Arbeit und steht an.
+
 ---
 
 ## 0.6.7
