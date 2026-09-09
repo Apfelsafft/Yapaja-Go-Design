@@ -19,6 +19,8 @@ import { describe, it, expect } from 'vitest';
 import { load } from 'js-yaml';
 import {
   DASHBOARD_ENTITIES,
+  UTF8_BOM,
+  befundText,
   buildDashboardYaml,
   resolveEntityIds,
   standardIds,
@@ -274,12 +276,26 @@ describe('die Pflege der Datei', () => {
   });
 
   it('laesst die Vorgabe stehen, wenn Home Assistant nicht erreichbar ist', async () => {
+    // Und schreibt die Datei trotzdem noch einmal -- diesmal mit dem Grund
+    // im Kopf. „Keine Verbindung" nur ins Protokoll zu schreiben half
+    // niemandem, der vor einer Wand aus „Entitaet nicht gefunden" sitzt.
     const a = aufbauen({ verbindung: null });
     starteDashboardPflege(a.deps);
     a.ausloesen();
     await new Promise((r) => setTimeout(r, 0));
-    expect(a.geschrieben).toHaveLength(2);
+    expect(a.geschrieben).toHaveLength(4);
+    expect(a.geschrieben[3]).toContain('nicht erreichbar');
     expect(a.meldungen.some((m) => m.includes('keine Home-Assistant-Verbindung'))).toBe(true);
+  });
+
+  it('warnt im Protokoll, wenn Home Assistant keine Yapaia-Entitaet kennt', async () => {
+    const a = aufbauen();
+    a.deps.ladeZustaende = async () => [zustand('sensor.wohnzimmer_temperatur')];
+    starteDashboardPflege(a.deps);
+    a.ausloesen();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(a.geschrieben[2]).toContain('KEINE EINZIGE');
+    expect(a.meldungen.some((m) => m.includes('MQTT'))).toBe(true);
   });
 
   it('tut ausserhalb des Add-ons gar nichts', async () => {
@@ -295,5 +311,76 @@ describe('die Pflege der Datei', () => {
     const a = aufbauen();
     starteDashboardPflege(a.deps)();
     expect(a.istAbbestellt()).toBe(true);
+  });
+});
+
+describe('der Befund oben in der Datei', () => {
+  it('nennt MQTT beim Namen, wenn es keine einzige Entitaet gibt', () => {
+    // Der Fall vom iPad: Home Assistant antwortet, hat aber keine
+    // Yapaia-Entitaet. Vorher zeigte das Dashboard nur eine Wand aus
+    // „Entitaet nicht gefunden" und sagte nirgends, warum.
+    const text = befundText({ erreichbar: true, zustaende: 342, gefunden: 0, vorgabe: ['speed'] });
+    expect(text).toContain('342');
+    expect(text).toContain('KEINE EINZIGE');
+    expect(text).toContain('MQTT');
+    expect(text).toContain('Installationsprüfung');
+  });
+
+  it('unterscheidet „nicht erreichbar" von „nichts gefunden"', () => {
+    // Zwei sehr verschiedene Ursachen, die dieselbe leere Kachelwand ergeben.
+    const text = befundText({ erreichbar: false, zustaende: 0, gefunden: 0, vorgabe: ['speed'] });
+    expect(text).toContain('nicht erreichbar');
+    expect(text).not.toContain('MQTT');
+  });
+
+  it('nennt die fehlenden, wenn nur ein Teil fehlt', () => {
+    const text = befundText({
+      erreichbar: true,
+      zustaende: 10,
+      gefunden: 11,
+      vorgabe: ['speed_limit', 'altitude'],
+    });
+    expect(text).toContain('11 von 13');
+    expect(text).toContain('speed_limit, altitude');
+  });
+
+  it('sagt es auch, wenn alles da ist', () => {
+    expect(befundText({ erreichbar: true, zustaende: 10, gefunden: 13, vorgabe: [] })).toContain(
+      'Alle 13',
+    );
+  });
+
+  it('bleibt leer, wenn nichts nachgesehen wurde', () => {
+    expect(befundText(undefined)).toBe('');
+  });
+
+  it('steht im Kopf der Datei, nicht mittendrin', () => {
+    const yaml = buildDashboardYaml(standardIds(), {
+      erreichbar: true,
+      zustaende: 5,
+      gefunden: 0,
+      vorgabe: [],
+    });
+    expect(yaml.indexOf('KEINE EINZIGE')).toBeLessThan(yaml.indexOf('views:'));
+    expect(() => load(yaml)).not.toThrow();
+  });
+});
+
+describe('der Zeichensatz', () => {
+  it('schreibt die Marke fuer UTF-8 voran', async () => {
+    // Ohne sie liest Safari die Datei als Latin-1, und der Betreiber kopiert
+    // „NÃ¤chste Anweisung" ins Dashboard. Auf dem iPad genau so passiert.
+    const geschrieben: string[] = [];
+    await writeDashboardYaml('/w', 'Nächste Anweisung', {
+      mkdir: async () => undefined,
+      writeFile: async (_p: string, inhalt: string) => {
+        geschrieben.push(inhalt);
+      },
+      logger: { info: () => undefined, warn: () => undefined },
+    });
+    for (const inhalt of geschrieben) {
+      expect(inhalt.codePointAt(0)).toBe(0xfeff);
+      expect(inhalt).toBe(`${UTF8_BOM}Nächste Anweisung`);
+    }
   });
 });

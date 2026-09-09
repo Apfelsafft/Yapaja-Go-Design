@@ -178,6 +178,20 @@ add-on therefore looks up, 30 s after start, which entities actually exist
 (`apps/core/src/ha/dashboard.ts`) and writes those IDs into the file. Entities
 it cannot find get the documented name, and the add-on log says which ones.
 
+**If every card says "Entity not found":** there are probably no Yapaia
+entities in Home Assistant at all. Yapaia publishes them over MQTT — with no
+broker there is nothing to publish, so the dashboard is not broken, it has
+nothing to show (the map card still works; it comes straight from the add-on).
+Since 0.6.11 the generated file says so at the top. Check it in Yapaia Go
+under 🩺 **Installationsprüfung**, row "MQTT / Home-Assistant-Anbindung"; the
+Mosquitto add-on provides the broker.
+
+**And the numbers only live while the add-on receives positions.** With
+`gps_source: none` the position comes from the BROWSER — close Yapaia and the
+dashboard freezes. A dashboard that keeps running without Yapaia open needs a
+source inside the add-on: `usb` (GPS receiver) or `ha_tracker` (Companion
+app). The built-in test driver also keeps running, it lives in the add-on.
+
 If the map card reports that no add-on was found, the Supervisor gave this
 add-on a different slug than expected (it prefixes the repository, e.g.
 `abc12345_yapaja_go`). The card searches for it; you can also pin it:

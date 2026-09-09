@@ -16,7 +16,7 @@ vi.mock('./client.js', async (importOriginal) => {
   };
 });
 
-import { checkResumeOnLoad } from './resume.js';
+import { checkResumeOnLoad, istNeuladen } from './resume.js';
 import { useNavStore } from './navStore.js';
 import * as client from './client.js';
 
@@ -107,5 +107,57 @@ describe('checkResumeOnLoad (W-19)', () => {
 
     expect(useNavStore.getState().resumeAcknowledged).toBe(true);
     expect(useNavStore.getState().pendingResume).toBeNull();
+  });
+});
+
+describe('Panel-Wechsel in Home Assistant ist kein Absturz', () => {
+  beforeEach(() => {
+    useNavStore.setState({ resumeAcknowledged: true, pendingResume: null, navState: null });
+    getNavigationStateMock.mockReset();
+  });
+
+  const laufend = makeNavState({ status: 'navigating', route_id: 'r-1' });
+
+  it('fragt beim Neuladen -- das ist der Fall aus W-19', async () => {
+    getNavigationStateMock.mockResolvedValue({ navState: laufend, recoveredRoute: null });
+    await checkResumeOnLoad(() => true);
+    expect(useNavStore.getState().pendingResume).toEqual({ kind: 'active', state: laufend });
+  });
+
+  it('fragt NICHT, wenn die Seite nur neu geoeffnet wurde -- und steigt ein', async () => {
+    // Home Assistant wirft den Ingress-Rahmen beim Dashboard-Wechsel weg.
+    // Vorher stand danach jedes Mal „Navigation fortsetzen?" auf dem Schirm,
+    // obwohl die Fahrt durchgehend lief.
+    getNavigationStateMock.mockResolvedValue({ navState: laufend, recoveredRoute: null });
+    await checkResumeOnLoad(() => false);
+    expect(useNavStore.getState().pendingResume).toBeNull();
+    expect(useNavStore.getState().resumeAcknowledged).toBe(true);
+    expect(useNavStore.getState().navState).toEqual(laufend);
+  });
+
+  it('fragt auch ohne Neuladen, wenn der Core neu gestartet ist', async () => {
+    // Hier ist wirklich etwas verlorengegangen: es laeuft keine Navigation
+    // mehr, es gibt nur noch die gemerkte Route. Das darf nicht stillschweigend
+    // wieder anlaufen.
+    getNavigationStateMock.mockResolvedValue({
+      navState: makeNavState({ status: 'idle' }),
+      recoveredRoute: { route_id: 'r-9', destination: { lat: 1, lon: 2, name: 'Ziel' } },
+    });
+    await checkResumeOnLoad(() => false);
+    expect(useNavStore.getState().pendingResume).toMatchObject({ kind: 'recovered' });
+  });
+
+  it('fragt im Zweifel', () => {
+    // Ohne verwertbaren Eintrag lieber eine Frage zu viel als ungefragt in
+    // die Vollbild-Fahransicht springen.
+    const alt = performance.getEntriesByType;
+    (performance as unknown as { getEntriesByType: unknown }).getEntriesByType = () => {
+      throw new Error('nicht unterstuetzt');
+    };
+    try {
+      expect(istNeuladen()).toBe(true);
+    } finally {
+      (performance as unknown as { getEntriesByType: unknown }).getEntriesByType = alt;
+    }
   });
 });

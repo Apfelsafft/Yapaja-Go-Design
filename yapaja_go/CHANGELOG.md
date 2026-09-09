@@ -10,6 +10,80 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.6.11
+
+Vier Dinge aus einer Rückmeldung mit Bildschirmfotos — drei davon waren Fehler
+in 0.6.9.
+
+**Die Kachel zeigt jetzt die Route, nicht nur die Karte.**
+
+Sie heißt „Karte mit Route" und zeigte die Karte. Die blaue Linie zeichnet
+Yapaia aus dem Speicher des Browsers, und den füllt sie nach einem frischen
+Start nur, wenn sie **weiß**, dass gerade gefahren wird. Dieses Wissen kommt
+über die Verbindung, die in der Anwendung die Fahroberfläche aufbaut — und die
+gibt es in der Kachel bewusst nicht. Also blieb die Route aus. Die Kachel holt
+sich den Fahrzustand jetzt selbst; Bedienelemente bekommt sie deswegen keine.
+
+Damit stimmt auch der Ausschnitt: auf Ihrem Bild stand die Kachel auf ganz
+Deutschland mit einem Punkt darin. Sie zoomt auf das Fahrzeug, sobald die
+Fahrt läuft — dasselbe Mitziehen wie in der Anwendung, es fehlte ihr nur der
+Fahrzustand dazu.
+
+**„Navigation fortsetzen?" kommt nicht mehr bei jedem Dashboard-Wechsel.**
+
+Gemeldet: *„Ich habe die Navigation direkt in Yapaia Go gestartet, wechsle dann
+zum Dashboard … wenn ich wieder zurück gehe werde ich gefragt ob ich die
+Navigation fortsetzen möchte. Es sieht aus als ob die Navigation gestoppt
+wird."*
+
+**Sie wurde nie gestoppt** — die Frage ist sogar der Beweis dafür: sie
+erscheint ausschließlich, wenn das Add-on eine laufende Navigation meldet. Home
+Assistant wirft beim Wechsel auf ein anderes Dashboard das Yapaia-Fenster weg
+und baut es beim Zurückkommen neu auf; für die App ist das ein Neustart, und
+sie stellte pflichtschuldig ihre Sicherheitsfrage. Was als Schutz nach einem
+Absturz gedacht war, las sich als „deine Fahrt wurde abgebrochen".
+
+Der Browser weiß, welcher Fall vorliegt. Nach einem **echten Neuladen** wird
+weiterhin gefragt; ein neu geöffnetes Fenster steigt direkt wieder ein.
+
+**Umlaute in der Dashboard-Vorlage.**
+
+In Ihrem Dashboard stand „NÃ¤chste Anweisung". Home Assistant liefert die Datei
+ohne Angabe des Zeichensatzes aus, Safari nimmt dann den falschen an, und aus
+jedem Umlaut werden zwei Zeichen — kopiert wurde also schon kaputter Text. Die
+Datei sagt jetzt selbst, dass sie UTF-8 ist. **Bitte holen Sie sich die Vorlage
+nach dem Update noch einmal** (`/local/yapaja/dashboard.txt`).
+
+**Und die Vorlage sagt jetzt, warum sie leer bleibt.**
+
+Bei Ihnen stand in fast jeder Kachel „Entität nicht gefunden" — und nirgends,
+woran es liegt. Am Anfang der Datei steht jetzt der Befund:
+
+```
+# ─── Was beim Erzeugen gefunden wurde ───
+# Home Assistant ist erreichbar (342 Entitäten gelesen),
+# aber es gibt dort KEINE EINZIGE Yapaia-Entität.
+#
+# Das heißt fast immer: das Add-on ist mit keinem MQTT-Broker verbunden.
+```
+
+**Das ist mit hoher Wahrscheinlichkeit auch Ihr Fall.** Ohne MQTT-Broker meldet
+Yapaia *gar keine* Entitäten an Home Assistant — dann ist nicht das Dashboard
+leer, sondern es gibt nichts anzuzeigen. Die Karte oben funktioniert trotzdem,
+sie kommt direkt aus dem Add-on. Nachsehen können Sie es in Yapaia Go unter
+🩺 **Installationsprüfung**, Zeile „MQTT / Home-Assistant-Anbindung". Fehlt der
+Broker, hilft das **Mosquitto-Add-on** aus dem Add-on-Store.
+
+**Noch ein Zusammenhang, den man kennen muss:** die Zahlen im Dashboard leben
+nur, solange das Add-on Positionen bekommt. Steht `gps_source` auf `none`, kommt
+die Position **aus dem Browser** — schließen Sie Yapaia, hört sie auf, und das
+Dashboard friert ein. Für ein Dashboard, das ohne offenes Yapaia weiterläuft,
+braucht es eine Quelle im Add-on selbst: `usb` (GPS-Empfänger) oder
+`ha_tracker` (Companion-App). Mit dem eingebauten Testfahrer läuft es ohnehin
+weiter, der sitzt im Add-on.
+
+---
+
 ## 0.6.10
 
 **Die Kartenbibliothek ist auf Version 6 — die kritische Sicherheitslücke ist
