@@ -28,11 +28,56 @@ import { useNavStore } from './navStore.js';
 
 const ACTIVE_STATUSES = new Set(['navigating', 'off_route', 'paused']);
 
-export async function checkResumeOnLoad(): Promise<void> {
-  const { setPendingResume, acknowledgeResume } = useNavStore.getState();
+/**
+ * Ob diese Seite durch ein echtes NEULADEN entstanden ist -- und nicht
+ * einfach dadurch, dass sie neu geoeffnet wurde.
+ *
+ * ─── WARUM DAS DEN UNTERSCHIED MACHT ────────────────────────────────────────
+ * Gemeldet: „Ich habe die Navigation direkt in Yapaia Go gestartet, wechsle
+ * dann zum Dashboard und sehe dort keine Daten. Wenn ich wieder zurueck zu
+ * Yapaia Go gehe werde ich gefragt ob ich die Navigation fortsetzen moechte.
+ * Es sieht aus als ob die Navigation gestoppt wird."
+ *
+ * Sie wird NICHT gestoppt -- die Frage ist der Beweis dafuer: sie erscheint
+ * nur, wenn der Core `navigating`/`off_route`/`paused` meldet. Home Assistant
+ * wirft aber beim Wechsel auf ein anderes Dashboard den Ingress-Rahmen weg
+ * und baut ihn beim Zurueckkommen neu auf. Fuer die App ist das ein frischer
+ * Start, und sie stellt pflichtschuldig die Frage aus W-19 -- bei jedem
+ * Wechsel aufs Neue. Was als Sicherheitsabfrage gedacht war, liest sich damit
+ * als „deine Fahrt wurde abgebrochen".
+ *
+ * Der Browser weiss, welcher Fall vorliegt: ein Neuladen meldet sich als
+ * `reload`, ein neu geoeffneter Rahmen als `navigate`. Nur beim Neuladen wird
+ * gefragt -- das ist genau der Fall, den W-19 meint („Tab-Absturz/Neuladen").
+ *
+ * Im Zweifel (kein Eintrag, alte Browser) wird GEFRAGT: lieber eine Frage zu
+ * viel als ungefragt in die Vollbild-Fahransicht springen.
+ */
+export function istNeuladen(): boolean {
+  try {
+    const eintrag = performance.getEntriesByType('navigation')[0] as
+      | PerformanceNavigationTiming
+      | undefined;
+    return eintrag?.type !== 'navigate';
+  } catch {
+    return true;
+  }
+}
+
+export async function checkResumeOnLoad(
+  neuladen: () => boolean = istNeuladen,
+): Promise<void> {
+  const { setPendingResume, acknowledgeResume, setNavState } = useNavStore.getState();
   try {
     const { navState, recoveredRoute } = await getNavigationState();
     if (ACTIVE_STATUSES.has(navState.status)) {
+      if (!neuladen()) {
+        // Die Fahrt laeuft und nichts ist verlorengegangen -- die Seite wurde
+        // nur neu geoeffnet. Also einsteigen statt fragen.
+        setNavState(navState);
+        acknowledgeResume();
+        return;
+      }
       setPendingResume({ kind: 'active', state: navState });
       return;
     }

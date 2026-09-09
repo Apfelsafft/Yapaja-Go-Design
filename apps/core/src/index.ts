@@ -33,7 +33,8 @@ import { AuthGuard } from './auth/authGuard.js';
 import { authPlugin } from './auth/plugin.js';
 import { HaOutputChannel } from './ha/outputChannel.js';
 import { starteDashboardPflege } from './ha/dashboard.js';
-import { fetchHaStates } from './ha/client.js';
+import { fetchHaStates, postHaState } from './ha/client.js';
+import { HaStatesBridge } from './ha/statesBridge.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { serveIndexHtml } from './static/ingressHtml.js';
 import { systemPlugin } from './system/routes.js';
@@ -587,6 +588,43 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   });
   fastify.addHook('onClose', async () => {
     haOutputChannel.dispose();
+  });
+
+  // ─── DER ZWEITE WEG ZU HOME ASSISTANT: OHNE MQTT ─────────────────────────
+  // Schreibt dieselben Entitaeten direkt ueber die HA-API. Eingeschaltet mit
+  // der Add-on-Option `ha_internal` (Init-Skript setzt `HA_INTERNAL=1`).
+  // Solange MQTT verbunden ist, haelt er sich von selbst zurueck -- warum,
+  // steht in `ha/statesBridge.ts`.
+  const haStatesBridge =
+    process.env.HA_INTERNAL === '1'
+      ? new HaStatesBridge({
+          bus: eventBus,
+          verbindung: () => resolveHaConnection({ settings: settingsService }),
+          mqttLiefert: () => mqttBridge?.getHealthStatus() === 'ok',
+          schreibe: (verbindung, write) =>
+            postHaState(
+              verbindung,
+              write.entityId,
+              { state: write.state, attributes: write.attributes },
+              {
+                logger: {
+                  info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+                  warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+                  error: (msg, meta) => fastify.log.error(meta ?? {}, msg),
+                },
+              },
+            ),
+          logger: {
+            info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+            warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+          },
+        })
+      : null;
+  if (haStatesBridge) {
+    fastify.log.info('HA-interner Kanal aktiv (Entitaeten auch ohne MQTT-Broker).');
+  }
+  fastify.addHook('onClose', async () => {
+    haStatesBridge?.dispose();
   });
 
   // Fertiges Lovelace-Dashboard (`/local/yapaja/dashboard.yaml`).

@@ -124,10 +124,33 @@ describe('yapaja_go/config.yaml is valid YAML with the required HA add-on keys',
     expect(config.map).toContain('share:rw');
   });
 
-  it('declares mqtt:need so bashio provides broker credentials automatically', () => {
+  /**
+   * `want`, NICHT mehr `need`: seit 0.7.0 gibt es einen zweiten Weg zu Home
+   * Assistant (`ha_internal`), der ohne Broker auskommt. `need` hiesse „ohne
+   * das hier ergibt dieses Add-on keinen Sinn" -- das stimmt seither nicht
+   * mehr. Die Zugangsdaten kommen bei vorhandenem Broker unveraendert
+   * automatisch.
+   */
+  it('declares mqtt:want -- Broker automatisch, aber nicht mehr zwingend', () => {
     const config = loadConfig();
     expect(Array.isArray(config.services)).toBe(true);
-    expect(config.services).toContain('mqtt:need');
+    expect(config.services).toContain('mqtt:want');
+    expect(config.services).not.toContain('mqtt:need');
+  });
+
+  /**
+   * Die zwei Wege zu Home Assistant, beide abschaltbar.
+   *
+   * Der Anlass: ohne MQTT-Broker gab es GAR KEINE Yapaia-Entitaeten, und das
+   * fertige Dashboard zeigte in jeder Kachel „Entitaet nicht gefunden".
+   */
+  it('bietet beide Kanaele als eigene Schalter an', () => {
+    const config = loadConfig();
+    for (const key of ['mqtt_enabled', 'ha_internal']) {
+      expect(config.options, `options.${key} fehlt`).toHaveProperty(key);
+      expect(config.schema[key], `schema.${key}`).toBe('bool');
+      expect(typeof config.options[key], `options.${key} muss ein Schalter sein`).toBe('boolean');
+    }
   });
 
   it('declares usb + udev for GPS-receiver passthrough', () => {
@@ -804,7 +827,7 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
    *  sich der Dashboard-Block gar nicht ausführen. */
   function runInit(
     options: Record<string, string>,
-    nahtstellen: { haConfigDirs?: string; cardSrc?: string } = {},
+    nahtstellen: { haConfigDirs?: string; cardSrc?: string; mqttVorhanden?: boolean } = {},
   ): Record<string, string> {
     const dir = mkdtempSync(join(tmpdir(), 'yapaja-init-'));
     const envDir = join(dir, 'container_environment');
@@ -821,6 +844,8 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
       photon_xmx_mb: '1024',
       valhalla_memory_mb: '2048',
       gps_simulator: 'false',
+      mqtt_enabled: 'true',
+      ha_internal: 'true',
       ...options,
     };
 
@@ -836,7 +861,14 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
       '}',
       'bashio::log.info() { :; }',
       'bashio::log.warning() { :; }',
-      'bashio::services.available() { return 1; }',
+      nahtstellen.mqttVorhanden
+        ? [
+            'bashio::services.available() { return 0; }',
+            'bashio::services() {',
+            "  case \"$2\" in host) printf 'test-broker';; port) printf '1883';; username) printf 'u';; password) printf 'p';; ssl) printf 'false';; esac",
+            '}',
+          ].join('\n')
+        : 'bashio::services.available() { return 1; }',
       // Wie das echte bashio: nur „true"/„1"/„yes"/„on" gelten als wahr.
       'bashio::var.true() { case "$1" in true|True|TRUE|1|yes|on) return 0;; *) return 1;; esac; }',
       `source ${JSON.stringify(INIT_SCRIPT)}`,
@@ -954,5 +986,51 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
     // Verzeichnis zu schreiben.
     const env = runInit({}, { haConfigDirs: join(tmpdir(), 'gibt-es-nicht-yapaia') });
     expect(env.YAPAIA_HA_WWW_DIR).toBeUndefined();
+  });
+
+  /**
+   * ─── DIE ZWEI SCHALTER, AUSGEFUEHRT ──────────────────────────────────────
+   * Ein Schalter, der nichts schaltet, ist der teuerste Fehler in diesem
+   * Add-on: er sieht aus wie eine Funktion. `mqtt_enabled` haette genau so
+   * einer werden koennen -- bashio findet einen laufenden Broker im Haus
+   * unabhaengig davon, was der Betreiber eingestellt hat.
+   *
+   * Der gefaelschte bashio meldet hier absichtlich einen VORHANDENEN Broker
+   * (`bashio::services.available` -> 0), damit die Abfrage wirklich etwas zu
+   * tun hat.
+   */
+  function runInitMitBroker(options: Record<string, string>): Record<string, string> {
+    return runInit(options, { mqttVorhanden: true });
+  }
+
+  it('schaltet MQTT ab, obwohl ein Broker vorhanden ist', () => {
+    const env = runInitMitBroker({ mqtt_enabled: 'false' });
+    expect(env.MQTT_BROKER_URL).toBeUndefined();
+  });
+
+  it('nutzt den vorhandenen Broker, solange der Schalter an ist', () => {
+    const env = runInitMitBroker({ mqtt_enabled: 'true' });
+    expect(env.MQTT_BROKER_URL).toBe('mqtt://test-broker:1883');
+  });
+
+  it('schaltet den HA-internen Kanal ein und aus', () => {
+    // Nicht „0", sondern UNGESETZT: der Core prueft auf === '1', und so gilt
+    // genau eine Regel statt zweier, die auseinanderlaufen koennen.
+    expect(runInit({ ha_internal: 'true' }).HA_INTERNAL).toBe('1');
+    expect(runInit({ ha_internal: 'false' }).HA_INTERNAL).toBeUndefined();
+  });
+
+  it('bleibt bei leerem oder „null"-Wert eingeschaltet', () => {
+    // Dieselbe Falle wie bei `ha_device_tracker`: bashio liefert fuer eine
+    // nicht gesetzte Option den STRING "null". Ohne die Absicherung waere
+    // MQTT damit fuer alle still aus.
+    expect(runInitMitBroker({ mqtt_enabled: 'null' }).MQTT_BROKER_URL).toBeTruthy();
+    expect(runInit({ ha_internal: '' }).HA_INTERNAL).toBe('1');
+  });
+
+  it('beide Wege lassen sich gleichzeitig einschalten', () => {
+    const env = runInitMitBroker({ mqtt_enabled: 'true', ha_internal: 'true' });
+    expect(env.MQTT_BROKER_URL).toBeTruthy();
+    expect(env.HA_INTERNAL).toBe('1');
   });
 });

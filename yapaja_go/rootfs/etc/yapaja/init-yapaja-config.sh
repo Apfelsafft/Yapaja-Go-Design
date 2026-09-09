@@ -70,6 +70,20 @@ LOG_LEVEL="$(bashio::config 'log_level')"
 PHOTON_XMX_MB="$(bashio::config 'photon_xmx_mb')"
 VALHALLA_MEMORY_MB="$(bashio::config 'valhalla_memory_mb')"
 GPS_SIMULATOR="$(bashio::config 'gps_simulator')"
+# Die beiden Wege, auf denen Yapaia seine Werte an Home Assistant meldet.
+# Warum es zwei gibt und wie sie sich vertragen, steht in `config.yaml`.
+MQTT_ENABLED="$(bashio::config 'mqtt_enabled')"
+HA_INTERNAL="$(bashio::config 'ha_internal')"
+# Beide sind in `config.yaml` mit Vorgabe `true` deklariert. Kaeme hier
+# trotzdem einmal Leeres oder das beruehmte "null" heraus (genau die Falle,
+# die `ha_device_tracker` oben schon gestellt hat), waere `bashio::var.true`
+# FALSCH -- und MQTT waere fuer alle still aus, ohne dass jemand etwas
+# umgestellt haette. Eine Vorgabe, die nur in `config.yaml` steht, ist keine.
+for schalter in MQTT_ENABLED HA_INTERNAL; do
+  if [ -z "${!schalter}" ] || [ "${!schalter}" = "null" ]; then
+    printf -v "${schalter}" 'true'
+  fi
+done
 
 # --- Plausibilitäts-Kriterium (E08-T4): no region configured -> onboarding, ---
 # --- NOT a crash. We only LOG here; apps/core/src/ already starts cleanly  ---
@@ -91,9 +105,15 @@ mkdir -p \
   "${DATA_ROOT}/nav-recovery"
 
 # ---- MQTT credentials via bashio (docs/04 §3 "MQTT-Credentials automatisch") ---
-# `services: [mqtt:need]` in config.yaml guarantees the Mosquitto add-on's
-# service info is available here without any manual host/user/pass entry.
-if bashio::services.available 'mqtt'; then
+# `services: [mqtt:want]` in config.yaml liefert die Zugangsdaten des
+# Mosquitto-Add-ons hier ohne jede manuelle Eingabe -- wenn es eines gibt.
+#
+# ZWEI BEDINGUNGEN, und die erste ist der Schalter des Betreibers: `mqtt_enabled`
+# aus. Ohne diese Abfrage waere der Schalter wirkungslos, sobald ein Broker im
+# Haus laeuft -- bashio faende ihn, das Skript exportierte die Adresse, und der
+# Core baendelte weiter ueber MQTT. Genau so entsteht ein Schalter, der aussieht
+# wie einer und keiner ist.
+if bashio::var.true "${MQTT_ENABLED}" && bashio::services.available 'mqtt'; then
   MQTT_HOST="$(bashio::services 'mqtt' 'host')"
   MQTT_PORT="$(bashio::services 'mqtt' 'port')"
   MQTT_USER="$(bashio::services 'mqtt' 'username')"
@@ -117,6 +137,18 @@ fi
 # apps/core/src/mqtt/config.ts reads `MQTT_PREFIX` (NOT `MQTT_TOPIC_PREFIX`)
 # -- confirmed against that file before wiring this.
 export_env "MQTT_PREFIX" "${MQTT_PREFIX}"
+
+# ---- Der HA-interne Kanal (ohne MQTT) --------------------------------------
+# Der Core schreibt die Werte dann direkt ueber die Home-Assistant-API
+# (`apps/core/src/ha/statesBridge.ts`). Nur eine Variable: die Entscheidung,
+# ob er es TUT, faellt hier; wann er sich zurueckhaelt, entscheidet er selbst
+# (solange MQTT die Entitaeten liefert, schreibt er nicht dagegen).
+if bashio::var.true "${HA_INTERNAL}"; then
+  export_env "HA_INTERNAL" "1"
+  bashio::log.info "init-yapaja-config: HA-interner Kanal eingeschaltet -- Entitaeten kommen auch ohne MQTT-Broker."
+else
+  bashio::log.info "init-yapaja-config: HA-interner Kanal ausgeschaltet."
+fi
 
 # ---- Ingress mode (docs/04 §3 + apps/core/src/index.ts resolveBindHost) ----
 # Always on for the add-on: HA's Ingress proxy handles auth + remote access,

@@ -141,13 +141,35 @@ like a fully known one.
 Turn the tick back off when you are done. The real position source takes over
 again after the next restart.
 
-## MQTT
+## Two ways into Home Assistant (0.7.0)
 
-Automatic: with the Mosquitto add-on (or any add-on providing the `mqtt`
-service) installed and running, Yapaia Go picks up its host/credentials via
-the Supervisor's Services API — no manual entry. See
-`docs/04-home-assistant.md` §1 in the main repo for the full topic/entity
-table that then appears under HA's MQTT integration (Auto-Discovery).
+Both have their own switch in the add-on configuration, and both may be on.
+
+| Option | What it does |
+|---|---|
+| `mqtt_enabled` (default on) | The MQTT route. With the Mosquitto add-on (or any add-on providing the `mqtt` service) running, Yapaia Go picks up host/credentials via the Supervisor's Services API — no manual entry. Full entities with a device and history, and the **only** route that also gives you the *controllable* ones: pause/resume/stop and the profile select. |
+| `ha_internal` (default on) | The route **without a broker**. The add-on writes the values straight through Home Assistant's API (`POST /api/states/...`). Same entity IDs (`sensor.yapaja_speed` …), readable from automations, templates, **ESPHome** and any dashboard. |
+
+**Both at once is fine.** They don't fight: while MQTT is connected the
+internal channel stays quiet — two writers on one entity would flap, and
+nobody could tell which value is current. If the broker goes away, the
+internal channel takes over and the values keep flowing.
+
+**What the internal route cannot do** (and this is the whole list):
+
+- **No commands.** An entity written this way cannot receive anything.
+  Pause/resume/stop and the profile select need MQTT — the generated
+  dashboard leaves those cards out when it cannot find the entities, rather
+  than showing dead buttons.
+- **No device, no registry entry.** The entities do not appear under
+  "Devices" and cannot be renamed in the UI.
+- **They vanish on a Home Assistant restart** — until the next write. So the
+  add-on rewrites even unchanged values every five minutes; without that, a
+  rarely-changing entity (destination, nav state) would be gone for good
+  while the vehicle stands still.
+
+See `docs/04-home-assistant.md` §1 in the main repo for the full topic/entity
+table. The 🩺 preflight page names which route is currently live.
 
 ## Your own Lovelace dashboard
 
@@ -177,6 +199,20 @@ Assistant derived IDs from the *device* name plus the entity name
 add-on therefore looks up, 30 s after start, which entities actually exist
 (`apps/core/src/ha/dashboard.ts`) and writes those IDs into the file. Entities
 it cannot find get the documented name, and the add-on log says which ones.
+
+**If every card says "Entity not found":** there are probably no Yapaia
+entities in Home Assistant at all. Yapaia publishes them over MQTT — with no
+broker there is nothing to publish, so the dashboard is not broken, it has
+nothing to show (the map card still works; it comes straight from the add-on).
+Since 0.6.11 the generated file says so at the top. Check it in Yapaia Go
+under 🩺 **Installationsprüfung**, row "MQTT / Home-Assistant-Anbindung"; the
+Mosquitto add-on provides the broker.
+
+**And the numbers only live while the add-on receives positions.** With
+`gps_source: none` the position comes from the BROWSER — close Yapaia and the
+dashboard freezes. A dashboard that keeps running without Yapaia open needs a
+source inside the add-on: `usb` (GPS receiver) or `ha_tracker` (Companion
+app). The built-in test driver also keeps running, it lives in the add-on.
 
 If the map card reports that no add-on was found, the Supervisor gave this
 add-on a different slug than expected (it prefixes the repository, e.g.

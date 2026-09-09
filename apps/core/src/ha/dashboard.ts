@@ -45,6 +45,12 @@ import type { HaEntityState } from './client.js';
 export const DASHBOARD_DATEINAMEN = ['dashboard.yaml', 'dashboard.txt'] as const;
 
 /**
+ * Die Marke am Dateianfang, die dem Browser sagt: das ist UTF-8.
+ * Warum sie noetig ist, steht bei {@link writeDashboardYaml}.
+ */
+export const UTF8_BOM = '\uFEFF';
+
+/**
  * Wie lange nach dem Start gewartet wird, bevor in Home Assistant
  * nachgesehen wird.
  *
@@ -176,17 +182,82 @@ export function resolveEntityIds(zustaende: readonly HaEntityState[]): Aufgeloes
   return { ids, gefunden, vorgabe };
 }
 
+/** Was beim Nachsehen in Home Assistant herauskam. */
+export interface Befund {
+  /** Ob Home Assistant ueberhaupt geantwortet hat. */
+  erreichbar: boolean;
+  /** Wie viele Zustaende gelesen wurden (0 = nichts gelesen). */
+  zustaende: number;
+  /** Wie viele der gesuchten Entitaeten gefunden wurden. */
+  gefunden: number;
+  /** Schluessel, fuer die die Vorgabe eingetragen wurde. */
+  vorgabe: string[];
+}
+
+/**
+ * Der Kopf der Datei, der sagt, WAS beim Erzeugen los war.
+ *
+ * ─── WARUM DAS DRINSTEHT ────────────────────────────────────────────────────
+ * Auf dem iPad des Betreibers stand in fast jeder Kachel „Entitaet nicht
+ * gefunden" -- und nirgends, warum. Das ist genau der stille Ausfall, den
+ * dieses Projekt schon mehrfach gekostet hat: eine Wand aus Warnungen, aus
+ * der man nicht ablesen kann, ob die Datei falsch ist, Home Assistant nicht
+ * antwortet oder es die Entitaeten schlicht nicht gibt.
+ *
+ * Der haeufigste Fall ist der letzte, und er hat eine einzige Ursache: OHNE
+ * MQTT-Broker meldet Yapaia gar keine Entitaeten an Home Assistant. Dann ist
+ * nicht das Dashboard kaputt -- es gibt nichts anzuzeigen.
+ */
+export function befundText(befund?: Befund): string {
+  if (!befund) return '';
+  const zeilen: string[] = ['# ─── Was beim Erzeugen gefunden wurde ─────────────────────────────────'];
+
+  if (!befund.erreichbar) {
+    zeilen.push(
+      '# Home Assistant war nicht erreichbar. Unten stehen deshalb die',
+      '# dokumentierten Namen -- sie stimmen nur bei einer Neuinstallation.',
+      '# Das Add-on schreibt die Datei bei jedem Start neu; ein Neustart des',
+      '# Add-ons erzeugt sie also noch einmal.',
+    );
+  } else if (befund.gefunden === 0) {
+    zeilen.push(
+      `# Home Assistant ist erreichbar (${befund.zustaende} Entitäten gelesen),`,
+      '# aber es gibt dort KEINE EINZIGE Yapaia-Entität.',
+      '#',
+      '# Das heißt fast immer: das Add-on ist mit keinem MQTT-Broker verbunden.',
+      '# Ohne den meldet Yapaia nichts an Home Assistant — dann ist nicht das',
+      '# Dashboard leer, sondern es gibt nichts anzuzeigen. Die Karte oben',
+      '# funktioniert trotzdem, sie kommt direkt aus dem Add-on.',
+      '#',
+      '# Nachsehen: Yapaia Go öffnen → 🩺 Installationsprüfung → Zeile',
+      '# „MQTT / Home-Assistant-Anbindung". Fehlt der Broker, hilft das',
+      '# Mosquitto-Add-on (Einstellungen → Add-ons → Add-on-Store).',
+    );
+  } else if (befund.vorgabe.length > 0) {
+    zeilen.push(
+      `# ${befund.gefunden} von ${befund.gefunden + befund.vorgabe.length} Entitäten gefunden.`,
+      `# Für diese hier gab es keine: ${befund.vorgabe.join(', ')}.`,
+      '# Ihre Kacheln zeigen „Entität nicht gefunden" — der Rest funktioniert.',
+    );
+  } else {
+    zeilen.push(`# Alle ${befund.gefunden} Entitäten gefunden.`);
+  }
+
+  return `${zeilen.join('\n')}\n#\n`;
+}
+
 /**
  * Das Dashboard selbst, zum Einfuegen in den Rohtext-Editor
  * (Dashboard -> Bearbeiten -> ⋮ -> Rohkonfigurationseditor).
  */
-export function buildDashboardYaml(ids: EntityIds): string {
+export function buildDashboardYaml(ids: EntityIds, befund?: Befund): string {
   const e = (schluessel: string): string => ids[schluessel] ?? `sensor.yapaja_${schluessel}`;
   return `# Yapaia Go — fertiges Dashboard
 #
 # Erzeugt vom Add-on beim Start. Die Entity-IDs unten sind die, die in DIESER
 # Home-Assistant-Installation wirklich vorhanden waren.
 #
+${befundText(befund)}#
 # So kommt es ins Dashboard:
 #   1. Einstellungen → Dashboards → ⋮ → Ressourcen → Ressource hinzufügen
 #        URL: /local/yapaja/yapaja-map-card.js     Typ: JavaScript-Modul
@@ -255,12 +326,41 @@ views:
           - entity: ${e('nav_state')}
             name: Zustand
 
-      - type: entities
+${steuerungsKacheln(ids, befund)}`;
+}
+
+/**
+ * Die bedienbaren Kacheln -- oder gar nichts.
+ *
+ * ─── WARUM SIE FEHLEN DUERFEN ───────────────────────────────────────────────
+ * Profilauswahl und die Schaltflaechen Pause/Weiter/Beenden gibt es nur ueber
+ * MQTT: eine Entitaet, die der HA-interne Kanal schreibt, kann keine Befehle
+ * entgegennehmen (`ha/statesBridge.ts`). Ohne Broker stuenden hier also drei
+ * Knoepfe, die nichts tun, und eine Auswahl, die nichts auswaehlt -- auf dem
+ * Bildschirmfoto des Betreibers war genau das zu sehen.
+ *
+ * Ein Knopf, der nichts tut, ist schlimmer als ein fehlender: er behauptet,
+ * er wuerde.
+ */
+export function steuerungsKacheln(ids: EntityIds, befund?: Befund): string {
+  const e = (schluessel: string): string => ids[schluessel] ?? `sensor.yapaja_${schluessel}`;
+  const fehlt = new Set(befund?.vorgabe ?? []);
+  // Ohne Befund (noch nicht nachgesehen) bleiben sie drin: die erste Fassung
+  // der Datei geht von den dokumentierten Namen aus.
+  const knoepfe = !['stop', 'pause', 'resume'].every((k) => fehlt.has(k));
+  const profil = !fehlt.has('profile');
+  if (!knoepfe && !profil) return '';
+
+  const teile: string[] = [];
+  if (profil) {
+    teile.push(`      - type: entities
         title: Steuerung
         entities:
           - entity: ${e('profile')}
-            name: Fahrzeugprofil
-      - type: horizontal-stack
+            name: Fahrzeugprofil`);
+  }
+  if (knoepfe) {
+    teile.push(`      - type: horizontal-stack
         cards:
           - type: button
             name: Pause
@@ -285,8 +385,9 @@ views:
               action: perform-action
               perform_action: button.press
               target:
-                entity_id: ${e('stop')}
-`;
+                entity_id: ${e('stop')}`);
+  }
+  return `\n${teile.join('\n')}\n`;
 }
 
 /** Nur das, was zum Schreiben gebraucht wird -- so ist es ohne Dateisystem pruefbar. */
@@ -309,6 +410,17 @@ export interface DashboardDateiDeps {
  * Zwei Kilobyte gegen einen Weg, der genau bei der Person nicht funktioniert,
  * die ihn gehen soll.
  *
+ * ─── UND WARUM MIT BOM ──────────────────────────────────────────────────────
+ * Weil es sonst „NÃ¤chste Anweisung" heisst. Home Assistant liefert die Datei
+ * aus seinem `www/` ohne Angabe des Zeichensatzes aus; Safari nimmt dann
+ * Latin-1 an, und aus jedem Umlaut werden zwei Zeichen. Der Betreiber kopiert
+ * genau das ins Dashboard -- die Vorlage ist dann kaputt, bevor sie irgendwo
+ * ankommt (auf dem iPad nachgesehen, Kachelueberschrift „NÃ¤chste Anweisung").
+ *
+ * Die drei Bytes am Anfang sagen dem Browser, dass es UTF-8 ist; das schlaegt
+ * jede Vorannahme. Beim Markieren und Kopieren des angezeigten Textes ist die
+ * Marke nicht dabei -- sie ist kein sichtbares Zeichen.
+ *
  * Wirft NIE: ein Dashboard, das sich nicht ablegen laesst, darf die
  * Navigation nicht anhalten. Gibt zurueck, ob BEIDE geschrieben wurden.
  */
@@ -321,7 +433,7 @@ export async function writeDashboardYaml(
   try {
     await deps.mkdir(wwwDir, { recursive: true });
     for (const name of DASHBOARD_DATEINAMEN) {
-      await deps.writeFile(`${ordner}/${name}`, yaml, 'utf8');
+      await deps.writeFile(`${ordner}/${name}`, `${UTF8_BOM}${yaml}`, 'utf8');
     }
     return true;
   } catch (err) {
@@ -376,6 +488,19 @@ export function starteDashboardPflege(deps: DashboardPflegeDeps): () => void {
     void (async () => {
       const verbindung = deps.verbindung();
       if (!verbindung) {
+        // Auch dieser Fall kommt jetzt IN die Datei: „keine Verbindung" nur
+        // ins Protokoll zu schreiben half niemandem, der vor einer Wand aus
+        // „Entitaet nicht gefunden" sitzt.
+        await writeDashboardYaml(
+          wwwDir,
+          buildDashboardYaml(standardIds(), {
+            erreichbar: false,
+            zustaende: 0,
+            gefunden: 0,
+            vorgabe: Object.keys(standardIds()),
+          }),
+          deps.datei,
+        );
         deps.datei.logger.info(
           'Dashboard-Vorlage: keine Home-Assistant-Verbindung -- es bleiben die dokumentierten Entity-IDs.',
         );
@@ -383,11 +508,26 @@ export function starteDashboardPflege(deps: DashboardPflegeDeps): () => void {
       }
       const zustaende = await deps.ladeZustaende(verbindung);
       const { ids, gefunden, vorgabe } = resolveEntityIds(zustaende);
-      await writeDashboardYaml(wwwDir, buildDashboardYaml(ids), deps.datei);
+      // `zustaende.length === 0` heisst bei `fetchHaStates` „nicht
+      // erreichbar": die Funktion schluckt jeden Fehler und liefert eine
+      // leere Liste. Eine echte HA-Anlage hat immer Entitaeten.
+      const befund: Befund = {
+        erreichbar: zustaende.length > 0,
+        zustaende: zustaende.length,
+        gefunden: gefunden.length,
+        vorgabe,
+      };
+      await writeDashboardYaml(wwwDir, buildDashboardYaml(ids, befund), deps.datei);
       deps.datei.logger.info('Dashboard-Vorlage geschrieben (/local/yapaja/dashboard.yaml)', {
         gefunden: gefunden.length,
         vorgabe,
+        zustaende: zustaende.length,
       });
+      if (befund.erreichbar && befund.gefunden === 0) {
+        deps.datei.logger.warn(
+          'Dashboard-Vorlage: Home Assistant kennt KEINE Yapaia-Entitaet. Ohne MQTT-Broker meldet Yapaia keine an -- siehe Installationspruefung, Zeile „MQTT / Home-Assistant-Anbindung".',
+        );
+      }
     })();
   }, deps.verzoegerungMs ?? DASHBOARD_NACHSEHEN_MS);
 

@@ -146,6 +146,13 @@ async function driveTo(page: Page, progressM: number, speedMs = 3): Promise<void
   await page.waitForTimeout(1100);
 }
 
+async function zoomOf(page: Page): Promise<number> {
+  return page.evaluate(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    () => (window.__yapaiaMapController?.getMap?.() as any)?.getZoom?.() ?? 0,
+  );
+}
+
 async function readPitch(page: Page): Promise<number | null> {
   return page.evaluate(() => window.__yapaiaMapController?.getMap()?.getPitch?.() ?? null);
 }
@@ -309,6 +316,135 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
     expect(elapsedMs).toBeLessThan(3_000);
 
     expect(pageErrors).toEqual([]);
+  });
+
+  /**
+   * ─── DER PANEL-WECHSEL IN HOME ASSISTANT ──────────────────────────────────
+   * Gemeldet: „Ich wechsle zum Dashboard und zurueck, und werde gefragt ob
+   * ich die Navigation fortsetzen moechte. Es sieht aus als ob die Navigation
+   * gestoppt wird."
+   *
+   * Sie wird nicht gestoppt -- Home Assistant wirft beim Wechsel den
+   * Ingress-Rahmen weg und baut ihn neu auf. Fuer die App ist das ein
+   * frischer Start, kein Neuladen. Genau das bildet dieser Test ab: ein
+   * zweites `goto` auf dieselbe Seite, waehrend der Core weiterfaehrt.
+   */
+  test('zurueck aus einem anderen Dashboard: keine Frage, sondern weiterfahren', async ({
+    page,
+  }) => {
+    test.setTimeout(30_000);
+    const pageErrors = collectPageErrors(page);
+
+    await page.goto(NAV_CONTROL_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    const startResponse = await page.request.post(
+      `${NAV_CONTROL_CORE_BASE_URL}/api/v1/navigation/start`,
+      { data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'Panel-Ziel' } } },
+    );
+    expect(startResponse.ok()).toBe(true);
+    await driveTo(page, 150);
+    await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('navigating');
+
+    // Weg und wieder da -- wie der Rahmen, den Home Assistant neu aufbaut.
+    await page.goto(NAV_CONTROL_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+
+    // Die Fahransicht ist einfach wieder da, ohne Rueckfrage.
+    await expect(page.getByTestId('maneuver-panel')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('resume-prompt')).toHaveCount(0);
+    expect(await navStatus(page)).toBe('navigating');
+
+    expect(pageErrors).toEqual([]);
+  });
+
+  /**
+   * ─── DIE ROUTE IN DER DASHBOARD-KACHEL ────────────────────────────────────
+   * Gemeldet, mit Bildschirmfoto: die Kachel heisst „Karte mit Route", zeigte
+   * aber nur die Karte -- waehrend im Add-on selbst die blaue Linie lief.
+   *
+   * Der Test steht in DIESER Datei und nicht in `embed.spec.ts`, weil er eine
+   * LAUFENDE Fahrt braucht. Die gibt es nur auf dem eigenen Core dieser Datei;
+   * auf dem geteilten Core waere sie ein Stolperstein fuer jede andere
+   * Pruefung, die parallel laeuft (siehe die Begruendung zu den eigenen Ports
+   * in `support/constants.ts`).
+   */
+  test('die Dashboard-Kachel zeigt die laufende Route, nicht nur die Karte', async ({ page }) => {
+    test.setTimeout(30_000);
+    const pageErrors = collectPageErrors(page);
+
+    await page.goto(NAV_CONTROL_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    const startResponse = await page.request.post(
+      `${NAV_CONTROL_CORE_BASE_URL}/api/v1/navigation/start`,
+      { data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'Kachel-Ziel' } } },
+    );
+    expect(startResponse.ok()).toBe(true);
+    await driveTo(page, 150);
+    await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('navigating');
+
+    // Jetzt die Anzeigeseite -- genau das, was die Lovelace-Karte einrahmt.
+    await page.goto(`${NAV_CONTROL_CORE_BASE_URL}/embed.html`);
+    await waitForMapReady(page);
+
+    // Gemessen wird die LINIE, nicht der Speicherzustand: die Kachel soll
+    // etwas zeigen, nicht etwas wissen.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const map: any = window.__yapaiaMapController?.getMap?.();
+            if (!map?.getSource('route-main-source')) return -1;
+            return map.querySourceFeatures('route-main-source').length;
+          }),
+        { timeout: 10_000 },
+      )
+      .toBeGreaterThan(0);
+
+    // Und es bleibt eine Anzeige: keine Fahrbedienung, keine Rueckfrage.
+    await expect(page.getByTestId('resume-prompt')).toHaveCount(0);
+    await expect(page.getByTestId('drive-controls')).toHaveCount(0);
+
+    expect(pageErrors).toEqual([]);
+  });
+
+  /**
+   * ─── UND SIE ZOOMT AUF DAS FAHRZEUG ───────────────────────────────────────
+   * Auf dem Bildschirmfoto des Betreibers stand die Kachel auf dem ganzen
+   * Kartengebiet -- Deutschland mit einem Punkt darin. Der Ausschnitt kommt
+   * beim Start aus den Grenzen der installierten Region; wer eine grosse
+   * Region installiert hat, sieht sie ganz.
+   *
+   * Gemessen wird deshalb die BEWEGUNG, nicht der Endwert: die Kachel wird
+   * absichtlich weit herausgezoomt, DANN beginnt die Fahrt. Ein Test auf
+   * „Zoomstufe > 10" waere hier wertlos -- die Testregion ist so klein, dass
+   * der Anfangsausschnitt das ohnehin erfuellt (nachgemessen: er besteht auch
+   * ohne den Auto-Zoom).
+   */
+  test('die Dashboard-Kachel zoomt auf das Fahrzeug, wenn die Fahrt beginnt', async ({ page }) => {
+    test.setTimeout(30_000);
+
+    await page.goto(`${NAV_CONTROL_CORE_BASE_URL}/embed.html`);
+    await waitForMapReady(page);
+    await driveTo(page, 10);
+
+    const WEIT_DRAUSSEN = 6;
+    await page.evaluate((z) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window.__yapaiaMapController?.getMap?.() as any)?.setZoom?.(z);
+    }, WEIT_DRAUSSEN);
+    expect(await zoomOf(page)).toBeCloseTo(WEIT_DRAUSSEN, 1);
+
+    const startResponse = await page.request.post(
+      `${NAV_CONTROL_CORE_BASE_URL}/api/v1/navigation/start`,
+      { data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'Zoom-Ziel' } } },
+    );
+    expect(startResponse.ok()).toBe(true);
+    await driveTo(page, 150);
+
+    await expect
+      .poll(() => zoomOf(page), { timeout: 10_000 })
+      .toBeGreaterThan(WEIT_DRAUSSEN + 2);
   });
 
   test('Flow 5 (prepared): changing the active profile mid-navigation does not crash the app or corrupt nav/state', async ({

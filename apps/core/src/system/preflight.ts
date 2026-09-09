@@ -710,6 +710,23 @@ function checkMqtt(env: Record<string, string | undefined>): PreflightCheck {
     severity: 'optional' as const,
   };
   const url = env.MQTT_BROKER_URL;
+  // Seit 0.7.0 gibt es einen ZWEITEN Weg zu Home Assistant, und diese Zeile
+  // ist der Grund, warum diese Prüfung umgeschrieben wurde: vorher stand hier
+  // „Yapaia meldet keine Entitäten an Home Assistant", sobald kein Broker da
+  // war. Das ist mit dem HA-internen Kanal schlicht nicht mehr wahr, und eine
+  // Prüfung, die etwas Falsches behauptet, ist schlimmer als keine.
+  const intern = env.HA_INTERNAL === '1';
+
+  if (url && intern) {
+    return {
+      ...base,
+      status: 'ok',
+      detail:
+        `Broker konfiguriert: ${url}; der HA-interne Kanal ist zusätzlich eingeschaltet und ` +
+        'übernimmt, falls der Broker ausfällt. Den laufenden Verbindungszustand meldet ' +
+        'GET /api/v1/health.',
+    };
+  }
   if (url) {
     return {
       ...base,
@@ -717,15 +734,27 @@ function checkMqtt(env: Record<string, string | undefined>): PreflightCheck {
       detail: `Broker konfiguriert: ${url}. Den laufenden Verbindungszustand meldet GET /api/v1/health.`,
     };
   }
+  if (intern) {
+    return {
+      ...base,
+      status: 'ok',
+      detail:
+        'Kein MQTT-Broker — die Entitäten kommen über den HA-internen Kanal (Option ' +
+        '„ha_internal"). Was auf diesem Weg fehlt, sind die BEDIENBAREN Entitäten: ' +
+        'Pause/Weiter/Beenden und die Profilauswahl gibt es nur mit MQTT.',
+    };
+  }
   return {
     ...base,
     status: 'warn',
-    detail: 'Kein MQTT-Broker konfiguriert — Yapaia meldet keine Entitäten an Home Assistant.',
+    detail:
+      'Weder MQTT noch der HA-interne Kanal ist eingeschaltet — Yapaia meldet keine ' +
+      'Entitäten an Home Assistant.',
     remedy:
       'Rein optional. Wenn Home Assistant Fahrtdaten (Position, verbleibende Strecke, ' +
-      'Ankunftszeit) sehen soll, tragen Sie in der Add-on-Konfiguration die ' +
-      'Broker-URL ein — bei einem HAOS-Standardaufbau ist das das Mosquitto-Add-on. ' +
-      'Ohne MQTT navigiert Yapaia unverändert.',
+      'Ankunftszeit) sehen soll, gibt es zwei Wege: die Option „ha_internal" einschalten ' +
+      '(braucht keinen Broker) oder das Mosquitto-Add-on installieren und „mqtt_enabled" ' +
+      'anlassen. Ohne beides navigiert Yapaia unverändert.',
   };
 }
 

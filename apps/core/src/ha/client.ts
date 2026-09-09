@@ -195,3 +195,61 @@ export async function fetchHaStates(
 }
 
 export { DEFAULT_TIMEOUT_MS as HA_DEFAULT_TIMEOUT_MS };
+
+export interface PostHaStateDeps {
+  fetch?: HaFetchLike;
+  logger: HaClientLogger;
+  timeoutMs?: number;
+}
+
+/**
+ * Schreibt EINEN Zustand nach `POST {apiBase}/states/{entity_id}`.
+ *
+ * Das ist der Weg, auf dem Yapaia auch OHNE MQTT-Broker Entitaeten in Home
+ * Assistant anlegt -- die Begruendung und die Grenzen dieses Wegs stehen in
+ * `ha/statesBridge.ts`.
+ *
+ * Dieselbe harte Regel wie bei `callHaService`: hartes Zeitlimit, jeder
+ * Fehler wird geloggt und GESCHLUCKT. Gibt `true` zurueck, wenn Home
+ * Assistant den Zustand angenommen hat (200 = aktualisiert, 201 = neu
+ * angelegt) -- der Aufrufer merkt sich nur dann, dass er geschrieben ist.
+ */
+export async function postHaState(
+  connection: HaConnection,
+  entityId: string,
+  body: { state: string; attributes?: Record<string, unknown> },
+  deps: PostHaStateDeps,
+): Promise<boolean> {
+  const fetchImpl = deps.fetch ?? defaultHaFetch;
+  const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetchImpl(`${connection.apiBase}/states/${encodeURIComponent(entityId)}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${connection.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      // Niemals den Authorization-Header / das Token mitloggen.
+      deps.logger.warn('HA state write returned an error status', { entityId, status: res.status });
+      return false;
+    }
+    return true;
+  } catch (err) {
+    const aborted = err instanceof Error && err.name === 'AbortError';
+    deps.logger.warn('HA state write failed', {
+      entityId,
+      aborted,
+      reason: err instanceof Error ? err.message : String(err),
+    });
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
