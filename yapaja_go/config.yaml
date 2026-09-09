@@ -10,7 +10,7 @@
 name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.7.0"
+version: "0.7.1"
 url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
 
 # amd64 covers typical Mini-PC/NUC installs; aarch64 covers Raspberry Pi
@@ -163,23 +163,28 @@ homeassistant_api: true
 # ─── DIE ZWEI WEGE ZU HOME ASSISTANT ────────────────────────────────────────
 #
 # `mqtt_enabled` -- der Weg ueber einen MQTT-Broker (Mosquitto-Add-on).
-#   Liefert vollwertige Entitaeten MIT Geraet, mit Verlauf, und als einziger
-#   Weg auch die BEDIENBAREN: die Schaltflaechen Pause/Weiter/Beenden und die
+#   Liefert vollwertige Entitaeten MIT Geraet, mit Verlauf, und die
+#   bedienbaren: die Schaltflaechen Pause/Weiter/Beenden und die
 #   Profilauswahl. Dafuer braucht es den Broker.
 #
 # `ha_internal` -- der Weg ohne Broker.
 #   Der Core schreibt die Werte direkt ueber die Home-Assistant-API
 #   (`apps/core/src/ha/statesBridge.ts`). Es entstehen dieselben Entity-IDs
 #   (`sensor.yapaja_speed` und so fort), lesbar von Automationen, Vorlagen,
-#   ESPHome und jedem Dashboard. Was auf diesem Weg NICHT geht, sind Befehle:
-#   eine so geschriebene Entitaet kann nichts entgegennehmen. Pause/Weiter/
-#   Beenden und die Profilauswahl gibt es also nur mit MQTT.
+#   ESPHome und jedem Dashboard. Eine so geschriebene Entitaet kann selbst
+#   keine Befehle entgegennehmen -- BEDIENEN geht auf diesem Weg trotzdem:
+#   Yapaia legt dafuer Helfer an (`input_button.yapaia_pause` und
+#   Geschwister) und fuehrt aus, was gedrueckt wird
+#   (`apps/core/src/ha/commandHelpers.ts`). In 0.7.0 stand hier noch, es gehe
+#   nicht; das war zu frueh aufgegeben.
 #
 # BEIDE ZUGLEICH ist erlaubt und sinnvoll. Sie streiten sich nicht: solange
 # MQTT verbunden ist und die Entitaeten liefert, haelt sich der interne Kanal
 # zurueck -- zwei Schreiber auf derselben Entitaet ergaeben ein Flackern, bei
 # dem niemand mehr sagen kann, welcher Wert gilt. Faellt der Broker aus,
 # uebernimmt der interne Kanal, und die Werte laufen weiter.
+# Dasselbe gilt fuer die Bedienung: mit MQTT ruhen die Helfer, sonst gaebe es
+# zwei Saetze Knoepfe fuer dieselbe Sache.
 options:
   region: ""
   mqtt_enabled: true

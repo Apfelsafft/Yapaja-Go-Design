@@ -10,6 +10,70 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.7.1
+
+**Bedienen geht jetzt auch ohne MQTT — und die Position darf aus der
+Companion-App kommen.**
+
+Gefragt: *„Im Grunde sollte möglichst — also sofern technisch überhaupt
+möglich — alles funktionieren. Der User wählt ja seinen Kanal aus."*
+
+**In 0.7.0 stand hier das Gegenteil**, und das war zu früh aufgegeben: Pause,
+Weiter, Beenden und die Profilauswahl gebe es nur mit MQTT. Für den Weg, den
+0.7.0 nahm, stimmt das auch — eine Entität, die das Add-on über die
+HA-API *schreibt*, ist eine Anzeige und nimmt nichts entgegen. Es gibt aber
+einen zweiten Weg:
+
+**Yapaia legt sich seine Bedienelemente selbst an.** Beim Start entstehen in
+Home Assistant vier Helfer, und Yapaia hört auf sie:
+
+| Helfer | Was er tut |
+|---|---|
+| `input_button.yapaia_pause` | Navigation anhalten |
+| `input_button.yapaia_weiter` | weiterfahren |
+| `input_button.yapaia_beenden` | Fahrt beenden |
+| `input_select.yapaia_profil` | Fahrzeugprofil wechseln |
+
+Sie erscheinen unter *Einstellungen → Geräte & Dienste → Helfer* und lassen
+sich wie jeder andere Helfer in Dashboards, Automationen und Sprachbefehle
+einbauen. **Das erzeugte Dashboard benutzt sie von selbst**, wenn es die
+MQTT-Knöpfe nicht gibt — die Steuerungskacheln sind also wieder da.
+
+Haben Sie **beides**, MQTT und den internen Kanal, ändert sich nichts: dann
+gelten die MQTT-Entitäten, und die Helfer ruhen. Zwei Sätze Knöpfe für
+dieselbe Sache wären nur Verwirrung. Damit das nicht wie ein Defekt aussieht,
+**steht es im Kopf der Dashboard-Datei**.
+
+**Was beim Anlegen schiefgehen kann, geht leise schief:** Klappt es nicht
+(fehlende Rechte etwa), versucht das Add-on es **genau einmal** und läuft
+normal weiter — ein Versuch pro Sekunde wäre Dauerlast ohne Aussicht auf ein
+anderes Ergebnis. Die Helfer bleiben dann aus; im Protokoll steht, warum.
+
+**Ein Neustart des Add-ons beendet die Fahrt nicht.** Das klingt
+selbstverständlich, ist es hier aber nicht: der Zustand eines `input_button`
+ist der *Zeitpunkt* des letzten Drucks — auch wenn der von gestern ist. Wer
+den ersten gelesenen Wert für einen Druck hält, drückt beim Hochfahren alle
+drei Knöpfe auf einmal. Der erste gelesene Wert zählt deshalb nie als Befehl.
+
+---
+
+**Und die Positionsquelle: die Companion-App ist jetzt auswählbar.**
+
+Gefragt: *„Richte das bitte ein. Aktuell nutze ich die companion App."*
+
+Das ging schon vorher — über ein Freitextfeld in der Add-on-Konfiguration, in
+das eine Entity-ID gehört. Also eine Angabe, die man nicht weiß, sondern erst
+unter *Entwicklerwerkzeuge → Zustände* suchen muss. Eine Einrichtung, die aus
+einem Textfeld und einem Ratespiel besteht, ist keine.
+
+Jetzt steht in Yapaia Go unter **🩺 Installationsprüfung** eine **Auswahlliste
+mit den `device_tracker`, die Ihr Home Assistant wirklich kennt** — Ihr iPhone,
+Ihr iPad, was auch immer Standorte meldet. Auswählen genügt: **die Wahl gilt
+sofort**, ohne Neustart des Add-ons. Das Feld in der Add-on-Konfiguration
+bleibt und dient weiter als Vorgabe; die Auswahl in der Oberfläche gewinnt.
+
+---
+
 ## 0.7.0
 
 **Yapaia meldet seine Werte jetzt auch ohne MQTT-Broker an Home Assistant.**
@@ -44,6 +108,8 @@ Dashboard zeigt Zahlen statt Warnungen.
   erzeugte Dashboard **lässt diese Kacheln jetzt weg**, statt tote Knöpfe zu
   zeigen. Ein Knopf, der nichts tut, ist schlimmer als ein fehlender: er
   behauptet, er würde.
+  *(Nachtrag: **0.7.1 hebt das auf.** Über selbst angelegte Helfer geht die
+  Bedienung auch ohne Broker — siehe oben.)*
 - **Kein Gerät, keine Registrierung.** Die Entitäten tauchen nicht unter
   „Geräte" auf und lassen sich in der Oberfläche nicht umbenennen.
 - **Sie verschwinden beim Neustart von Home Assistant** — bis zum nächsten

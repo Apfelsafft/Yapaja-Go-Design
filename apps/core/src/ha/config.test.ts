@@ -9,6 +9,7 @@ import {
   SUPERVISOR_API_BASE,
   DEFAULT_TTS_SERVICE,
   type HaSettingsLookup,
+  resolveTrackerEntityId,
 } from './config.js';
 
 function settings(ha: unknown): HaSettingsLookup {
@@ -85,5 +86,46 @@ describe('resolveHaConfig', () => {
       language: 'de-DE',
     });
     expect(cfg?.notify).toEqual({ enabled: true, service: 'notify.mobile_app_phone' });
+  });
+});
+
+describe('welche device_tracker-Entitaet gilt (B-05)', () => {
+  it('nimmt die Einstellung vor der Add-on-Option', () => {
+    // Die Einstellung ist die juengere, ausdruecklichere Aussage: wer gerade
+    // in der Oberflaeche gewaehlt hat, meint den und nicht den Stand vom
+    // letzten Start.
+    expect(
+      resolveTrackerEntityId({ get: () => ({ device_tracker: 'device_tracker.aus_der_app' }) }, {
+        HA_DEVICE_TRACKER: 'device_tracker.aus_der_option',
+      }),
+    ).toBe('device_tracker.aus_der_app');
+  });
+
+  it('faellt auf die Add-on-Option zurueck', () => {
+    expect(
+      resolveTrackerEntityId({ get: () => ({}) }, { HA_DEVICE_TRACKER: 'device_tracker.telefon' }),
+    ).toBe('device_tracker.telefon');
+  });
+
+  it('behandelt „null" und Leerzeichen wie „nicht gesetzt"', () => {
+    // bashio liefert fuer eine leere `str?`-Option den STRING „null". Eine
+    // Entitaet dieses Namens gibt es nie -- die Quelle suchte still ins
+    // Leere. Genau dieser Fehler hat 0.3.0 gekostet.
+    expect(
+      resolveTrackerEntityId({ get: () => ({ device_tracker: '  ' }) }, {
+        HA_DEVICE_TRACKER: 'null',
+      }),
+    ).toBe('');
+    expect(resolveTrackerEntityId({ get: () => ({ device_tracker: 'null' }) }, {})).toBe('');
+  });
+
+  it('schneidet Leerzeichen ab', () => {
+    expect(resolveTrackerEntityId(undefined, { HA_DEVICE_TRACKER: ' device_tracker.x ' })).toBe(
+      'device_tracker.x',
+    );
+  });
+
+  it('ergibt ohne beides einen leeren Text', () => {
+    expect(resolveTrackerEntityId(undefined, {})).toBe('');
   });
 });

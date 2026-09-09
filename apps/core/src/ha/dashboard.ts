@@ -36,6 +36,7 @@
  */
 
 import type { HaEntityState } from './client.js';
+import { HELFER } from './commandHelpers.js';
 
 /**
  * Die Dateinamen unter `www/yapaja/` -- also `/local/yapaja/dashboard.yaml`
@@ -182,6 +183,24 @@ export function resolveEntityIds(zustaende: readonly HaEntityState[]): Aufgeloes
   return { ids, gefunden, vorgabe };
 }
 
+/**
+ * Welche der Bedien-Helfer (`input_button.yapaia_*`, `input_select.yapaia_profil`)
+ * es in dieser Anlage gibt.
+ *
+ * Hier wird NICHT gesucht wie oben, sondern genau verglichen: die IDs dieser
+ * Helfer legt Yapaia selbst an (`ha/commandHelpers.ts`), sie stehen fest. Eine
+ * unscharfe Suche koennte hier nur danebengreifen.
+ */
+export function findeHelfer(zustaende: readonly HaEntityState[]): string[] {
+  const vorhanden = new Set(zustaende.map((z) => z.entity_id));
+  return HELFER.map((h) => h.entityId).filter((id) => vorhanden.has(id));
+}
+
+/** Die Helfer-ID zu einem Befehl -- oder `undefined`, wenn es keinen gibt. */
+function helferId(befehl: (typeof HELFER)[number]['befehl']): string | undefined {
+  return HELFER.find((h) => h.befehl === befehl)?.entityId;
+}
+
 /** Was beim Nachsehen in Home Assistant herauskam. */
 export interface Befund {
   /** Ob Home Assistant ueberhaupt geantwortet hat. */
@@ -192,6 +211,8 @@ export interface Befund {
   gefunden: number;
   /** Schluessel, fuer die die Vorgabe eingetragen wurde. */
   vorgabe: string[];
+  /** Die gefundenen Bedien-Helfer -- der Weg ohne MQTT. */
+  helfer?: readonly string[];
 }
 
 /**
@@ -241,6 +262,29 @@ export function befundText(befund?: Befund): string {
     );
   } else {
     zeilen.push(`# Alle ${befund.gefunden} Entitäten gefunden.`);
+  }
+
+  if (befund.helfer && befund.helfer.length > 0) {
+    const steuerungFehlt = ['profile', 'stop', 'pause', 'resume'].some((k) =>
+      befund.vorgabe.includes(k),
+    );
+    zeilen.push('#');
+    if (steuerungFehlt) {
+      zeilen.push(
+        `# Bedienen ohne MQTT: ${befund.helfer.length} Helfer gefunden`,
+        '# (input_button.yapaia_*, input_select.yapaia_profil). Yapaia legt sie',
+        '# selbst an und hört auf sie — die Steuerungskacheln unten benutzen sie.',
+      );
+    } else {
+      // Sonst suchte jemand den Fehler bei sich: die Helfer sind da, sie
+      // reagieren nur nicht, weil der andere Kanal die Bedienung liefert.
+      zeilen.push(
+        `# Es gibt außerdem ${befund.helfer.length} Bedien-Helfer (input_button.yapaia_*).`,
+        '# Sie werden IGNORIERT, solange MQTT läuft — sonst gäbe es zwei Sätze',
+        '# Knöpfe für dieselbe Sache. Die Kacheln unten benutzen die',
+        '# MQTT-Entitäten.',
+      );
+    }
   }
 
   return `${zeilen.join('\n')}\n#\n`;
@@ -330,26 +374,38 @@ ${steuerungsKacheln(ids, befund)}`;
 }
 
 /**
- * Die bedienbaren Kacheln -- oder gar nichts.
+ * Die bedienbaren Kacheln -- aus dem Kanal, den es auf DIESER Anlage gibt.
  *
- * ─── WARUM SIE FEHLEN DUERFEN ───────────────────────────────────────────────
- * Profilauswahl und die Schaltflaechen Pause/Weiter/Beenden gibt es nur ueber
- * MQTT: eine Entitaet, die der HA-interne Kanal schreibt, kann keine Befehle
- * entgegennehmen (`ha/statesBridge.ts`). Ohne Broker stuenden hier also drei
- * Knoepfe, die nichts tun, und eine Auswahl, die nichts auswaehlt -- auf dem
- * Bildschirmfoto des Betreibers war genau das zu sehen.
+ * ─── ZWEI WEGE, EINE KACHELREIHE ────────────────────────────────────────────
+ * Mit MQTT gibt es `button.yapaja_pause` und `select.yapaja_profile`: echte
+ * bedienbare Entitaeten, an denen Yapaia haengt.
  *
- * Ein Knopf, der nichts tut, ist schlimmer als ein fehlender: er behauptet,
- * er wuerde.
+ * Ohne MQTT gibt es sie nicht -- eine Entitaet, die der HA-interne Kanal ueber
+ * `POST /api/states` schreibt, kann keine Befehle entgegennehmen
+ * (`ha/statesBridge.ts`). Deshalb legt Yapaia dort HELFER an
+ * (`input_button.yapaia_pause`, `input_select.yapaia_profil`) und beobachtet
+ * sie (`ha/commandWatcher.ts`). Findet sich einer davon, benutzt die Kachel
+ * ihn -- die Bedienung funktioniert dann genauso, nur ueber eine andere
+ * Entitaet.
+ *
+ * ─── UND WARUM SIE IMMER NOCH GANZ FEHLEN DUERFEN ───────────────────────────
+ * Gibt es weder das eine noch das andere, steht hier nichts. Ein Knopf, der
+ * nichts tut, ist schlimmer als ein fehlender: er behauptet, er wuerde. Auf
+ * dem Bildschirmfoto des Betreibers war genau das zu sehen.
  */
 export function steuerungsKacheln(ids: EntityIds, befund?: Befund): string {
   const e = (schluessel: string): string => ids[schluessel] ?? `sensor.yapaja_${schluessel}`;
   const fehlt = new Set(befund?.vorgabe ?? []);
+  const helfer = new Set(befund?.helfer ?? []);
   // Ohne Befund (noch nicht nachgesehen) bleiben sie drin: die erste Fassung
   // der Datei geht von den dokumentierten Namen aus.
   const knoepfe = !['stop', 'pause', 'resume'].every((k) => fehlt.has(k));
   const profil = !fehlt.has('profile');
-  if (!knoepfe && !profil) return '';
+  const helferProfilId = helferId('profile');
+  const helferProfil = !profil && helferProfilId !== undefined && helfer.has(helferProfilId);
+  const helferBefehle = (['pause', 'resume', 'stop'] as const).map((b) => helferId(b));
+  const helferKnoepfe = !knoepfe && helferBefehle.every((id) => id !== undefined && helfer.has(id));
+  if (!knoepfe && !profil && !helferKnoepfe && !helferProfil) return '';
 
   const teile: string[] = [];
   if (profil) {
@@ -358,6 +414,43 @@ export function steuerungsKacheln(ids: EntityIds, befund?: Befund): string {
         entities:
           - entity: ${e('profile')}
             name: Fahrzeugprofil`);
+  } else if (helferProfil) {
+    teile.push(`      - type: entities
+        title: Steuerung
+        entities:
+          - entity: ${helferProfilId}
+            name: Fahrzeugprofil`);
+  }
+  if (helferKnoepfe) {
+    // Dieselben drei Knoepfe, nur ueber die Helfer. `input_button.press`
+    // statt `button.press` -- verschiedene Bereiche, verschiedene Aktion.
+    const [hPause, hWeiter, hStop] = helferBefehle as [string, string, string];
+    teile.push(`      - type: horizontal-stack
+        cards:
+          - type: button
+            name: Pause
+            icon: mdi:pause
+            tap_action:
+              action: perform-action
+              perform_action: input_button.press
+              target:
+                entity_id: ${hPause}
+          - type: button
+            name: Weiter
+            icon: mdi:play
+            tap_action:
+              action: perform-action
+              perform_action: input_button.press
+              target:
+                entity_id: ${hWeiter}
+          - type: button
+            name: Beenden
+            icon: mdi:stop
+            tap_action:
+              action: perform-action
+              perform_action: input_button.press
+              target:
+                entity_id: ${hStop}`);
   }
   if (knoepfe) {
     teile.push(`      - type: horizontal-stack
@@ -516,6 +609,7 @@ export function starteDashboardPflege(deps: DashboardPflegeDeps): () => void {
         zustaende: zustaende.length,
         gefunden: gefunden.length,
         vorgabe,
+        helfer: findeHelfer(zustaende),
       };
       await writeDashboardYaml(wwwDir, buildDashboardYaml(ids, befund), deps.datei);
       deps.datei.logger.info('Dashboard-Vorlage geschrieben (/local/yapaja/dashboard.yaml)', {

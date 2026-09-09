@@ -740,8 +740,10 @@ function checkMqtt(env: Record<string, string | undefined>): PreflightCheck {
       status: 'ok',
       detail:
         'Kein MQTT-Broker — die Entitäten kommen über den HA-internen Kanal (Option ' +
-        '„ha_internal"). Was auf diesem Weg fehlt, sind die BEDIENBAREN Entitäten: ' +
-        'Pause/Weiter/Beenden und die Profilauswahl gibt es nur mit MQTT.',
+        '„ha_internal"). Bedienen geht trotzdem: Yapaia legt dafür Helfer an ' +
+        '(input_button.yapaia_pause/_weiter/_beenden, input_select.yapaia_profil) und ' +
+        'führt aus, was gedrückt wird. Sie stehen unter Einstellungen → Geräte & Dienste ' +
+        '→ Helfer.',
     };
   }
   return {

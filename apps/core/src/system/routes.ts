@@ -25,6 +25,12 @@ import type { FastifyPluginAsync } from 'fastify';
 import { resolveTilesDir } from '../map/paths.js';
 import { getSystemResources, type FullStatfsFn, type SystemResources } from './resources.js';
 import { runPreflight, type PreflightDeps, type PreflightReport } from './preflight.js';
+import type { ApiError } from '@yapaia/shared';
+
+/** Wie in `settings/routes.ts` -- dieselbe Fehlerhuelle, lokal gehalten. */
+function createErrorResponse(code: string, message: string): ApiError {
+  return { error: { code, message } };
+}
 
 export interface SystemPluginOptions {
   /** Defaults to the map tiles dir (`TILES_DIR`/`resolveTilesDir()`) -- the
@@ -39,6 +45,22 @@ export interface SystemPluginOptions {
   /** Injectable probes for the preflight check (see `preflight.ts`).
    *  Defaults to the real filesystem/network probes. */
   preflightDeps?: PreflightDeps;
+  /**
+   * Woher die Liste der `device_tracker` kommt und wie der gewaehlte
+   * gespeichert wird (B-05, Companion App). Fehlt sie, antwortet die Route
+   * mit einer leeren Liste statt zu scheitern -- eine Einrichtungshilfe darf
+   * nichts blockieren.
+   */
+  trackerDeps?: TrackerDeps;
+}
+
+export interface TrackerDeps {
+  /** Alle `device_tracker.*` MIT Koordinaten, wie sie Home Assistant kennt. */
+  listeTracker: () => Promise<Array<{ entity_id: string; friendly_name: string }>>;
+  /** Die aktuell gewaehlte Entity-ID (Einstellung oder Add-on-Option). */
+  gewaehlt: () => string;
+  /** Speichert die Wahl. Leerer Text = wieder abwaehlen. */
+  waehle: (entityId: string) => void;
 }
 
 interface SystemResourcesReply {
@@ -69,4 +91,49 @@ export const systemPlugin: FastifyPluginAsync<SystemPluginOptions> = async (fast
     const data = await runPreflight(opts.preflightDeps);
     reply.code(200).send({ data });
   });
+
+  // ─── DIE POSITIONSQUELLE AUS DER COMPANION APP AUSWAEHLEN ────────────────
+  // Bis 0.7.0 musste hier eine Entity-ID von Hand in die Add-on-Konfiguration
+  // getippt werden -- eine Angabe, die man nicht weiss, sondern in Home
+  // Assistant unter Entwicklerwerkzeuge -> Zustaende nachschlagen muss. Eine
+  // Einrichtung, die aus einem Textfeld und einem Ratespiel besteht, ist
+  // keine. Diese Route liefert die Auswahl, die es wirklich gibt.
+  fastify.get<{ Reply: { data: { trackers: Array<{ entity_id: string; friendly_name: string }>; selected: string } } }>(
+    '/api/v1/system/ha/trackers',
+    async (_request, reply) => {
+      const deps = opts.trackerDeps;
+      if (!deps) {
+        reply.code(200).send({ data: { trackers: [], selected: '' } });
+        return;
+      }
+      reply.code(200).send({ data: { trackers: await deps.listeTracker(), selected: deps.gewaehlt() } });
+    },
+  );
+
+  fastify.post<{ Body: { entity_id?: unknown }; Reply: { data: { selected: string } } | ApiError }>(
+    '/api/v1/system/ha/trackers',
+    async (request, reply) => {
+      const deps = opts.trackerDeps;
+      const roh = request.body?.entity_id;
+      if (roh !== undefined && typeof roh !== 'string') {
+        return reply
+          .code(400)
+          .send(createErrorResponse('VALIDATION_ERROR', 'entity_id muss ein Text sein'));
+      }
+      const gewuenscht = (roh ?? '').trim();
+      // Leer ist gueltig: „doch keinen" muss genauso gehen wie „diesen".
+      if (gewuenscht.length > 0 && !gewuenscht.startsWith('device_tracker.')) {
+        return reply
+          .code(400)
+          .send(
+            createErrorResponse(
+              'VALIDATION_ERROR',
+              'entity_id muss eine device_tracker-Entitaet sein',
+            ),
+          );
+      }
+      deps?.waehle(gewuenscht);
+      reply.code(200).send({ data: { selected: gewuenscht } });
+    },
+  );
 };

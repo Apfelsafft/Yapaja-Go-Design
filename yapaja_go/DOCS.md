@@ -94,8 +94,13 @@ Set `gps_source: ha_tracker`. That is normally all: if exactly one
 `device_tracker` entity in Home Assistant carries coordinates, Yapaia picks it
 itself. If there are several, none is guessed — the second one could be
 someone else's phone, and a navigation that silently follows it is worse than
-one that asks. In that case the preflight check (🩺) names the candidates and
-you enter the one you want under `ha_device_tracker`.
+one that asks.
+
+**Since 0.7.1 you pick it in the app, not in a text field.** Open Yapaia Go →
+🩺 **Installationsprüfung**; below the checks is a drop-down listing the
+`device_tracker` entities your Home Assistant actually has. Picking one
+**takes effect immediately** — no add-on restart. The `ha_device_tracker`
+option below still works and acts as the default; the pick in the UI wins.
 
 Source priority is `gpsd > browser > ha_tracker > simulator`: the app reports
 at intervals, so it is the source that *exists* when the browser gives none —
@@ -147,7 +152,7 @@ Both have their own switch in the add-on configuration, and both may be on.
 
 | Option | What it does |
 |---|---|
-| `mqtt_enabled` (default on) | The MQTT route. With the Mosquitto add-on (or any add-on providing the `mqtt` service) running, Yapaia Go picks up host/credentials via the Supervisor's Services API — no manual entry. Full entities with a device and history, and the **only** route that also gives you the *controllable* ones: pause/resume/stop and the profile select. |
+| `mqtt_enabled` (default on) | The MQTT route. With the Mosquitto add-on (or any add-on providing the `mqtt` service) running, Yapaia Go picks up host/credentials via the Supervisor's Services API — no manual entry. Full entities with a device and history, including the *controllable* ones: pause/resume/stop and the profile select. |
 | `ha_internal` (default on) | The route **without a broker**. The add-on writes the values straight through Home Assistant's API (`POST /api/states/...`). Same entity IDs (`sensor.yapaja_speed` …), readable from automations, templates, **ESPHome** and any dashboard. |
 
 **Both at once is fine.** They don't fight: while MQTT is connected the
@@ -157,10 +162,10 @@ internal channel takes over and the values keep flowing.
 
 **What the internal route cannot do** (and this is the whole list):
 
-- **No commands.** An entity written this way cannot receive anything.
-  Pause/resume/stop and the profile select need MQTT — the generated
-  dashboard leaves those cards out when it cannot find the entities, rather
-  than showing dead buttons.
+- **No commands on *these* entities.** An entity written this way cannot
+  receive anything, so `button.yapaja_stop` and `select.yapaja_profile` need
+  MQTT. **Operating Yapaia does not** — see the next section. (0.7.0 said the
+  controls were MQTT-only; that gave up too early.)
 - **No device, no registry entry.** The entities do not appear under
   "Devices" and cannot be renamed in the UI.
 - **They vanish on a Home Assistant restart** — until the next write. So the
@@ -170,6 +175,32 @@ internal channel takes over and the values keep flowing.
 
 See `docs/04-home-assistant.md` §1 in the main repo for the full topic/entity
 table. The 🩺 preflight page names which route is currently live.
+
+### Operating Yapaia without a broker (0.7.1)
+
+The add-on creates four **helpers** in Home Assistant on start and listens to
+them:
+
+| Helper | What it does |
+|---|---|
+| `input_button.yapaia_pause` | pause the navigation |
+| `input_button.yapaia_weiter` | resume |
+| `input_button.yapaia_beenden` | end the trip |
+| `input_select.yapaia_profil` | switch the vehicle profile |
+
+They show up under *Settings → Devices & Services → Helpers* and work in
+dashboards, automations and voice commands like any other helper. **The
+generated dashboard uses them by itself** when the MQTT buttons are absent.
+
+- **With MQTT present they stay idle** — two sets of buttons for one thing
+  would only confuse. The dashboard file says so in its header, so a helper
+  that doesn't react doesn't look like a fault.
+- **Creating them is attempted exactly once per run.** If it fails (missing
+  permissions, for instance) the add-on logs why and carries on; retrying
+  every second would be constant load with no prospect of a different result.
+- **Restarting the add-on does not end your trip.** An `input_button`'s state
+  is the *timestamp* of the last press, even one from yesterday — so the first
+  value read after a start is never treated as a press.
 
 ## Your own Lovelace dashboard
 

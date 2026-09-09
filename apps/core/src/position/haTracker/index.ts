@@ -64,9 +64,17 @@ export interface HaTrackerSourceOptions {
   positionService: PositionService;
   /** Wie das Add-on Home Assistant erreicht; `null` = nicht konfiguriert. */
   resolveConnection: () => HaConnection | null;
-  /** Entity-ID, z. B. `device_tracker.mein_telefon`. Leer = Quelle aus,
-   *  ausser `autoSelect` ist gesetzt. */
-  entityId: string;
+  /**
+   * Entity-ID, z. B. `device_tracker.mein_telefon`. Leer = Quelle aus,
+   * ausser `autoSelect` ist gesetzt.
+   *
+   * Eine FUNKTION, nicht eine Zeichenkette: sie wird bei jeder Abfrage neu
+   * gelesen. Vorher stand hier der Wert aus der Umgebung, also der Stand vom
+   * Start des Add-ons -- wer den Tracker wechseln wollte, musste die
+   * Add-on-Konfiguration anfassen und neu starten. Seit 0.7.1 waehlt man ihn
+   * in Yapaia selbst aus, und die Wahl gilt sofort.
+   */
+  entityId: () => string;
   /**
    * Ohne ausdrueckliche Entity-ID selbst suchen (`gps_source: ha_tracker`).
    *
@@ -176,7 +184,7 @@ export class HaTrackerSource implements PositionSource {
     if (this.opts.resolveConnection() === null) {
       return false;
     }
-    return this.opts.entityId.trim().length > 0 || this.opts.autoSelect === true;
+    return this.opts.entityId().trim().length > 0 || this.opts.autoSelect === true;
   }
 
   /**
@@ -185,7 +193,7 @@ export class HaTrackerSource implements PositionSource {
    * kein Fehler, sondern der Zustand vor der Einrichtung.
    */
   private resolveEntityId(states: HaEntityState[]): string | null {
-    const configured = this.opts.entityId.trim();
+    const configured = this.opts.entityId().trim();
     if (configured.length > 0) {
       return configured;
     }
