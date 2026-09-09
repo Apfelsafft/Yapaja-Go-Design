@@ -22,14 +22,5 @@
     "    \"owner\": \"wer sich darum kuemmert\",",
     "    \"tracking\": \"Issue-/PR-Link\" }"
   ],
-  "exceptions": [
-    {
-      "id": "GHSA-jrc7-96c5-q579",
-      "package": "maplibre-gl",
-      "reason": "XSS-Bypass in MapLibres DOM.sanitize(). Dieser Pfad wird nur betreten, wenn HTML durch MapLibre gerendert wird -- Popup.setHTML/setDOMContent und die Attribution. Yapaia verwendet KEINE Popups (nachgesehen: kein Popup, kein setHTML, kein setDOMContent in apps/web); der einzige HTML-Pfad ist die feste Zeichenkette '(c) OpenStreetMap contributors' aus unserem eigenen Quelltext. Angreiferkontrollierter HTML-Text erreicht den Sanitizer damit nicht. Einschraenkung, die dazugehoert: Attributionstexte koennen theoretisch aus den Metadaten eines PMTiles-Archivs stammen -- diese Archive bauen wir selbst. Behoben ist es erst in maplibre-gl 6.4.1+; der Aufstieg auf 6.x wurde versucht und ZERBRICHT die Karte: keine Schrift mehr auf der Leinwand (Strassennamen weg) und Tipper auf Route/Alternativen treffen nicht mehr -- 5 Playwright-Tests rot. Eine kaputte Beschriftung im Fahrzeug waere schlimmer als diese nicht erreichbare Luecke. Die Migration ist die eigentliche Arbeit und laeuft gegen dieses Ablaufdatum.",
-      "expires": "2026-11-15",
-      "owner": "Apfelsafft",
-      "tracking": "https://github.com/Apfelsafft/Yapaja-Go-Design/pull/118"
-    }
-  ]
+  "exceptions": []
 }

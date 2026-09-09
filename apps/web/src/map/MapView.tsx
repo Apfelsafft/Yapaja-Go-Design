@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 // ─── NAMENSRAUM STATT STANDARD-EXPORT ─────────────────────────────────────
 // MapLibre 6 hat den Standard-Export entfernt (`TS1192: has no default
 // export`). Der Aufstieg war noetig, weil 5.x eine kritische XSS-Luecke
-// traegt (GHSA-jrc7-96c5-q579), die es nur in 6.4.1+ behoben gibt.
+// traegt (GHSA-jrc7-96c5-q579), die es nur in 6.4.1+ behoben gibt. Seit
+// 0.6.10 laeuft er -- was daran zweimal gescheitert ist, steht in
+// `maplibreWorker.ts`.
 import * as maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import { Protocol } from 'pmtiles';
@@ -16,6 +18,7 @@ import {
   type StyleOptions,
 } from './styleClient';
 import { applyStyle, trackCoreStyle } from './styleSwitch';
+import { ensureMaplibreWorkerUrl } from './maplibreWorker';
 import { useStyleStore } from '../state/styleStore';
 import { useDegradationStore } from '../perf/degrade';
 import { useViewModeStore, syncHeadingToBearing } from './viewMode';
@@ -210,6 +213,12 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
     if (status !== 'ready' || !initialRegion || !initialStyle || !containerRef.current) {
       return;
     }
+
+    // MUSS vor der ersten Karte laufen: ohne die richtige Arbeiter-Adresse
+    // laedt MapLibre 6 weder Kacheln noch Route noch Schrift -- und meldet
+    // dabei nur ein einzelnes „Failed to fetch". Begruendung und Messwerte in
+    // `maplibreWorker.ts`.
+    ensureMaplibreWorkerUrl();
 
     const newMap = new maplibregl.Map({
       container: containerRef.current,

@@ -16,7 +16,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/utilities": "^3.2.2",
     "@yapaia/ui": "workspace:*",
-    "maplibre-gl": "^5.24.0",
+    "maplibre-gl": "^6.9.0",
     "pmtiles": "^4.4.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

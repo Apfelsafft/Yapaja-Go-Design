@@ -54,6 +54,17 @@ Schnittstellen an, nie direkt an die internen Services.
   „bei Bedarf anpassbar", performant genug für N100-iGPU.
 - **Verworfen:** Leaflet (kein Vektor/3D/Rotation-Rendering in nötiger Qualität),
   Google Maps SDK (online-only, Lizenz), OpenLayers (schwächeres GL-Rendering).
+- **Fassung 6.x seit 0.6.10** (erzwungen durch GHSA-jrc7-96c5-q579, kritisch,
+  behoben ab 6.4.1). Zwei Folgen, die man kennen muss:
+  1. **WebGL 2 ist Pflicht** — MapLibre 6 hat WebGL 1 fallengelassen. Geräte
+     ohne WebGL 2 (iPad vor iOS 15, sehr alte Android-Tablets) zeigen keine
+     Karte mehr. Das verengt „Tablet/Monitor im Fahrzeug" aus docs/00 §Anzeige.
+  2. **Der Arbeiter wird ausdrücklich verdrahtet** — MapLibre 6 ist reines
+     ESM und leitet die Adresse seines Hintergrund-Prozesses aus
+     `import.meta.url` ab. Gebündelt zeigt die ins Leere, und ALLES, was durch
+     den Arbeiter geht (Kacheln, GeoJSON-Route, Schriftzeichen), bleibt still
+     leer. `apps/web/src/map/maplibreWorker.ts` setzt die Adresse deshalb
+     selbst; die Messwerte dazu stehen dort.
 
 ### ADR-003: Offline-Karten = PMTiles (Protomaps-Builds von OSM)
 - **Entscheidung:** Vektortiles im **PMTiles**-Format; der Core liefert Tiles über
