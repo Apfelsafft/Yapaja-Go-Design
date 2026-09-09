@@ -141,13 +141,35 @@ like a fully known one.
 Turn the tick back off when you are done. The real position source takes over
 again after the next restart.
 
-## MQTT
+## Two ways into Home Assistant (0.7.0)
 
-Automatic: with the Mosquitto add-on (or any add-on providing the `mqtt`
-service) installed and running, Yapaia Go picks up its host/credentials via
-the Supervisor's Services API — no manual entry. See
-`docs/04-home-assistant.md` §1 in the main repo for the full topic/entity
-table that then appears under HA's MQTT integration (Auto-Discovery).
+Both have their own switch in the add-on configuration, and both may be on.
+
+| Option | What it does |
+|---|---|
+| `mqtt_enabled` (default on) | The MQTT route. With the Mosquitto add-on (or any add-on providing the `mqtt` service) running, Yapaia Go picks up host/credentials via the Supervisor's Services API — no manual entry. Full entities with a device and history, and the **only** route that also gives you the *controllable* ones: pause/resume/stop and the profile select. |
+| `ha_internal` (default on) | The route **without a broker**. The add-on writes the values straight through Home Assistant's API (`POST /api/states/...`). Same entity IDs (`sensor.yapaja_speed` …), readable from automations, templates, **ESPHome** and any dashboard. |
+
+**Both at once is fine.** They don't fight: while MQTT is connected the
+internal channel stays quiet — two writers on one entity would flap, and
+nobody could tell which value is current. If the broker goes away, the
+internal channel takes over and the values keep flowing.
+
+**What the internal route cannot do** (and this is the whole list):
+
+- **No commands.** An entity written this way cannot receive anything.
+  Pause/resume/stop and the profile select need MQTT — the generated
+  dashboard leaves those cards out when it cannot find the entities, rather
+  than showing dead buttons.
+- **No device, no registry entry.** The entities do not appear under
+  "Devices" and cannot be renamed in the UI.
+- **They vanish on a Home Assistant restart** — until the next write. So the
+  add-on rewrites even unchanged values every five minutes; without that, a
+  rarely-changing entity (destination, nav state) would be gone for good
+  while the vehicle stands still.
+
+See `docs/04-home-assistant.md` §1 in the main repo for the full topic/entity
+table. The 🩺 preflight page names which route is currently live.
 
 ## Your own Lovelace dashboard
 

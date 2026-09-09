@@ -326,12 +326,41 @@ views:
           - entity: ${e('nav_state')}
             name: Zustand
 
-      - type: entities
+${steuerungsKacheln(ids, befund)}`;
+}
+
+/**
+ * Die bedienbaren Kacheln -- oder gar nichts.
+ *
+ * ─── WARUM SIE FEHLEN DUERFEN ───────────────────────────────────────────────
+ * Profilauswahl und die Schaltflaechen Pause/Weiter/Beenden gibt es nur ueber
+ * MQTT: eine Entitaet, die der HA-interne Kanal schreibt, kann keine Befehle
+ * entgegennehmen (`ha/statesBridge.ts`). Ohne Broker stuenden hier also drei
+ * Knoepfe, die nichts tun, und eine Auswahl, die nichts auswaehlt -- auf dem
+ * Bildschirmfoto des Betreibers war genau das zu sehen.
+ *
+ * Ein Knopf, der nichts tut, ist schlimmer als ein fehlender: er behauptet,
+ * er wuerde.
+ */
+export function steuerungsKacheln(ids: EntityIds, befund?: Befund): string {
+  const e = (schluessel: string): string => ids[schluessel] ?? `sensor.yapaja_${schluessel}`;
+  const fehlt = new Set(befund?.vorgabe ?? []);
+  // Ohne Befund (noch nicht nachgesehen) bleiben sie drin: die erste Fassung
+  // der Datei geht von den dokumentierten Namen aus.
+  const knoepfe = !['stop', 'pause', 'resume'].every((k) => fehlt.has(k));
+  const profil = !fehlt.has('profile');
+  if (!knoepfe && !profil) return '';
+
+  const teile: string[] = [];
+  if (profil) {
+    teile.push(`      - type: entities
         title: Steuerung
         entities:
           - entity: ${e('profile')}
-            name: Fahrzeugprofil
-      - type: horizontal-stack
+            name: Fahrzeugprofil`);
+  }
+  if (knoepfe) {
+    teile.push(`      - type: horizontal-stack
         cards:
           - type: button
             name: Pause
@@ -356,8 +385,9 @@ views:
               action: perform-action
               perform_action: button.press
               target:
-                entity_id: ${e('stop')}
-`;
+                entity_id: ${e('stop')}`);
+  }
+  return `\n${teile.join('\n')}\n`;
 }
 
 /** Nur das, was zum Schreiben gebraucht wird -- so ist es ohne Dateisystem pruefbar. */

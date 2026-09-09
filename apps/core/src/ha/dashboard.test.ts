@@ -384,3 +384,42 @@ describe('der Zeichensatz', () => {
     }
   });
 });
+
+describe('die bedienbaren Kacheln', () => {
+  const alleDa = { erreichbar: true, zustaende: 9, gefunden: 13, vorgabe: [] };
+
+  it('sind drin, wenn es die Entitaeten gibt', () => {
+    const yaml = buildDashboardYaml(standardIds(), alleDa);
+    expect(yaml).toContain('title: Steuerung');
+    expect(yaml).toContain('perform_action: button.press');
+  });
+
+  it('fehlen ganz, wenn es sie nicht gibt', () => {
+    // Ohne MQTT kann keine Entitaet Befehle entgegennehmen. Drei Knoepfe, die
+    // nichts tun, sind schlimmer als keine: sie behaupten, sie wuerden.
+    const yaml = buildDashboardYaml(standardIds(), {
+      erreichbar: true,
+      zustaende: 9,
+      gefunden: 9,
+      vorgabe: ['profile', 'stop', 'pause', 'resume'],
+    });
+    expect(yaml).not.toContain('title: Steuerung');
+    expect(yaml).not.toContain('perform_action');
+    // Der Rest bleibt vollstaendig -- und gueltig.
+    expect(yaml).toContain('custom:yapaja-map-card');
+    expect(() => load(yaml)).not.toThrow();
+  });
+
+  it('bleiben drin, solange nichts nachgesehen wurde', () => {
+    // Die erste Fassung der Datei entsteht vor dem Nachsehen; sie geht von
+    // den dokumentierten Namen aus.
+    expect(buildDashboardYaml(standardIds())).toContain('title: Steuerung');
+  });
+
+  it('das Profil kann auch allein fehlen', () => {
+    const yaml = buildDashboardYaml(standardIds(), { ...alleDa, vorgabe: ['profile'] });
+    expect(yaml).not.toContain('title: Steuerung');
+    expect(yaml).toContain('perform_action: button.press');
+    expect(() => load(yaml)).not.toThrow();
+  });
+});

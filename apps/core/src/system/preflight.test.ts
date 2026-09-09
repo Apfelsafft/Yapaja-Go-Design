@@ -124,6 +124,41 @@ describe('runPreflight — Gesamtform', () => {
     expect(byId(warning.checks, 'mqtt').status).toBe('warn');
   });
 
+  // Seit 0.7.0 gibt es einen zweiten Weg zu Home Assistant. Ohne diese
+  // Faelle wuerde die Pruefung weiter „keine Entitaeten" behaupten, waehrend
+  // die Entitaeten da sind -- eine Diagnose, die luegt, ist schlimmer als
+  // keine.
+  it('kennt den HA-internen Kanal als vollwertigen zweiten Weg', async () => {
+    const ohneBroker = await runPreflight(
+      healthyDeps({
+        env: { ...healthyDeps().env, MQTT_BROKER_URL: undefined, HA_INTERNAL: '1' },
+      }),
+    );
+    const check = byId(ohneBroker.checks, 'mqtt');
+    expect(check.status).toBe('ok');
+    expect(check.detail).toContain('HA-internen Kanal');
+    // Und sagt dazu, was auf diesem Weg NICHT geht.
+    expect(check.detail).toContain('Pause/Weiter/Beenden');
+  });
+
+  it('nennt beide Wege, wenn beide eingeschaltet sind', async () => {
+    const beides = await runPreflight(
+      healthyDeps({ env: { ...healthyDeps().env, HA_INTERNAL: '1' } }),
+    );
+    const check = byId(beides.checks, 'mqtt');
+    expect(check.status).toBe('ok');
+    expect(check.detail).toContain('übernimmt, falls der Broker ausfällt');
+  });
+
+  it('warnt nur, wenn WEDER noch', async () => {
+    const keiner = await runPreflight(
+      healthyDeps({ env: { ...healthyDeps().env, MQTT_BROKER_URL: undefined } }),
+    );
+    const check = byId(keiner.checks, 'mqtt');
+    expect(check.status).toBe('warn');
+    expect(check.remedy).toContain('ha_internal');
+  });
+
   // Eine Diagnoseseite, die selbst abstürzt, versagt genau dann, wenn man
   // sie braucht. Eine werfende Sonde muss als Prüfergebnis erscheinen.
   it('überlebt eine Sonde, die wirft, und meldet sie als eigenen Punkt', async () => {

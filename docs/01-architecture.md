@@ -204,6 +204,6 @@ aktualisieren; CI-Check misst RSS der Container gegen die Tabelle (E10).
   übernimmt Ingress die Auth, API-Port dann nur intern.
 - Add-ons: Capability-basierte Tokens (nur deklarierte Scopes), iframe-Sandbox
   (`sandbox="allow-scripts"`, eigene Origin), CSP im Frontend.
-- MQTT: Credentials aus HA-Add-on-Services-API (`services: [mqtt:need]`) oder manuell.
+- MQTT: Credentials aus HA-Add-on-Services-API (`services: [mqtt:want]`) oder manuell.
 - Kein externer Netzzugriff des Core außer: Karten-/Index-Downloads, Registry-Sync,
   Nominatim-Fallback – alles einzeln abschaltbar (Offline-First-Garantie).

@@ -13,7 +13,7 @@ add-on's own "Documentation" tab once installed).
 ```
 yapaja_go/
 ├── config.yaml   # HA add-on manifest: name/slug/version, arch, ingress,
-│                 # map (share:rw, W-16), services (mqtt:need), usb+udev,
+│                 # map (share:rw, W-16), services (mqtt:want), usb+udev,
 │                 # options/schema (region, mqtt_prefix, photon_enabled,
 │                 # gps_source, log_level, memory tuning)
 ├── build.yaml    # per-arch base image for the Supervisor's multi-arch builder

@@ -10,6 +10,58 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.7.0
+
+**Yapaia meldet seine Werte jetzt auch ohne MQTT-Broker an Home Assistant.**
+
+Gefragt: *„Kannst du bitte die Möglichkeit ha interne Kommunikation
+hinzufügen? Ohne Mqtt."*
+
+Bis hierher galt: kein Broker, keine Entitäten. Das stand nirgends, und
+sichtbar wurde es erst als Wand aus „Entität nicht gefunden" im Dashboard.
+Jetzt gibt es **zwei Wege**, und beide haben einen eigenen Schalter in der
+Add-on-Konfiguration:
+
+| Option | Was sie tut |
+|---|---|
+| **`mqtt_enabled`** (Vorgabe: an) | Der Weg über einen MQTT-Broker (Mosquitto). Vollwertige Entitäten mit Gerät und Verlauf — und als **einziger** Weg auch die bedienbaren: Pause/Weiter/Beenden und die Profilauswahl. |
+| **`ha_internal`** (Vorgabe: an) | Der Weg ohne Broker. Das Add-on schreibt die Werte direkt über die Home-Assistant-API. Dieselben Entity-IDs (`sensor.yapaja_speed` …), lesbar von Automationen, Vorlagen, **ESPHome** und jedem Dashboard. |
+
+**Beide zugleich ist erlaubt und sinnvoll.** Sie streiten sich nicht: solange
+MQTT verbunden ist, hält sich der interne Kanal zurück — zwei Schreiber auf
+derselben Entität ergäben ein Flackern, bei dem niemand mehr sagen kann,
+welcher Wert gilt. **Fällt der Broker aus, übernimmt der interne Kanal**, und
+die Werte laufen weiter.
+
+Nach dem Update ist der interne Kanal **eingeschaltet**. Wenn Sie keinen
+Broker haben, erscheinen die Entitäten also von selbst, und das fertige
+Dashboard zeigt Zahlen statt Warnungen.
+
+**Was der interne Weg nicht kann, und das gehört dazu:**
+
+- **Keine Befehle.** Eine so geschriebene Entität kann nichts entgegennehmen.
+  Pause/Weiter/Beenden und die Profilauswahl gibt es nur mit MQTT — das
+  erzeugte Dashboard **lässt diese Kacheln jetzt weg**, statt tote Knöpfe zu
+  zeigen. Ein Knopf, der nichts tut, ist schlimmer als ein fehlender: er
+  behauptet, er würde.
+- **Kein Gerät, keine Registrierung.** Die Entitäten tauchen nicht unter
+  „Geräte" auf und lassen sich in der Oberfläche nicht umbenennen.
+- **Sie verschwinden beim Neustart von Home Assistant** — bis zum nächsten
+  Schreiben. Damit das nicht bei stehendem Fahrzeug für immer bedeutet,
+  schreibt das Add-on alle fünf Minuten auch unveränderte Werte noch einmal.
+
+**Und die Installationsprüfung (🩺) sagt jetzt die Wahrheit.** Sie meldete
+bisher „Yapaia meldet keine Entitäten an Home Assistant", sobald kein Broker
+da war. Mit dem internen Kanal stimmt das nicht mehr; jetzt nennt sie beide
+Wege, welcher gerade greift, und was auf dem internen fehlt.
+
+Nebenbei: `services: mqtt:need` ist zu `mqtt:want` geworden. „need" hieß „ohne
+das hier ergibt dieses Add-on keinen Sinn" — das stimmt seit dieser Version
+nicht mehr, und wer MQTT ausschaltet, soll nicht trotzdem einen Broker
+vorhalten müssen.
+
+---
+
 ## 0.6.11
 
 Vier Dinge aus einer Rückmeldung mit Bildschirmfotos — drei davon waren Fehler

@@ -54,6 +54,27 @@ Aktionen), **HA-Add-on-Packaging** (Installation & UI-Zugriff via Ingress).
   `hass.callWS({type: 'supervisor/api'})` — die drei genutzten Endpunkte sind
   dort auch ohne Administratorrechte erlaubt (`hassio/websocket_api.py`).
 
+## 1b. Der HA-interne Kanal (0.7.0) — dieselben Entitäten ohne Broker
+
+`apps/core/src/ha/statesBridge.ts` schreibt dieselben Entity-IDs direkt über
+`POST /api/states/<entity_id>` (Supervisor-Proxy). Zwei Schalter in
+`config.yaml`: `mqtt_enabled` und `ha_internal`, beide standardmäßig an.
+
+- **Sie streiten sich nicht.** Solange die MQTT-Bruecke verbunden ist
+  (`getHealthStatus() === 'ok'`), schreibt der interne Kanal nichts — zwei
+  Schreiber auf einer Entität ergäben ein Flackern. Fällt der Broker aus,
+  übernimmt er; das ist zugleich ein Ausfallschutz.
+- **Nur lesbare Entitäten.** Ein so geschriebener Zustand nimmt keine Befehle
+  entgegen: `button.yapaja_stop/pause/resume` und `select.yapaja_profile` gibt
+  es ausschließlich über MQTT. Das erzeugte Dashboard lässt diese Kacheln weg,
+  wenn die Entitäten fehlen (`ha/dashboard.ts#steuerungsKacheln`).
+- **Kein Geräte-/Registrierungseintrag**, und die Zustände überleben keinen
+  HA-Neustart. Dagegen schreibt die Brücke alle 5 Minuten auch Unverändertes
+  noch einmal (`AUFFRISCH_INTERVALL_MS`).
+- Geschrieben wird im Sekundentakt und nur, was sich geändert hat; ein
+  fehlgeschlagener Schreibvorgang gilt NICHT als erledigt (sonst fehlte der
+  Wert bis zur nächsten Änderung).
+
 ## 2. REST beidseitig
 
 - **HA → Yapaia:** die komplette Core-REST-API (docs/03 §2), nutzbar via
@@ -90,7 +111,7 @@ Yapaja-Go-Design/
     ├── config.yaml      # name, slug, arch: [amd64, aarch64], ingress: true,
     │                    # ports: {} (ingress-only) bzw. optional 8080 für Direktzugriff,
     │                    # map: [share:rw]  → Kartendaten unter /share/yapaja (überlebt Updates!),
-    │                    # services: [mqtt:need], usb: true (GPS-Maus), udev: true
+    │                    # services: [mqtt:want], usb: true (GPS-Maus), udev: true
     ├── Dockerfile       # FROM yapaja/core-Basis; s6-overlay startet:
     │                    # core, valhalla, photon, gpsd (kein Compose in HA-Add-ons)
     ├── rootfs/etc/s6-overlay/...   # Service-Definitionen, Abhängigkeits-Reihenfolge
@@ -108,7 +129,7 @@ Kernpunkte:
   Auth & Remote-Zugriff (Nabu Casa). Frontend muss unter beliebigem Pfad-Prefix
   laufen (relative URLs, kein hartes `/`) – Anforderung an E01/E07!
   WebSocket über Ingress funktioniert, muss aber explizit getestet werden (E08-T4).
-- **MQTT-Credentials automatisch:** `services: [mqtt:need]` ⇒ bashio liefert
+- **MQTT-Credentials automatisch:** `services: [mqtt:want]` ⇒ bashio liefert
   Host/User/Passwort, Core liest sie beim Start.
 - **USB-GPS:** `usb: true` + udev; gpsd läuft im Add-on-Container.
 - **Kartendaten nach `/share/yapaja/`** (PMTiles, Valhalla-Graph, Photon-Index),

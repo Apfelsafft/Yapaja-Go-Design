@@ -10,7 +10,7 @@
 name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.6.11"
+version: "0.7.0"
 url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
 
 # amd64 covers typical Mini-PC/NUC installs; aarch64 covers Raspberry Pi
@@ -87,7 +87,13 @@ map:
 # Supervisor were to unwire it after install (see AcceptanceCriteria "App
 # bleibt ohne Broker voll funktional", E08-T1).
 services:
-  - mqtt:need
+  # `want`, NICHT `need` -- seit 0.7.0 gibt es einen zweiten Weg zu Home
+  # Assistant (`ha_internal`, siehe unten). `need` heisst „ohne das hier
+  # ergibt dieses Add-on keinen Sinn"; das stimmt seither nicht mehr, und wer
+  # `mqtt_enabled` ausschaltet, soll nicht trotzdem einen Broker vorhalten
+  # muessen. Die Zugangsdaten kommen bei einem vorhandenen Broker unveraendert
+  # automatisch (docs/04 §3 „MQTT-Credentials automatisch").
+  - mqtt:want
 
 # USB-GPS passthrough (docs/04 §3, DOCS.md "USB-GPS").
 usb: true
@@ -154,8 +160,30 @@ homeassistant_api: true
 # state: the Core starts into onboarding (E08-T5 builds the wizard UI; T4
 # only guarantees no crash -- see rootfs .../init-yapaja-config/run.sh and
 # DOCS.md "Plausibilität: kein Crash ohne Region").
+# ─── DIE ZWEI WEGE ZU HOME ASSISTANT ────────────────────────────────────────
+#
+# `mqtt_enabled` -- der Weg ueber einen MQTT-Broker (Mosquitto-Add-on).
+#   Liefert vollwertige Entitaeten MIT Geraet, mit Verlauf, und als einziger
+#   Weg auch die BEDIENBAREN: die Schaltflaechen Pause/Weiter/Beenden und die
+#   Profilauswahl. Dafuer braucht es den Broker.
+#
+# `ha_internal` -- der Weg ohne Broker.
+#   Der Core schreibt die Werte direkt ueber die Home-Assistant-API
+#   (`apps/core/src/ha/statesBridge.ts`). Es entstehen dieselben Entity-IDs
+#   (`sensor.yapaja_speed` und so fort), lesbar von Automationen, Vorlagen,
+#   ESPHome und jedem Dashboard. Was auf diesem Weg NICHT geht, sind Befehle:
+#   eine so geschriebene Entitaet kann nichts entgegennehmen. Pause/Weiter/
+#   Beenden und die Profilauswahl gibt es also nur mit MQTT.
+#
+# BEIDE ZUGLEICH ist erlaubt und sinnvoll. Sie streiten sich nicht: solange
+# MQTT verbunden ist und die Entitaeten liefert, haelt sich der interne Kanal
+# zurueck -- zwei Schreiber auf derselben Entitaet ergaeben ein Flackern, bei
+# dem niemand mehr sagen kann, welcher Wert gilt. Faellt der Broker aus,
+# uebernimmt der interne Kanal, und die Werte laufen weiter.
 options:
   region: ""
+  mqtt_enabled: true
+  ha_internal: true
   mqtt_prefix: "yapaja"
   photon_enabled: true
   # Voreinstellung `none` statt `usb`: ein USB-GPS-Empfaenger ist Zubehoer,
@@ -190,6 +218,8 @@ options:
 
 schema:
   region: "str?"
+  mqtt_enabled: "bool"
+  ha_internal: "bool"
   mqtt_prefix: "str"
   photon_enabled: "bool"
   gps_source: "list(usb|network|ha_tracker|none)"
