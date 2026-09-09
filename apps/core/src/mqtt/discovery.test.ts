@@ -74,6 +74,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
     expect(cfg.payload).toEqual({
       name: 'Speed',
       unique_id: 'yapaja_go_speed',
+      object_id: 'yapaja_speed',
       device_class: 'speed',
       state_class: 'measurement',
       unit_of_measurement: 'km/h',
@@ -89,6 +90,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
     expect(cfg.payload).toEqual({
       name: 'Speed Limit',
       unique_id: 'yapaja_go_speed_limit',
+      object_id: 'yapaja_speed_limit',
       device_class: 'speed',
       state_class: 'measurement',
       unit_of_measurement: 'km/h',
@@ -104,6 +106,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
     expect(cfg.payload).toEqual({
       name: 'Speeding',
       unique_id: 'yapaja_go_speeding',
+      object_id: 'yapaja_speeding',
       device_class: 'safety',
       state_topic: 'yapaja/nav/speed',
       value_template: "{{ 'ON' if value_json.speeding else 'OFF' }}",
@@ -119,6 +122,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
     expect(cfg.payload).toEqual({
       name: 'ETA',
       unique_id: 'yapaja_go_eta',
+      object_id: 'yapaja_eta',
       device_class: 'timestamp',
       state_topic: 'yapaja/nav/eta',
       value_template: '{{ value_json.eta }}',
@@ -132,6 +136,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
     expect(cfg.payload).toEqual({
       name: 'Distance Remaining',
       unique_id: 'yapaja_go_distance_remaining',
+      object_id: 'yapaja_distance_remaining',
       device_class: 'distance',
       state_class: 'measurement',
       unit_of_measurement: 'km',
@@ -148,6 +153,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
     expect(cfg.payload).toEqual({
       name: 'Instruction',
       unique_id: 'yapaja_go_instruction',
+      object_id: 'yapaja_instruction',
       state_topic: 'yapaja/nav/instruction',
       value_template: '{{ value_json.instruction }}',
       json_attributes_topic: 'yapaja/nav/instruction',
@@ -161,6 +167,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
     expect(cfg.payload).toEqual({
       name: 'Instruction Distance',
       unique_id: 'yapaja_go_instruction_distance',
+      object_id: 'yapaja_instruction_distance',
       device_class: 'distance',
       state_class: 'measurement',
       unit_of_measurement: 'm',
@@ -176,6 +183,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
     expect(cfg.payload).toEqual({
       name: 'Altitude',
       unique_id: 'yapaja_go_altitude',
+      object_id: 'yapaja_altitude',
       device_class: 'distance',
       state_class: 'measurement',
       unit_of_measurement: 'm',
@@ -191,6 +199,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
     expect(cfg.payload).toEqual({
       name: 'Nav State',
       unique_id: 'yapaja_go_nav_state',
+      object_id: 'yapaja_nav_state',
       state_topic: 'yapaja/nav/state',
       ...AVAILABILITY,
       device: DEVICE,
@@ -203,6 +212,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
     expect(cfg.payload).toEqual({
       name: 'Vehicle',
       unique_id: 'yapaja_go_vehicle',
+      object_id: 'yapaja_vehicle',
       source_type: 'gps',
       json_attributes_topic: 'yapaja/position',
       json_attributes_template:
@@ -217,6 +227,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
     expect(cfg.payload).toEqual({
       name: 'Destination',
       unique_id: 'yapaja_go_destination',
+      object_id: 'yapaja_destination',
       state_topic: 'yapaja/nav/destination',
       value_template: '{{ value_json.name if value_json is not none else none }}',
       json_attributes_topic: 'yapaja/nav/destination',
@@ -237,6 +248,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
       expect(cfg.payload).toEqual({
         name: label,
         unique_id: `yapaja_go_${object}`,
+        object_id: `yapaja_${object}`,
         command_topic: 'yapaja/cmd/navigation',
         payload_press: action,
         ...AVAILABILITY,
@@ -250,6 +262,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
     expect(cfg.payload).toEqual({
       name: 'Profile',
       unique_id: 'yapaja_go_profile',
+      object_id: 'yapaja_profile',
       command_topic: 'yapaja/cmd/profile',
       command_template: "{{ {'name': value} | tojson }}",
       options: ['Camper', 'Alkoven 7.5t'],
@@ -297,6 +310,22 @@ describe('device/availability are consistent across every entity', () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of ids) {
       expect(id).toMatch(/^yapaja_go_[a-z_]+$/);
+    }
+  });
+
+  it('jede Entitaet gibt die Entity-ID vor, die die Dokumentation nennt', () => {
+    // Ohne `object_id` bildet Home Assistant die ID aus Geraete- PLUS
+    // Entitaetsnamen -- aus „Yapaia Go" + „Speed" wird `sensor.yapaia_go_speed`,
+    // und jedes Dashboard, das `sensor.yapaja_speed` nennt, zeigt „Entitaet
+    // nicht verfuegbar". Der Test haelt fest, dass die IDs vorgegeben werden
+    // und dass sie NICHT am Anzeigenamen des Geraets haengen.
+    const objectIds = configs.map((c) => c.payload.object_id);
+    expect(new Set(objectIds).size).toBe(configs.length);
+    for (const cfg of configs) {
+      expect(cfg.payload.object_id).toBe(String(cfg.payload.unique_id).replace('yapaja_go_', 'yapaja_'));
+      // Der Discovery-Topic traegt denselben Namen -- so bleibt „welche
+      // Entitaet gehoert zu welchem Topic" eine Frage ohne Nachschlagen.
+      expect(cfg.topic).toContain(`/${String(cfg.payload.object_id)}/config`);
     }
   });
 

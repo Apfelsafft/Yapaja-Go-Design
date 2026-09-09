@@ -797,8 +797,15 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
   const INIT_SCRIPT = join(ADDON_DIR, 'rootfs', 'etc', 'yapaja', 'init-yapaja-config.sh');
 
   /** Führt das Skript mit den angegebenen Add-on-Optionen aus und liefert die
-   *  Container-Umgebung, die es geschrieben hat. */
-  function runInit(options: Record<string, string>): Record<string, string> {
+   *  Container-Umgebung, die es geschrieben hat.
+   *
+   *  `nahtstellen` ersetzt die beiden Pfade, die es nur im echten Container
+   *  gibt (HA-Konfigurationsordner, Kartendatei im Image) — ohne sie liesse
+   *  sich der Dashboard-Block gar nicht ausführen. */
+  function runInit(
+    options: Record<string, string>,
+    nahtstellen: { haConfigDirs?: string; cardSrc?: string } = {},
+  ): Record<string, string> {
     const dir = mkdtempSync(join(tmpdir(), 'yapaja-init-'));
     const envDir = join(dir, 'container_environment');
     mkdirSync(envDir, { recursive: true });
@@ -854,6 +861,8 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
         ...process.env,
         PATH: `${binDir}:${process.env.PATH ?? ''}`,
         S6_CONTAINER_ENVIRONMENT_DIR: envDir,
+        ...(nahtstellen.haConfigDirs ? { YAPAIA_HA_CONFIG_DIRS: nahtstellen.haConfigDirs } : {}),
+        ...(nahtstellen.cardSrc ? { YAPAIA_CARD_SRC: nahtstellen.cardSrc } : {}),
       },
       stdio: 'pipe',
     });
@@ -919,5 +928,31 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
     expect(runInit({ ha_device_tracker: 'device_tracker.telefon' }).HA_DEVICE_TRACKER).toBe(
       'device_tracker.telefon',
     );
+  });
+  /**
+   * ─── DER ORDNER, IN DEN DAS FERTIGE DASHBOARD GESCHRIEBEN WIRD ───────────
+   * Der Core kann ihn nicht raten: der Supervisor haengt `homeassistant_config`
+   * je nach Fassung unter `/homeassistant` ODER `/config` ein. Nachgesehen hat
+   * das Init-Skript; ohne diesen Export schreibt der Core gar nichts, und
+   * `/local/yapaja/dashboard.yaml` bliebe fuer immer eine 404.
+   *
+   * Der Export steht im ERFOLGSZWEIG des Kopierens -- er ist damit zugleich
+   * der Beweis, dass die Dashboard-Karte wirklich abgelegt wurde.
+   */
+  it('exportiert den www-Ordner, wenn die Karte abgelegt werden konnte', () => {
+    const haDir = mkdtempSync(join(tmpdir(), 'yapaja-ha-'));
+    const cardSrc = join(haDir, 'yapaja-map-card.js');
+    writeFileSync(cardSrc, '// Karte');
+
+    const env = runInit({}, { haConfigDirs: haDir, cardSrc });
+    expect(env.YAPAIA_HA_WWW_DIR).toBe(join(haDir, 'www', 'yapaja'));
+    expect(existsSync(join(haDir, 'www', 'yapaja', 'yapaja-map-card.js'))).toBe(true);
+  });
+
+  it('exportiert nichts, wenn es keinen HA-Konfigurationsordner gibt', () => {
+    // Der Core soll dann still nichts tun statt in ein geratenes
+    // Verzeichnis zu schreiben.
+    const env = runInit({}, { haConfigDirs: join(tmpdir(), 'gibt-es-nicht-yapaia') });
+    expect(env.YAPAIA_HA_WWW_DIR).toBeUndefined();
   });
 });

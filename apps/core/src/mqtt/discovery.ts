@@ -69,6 +69,32 @@ function uniqueId(object: string): string {
 }
 
 /**
+ * Die Entity-ID, die Home Assistant beim ANLEGEN vergeben soll -- also
+ * `sensor.yapaja_speed` statt dessen, was HA sich sonst aus Geraete- und
+ * Entitaetsnamen zusammensetzt.
+ *
+ * ─── WARUM DAS NOETIG IST ───────────────────────────────────────────────────
+ * `docs/04-home-assistant.md` §1 nennt die Entitaeten seit jeher beim Namen:
+ * `sensor.yapaja_speed`, `sensor.yapaja_eta` und so fort. Ohne `object_id`
+ * bildet Home Assistant die ID aber aus Geraete- PLUS Entitaetsnamen -- aus
+ * „Yapaia Go" + „Speed" wird `sensor.yapaia_go_speed`. Die Dokumentation
+ * beschrieb damit Entitaeten, die es so nicht gab, und jedes fertige
+ * Dashboard, das sich darauf stuetzte, zeigte „Entitaet nicht verfuegbar".
+ *
+ * Schlimmer noch: die IDs haengen so am ANZEIGENAMEN des Geraets. Der hat
+ * sich in 0.6.7 von „Yapaja Go" zu „Yapaia Go" geaendert -- und haette bei
+ * jeder Neuinstallation andere IDs ergeben als vorher.
+ *
+ * ACHTUNG, was das NICHT tut: bestehende Entitaeten benennt Home Assistant
+ * dadurch nicht um (die Registrierung merkt sich die einmal vergebene ID).
+ * Wer schon installiert hat, behaelt seine bisherigen IDs -- deshalb sucht
+ * `ha/dashboard.ts` sie zur Laufzeit, statt sie vorauszusetzen.
+ */
+function objectId(object: string): string {
+  return `yapaja_${object}`;
+}
+
+/**
  * `select.yapaja_profile` alone (docs/04 §1 + task: "bei Profil-CRUD:
  * Discovery-Update" republishes ONLY this entity, not the whole set --
  * everything else is unaffected by a profile create/rename/delete/activate).
@@ -82,6 +108,7 @@ export function buildSelectProfileConfig(opts: BuildDiscoveryOptions): Discovery
     payload: {
       name: 'Profile',
       unique_id: uniqueId('profile'),
+      object_id: objectId('profile'),
       command_topic: `${statePrefix}/cmd/profile`,
       // `commands.ts`'s `parseProfileCommand` accepts `{id}` or `{name}` --
       // the select only ever knows the human-readable name, so `{name}`.
@@ -106,6 +133,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'Speed',
         unique_id: uniqueId('speed'),
+        object_id: objectId('speed'),
         device_class: 'speed',
         state_class: 'measurement',
         unit_of_measurement: 'km/h',
@@ -120,6 +148,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'Speed Limit',
         unique_id: uniqueId('speed_limit'),
+        object_id: objectId('speed_limit'),
         device_class: 'speed',
         state_class: 'measurement',
         unit_of_measurement: 'km/h',
@@ -134,6 +163,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'Speeding',
         unique_id: uniqueId('speeding'),
+        object_id: objectId('speeding'),
         device_class: 'safety',
         state_topic: `${statePrefix}/nav/speed`,
         value_template: "{{ 'ON' if value_json.speeding else 'OFF' }}",
@@ -148,6 +178,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'ETA',
         unique_id: uniqueId('eta'),
+        object_id: objectId('eta'),
         device_class: 'timestamp',
         state_topic: `${statePrefix}/nav/eta`,
         value_template: '{{ value_json.eta }}',
@@ -160,6 +191,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'Distance Remaining',
         unique_id: uniqueId('distance_remaining'),
+        object_id: objectId('distance_remaining'),
         device_class: 'distance',
         state_class: 'measurement',
         unit_of_measurement: 'km',
@@ -176,6 +208,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'Instruction',
         unique_id: uniqueId('instruction'),
+        object_id: objectId('instruction'),
         state_topic: `${statePrefix}/nav/instruction`,
         value_template: '{{ value_json.instruction }}',
         // No json_attributes_template: the entire `{type, instruction,
@@ -192,6 +225,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'Instruction Distance',
         unique_id: uniqueId('instruction_distance'),
+        object_id: objectId('instruction_distance'),
         device_class: 'distance',
         state_class: 'measurement',
         unit_of_measurement: 'm',
@@ -206,6 +240,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'Altitude',
         unique_id: uniqueId('altitude'),
+        object_id: objectId('altitude'),
         device_class: 'distance',
         state_class: 'measurement',
         unit_of_measurement: 'm',
@@ -220,6 +255,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'Nav State',
         unique_id: uniqueId('nav_state'),
+        object_id: objectId('nav_state'),
         // `yapaja/nav/state` is the RAW `status` string (bridge.ts's
         // `onNavState`), never JSON -- no value_template.
         state_topic: `${statePrefix}/nav/state`,
@@ -232,6 +268,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'Vehicle',
         unique_id: uniqueId('vehicle'),
+        object_id: objectId('vehicle'),
         source_type: 'gps',
         // HA's MQTT device_tracker reads GPS position from `latitude`/
         // `longitude` (+ optional `gps_accuracy`) attribute keys, not the
@@ -248,6 +285,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'Destination',
         unique_id: uniqueId('destination'),
+        object_id: objectId('destination'),
         state_topic: `${statePrefix}/nav/destination`,
         // Payload is `{lat, lon, name}` OR bare JSON `null` (mapping.ts's
         // buildDestinationPayload) -- null-safe on both templates.
@@ -264,6 +302,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'Stop',
         unique_id: uniqueId('stop'),
+        object_id: objectId('stop'),
         command_topic: `${statePrefix}/cmd/navigation`,
         payload_press: 'stop',
         ...avail,
@@ -275,6 +314,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'Pause',
         unique_id: uniqueId('pause'),
+        object_id: objectId('pause'),
         command_topic: `${statePrefix}/cmd/navigation`,
         payload_press: 'pause',
         ...avail,
@@ -286,6 +326,7 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
       payload: {
         name: 'Resume',
         unique_id: uniqueId('resume'),
+        object_id: objectId('resume'),
         command_topic: `${statePrefix}/cmd/navigation`,
         payload_press: 'resume',
         ...avail,

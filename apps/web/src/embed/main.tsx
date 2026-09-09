@@ -31,6 +31,7 @@ import MapView from '../map/MapView.js';
 import PositionInitializer from '../position/PositionInitializer.js';
 import RoutingInitializer from '../routing/RoutingInitializer.js';
 import ThemeController from '../theme/ThemeController.js';
+import ScreenAwakeController from '../shell/ScreenAwakeController.js';
 import '../index.css';
 
 function EmbeddedMap(): React.ReactElement {
@@ -41,6 +42,9 @@ function EmbeddedMap(): React.ReactElement {
       <MapView chrome={false} />
       <PositionInitializer />
       <RoutingInitializer />
+      {/* Auch hier: ein Dashboard, das die Fahrt zeigt, ist genau die Anzeige,
+          vor der das Tablet nicht einschlafen soll. */}
+      <ScreenAwakeController />
     </div>
   );
 }
