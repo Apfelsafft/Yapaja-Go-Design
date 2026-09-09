@@ -337,6 +337,57 @@ test.describe('Eine laengere Testfahrt', () => {
     );
   });
 
+  // ─── DER RICHTUNGSPFEIL ───────────────────────────────────────────────────
+  // Gemeldet: „Der blaue Punkt hat oft eine schmale blaue Linie die
+  // wahrscheinlich das aktuelle heading anzeigt. Koennen wir das aendern?"
+  //
+  // Geprueft wird im echten Browser, weil `headingArrow.test.ts` nur die
+  // GEOMETRIE kennt: ob MapLibre die Flaechenebene und ihren Filter auch
+  // annimmt, sagt kein Einheitstest -- eine Ebene, die MapLibre still
+  // verwirft, faellt dort durch jedes Netz.
+  test('der Punkt traegt einen gefuellten Richtungspfeil, keine Linie mehr', async ({ page }) => {
+    test.setTimeout(60_000);
+    const consoleErrors: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error') consoleErrors.push(m.text());
+    });
+
+    await page.goto(LONG_DRIVE_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    await meldeKurs(page, 45, 0);
+
+    const ebene = await page.evaluate(() => {
+      const map = window.__yapaiaMapController!.getMap!()!;
+      const l = map.getLayer('position-puck-layer-heading') as { type?: string } | undefined;
+      return {
+        typ: l?.type ?? null,
+        farbe: JSON.stringify(map.getPaintProperty('position-puck-layer-heading', 'fill-color')),
+      };
+    });
+    expect(ebene.typ, 'eine Flaeche, keine Linie').toBe('fill');
+    expect(ebene.farbe, 'die Farbe kommt vom Punkt').toContain('puck-color');
+
+    // Und es wird wirklich ein Dreieck gezeichnet -- nicht nur eine Ebene,
+    // die nie etwas bekommt.
+    const ring = await page.evaluate(async () => {
+      const map = window.__yapaiaMapController!.getMap!()!;
+      const quelle = map.getSource('position-puck-source') as
+        | { getData?: () => Promise<unknown> }
+        | undefined;
+      if (!quelle?.getData) return null;
+      const daten = (await quelle.getData()) as {
+        features?: Array<{ geometry?: { type?: string; coordinates?: number[][][] } }>;
+      };
+      const flaeche = daten.features?.find((f) => f.geometry?.type === 'Polygon');
+      return flaeche?.geometry?.coordinates?.[0] ?? null;
+    });
+    expect(ring, 'ein Polygon in der Quelle').not.toBeNull();
+    expect(ring!.length, 'geschlossenes Dreieck').toBe(4);
+    expect(ring![0], 'erster Punkt gleich letztem').toEqual(ring![3]);
+
+    expect(consoleErrors, 'MapLibre hat nichts zu beanstanden').toEqual([]);
+  });
+
   // ─── DIE KARTE ZIEHT MIT, AUCH WENN SICH DER KURS AENDERT ─────────────────
   // Gemeldet: „Der blaue Punkt bewegt sich fluessig, allerdings auch aus dem
   // Zentrum hinaus. Wenn die Karte nachzieht passiert das in groben

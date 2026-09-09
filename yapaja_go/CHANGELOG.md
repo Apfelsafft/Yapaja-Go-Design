@@ -45,6 +45,28 @@ Ein Test hält das fest: er misst nicht mehr nur, wo die Karte *ankommt*,
 sondern ob sie unterwegs überhaupt **fährt**. Genau diese Sorte Fehler ist
 zweimal passiert — in 0.6.4 hier, in 0.6.5 mit der 3D-Neigung.
 
+**Aus dem dünnen Strich am Positionspunkt ist ein Richtungspfeil geworden.**
+
+Gemeldet: *„Der blaue Punkt hat oft eine schmale blaue Linie die
+wahrscheinlich das aktuelle heading anzeigt. Können wir das ändern?"* Es war
+eine 20 Pixel lange Linie der Stärke 2 — im Augenwinkel während der Fahrt
+kaum als Richtung zu lesen. Jetzt sitzt dort ein gefüllter Pfeil, wie man ihn
+aus Autonavigationen kennt.
+
+**Und dabei kam ein alter Fehler ans Licht: der Genauigkeitsring war seit
+jeher dreimal zu klein.**
+
+Der Pfeil kam sichtbar zu groß heraus. Beim Nachrechnen stellte sich heraus,
+dass die Umrechnung „Meter je Bildpunkt" gleich zweifach danebenlag: die
+geografische Breite fehlte (auf 47° sind das 32 %), und sie rechnete mit
+256er Kacheln, während MapLibre 512er verwendet (glatt der Faktor 2).
+
+Der Genauigkeitsring **teilt** durch diesen Wert, war also um dasselbe Maß zu
+klein: eine Ungenauigkeit von 8 m erschien als Radius von 6,7 statt 19,8
+Bildpunkten — vollständig unter dem Positionspunkt verborgen. Der Ring war
+die ganze Zeit da; zu sehen war er nie. Ab jetzt zeigt er, wie genau die
+Position wirklich ist.
+
 ---
 
 ## 0.6.7
