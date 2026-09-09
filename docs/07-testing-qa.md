@@ -1,5 +1,11 @@
 # 07 – Teststrategie, Plausibilitätsprüfungen & Release-Gates
 
+> **Einordnung:** Fachreferenz, laufend gepflegt — hier stehen die Details.
+> Wer einen Einstieg oder das Gesamtbild sucht, fängt besser im
+> [Entwicklerhandbuch](developers.md) an; die Bedienung steht im
+> [Handbuch](manual.md).
+
+
 **Grundsatz:** Jeder Task in `tasks/` enthält eigene Testanweisungen; dieses
 Dokument definiert die übergreifende Strategie, die Werkzeuge und die Gates.
 Umsetzungs-Modelle dürfen einen Task nur als „fertig" melden, wenn alle

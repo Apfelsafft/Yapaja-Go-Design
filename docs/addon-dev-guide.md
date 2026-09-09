@@ -140,7 +140,7 @@ oben), statt `tar czf out.tgz -C stage/ .` zu verwenden – GNU tars `-C dir .`
 erzeugt einen führenden `./`-Verzeichniseintrag, den die Tarball-Sicherheitsprüfung
 als leeren/`"."`-Namen ablehnt (`TARBALL_REJECTED`, `extract.ts`).
 
-### 1.5 Installieren + aktivieren (siehe [§8 Testrezept](#8-testrezept))
+### 1.5 Installieren + aktivieren (siehe [§8 Testrezept](#8-testrezept-gegen-einen-lokalen-core-testen))
 
 ```sh
 BASE64=$(base64 -w0 poi-overlay.tar.gz)

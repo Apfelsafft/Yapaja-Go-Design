@@ -1,5 +1,11 @@
 # 05 – Add-on-System (Plugins, SDK, Marketplace)
 
+> **Einordnung:** Fachreferenz, laufend gepflegt — hier stehen die Details.
+> Wer einen Einstieg oder das Gesamtbild sucht, fängt besser im
+> [Entwicklerhandbuch](developers.md) an; die Bedienung steht im
+> [Handbuch](manual.md).
+
+
 **Designziel:** Add-ons wie Stauwarner, POI-Overlays, Track-Recording, Track-Planung,
 Kamera-Einbindung, Schilder-/Ampelerkennung sollen integriert werden können, **ohne
 Core-Backend oder -Frontend anzupassen** (Open/Closed-Prinzip). Installation über

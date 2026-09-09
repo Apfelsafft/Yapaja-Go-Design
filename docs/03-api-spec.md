@@ -1,5 +1,11 @@
 # 03 – API-Spezifikation (REST · WebSocket · MQTT)
 
+> **Einordnung:** Fachreferenz, laufend gepflegt — hier stehen die Details.
+> Wer einen Einstieg oder das Gesamtbild sucht, fängt besser im
+> [Entwicklerhandbuch](developers.md) an; die Bedienung steht im
+> [Handbuch](manual.md).
+
+
 **Single Source of Truth:** Alle Payload-Schemata werden als JSON-Schema in
 `packages/shared/schemas/` gepflegt und generieren daraus TypeScript-Typen,
 Fastify-Validierung, OpenAPI-Doku und die MQTT-Payload-Doku. Dieses Dokument

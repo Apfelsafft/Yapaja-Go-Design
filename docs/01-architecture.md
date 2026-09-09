@@ -1,5 +1,12 @@
 # 01 – Systemarchitektur & Technologie-Entscheidungen
 
+> **Einordnung:** Dieses Dokument stammt aus der Planungsphase und hält fest,
+> **warum** entschieden wurde, was entschieden wurde. Es wird als
+> Entscheidungsgrundlage gepflegt, ist aber keine Beschreibung des aktuellen
+> Standes. Was heute wirklich läuft, steht im
+> [Entwicklerhandbuch](developers.md) und im [Handbuch](manual.md).
+
+
 ## 1. Gesamtbild
 
 ```
@@ -99,7 +106,13 @@ Schnittstellen an, nie direkt an die internen Services.
   W-12 definiert den Fallback: SQLite-FTS5-Eigenindex aus OSM-Namen (nur Orte/Straßen,
   abgespeckte Qualität) für 512-MB-Umgebungen. Die Core-API bleibt identisch.
 
-### ADR-006: Backend = Node.js 20 + Fastify + TypeScript, SQLite
+### ADR-006: Backend = Node.js + Fastify + TypeScript, SQLite
+
+> **Stand heute:** Node **22** (nicht mehr 20, wie bei der Entscheidung
+> notiert) und Fastify **5**. Node 22 ist auch das, was die CI fährt; der
+> Code stützt sich inzwischen auf dessen eingebautes `WebSocket` und `fetch`.
+> Die Begründung unten gilt unverändert.
+
 - **Entscheidung:** Ein Core-Service (Fastify) für REST, WebSocket, statisches
   Frontend, PMTiles-Auslieferung, MQTT-Bridge (mqtt.js), gpsd-Client, Plugin-Host.
   Persistenz: SQLite (better-sqlite3) – Profile, Favoriten, Einstellungen, Add-on-Registry.
