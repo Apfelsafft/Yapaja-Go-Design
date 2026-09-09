@@ -65,18 +65,18 @@ Betreiber gestellt, wir sprechen ihn nur ueber MQTT an (Netzwerkprotokoll, kein 
 
 ## 4. NPM-Abhaengigkeiten im ausgelieferten Produkt
 
-Erfasst: **203** Pakete (Produktionsabhaengigkeiten von
+Erfasst: **201** Pakete (Produktionsabhaengigkeiten von
 `apps/core` — via `pnpm install --prod` im Image — und `apps/web` — in das JS-Bundle
 kompiliert), inklusive aller transitiven Abhaengigkeiten.
 
 | Lizenz | Pakete | Einstufung |
 |---|---|---|
-| `MIT` | 152 | permissiv |
-| `ISC` | 19 | permissiv |
+| `MIT` | 153 | permissiv |
+| `ISC` | 18 | permissiv |
 | `Apache-2.0` | 10 | permissiv |
-| `BSD-3-Clause` | 10 | permissiv |
+| `BSD-3-Clause` | 9 | permissiv |
 | `BlueOak-1.0.0` | 5 | permissiv |
-| `BSD-2-Clause` | 3 | permissiv |
+| `BSD-2-Clause` | 2 | permissiv |
 | `(BSD-2-Clause OR MIT OR Apache-2.0)` | 1 | permissiv |
 | `(MIT OR Apache-2.0)` | 1 | permissiv |
 | `(MIT OR WTFPL)` | 1 | permissiv |
@@ -104,13 +104,11 @@ kompiliert), inklusive aller transitiven Abhaengigkeiten.
 | `@mapbox/jsonlint-lines-primitives` | 2.0.3 | `MIT` |
 | `@mapbox/point-geometry` | 1.1.0 | `ISC` |
 | `@mapbox/tiny-sdf` | 2.2.0 | `BSD-2-Clause` |
-| `@mapbox/unitbezier` | 0.0.1 | `BSD-2-Clause` |
 | `@mapbox/unitbezier` | 1.0.0 | `BSD-2-Clause` |
-| `@mapbox/vector-tile` | 2.0.5 | `BSD-3-Clause` |
-| `@mapbox/whoots-js` | 3.1.0 | `ISC` |
+| `@mapbox/vector-tile` | 3.0.0 | `BSD-3-Clause` |
 | `@maplibre/geojson-vt` | 6.1.1 | `ISC` |
-| `@maplibre/maplibre-gl-style-spec` | 24.10.0 | `ISC` |
-| `@maplibre/mlt` | 1.1.12 | `(MIT OR Apache-2.0)` |
+| `@maplibre/maplibre-gl-style-spec` | 26.4.2 | `ISC` |
+| `@maplibre/mlt` | 1.2.1 | `(MIT OR Apache-2.0)` |
 | `@maplibre/vt-pbf` | 4.3.2 | `MIT` |
 | `@pinojs/redact` | 0.4.0 | `MIT` |
 | `@types/geojson` | 7946.0.16 | `MIT` |
@@ -134,6 +132,7 @@ kompiliert), inklusive aller transitiven Abhaengigkeiten.
 | `bare-url` | 2.4.5 | `Apache-2.0` |
 | `base64-js` | 1.5.1 | `MIT` |
 | `better-sqlite3` | 12.11.1 | `MIT` |
+| `bidi-js` | 1.1.0 | `MIT` |
 | `bindings` | 1.5.0 | `MIT` |
 | `bl` | 4.1.0 | `MIT` |
 | `bl` | 6.1.6 | `MIT` |
@@ -198,7 +197,7 @@ kompiliert), inklusive aller transitiven Abhaengigkeiten.
 | `loose-envify` | 1.4.0 | `MIT` |
 | `lru-cache` | 10.4.3 | `ISC` |
 | `lru-cache` | 11.5.2 | `BlueOak-1.0.0` |
-| `maplibre-gl` | 5.24.0 | `BSD-3-Clause` |
+| `maplibre-gl` | 6.9.0 | `BSD-3-Clause` |
 | `mime` | 3.0.0 | `MIT` |
 | `mimic-response` | 3.1.0 | `MIT` |
 | `minimatch` | 10.2.5 | `BlueOak-1.0.0` |
@@ -215,7 +214,6 @@ kompiliert), inklusive aller transitiven Abhaengigkeiten.
 | `on-exit-leak-free` | 2.1.2 | `MIT` |
 | `once` | 1.4.0 | `ISC` |
 | `path-scurry` | 2.0.2 | `BlueOak-1.0.0` |
-| `pbf` | 4.0.2 | `BSD-3-Clause` |
 | `pbf` | 5.1.2 | `BSD-3-Clause` |
 | `pino` | 8.21.0 | `MIT` |
 | `pino` | 9.14.0 | `MIT` |
@@ -304,7 +302,7 @@ Erzwungen wird das von `scripts/generate-licenses.mjs --check` im CI-Job
 `dependency-audit`: eine GPL-Abhaengigkeit im ausgelieferten Bundle laesst die
 Pipeline fehlschlagen, nicht bloss diese Datei anders aussehen.
 
-**Dev-Abhaengigkeiten** (620 Pakete: vitest, vite, eslint, playwright, tsup …)
+**Dev-Abhaengigkeiten** (621 Pakete: vitest, vite, eslint, playwright, tsup …)
 sind hier bewusst nicht bewertet. Sie werden nie ausgeliefert — das Docker-Image
 installiert mit `--prod` —, koennen das Produkt also nicht lizenzrechtlich binden.
 Fuer Sicherheits-Advisories gilt dieselbe Trennung, dort aber mit sichtbarer Meldung:

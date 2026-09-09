@@ -154,6 +154,14 @@ test.describe('PWA: manifest + Service Worker (E07-T5)', () => {
     // sich der Bildschirm ausgerechnet OFFLINE nicht mehr wachhalten.
     expect(precachedUrls.some((p) => p.endsWith('/media/awake.mp4'))).toBe(true);
     expect(precachedUrls.some((p) => p.endsWith('/media/awake.webm'))).toBe(true);
+    // Der MapLibre-Arbeiter. Er wird NICHT vom Hauptbrocken importiert,
+    // sondern zur Laufzeit als eigene Datei geholt (`map/maplibreWorker.ts`) --
+    // faellt er aus dem Vorrat, ist die Karte offline zwar da, aber leer:
+    // keine Kacheln, keine Route, keine Schrift.
+    expect(
+      precachedUrls.some((p) => /\/assets\/maplibre-gl-worker-.*\.js$/.test(p)),
+      'der MapLibre-Arbeiter liegt nicht im Vorrat -- offline bliebe die Karte leer',
+    ).toBe(true);
   });
 
   test('PLAUSIBILITY: /api/* and /tiles/* are never written into any Cache Storage entry', async ({ page }) => {

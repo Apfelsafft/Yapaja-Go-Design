@@ -10,6 +10,49 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.6.10
+
+**Die Kartenbibliothek ist auf Version 6 — die kritische Sicherheitslücke ist
+damit weg, ohne Ausnahmegenehmigung.**
+
+Für Sie ändert sich am Bildschirm nichts. Für das Projekt schon: Yapaia lief
+seit 0.6.8 mit einer **befristeten Ausnahme** im Sicherheits-Gate. Die
+Kartenbibliothek MapLibre 5 trägt eine als *kritisch* eingestufte Lücke
+(GHSA-jrc7-96c5-q579), behoben erst ab Version 6.4.1. Der Aufstieg war zweimal
+versucht worden und beide Male gescheitert: keine Straßennamen mehr auf der
+Karte, und Tipper auf die Route trafen nicht. Die Ausnahme wäre am
+**15.11.2026** abgelaufen — danach hätte kein Update mehr gebaut werden können.
+
+Jetzt läuft Version 6.9.0, und die Ausnahmeliste ist **leer**.
+
+**Was zweimal danebenging, war nie das, wonach es aussah.** Es sah nach zwei
+Fehlern aus (Schrift kaputt, Antippen kaputt) und war einer. MapLibre 6 wird
+nur noch als ES-Modul ausgeliefert und startet einen eigenen Hintergrund-
+Prozess für alles, was Daten verarbeitet: Kacheln, Route, Schriftzeichen. Wo
+diese Datei liegt, rechnet sich MapLibre aus dem eigenen Ablageort aus — was
+stimmt, solange niemand die Bibliothek mit einbaut. Yapaia tut genau das, und
+damit suchte MapLibre die Datei an einer Stelle, an der sie nie lag. Die
+einzige Spur davon war eine einzelne Zeile in der Browserkonsole.
+
+Im Browser nachgemessen, vorher und nachher:
+
+| | vorher | nachher |
+|---|---|---|
+| Datenquelle geladen | nein | ja |
+| Merkmale in der Quelle | 0 | 2 |
+| Anfragen nach Schriftzeichen | 0 | 200 OK |
+| Textbildpunkte auf der Karte | 0 | 2154 |
+
+Alle 164 Browser-Prüfungen laufen jetzt auf Version 6 durch — vorher waren es
+fünf rote. Die Datei liegt zusätzlich im Offline-Vorrat; ohne das wäre die
+Karte genau dort leer geblieben, wo dieses Programm zu Hause ist.
+
+**Eine Einschränkung, die dazugehört:** MapLibre 6 verlangt WebGL 2. Geräte,
+die nur WebGL 1 können (iPads vor iOS 15, sehr alte Android-Tablets), zeigen
+die Karte damit nicht mehr. Auf Ihrem iPad ist das kein Thema.
+
+---
+
 ## 0.6.9
 
 **Das iPad geht während der Fahrt nicht mehr in den Sperrbildschirm.**
