@@ -14,6 +14,7 @@ import { create } from 'zustand';
 import { mapController, type CameraOptions } from '../state/mapStore';
 import { usePositionStore } from '../position/positionStore';
 import { anglesMatch } from './angles.js';
+import { useFollowMeStore } from './followMe.js';
 
 export type ViewMode = '2d-north' | '2d-course' | '3d-course';
 
@@ -27,7 +28,7 @@ const ANIMATION_DURATION = 300;
  * Frage der Ruhe im Bild, sondern die ABBRUCHBEDINGUNG des Nachfuehrens --
  * siehe `angles.ts`. Deshalb hat er jetzt einen Namen und eine Stelle.
  */
-const BEARING_TOLERANCE_DEG = 0.1;
+export const BEARING_TOLERANCE_DEG = 0.1;
 
 // Camera parameters for each mode
 const MODE_PARAMS: Record<ViewMode, Pick<CameraOptions, 'pitch'>> = {
@@ -150,17 +151,29 @@ export function syncHeadingToBearing(): void {
     return;
   }
 
-  // ─── KURS-MODI: DIE KARTE DEM FAHRZEUG NACHDREHEN ─────────────────────────
-  // Die Abfrage muss auf dem KREIS rechnen, nicht auf der Zahlengeraden.
-  // Vorher stand hier `Math.abs(currentBearing - position.heading) > 0.1` --
-  // und weil MapLibre den Kartenwinkel gewickelt speichert (200 wird zu
-  // -160, gemessen), waren das bei Kurs 200 volle 360 Grad Unterschied. Die
-  // Abfrage sollte genau die Rueckkopplung verhindern, die sie dadurch
-  // ausloeste: `setCamera` springt, MapLibre meldet `moveend` sofort, der
-  // Zuhoerer ruft wieder hierher -- bis der Aufrufstapel voll war.
+  // ─── KURS-MODI: WER DREHT, WENN DIE VERFOLGUNG LAEUFT ─────────────────────
+  // Niemand ausser der Verfolgung selbst. `followMe.ts` nimmt den Winkel seit
+  // 0.6.8 in DERSELBEN animierten Kamerafahrt mit wie die Mitte.
   //
-  // Das ist der Absturz „Maximum call stack size exceeded.", und er traf jede
-  // Fahrt Richtung Westen. Siehe `angles.ts` fuer die Messung.
+  // Diese Funktion haengt an `rotate`/`moveend` -- also auch am ENDE jeder
+  // dieser Fahrten. Wuerde sie dort erneut drehen, taete sie es mit einem
+  // Sprung, und der naechste Takt begaenne mit einer abgebrochenen Bewegung.
+  // Genau daran lag „die Karte zieht in groben Schritten nach": gemessen
+  // blieb von 111 m Weg genau 0 uebrig, sobald sich der Kurs mit aenderte.
+  //
+  // Sie bleibt fuer den Fall, dass die Verfolgung NICHT laeuft (abgeschaltet
+  // oder nach einem manuellen Schwenk pausiert): dann gehoert die Kamera dem
+  // Menschen, und gedreht wird gar nicht.
+  const { isFollowing, isPaused } = useFollowMeStore.getState();
+  if (isFollowing && !isPaused) return;
+
+  // Die Abfrage rechnet auf dem KREIS, nicht auf der Zahlengeraden. Vorher
+  // stand hier `Math.abs(currentBearing - position.heading) > 0.1` -- und
+  // weil MapLibre den Kartenwinkel gewickelt speichert (200 wird zu -160,
+  // gemessen), waren das bei Kurs 200 volle 360 Grad Unterschied. Die Abfrage
+  // sollte die Rueckkopplung verhindern, die sie dadurch ausloeste, bis der
+  // Aufrufstapel voll war: der Absturz „Maximum call stack size exceeded."
+  // aus 0.6.4. Siehe `angles.ts`.
   const position = usePositionStore.getState().position;
   if (position?.heading !== null && position?.heading !== undefined) {
     if (!anglesMatch(map.getBearing(), position.heading, BEARING_TOLERANCE_DEG)) {

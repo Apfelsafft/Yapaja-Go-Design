@@ -10,6 +10,43 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.6.8
+
+**Die Karte zieht jetzt wirklich mit — und dreht sich in die Kurve, statt zu springen.**
+
+Gemeldet: *„Der blaue Punkt bewegt sich flüssig auf der Karte allerdings auch
+aus dem Zentrum der Karte hinaus. Wenn die Karte nachzieht passiert das in
+groben Schritten"* und *„wenn man abbiegt fährt man nicht smooth um die Kurve
+sondern die Karte dreht sich in einem Rutsch auf die neue Richtung."*
+
+Beides hatte **eine** Ursache, und die hatte ich mir in 0.6.4 selbst
+eingebaut. Seither drehte Yapaia die Karte direkt nach dem Nachführen der
+Position nach — aber mit einem **Sprung**. Und ein Sprung bricht eine gerade
+laufende Kamerafahrt ab.
+
+Im Browser nachgemessen, über 1,3 Sekunden abgetastet:
+
+| Fall | Bewegung der Kartenmitte |
+|---|---|
+| nur die Position ändert sich | 19 Zwischenstände, **111 m** zurückgelegt |
+| Position **und** Kurs ändern sich | **1 Stand, 0 m** — abgewürgt |
+
+Da sich der Kurs beim Fahren praktisch dauernd um ein paar Grad ändert, wurde
+die Verfolgung fast bei jeder Meldung abgebrochen: der Punkt lief weiter, die
+Karte blieb stehen und holte erst beim nächsten Mal grob auf. Und das
+Abbiegen war kein Drehen, sondern eben jener Sprung.
+
+Jetzt reisen Mitte, Zoomstufe und Kartenwinkel **in derselben Kamerafahrt**
+mit — eine Bewegung, ein Zeitfenster, nichts, was etwas anderes abbricht.
+Dieselbe Messung ergibt danach 20 Zwischenstände und 111 m Weg, und der
+Winkel dreht sich über die ganze Strecke mit.
+
+Ein Test hält das fest: er misst nicht mehr nur, wo die Karte *ankommt*,
+sondern ob sie unterwegs überhaupt **fährt**. Genau diese Sorte Fehler ist
+zweimal passiert — in 0.6.4 hier, in 0.6.5 mit der 3D-Neigung.
+
+---
+
 ## 0.6.7
 
 **Das Logo ist da — und der Name wird richtig geschrieben: Yapaia.**
