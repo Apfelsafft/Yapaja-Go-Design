@@ -98,7 +98,25 @@ jobs:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
     needs: quality
-    timeout-minutes: 20
+    # ─── 30 STATT 20 MINUTEN, UND WARUM ────────────────────────────────────
+    # Nicht, weil die Suite langsamer geworden waere. Gemessen an Lauf
+    # 34363767625 (PR #120):
+    #
+    #     Install Playwright Chromium  14:29:54 -> 14:44:13   14 min 19 s
+    #     Run E2E tests                14:44:13 -> 14:49:46    5 min 33 s  164 passed
+    #     Job abgebrochen                       14:49:49       Zeitlimit
+    #
+    # Der Browser-Download hat 14 Minuten gebraucht (sonst 1-2), und das
+    # Zeitlimit zaehlt ab JOB-Start. Die Pruefungen waren fertig und gruen --
+    # drei Sekunden spaeter wurde der Job trotzdem als abgebrochen gewertet
+    # und blockierte den Merge.
+    #
+    # Das kostet keine zusaetzlichen Minuten: ein Zeitlimit verbraucht nichts,
+    # es begrenzt nur. Teuer war der Gegenzustand -- 20 verbrauchte Minuten
+    # ohne Ergebnis und ein kompletter Wiederholungslauf. Eine wirklich
+    # haengende Suite faellt weiterhin auf: sie braucht nach dem Download
+    # noch immer keine 30 Minuten.
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
