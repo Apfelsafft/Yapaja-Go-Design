@@ -253,3 +253,52 @@ export async function postHaState(
     clearTimeout(timer);
   }
 }
+
+/**
+ * Liest gezielt EINZELNE Zustaende (`GET {apiBase}/states/{entity_id}`).
+ *
+ * Warum nicht `fetchHaStates`: das holt ALLE Zustaende einer Anlage --
+ * Hunderte, jede Sekunde. Fuer die vier Bedien-Helfer
+ * (`ha/commandWatcher.ts`) sind vier gezielte Abfragen die sparsamere und
+ * ehrlichere Wahl.
+ *
+ * Ein fehlender Zustand (404) fehlt im Ergebnis, statt einen Fehler zu
+ * werfen: „gibt es noch nicht" ist hier der NORMALFALL -- genau daran
+ * erkennt der Beobachter, dass er die Helfer erst anlegen muss.
+ */
+export async function fetchHaStatesById(
+  connection: HaConnection,
+  entityIds: readonly string[],
+  deps: FetchHaStatesDeps,
+): Promise<Map<string, string>> {
+  const fetchImpl = deps.fetch ?? defaultHaFetch;
+  const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const ergebnis = new Map<string, string>();
+
+  await Promise.all(
+    entityIds.map(async (entityId) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetchImpl(`${connection.apiBase}/states/${encodeURIComponent(entityId)}`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${connection.token}`,
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        const body = (await res.json?.()) as { state?: unknown } | undefined;
+        if (typeof body?.state === 'string') ergebnis.set(entityId, body.state);
+      } catch {
+        // Stillschweigend auslassen: ein Aussetzer darf keinen Befehl
+        // ausloesen und keinen verschlucken -- der naechste Takt liest neu.
+      } finally {
+        clearTimeout(timer);
+      }
+    }),
+  );
+
+  return ergebnis;
+}

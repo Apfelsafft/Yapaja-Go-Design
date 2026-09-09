@@ -22,6 +22,7 @@ import {
   UTF8_BOM,
   befundText,
   buildDashboardYaml,
+  findeHelfer,
   resolveEntityIds,
   standardIds,
   starteDashboardPflege,
@@ -421,5 +422,95 @@ describe('die bedienbaren Kacheln', () => {
     expect(yaml).not.toContain('title: Steuerung');
     expect(yaml).toContain('perform_action: button.press');
     expect(() => load(yaml)).not.toThrow();
+  });
+});
+
+describe('die bedienbaren Kacheln ohne MQTT', () => {
+  const HELFER_IDS = [
+    'input_button.yapaia_pause',
+    'input_button.yapaia_weiter',
+    'input_button.yapaia_beenden',
+    'input_select.yapaia_profil',
+  ];
+  const ohneMqtt = {
+    erreichbar: true,
+    zustaende: 9,
+    gefunden: 9,
+    vorgabe: ['profile', 'stop', 'pause', 'resume'],
+  };
+
+  it('benutzt die Helfer, wenn es die MQTT-Entitaeten nicht gibt', () => {
+    // Gefragt: „sofern technisch ueberhaupt moeglich soll alles
+    // funktionieren. Der User waehlt ja seinen Kanal aus."
+    const yaml = buildDashboardYaml(standardIds(), { ...ohneMqtt, helfer: HELFER_IDS });
+    expect(yaml).toContain('perform_action: input_button.press');
+    expect(yaml).toContain('input_button.yapaia_pause');
+    expect(yaml).toContain('input_select.yapaia_profil');
+    expect(yaml).toContain('title: Steuerung');
+    expect(() => load(yaml)).not.toThrow();
+  });
+
+  it('nennt sie auch im Kopf der Datei', () => {
+    expect(befundText({ ...ohneMqtt, helfer: HELFER_IDS })).toContain('Bedienen ohne MQTT');
+  });
+
+  it('bleibt bei den MQTT-Entitaeten, wenn es die gibt', () => {
+    // Zwei Saetze Knoepfe fuer dieselbe Sache waeren nur Verwirrung -- und
+    // der Beobachter haelt sich mit MQTT ohnehin zurueck.
+    const yaml = buildDashboardYaml(standardIds(), {
+      erreichbar: true,
+      zustaende: 9,
+      gefunden: 13,
+      vorgabe: [],
+      helfer: HELFER_IDS,
+    });
+    expect(yaml).toContain('perform_action: button.press');
+    expect(yaml).not.toContain('input_button.press');
+    expect(yaml).not.toContain('- entity: input_select.yapaia_profil');
+    // Aber es steht im Kopf, dass es sie gibt und dass sie ruhen -- sonst
+    // suchte jemand den Fehler bei sich, wenn der Helfer nicht reagiert.
+    expect(yaml).toContain('IGNORIERT');
+  });
+
+  it('zeigt keine halbe Knopfreihe, wenn ein Helfer fehlt', () => {
+    // Drei Knoepfe, von denen einer ins Leere zeigt, sind schlimmer als
+    // keiner: die Reihe sieht vollstaendig aus.
+    const yaml = buildDashboardYaml(standardIds(), {
+      ...ohneMqtt,
+      helfer: HELFER_IDS.slice(0, 2),
+    });
+    expect(yaml).not.toContain('input_button.press');
+    expect(() => load(yaml)).not.toThrow();
+  });
+
+  it('das Profil allein genuegt fuer die Steuerungskachel', () => {
+    const yaml = buildDashboardYaml(standardIds(), {
+      ...ohneMqtt,
+      helfer: ['input_select.yapaia_profil'],
+    });
+    expect(yaml).toContain('title: Steuerung');
+    expect(yaml).toContain('input_select.yapaia_profil');
+    expect(yaml).not.toContain('input_button.press');
+  });
+
+  it('findet die Helfer nur unter ihrer genauen ID', () => {
+    // Die IDs stehen fest -- Yapaia legt sie selbst an. Eine unscharfe Suche
+    // koennte hier nur danebengreifen.
+    expect(
+      findeHelfer([
+        zustand('input_button.yapaia_pause'),
+        zustand('input_button.pause'),
+        zustand('sensor.wohnzimmer'),
+      ]),
+    ).toEqual(['input_button.yapaia_pause']);
+  });
+
+  it('haelt eine „_2"-Entitaet nicht fuer unseren Helfer', () => {
+    // Gibt es den Namen schon, haengt Home Assistant „_2" an. Diese Entitaet
+    // ist NICHT die, auf die Yapaia hoert -- ein Knopf darauf wuerde nichts
+    // tun und trotzdem so aussehen, als taete er.
+    expect(findeHelfer([zustand('input_button.yapaia_pause_2'), zustand('sensor.yapaia_pause')])).toEqual(
+      [],
+    );
   });
 });

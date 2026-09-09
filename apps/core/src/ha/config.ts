@@ -83,6 +83,8 @@ interface HaSettingsShape {
   tts_language?: unknown;
   notify_enabled?: unknown;
   notify_service?: unknown;
+  /** Die in der Oberflaeche gewaehlte `device_tracker`-Entitaet (B-05). */
+  device_tracker?: unknown;
 }
 
 function readHaSettings(settings?: HaSettingsLookup): HaSettingsShape {
@@ -157,3 +159,40 @@ export function resolveHaConfig(input: ResolveHaConfigInput = {}): HaConfig | nu
 }
 
 export { SUPERVISOR_API_BASE, DEFAULT_TTS_SERVICE };
+
+/**
+ * Welche `device_tracker`-Entitaet als Positionsquelle gilt.
+ *
+ * ─── WARUM DAS EINE EIGENE FUNKTION IST ─────────────────────────────────────
+ * Weil es zwei Orte gibt, an denen der Wert stehen kann, und weil die
+ * Reihenfolge zwischen ihnen eine Entscheidung ist:
+ *
+ *   1. Die EINSTELLUNG `ha.device_tracker` -- gesetzt aus der
+ *      Yapaia-Oberflaeche, wirkt sofort, kein Neustart.
+ *   2. Die UMGEBUNG `HA_DEVICE_TRACKER` -- die Add-on-Option, gesetzt beim
+ *      Start.
+ *
+ * Die Einstellung gewinnt: sie ist die juengere, ausdruecklichere Aussage.
+ * Wer gerade in der Oberflaeche einen Tracker ausgewaehlt hat, meint den --
+ * und nicht das, was beim letzten Start in der Konfiguration stand.
+ *
+ * ─── DIE „null"-FALLE ───────────────────────────────────────────────────────
+ * bashio liefert fuer eine leere `str?`-Option den STRING „null". Das
+ * Init-Skript faengt das ab; hier wird es ein zweites Mal abgefangen, weil
+ * eine Entitaet namens „null" niemals existiert und die Quelle sonst still
+ * ins Leere suchte -- derselbe Fehler hat 0.3.0 schon einmal gekostet.
+ */
+export function resolveTrackerEntityId(
+  settings: HaSettingsLookup | undefined,
+  env: Record<string, string | undefined>,
+): string {
+  const ausEinstellung = readHaSettings(settings).device_tracker;
+  const kandidaten = [ausEinstellung, env.HA_DEVICE_TRACKER];
+  for (const wert of kandidaten) {
+    if (typeof wert !== 'string') continue;
+    const getrimmt = wert.trim();
+    if (getrimmt.length === 0 || getrimmt === 'null') continue;
+    return getrimmt;
+  }
+  return '';
+}

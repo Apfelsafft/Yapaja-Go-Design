@@ -20,7 +20,14 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { fetchPreflight, type PreflightCheck, type PreflightReport } from './client';
+import {
+  fetchPreflight,
+  fetchTrackers,
+  waehleTracker,
+  type HaTracker,
+  type PreflightCheck,
+  type PreflightReport,
+} from './client';
 
 import { TOP_RIGHT_INSET_PX, topRightSlotPx } from '../../shell/mapControlLayout.js';
 const STATUS_ICON: Record<string, string> = {
@@ -66,6 +73,80 @@ function CheckRow({ check }: { check: PreflightCheck }): React.ReactElement {
         </p>
       )}
     </li>
+  );
+}
+
+/**
+ * Die Positionsquelle aus der Companion App auswaehlen (B-05).
+ *
+ * ─── WARUM HIER ─────────────────────────────────────────────────────────────
+ * Die Installationspruefung ist die Seite, auf der steht, was der
+ * Einrichtung noch fehlt. Eine Positionsquelle, die man nur ueber ein
+ * Freitextfeld in der Add-on-Konfiguration einstellen kann, ist genau so ein
+ * Fehlbetrag -- die Entity-ID muss man sich sonst in Home Assistant unter
+ * Entwicklerwerkzeuge → Zustände zusammensuchen.
+ *
+ * Angezeigt wird das Feld nur, wenn Home Assistant ueberhaupt Tracker
+ * meldet: eine leere Auswahl waere ein Bedienelement, das sicher nichts tut.
+ */
+function TrackerAuswahlFeld(): React.ReactElement | null {
+  const [trackers, setTrackers] = useState<HaTracker[]>([]);
+  const [gewaehlt, setGewaehlt] = useState('');
+  const [fehler, setFehler] = useState<string | null>(null);
+
+  useEffect(() => {
+    let abgebrochen = false;
+    void fetchTrackers()
+      .then((antwort) => {
+        if (abgebrochen) return;
+        setTrackers(antwort.trackers);
+        setGewaehlt(antwort.selected);
+      })
+      .catch(() => undefined); // Eine fehlende Liste darf die Pruefung nicht stoeren.
+    return () => {
+      abgebrochen = true;
+    };
+  }, []);
+
+  if (trackers.length === 0) return null;
+
+  return (
+    <div className="border rounded-lg p-2 border-slate-300 dark:border-slate-600" data-testid="tracker-picker">
+      <label className="block text-xs font-medium" htmlFor="yapaia-tracker-select">
+        Position aus der Home-Assistant-App
+      </label>
+      <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+        Damit läuft die Anzeige weiter, wenn Yapaia nicht offen ist. Die Wahl gilt sofort.
+      </p>
+      <select
+        id="yapaia-tracker-select"
+        data-testid="tracker-select"
+        className="mt-2 w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-1 text-xs"
+        value={gewaehlt}
+        onChange={(event) => {
+          const wert = event.target.value;
+          setGewaehlt(wert);
+          setFehler(null);
+          void waehleTracker(wert)
+            .then((bestaetigt) => setGewaehlt(bestaetigt))
+            .catch((err: unknown) =>
+              setFehler(err instanceof Error ? err.message : 'Auswahl fehlgeschlagen.'),
+            );
+        }}
+      >
+        <option value="">— keine —</option>
+        {trackers.map((tracker) => (
+          <option key={tracker.entity_id} value={tracker.entity_id}>
+            {tracker.friendly_name} ({tracker.entity_id})
+          </option>
+        ))}
+      </select>
+      {fehler && (
+        <p className="mt-1 text-xs text-red-600 dark:text-red-400" data-testid="tracker-error">
+          {fehler}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -149,6 +230,7 @@ export default function PreflightPanel(): React.ReactElement {
                   <CheckRow key={check.id} check={check} />
                 ))}
               </ul>
+              <TrackerAuswahlFeld />
               <p className="text-xs text-slate-400 dark:text-slate-500" data-testid="preflight-checked-at">
                 Geprüft: {new Date(report.checkedAt).toLocaleString('de-DE')}
               </p>

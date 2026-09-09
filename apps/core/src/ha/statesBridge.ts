@@ -23,10 +23,13 @@
  * lesbar von Automationen, Vorlagen, ESPHome und jedem Dashboard.
  *
  * ─── WAS DIESER WEG NICHT KANN, UND DAS GEHOERT DAZU ────────────────────────
- *  1. KEINE BEFEHLE. Eine so geschriebene Entitaet nimmt nichts entgegen --
- *     Pause/Weiter/Beenden und die Profilauswahl gibt es nur mit MQTT. Das
- *     erzeugte Dashboard laesst diese Kacheln deshalb weg, wenn es die
- *     Entitaeten nicht findet (`dashboard.ts`), statt tote Knoepfe zu zeigen.
+ *  1. KEINE BEFEHLE AUF DIESEN ENTITAETEN. Eine so geschriebene Entitaet nimmt
+ *     nichts entgegen; `button.yapaja_stop` und `select.yapaja_profile` gibt
+ *     es nur mit MQTT. BEDIENEN geht seit 0.7.1 trotzdem, nur ueber andere
+ *     Entitaeten: Yapaia legt dafuer Helfer an und hoert auf sie
+ *     (`commandHelpers.ts`, `commandWatcher.ts`). Das erzeugte Dashboard
+ *     nimmt, was es findet (`dashboard.ts#steuerungsKacheln`) -- und zeigt
+ *     lieber gar keinen Knopf als einen toten.
  *  2. KEIN GERAET, KEINE REGISTRIERUNG. Die Entitaeten tauchen nicht unter
  *     „Geraete" auf und lassen sich in der Oberflaeche nicht umbenennen.
  *  3. SIE VERSCHWINDEN BEIM NEUSTART von Home Assistant -- bis zum naechsten

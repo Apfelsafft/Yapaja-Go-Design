@@ -14,8 +14,8 @@ import { DeadReckoningController } from './position/deadReckoning.js';
 import { SimulatorSource } from './position/simulator/index.js';
 import { simulatorPlugin } from './position/simulator/routes.js';
 import { GpsdSource } from './position/gpsd/index.js';
-import { HaTrackerSource } from './position/haTracker/index.js';
-import { resolveHaConnection } from './ha/config.js';
+import { HaTrackerSource, listGpsTrackers } from './position/haTracker/index.js';
+import { resolveHaConnection, resolveTrackerEntityId } from './ha/config.js';
 import { mapPlugin } from './map/routes.js';
 import { routingPlugin, buildRoutingService } from './routing/routes.js';
 import { navigationPlugin } from './navigation/routes.js';
@@ -33,8 +33,9 @@ import { AuthGuard } from './auth/authGuard.js';
 import { authPlugin } from './auth/plugin.js';
 import { HaOutputChannel } from './ha/outputChannel.js';
 import { starteDashboardPflege } from './ha/dashboard.js';
-import { fetchHaStates, postHaState } from './ha/client.js';
+import { fetchHaStates, fetchHaStatesById, postHaState } from './ha/client.js';
 import { HaStatesBridge } from './ha/statesBridge.js';
+import { HaCommandWatcher } from './ha/commandWatcher.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { serveIndexHtml } from './static/ingressHtml.js';
 import { systemPlugin } from './system/routes.js';
@@ -237,7 +238,12 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   const haTrackerSource = new HaTrackerSource({
     positionService,
     resolveConnection: () => resolveHaConnection({ settings: settingsService }),
-    entityId: process.env.HA_DEVICE_TRACKER ?? '',
+    // LIVE gelesen, nicht beim Start eingefroren: die Einstellung
+    // `ha.device_tracker` setzt die Yapaia-Oberflaeche (Installationspruefung
+    // -> „Positionsquelle"), und sie soll sofort gelten. Die Umgebung bleibt
+    // die Vorgabe fuer alle, die den Wert weiterhin in der
+    // Add-on-Konfiguration eintragen.
+    entityId: () => resolveTrackerEntityId(settingsService, process.env),
     // `gps_source: ha_tracker` heisst „nimm die Companion App" -- und nicht
     // „schlag die Entity-ID in Entwicklerwerkzeuge -> Zustaende nach und
     // schreib sie ab". Gibt es genau einen Tracker mit Koordinaten, waehlt
@@ -504,7 +510,35 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // the map-tiles data dir) + free/total RAM, for the onboarding wizard's
   // region step to derive its "< 3 GB free -> recommend Photon off"
   // recommendation from. Additive; does not touch other plugins.
-  await fastify.register(systemPlugin);
+  await fastify.register(systemPlugin, {
+    // B-05: die Auswahl der Positionsquelle aus der Companion App. Die Liste
+    // kommt aus Home Assistant, die Wahl landet in den Einstellungen -- und
+    // `HaTrackerSource` liest sie bei der naechsten Abfrage, ohne Neustart.
+    trackerDeps: {
+      listeTracker: async () => {
+        const verbindung = resolveHaConnection({ settings: settingsService });
+        if (!verbindung) return [];
+        const states = await fetchHaStates(verbindung, {
+          logger: {
+            info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+            warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+            error: (msg, meta) => fastify.log.error(meta ?? {}, msg),
+          },
+        });
+        return listGpsTrackers(states).map((entityId) => ({
+          entity_id: entityId,
+          friendly_name:
+            (states.find((z) => z.entity_id === entityId)?.attributes?.friendly_name as string) ??
+            entityId,
+        }));
+      },
+      gewaehlt: () => resolveTrackerEntityId(settingsService, process.env),
+      waehle: (entityId) => {
+        const vorher = (settingsService.get('ha') ?? {}) as Record<string, unknown>;
+        settingsService.patch({ ha: { ...vorher, device_tracker: entityId } });
+      },
+    },
+  });
 
   // MQTT bridge (E08-T1, docs/03 §4): OPTIONAL -- only constructed when a
   // broker is configured (Settings key `mqtt` and/or env `MQTT_BROKER_URL`,
@@ -625,6 +659,46 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   }
   fastify.addHook('onClose', async () => {
     haStatesBridge?.dispose();
+  });
+
+  // ─── UND BEDIENEN OHNE MQTT ───────────────────────────────────────────────
+  // Legt in Home Assistant Helfer an (`input_button.yapaia_pause` und
+  // Geschwister) und fuehrt aus, was gedrueckt wird. Ohne das waeren die
+  // Entitaeten aus dem internen Kanal reine Anzeige -- siehe
+  // `ha/commandHelpers.ts`.
+  const haCommandWatcher =
+    process.env.HA_INTERNAL === '1'
+      ? new HaCommandWatcher({
+          verbindung: () => resolveHaConnection({ settings: settingsService }),
+          mqttLiefert: () => mqttBridge?.getHealthStatus() === 'ok',
+          leseZustaende: (verbindung, ids) =>
+            fetchHaStatesById(verbindung, ids, {
+              logger: {
+                info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+                warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+                error: (msg, meta) => fastify.log.error(meta ?? {}, msg),
+              },
+            }),
+          navigation: {
+            pause: () => navigationService.pause(),
+            resume: () => navigationService.resume(),
+            stop: () => navigationService.stop(),
+          },
+          profile: profileService,
+          logger: {
+            info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+            warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+          },
+          ws: {
+            logger: {
+              info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+              warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+            },
+          },
+        })
+      : null;
+  fastify.addHook('onClose', async () => {
+    haCommandWatcher?.dispose();
   });
 
   // Fertiges Lovelace-Dashboard (`/local/yapaja/dashboard.yaml`).

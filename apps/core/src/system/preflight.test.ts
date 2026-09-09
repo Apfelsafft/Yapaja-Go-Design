@@ -137,8 +137,12 @@ describe('runPreflight — Gesamtform', () => {
     const check = byId(ohneBroker.checks, 'mqtt');
     expect(check.status).toBe('ok');
     expect(check.detail).toContain('HA-internen Kanal');
-    // Und sagt dazu, was auf diesem Weg NICHT geht.
-    expect(check.detail).toContain('Pause/Weiter/Beenden');
+    // Und sagt, WO die Bedienung dann liegt. Bis 0.7.0 stand hier, es gebe
+    // sie nicht; seit 0.7.1 legt Yapaia dafuer Helfer an. Eine Diagnose, die
+    // eine Funktion verschweigt, schickt jemanden einen Broker installieren,
+    // den er nicht braucht.
+    expect(check.detail).toContain('input_button.yapaia_pause');
+    expect(check.detail).not.toContain('nur mit MQTT');
   });
 
   it('nennt beide Wege, wenn beide eingeschaltet sind', async () => {

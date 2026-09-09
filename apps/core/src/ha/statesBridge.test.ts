@@ -1,5 +1,3 @@
-/* eslint-disable no-undef -- `setInterval` ist eine Standard-Globale in Node 22. */
-
 /**
  * Der Weg zu Home Assistant ohne MQTT.
  *

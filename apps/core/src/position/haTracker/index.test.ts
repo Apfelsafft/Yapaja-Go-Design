@@ -49,7 +49,7 @@ function makeSource(
   const source = new HaTrackerSource({
     positionService: service,
     resolveConnection: () => (opts.connection === undefined ? CONNECTION : opts.connection),
-    entityId: opts.entityId ?? 'device_tracker.mein_telefon',
+    entityId: () => opts.entityId ?? 'device_tracker.mein_telefon',
     autoSelect: opts.autoSelect,
     logger: opts.logger ?? silentLogger,
     fetchStates: async () => states,
@@ -225,7 +225,7 @@ describe('HaTrackerSource', () => {
     const source = new HaTrackerSource({
       positionService: service,
       resolveConnection: () => null,
-      entityId: 'device_tracker.mein_telefon',
+      entityId: () => 'device_tracker.mein_telefon',
       logger: silentLogger,
       fetchStates,
     });

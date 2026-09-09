@@ -157,3 +157,100 @@ describe('GET /api/v1/system/preflight (feat/gui-install-path)', () => {
     await app.close();
   });
 });
+
+/**
+ * ─── DIE POSITIONSQUELLE AUSWAEHLEN (B-05, Companion App) ──────────────────
+ * Bis 0.7.0 musste hier eine Entity-ID von Hand in die Add-on-Konfiguration
+ * getippt werden -- eine Angabe, die man nicht weiss, sondern in Home
+ * Assistant nachschlagen muss. Diese Route liefert die Auswahl, die es
+ * wirklich gibt, und nimmt die Wahl entgegen.
+ */
+describe('GET/POST /api/v1/system/ha/trackers', () => {
+  function appBauen(vorhanden: string[] = ['device_tracker.telefon']) {
+    let gewaehlt = '';
+    const app: FastifyInstance = Fastify({ logger: false });
+    const registriert = app.register(systemPlugin, {
+      trackerDeps: {
+        listeTracker: async () =>
+          vorhanden.map((id) => ({ entity_id: id, friendly_name: `Name ${id}` })),
+        gewaehlt: () => gewaehlt,
+        waehle: (id: string) => {
+          gewaehlt = id;
+        },
+      },
+    });
+    return { app, registriert, gewaehltJetzt: () => gewaehlt };
+  }
+
+  it('liefert die vorhandenen Tracker und die aktuelle Wahl', async () => {
+    const a = appBauen(['device_tracker.telefon', 'device_tracker.ipad']);
+    await a.registriert;
+    const antwort = await a.app.inject({ method: 'GET', url: '/api/v1/system/ha/trackers' });
+    expect(antwort.statusCode).toBe(200);
+    const body = antwort.json() as {
+      data: { trackers: Array<{ entity_id: string; friendly_name: string }>; selected: string };
+    };
+    expect(body.data.trackers.map((t) => t.entity_id)).toEqual([
+      'device_tracker.telefon',
+      'device_tracker.ipad',
+    ]);
+    expect(body.data.selected).toBe('');
+  });
+
+  it('nimmt eine Wahl entgegen und gibt sie danach zurueck', async () => {
+    const a = appBauen();
+    await a.registriert;
+    const gesetzt = await a.app.inject({
+      method: 'POST',
+      url: '/api/v1/system/ha/trackers',
+      payload: { entity_id: 'device_tracker.telefon' },
+    });
+    expect(gesetzt.statusCode).toBe(200);
+    expect(a.gewaehltJetzt()).toBe('device_tracker.telefon');
+
+    const gelesen = await a.app.inject({ method: 'GET', url: '/api/v1/system/ha/trackers' });
+    expect((gelesen.json() as { data: { selected: string } }).data.selected).toBe(
+      'device_tracker.telefon',
+    );
+  });
+
+  it('laesst das Abwaehlen zu', async () => {
+    // „Doch keinen" muss genauso gehen wie „diesen" -- sonst bleibt eine
+    // einmal gewaehlte Quelle fuer immer haengen.
+    const a = appBauen();
+    await a.registriert;
+    await a.app.inject({
+      method: 'POST',
+      url: '/api/v1/system/ha/trackers',
+      payload: { entity_id: 'device_tracker.telefon' },
+    });
+    await a.app.inject({ method: 'POST', url: '/api/v1/system/ha/trackers', payload: {} });
+    expect(a.gewaehltJetzt()).toBe('');
+  });
+
+  it('weist alles zurueck, was keine device_tracker-Entitaet ist', async () => {
+    // Eine falsche ID hier waere eine Positionsquelle, die still nie etwas
+    // liefert -- der teuerste Fehler in diesem Programm.
+    const a = appBauen();
+    await a.registriert;
+    for (const wert of ['sensor.irgendwas', 'telefon', 42]) {
+      const antwort = await a.app.inject({
+        method: 'POST',
+        url: '/api/v1/system/ha/trackers',
+        payload: { entity_id: wert },
+      });
+      expect(antwort.statusCode, String(wert)).toBe(400);
+    }
+    expect(a.gewaehltJetzt()).toBe('');
+  });
+
+  it('antwortet auch ohne Home-Assistant-Anbindung, statt zu scheitern', async () => {
+    // Eine Einrichtungshilfe, die selbst ausfaellt, versagt genau dann, wenn
+    // man sie braucht.
+    const app: FastifyInstance = Fastify({ logger: false });
+    await app.register(systemPlugin);
+    const antwort = await app.inject({ method: 'GET', url: '/api/v1/system/ha/trackers' });
+    expect(antwort.statusCode).toBe(200);
+    expect((antwort.json() as { data: { trackers: unknown[] } }).data.trackers).toEqual([]);
+  });
+});
