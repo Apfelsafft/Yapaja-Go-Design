@@ -6,6 +6,11 @@ anything else first.
 If you just want to get driving, read [Getting started](#getting-started) and
 stop there. The rest is here for when you need it.
 
+> **About the pictures.** They are real recordings of the running app, captured
+> automatically. The map background is blank in all of them because they come
+> from the automated test harness, whose map fixture carries no tiles —
+> everything Yapaia draws itself is real. [Details.](media/README.md)
+
 **Contents**
 
 1. [What you are looking at](#what-you-are-looking-at)
@@ -46,9 +51,18 @@ Nothing you do leaves the vehicle. There is no account, no cloud, no telemetry.
 **Explore mode** is what you see when nothing is running: a map, a search bar
 at the top, your favourites in a drawer at the bottom.
 
+![The app shell in Explore mode](media/explore.png)
+
 **Drive mode** takes over once you start navigating: the map turns to face your
 direction of travel, a large panel shows the next manoeuvre, and the bottom bar
 carries speed, ETA, remaining distance and altitude.
+
+![Drive mode with everything on screen](media/fahrmodus.png)
+
+Opening the panels — the vehicle profile, the favourites drawer, the health
+check:
+
+![Opening the panels](media/bedienung.gif)
 
 ---
 
@@ -115,6 +129,8 @@ remain the driver. More on that in the next section.
 
 **This is the screen that matters most.** It is the difference between a
 navigation system and a truck navigation system.
+
+![The vehicle profile list](media/fahrzeugprofil.png)
 
 Enter the dimensions of your camper:
 
@@ -192,7 +208,9 @@ are now.
 
 Save a place as a favourite and it appears in the drawer at the bottom of
 Explore mode. Categories: home, campsite, point of interest, or your own. Your
-recent destinations are kept as history too.
+recent destinations are kept as history too — the drawer has a tab for each.
+
+![The favourites and history drawer, before anything is saved](media/favoriten.png)
 
 ---
 
@@ -200,11 +218,16 @@ recent destinations are kept as history too.
 
 Tap **Start navigation** and the app switches to Drive mode.
 
+![A drive: manoeuvres counting down and switching](media/fahrt.gif)
+
 **What you get:**
 
 - **Spoken instructions**, through the browser or through a Home Assistant
   media player, whichever you have set.
 - **A large manoeuvre panel** showing the next turn and the distance to it.
+
+  ![The manoeuvre panel](media/anweisung.png)
+
 - **The current speed limit**, with a warning if you exceed it.
 - **ETA, remaining distance, altitude** in the bottom bar.
 - **Automatic rerouting** if you miss a turn — typically within three seconds.
@@ -294,6 +317,13 @@ asks.
 maps, routing, search, position, memory, disk and the Home Assistant
 connection, and tells you in plain language what is wrong and what to do about
 it. It is the first place to look when something behaves oddly.
+
+![The health check](media/installationspruefung.png)
+
+That screenshot shows genuine failures, because the test harness it was
+captured in runs neither the routing service nor search. It is a fair picture
+of what the check looks like when something really is missing: a green tick for
+what works, and for what does not, the reason and the fix.
 
 ---
 
