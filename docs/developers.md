@@ -298,6 +298,16 @@ works, only a red one does.
 | Performance | `pnpm perf` | Budgets on the N100 reference profile |
 | Golden routes | `pnpm golden-routes` | Routing correctness against known restrictions — needs a running core |
 
+**Documentation media** is captured the same way, from the same harness:
+
+```bash
+pnpm --filter @yapaia/web exec playwright test -c docs-media.config.ts
+```
+
+It writes `docs/media/`. Deliberately outside CI — a capture run on every pull
+request would add binary noise and nothing else. Re-run it when the interface
+changes visibly. Why the map is blank in those images: [`docs/media/README.md`](media/README.md).
+
 The **GPS simulator** is the central test tool: it replays a route, a GPX file,
 or a deliberate wrong turn to exercise rerouting, at a configurable speed
 factor. Documented in [`07-testing-qa.md`](07-testing-qa.md) §2.

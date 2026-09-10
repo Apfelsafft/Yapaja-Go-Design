@@ -12,6 +12,13 @@ leaving your vehicle**. Maps, routing and search all run on a mini-PC in your
 camper. It installs as a **Home Assistant add-on** and opens in any browser:
 the tablet on your dashboard, your phone, the co-driver's iPad.
 
+![Drive mode: the route, the position marker, and manoeuvres counting down](docs/media/fahrt.gif)
+
+<sub>A real recording of the running app. The map background is blank because
+this was captured against the automated test harness, which carries a map
+fixture with no tiles behind it — everything Yapaia draws itself (route,
+position, controls) is real. [Why, in detail.](docs/media/README.md)</sub>
+
 ---
 
 ## Why this exists
@@ -39,6 +46,13 @@ all live on your disk. The end-to-end test suite asserts that the app makes
 | 🔆 **Screen stays awake** | No more tapping the tablet at every junction to keep the display on. |
 | 👋 **Built for a moving vehicle** | 64 px touch targets, mirrored controls for left- or right-hand drive, and settings that lock themselves above 10 km/h. |
 | 🧩 **Extensible** | A sandboxed add-on system with its own SDK and a git-based registry. |
+
+| | |
+|:--:|:--:|
+| ![The app shell](docs/media/explore.png) | ![Drive mode](docs/media/fahrmodus.png) |
+| **Explore** — search, favourites, your vehicle at a glance | **Drive** — manoeuvre, speed limit, ETA, remaining distance |
+| ![Vehicle profile](docs/media/fahrzeugprofil.png) | ![The health check](docs/media/installationspruefung.png) |
+| **Your vehicle** — height, width, length, weight | **The health check** — says what is wrong and what to do |
 
 ## What it is not
 
