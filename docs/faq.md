@@ -62,6 +62,14 @@ gleichzeitigen widersprüchlichen Aktionen gewinnt die zuletzt ausgeführte,
 mit sichtbarem Hinweis, welcher Client sie ausgelöst hat (siehe W-21 in
 `docs/08-wargame.md`; kein Locking in v1, bewusst einfach gehalten).
 
+**Ein Vorbehalt, wenn die Position aus dem Browser kommt:** alle Clients
+melden an denselben Endpunkt, und es gewinnt der zuletzt eingetroffene Fix.
+Im selben Fahrzeug ist das folgenlos — zwei Geräte melden dieselbe Position.
+Steht ein Gerät aber woanders (das Telefon zu Hause, ein Browser-Tab in der
+Wohnung), springt die angezeigte Position zwischen beiden Orten hin und her.
+Wer mehrere Geräte nutzt, ist mit einem USB-Empfänger oder der Companion-App
+als Quelle besser bedient (offener Punkt B-03 in `docs/backlog.md`).
+
 **Wie installiere/entferne ich ein Add-on sicher?**
 Nur aus dem Store (dort durchlaufen Add-ons eine Review-Checkliste) und nur
 mit den beim Installieren angezeigten, tatsächlich benötigten
@@ -85,6 +93,42 @@ Sollte trotzdem etwas fehlen: [Troubleshooting W-16](troubleshooting.md#w-16--na
 tatsächlich laufenden Code generierte OpenAPI-3.1-Spezifikation (Details zur
 Generierung: `apps/core/src/openapi/`). Für Add-on-Entwicklung speziell:
 der [Add-on-Entwicklungsleitfaden](addon-dev-guide.md).
+
+**Mein Tablet zeigt keine Position, obwohl GPS an ist.**
+Sehr wahrscheinlich läuft dein Home Assistant über `http://` statt `https://`.
+Browser geben die Standortbestimmung nur über eine gesicherte Verbindung
+frei — das ist eine Regel des Browsers, die keine Einstellung in Yapaia
+aushebeln kann. Der vorgesehene Weg dafür ist die **Home-Assistant-
+Companion-App**: sie meldet an Home Assistant statt an den Browser und tut
+das auch bei gesperrtem Bildschirm. Einrichtung: 🩺 Installationsprüfung in
+Yapaia, dort die Auswahlliste unter der Prüfliste
+([Manual](manual.md#using-the-home-assistant-companion-app)).
+
+**Der Bildschirm geht während der Fahrt aus.**
+Yapaia hält ihn eigentlich wach. Manche Browser erlauben das aber erst,
+nachdem der Bildschirm einmal berührt wurde — tippe zu Fahrtbeginn einmal
+auf die Karte.
+
+**Brauche ich MQTT für die Home-Assistant-Anbindung?**
+Nein. Es gibt zwei Kanäle, `mqtt_enabled` und `ha_internal`, beide
+standardmäßig an. Ohne Broker schreibt Yapaia dieselben Entitäten direkt über
+die HA-API. **Auch das Bedienen** (Pause/Weiter/Beenden, Profilwahl)
+funktioniert ohne Broker — Yapaia legt sich dafür Helfer an
+(`input_button.yapaia_*`). Laufen beide Kanäle, gelten die MQTT-Entitäten und
+die Helfer ruhen. Details: [Manual](manual.md#home-assistant) und
+`docs/04-home-assistant.md` §1b–1c.
+
+**Mein HA-Dashboard zeigt überall „Entität nicht gefunden".**
+Öffne `/local/yapaja/dashboard.txt` im Browser und lies den **Kopf der
+Datei**. Dort steht, was Yapaia beim Erzeugen vorgefunden hat: ob Home
+Assistant erreichbar war, wie viele Entitäten gefunden wurden und welche
+fehlen. Die häufigste Ursache ist, dass weder MQTT noch der interne Kanal
+eingeschaltet ist — dann gibt es schlicht nichts anzuzeigen.
+
+**Ein Knopf in Home Assistant tut nichts.**
+Wenn es einer der `input_button.yapaia_*`-Helfer ist und du MQTT laufen hast:
+das ist Absicht. Dann gelten die MQTT-Knöpfe, und die Helfer ruhen — zwei
+Sätze Knöpfe für dieselbe Sache wären nur Verwirrung.
 
 **Wie viel RAM brauche ich mindestens?**
 Kommt stark auf Kartengröße und ob Photon-Suche aktiv ist an — die konkrete

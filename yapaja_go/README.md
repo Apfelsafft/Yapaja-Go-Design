@@ -8,6 +8,11 @@ For install steps, RAM sizing, USB-GPS setup, and the manual/nightly VM test
 protocol, see [`DOCS.md`](./DOCS.md) (this is also what HA shows in the
 add-on's own "Documentation" tab once installed).
 
+For everything else, the parent repo has three entry points:
+[`README.md`](../README.md) (what Yapaia Go is),
+[`docs/manual.md`](../docs/manual.md) (how to use it) and
+[`docs/developers.md`](../docs/developers.md) (how it is built).
+
 ## Layout
 
 ```

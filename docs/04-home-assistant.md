@@ -1,5 +1,11 @@
 # 04 – Home-Assistant-Integration
 
+> **Einordnung:** Fachreferenz, laufend gepflegt — hier stehen die Details.
+> Wer einen Einstieg oder das Gesamtbild sucht, fängt besser im
+> [Entwicklerhandbuch](developers.md) an; die Bedienung steht im
+> [Handbuch](manual.md).
+
+
 Yapaia Go und Home Assistant laufen auf demselben Mini-PC (Proxmox: HAOS-VM +
 Yapaia-LXC/VM, **oder** Yapaia als HA-Add-on direkt in HAOS). Die Integration hat
 drei Säulen: **MQTT** (primär, robust, entkoppelt), **REST beidseitig** (gezielte

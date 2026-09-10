@@ -1,5 +1,12 @@
 # 00 – Vision & Scope
 
+> **Einordnung:** Dieses Dokument stammt aus der Planungsphase und hält fest,
+> **warum** entschieden wurde, was entschieden wurde. Es wird als
+> Entscheidungsgrundlage gepflegt, ist aber keine Beschreibung des aktuellen
+> Standes. Was heute wirklich läuft, steht im
+> [Entwicklerhandbuch](developers.md) und im [Handbuch](manual.md).
+
+
 ## Produktvision
 
 Yapaia Go ist die Navigations-Zentrale für das vernetzte Wohnmobil:

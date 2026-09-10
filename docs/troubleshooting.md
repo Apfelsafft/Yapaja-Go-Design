@@ -28,14 +28,14 @@ funktionskritisch — Details dazu direkt in `docs/08-wargame.md`.
 | [W-03](#w-03--standortzugriff-nicht-möglich) | 🟠 | Geolocation blockiert |
 | [W-05](#w-05--app-berechnet-nach-einer-abzweigung-automatisch-neu) | 🟠 | Falschabbiegung / Umleitung |
 | [W-06](#w-06--ha-entitäten-werden-nicht-verfügbar) | 🟠 | MQTT-Broker nicht erreichbar |
-| [W-08](#w-08--route-führt-an-einer-zu-engenniedrigen-stelle-vorbei) | 🔴 | OSM-Maßdaten unvollständig |
+| [W-08](#w-08--route-führt-an-einer-zu-engenniedrigen-stelle-vorbei-) | 🔴 | OSM-Maßdaten unvollständig |
 | [W-09](#w-09--meldung-ziel-liegt-außerhalb-der-installierten-karte) | 🟠 | Ziel außerhalb Kartenregion |
-| [W-10](#w-10--add-on-verhält-sich-verdächtig) | 🔴 | Bösartiges Add-on |
+| [W-10](#w-10--add-on-verhält-sich-verdächtig-) | 🔴 | Bösartiges Add-on |
 | [W-11](#w-11--add-on-ist-nach-einem-update-deaktiviert) | 🟠 | Core-Update bricht Add-on-API |
 | [W-12](#w-12--suche-reagiert-nicht-mehrvereinfachte-suche) | 🟠 | Photon sprengt RAM-Budget |
 | [W-14](#w-14--app-ruckelt-während-ein-add-on-aktiv-ist) | 🟠 | Add-on überlastet den Mini-PC |
 | [W-15](#w-15--app-funktioniert-direkt-aber-nicht-über-ha-ingress) | 🟠 | Ingress-Sub-Pfad bricht Frontend |
-| [W-16](#w-16--nach-einem-update-fehlen-kartendaten-oder-einstellungen) | 🔴 | Update zerstört Daten |
+| [W-16](#w-16--nach-einem-update-fehlen-kartendaten-oder-einstellungen-) | 🔴 | Update zerstört Daten |
 | [W-18](#w-18--region-download-wird-sofort-mit-speicherplatz-fehler-abgelehnt) | 🟠 | Disk voll |
 | [W-19](#w-19--navigation-scheint-nach-tab-crashneustart-weg-zu-sein) | 🟠 | Tab-Crash / Kiosk-Neustart |
 | [W-22](#w-22--anzeige-der-ankunftszeit-wirkt-falsch) | 🟠 | ETA falsch (Zeitzone/DST) |

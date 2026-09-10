@@ -1,5 +1,11 @@
 # 06 – UI/UX-Guidelines & Styleguide
 
+> **Einordnung:** Fachreferenz, laufend gepflegt — hier stehen die Details.
+> Wer einen Einstieg oder das Gesamtbild sucht, fängt besser im
+> [Entwicklerhandbuch](developers.md) an; die Bedienung steht im
+> [Handbuch](manual.md).
+
+
 **Leitbild:** Google-Maps-Klarheit im Stand, Sygic-artige Fahransicht während der
 Navigation. Alles Relevante sichtbar, nichts überfrachtet, flüssig auf Touch.
 

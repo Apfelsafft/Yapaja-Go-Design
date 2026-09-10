@@ -1,5 +1,12 @@
 # 08 – Wargame-Analyse: Szenarien, Erkennung, vorbereitete Lösungen
 
+> **Einordnung:** Dieses Dokument stammt aus der Planungsphase und hält fest,
+> **warum** entschieden wurde, was entschieden wurde. Es wird als
+> Entscheidungsgrundlage gepflegt, ist aber keine Beschreibung des aktuellen
+> Standes. Was heute wirklich läuft, steht im
+> [Entwicklerhandbuch](developers.md) und im [Handbuch](manual.md).
+
+
 **Methode:** Für jedes Szenario ist definiert: *Auslöser* (wie es passiert),
 *Erkennung* (wie das System es merkt), *Sofortverhalten* (was der Nutzer erlebt),
 *Vorbereitete Lösung* (was bereits im Design/Task eingeplant ist) und *Testabdeckung*.

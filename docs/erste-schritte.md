@@ -1,5 +1,11 @@
 # Erste Schritte
 
+> Eine vollständige Beschreibung aller Funktionen — auch der neueren wie
+> Zwischenziele, Bildschirm-Wachhalten, das fertige HA-Dashboard und die
+> Companion-App als Positionsquelle — steht im
+> [User Manual](manual.md) (englisch). Diese Seite hier ist der schnelle
+> Durchlauf für die erste Fahrt.
+
 Diese Anleitung setzt eine erfolgreich abgeschlossene Installation voraus
 (siehe [Installations-Guide](installation.md)) und führt einmal komplett
 durch: Fahrzeugprofil anlegen → Ziel suchen → Route berechnen → Navigation
@@ -102,8 +108,31 @@ Falschabbiegungen für einen Rerouting-Test.)
   Drag & Drop in andere Slots ziehen, Größe wählen (S/M/L). „Zurücksetzen
   auf Standard" ist im selben Menü verfügbar, falls etwas schiefgeht.
 
+## 8. Was diese Seite nicht behandelt
+
+Seit 0.6.9 sind einige Dinge dazugekommen, die den ersten Durchlauf nicht
+betreffen, aber im Alltag zählen. Alle ausführlich im
+[User Manual](manual.md):
+
+- **Zwischenziele** — mehrere Stationen in selbst gewählter Reihenfolge,
+  auch während der Fahrt anhängbar.
+- **„Da nicht lang"** — langer Druck auf die Routenlinie meidet diesen
+  Abschnitt und rechnet neu.
+- **Der Bildschirm bleibt an** — kein Antippen mehr an jeder Kreuzung.
+  Auf manchen Geräten erst nach einer einmaligen Berührung.
+- **Bediensperre ab 10 km/h** — Einstellungen, Editor und Profilbearbeitung
+  sperren sich während der Fahrt.
+- **Fertiges HA-Dashboard** — liegt unter `/local/yapaja/dashboard.txt`,
+  fertig zum Einfügen in den Rohkonfigurationseditor.
+- **Bedienen aus Home Assistant** — Pause/Weiter/Beenden und Profilwahl,
+  wahlweise über MQTT oder über selbst angelegte Helfer.
+- **Position aus der Companion-App** — auswählbar unter 🩺
+  Installationsprüfung, gilt sofort.
+- **Links- oder rechtsgelenkt** — die Bedienknöpfe lassen sich spiegeln.
+
 ## Weiter
 
+- Alle Funktionen im Detail? → [User Manual](manual.md) (englisch)
 - Etwas funktioniert nicht wie erwartet? → [Troubleshooting](troubleshooting.md)
 - Allgemeine Fragen? → [FAQ](faq.md)
 - Add-ons installieren/entwickeln? → [Add-on-Entwicklungsleitfaden](addon-dev-guide.md)
