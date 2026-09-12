@@ -180,7 +180,7 @@ Server → Client: `{topic, payload, ts}`. Topics == interne Event-Bus-Topics:
 |---|---|---|
 | `pos/update` | `Position` | 1 Hz (konfigurierbar bis 5 Hz) |
 | `nav/state` | `NavState` (komplett) | 1 Hz während Navigation |
-| `nav/instruction` | `{maneuver, distance_m, say: string}` | bei Wechsel/Ansage-Schwelle |
+| `nav/instruction` | `{maneuver, distance_m, say: string}` | bei Wechsel/Ansage-Schwelle — **ein Ereignis, kein Zustand**: `distance_m` ist die Entfernung im Augenblick der Ansage |
 | `route/updated` | `{route: Route, reason: 'initial'|'reroute'|'profile_change'}` | bei Änderung |
 | `route/deviation` | `{distance_from_route_m}` | bei Erkennung |
 | `system/health` | wie REST-health | bei Änderung + alle 30 s |
@@ -201,6 +201,7 @@ Alle Payloads JSON. HA-Auto-Discovery unter `homeassistant/...` (siehe docs/04).
 | `yapaja/position` | `Position` (1 Hz während Fahrt, 0,1 Hz im Stand) | ✔ |
 | `yapaja/nav/state` | `NavState.status` | ✔ |
 | `yapaja/nav/instruction` | `{type, instruction, street_names, distance_m, icon}` – `icon` = mdi-Name für Richtungspfeil (z. B. `mdi:arrow-left-top`) | ✔ |
+| `yapaja/nav/maneuver` | dieselben Felder, aber als **Zustand**: aus `nav/state`, also im Sekundentakt. `null`, wenn kein Manöver ansteht. **Hieran hängen die Anzeige-Sensoren** (`sensor.yapaja_instruction`, `…_instruction_distance`) — an `nav/instruction` stünde die Entfernung zwischen zwei Ansagen still (0.7.2) | ✔ |
 | `yapaja/nav/eta` | `{eta, duration_remaining_s, distance_remaining_m}` | ✔ |
 | `yapaja/nav/speed` | `{speed_kmh, speed_limit_kmh, speeding: bool}` | ✔ |
 | `yapaja/nav/altitude` | `{altitude_m}` | ✔ |

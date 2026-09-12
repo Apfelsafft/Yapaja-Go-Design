@@ -46,7 +46,7 @@
  * nichts. Faellt der Broker aus, uebernimmt er, und die Werte laufen weiter.
  */
 
-import type { NavState, NavInstructionPayload, Position } from '@yapaia/shared';
+import type { NavState, Position } from '@yapaia/shared';
 import type { EventBus } from '../bus/index.js';
 import type { HaConnection } from './config.js';
 import { buildSpeedPayload, maneuverIcon } from '../mqtt/mapping.js';
@@ -61,7 +61,6 @@ export interface HaStateWrite {
 /** Was der Core gerade weiss. */
 export interface YapaiaZustand {
   navState: NavState | null;
-  instruction: NavInstructionPayload | null;
   position: Position | null;
 }
 
@@ -82,7 +81,7 @@ function zahl(wert: number | null | undefined, stellen = 0): string {
  * laesst.
  */
 export function buildHaStates(zustand: YapaiaZustand): HaStateWrite[] {
-  const { navState, instruction, position } = zustand;
+  const { navState, position } = zustand;
   const tempo = navState ? buildSpeedPayload(navState) : null;
   const schreibt: HaStateWrite[] = [];
 
@@ -131,26 +130,43 @@ export function buildHaStates(zustand: YapaiaZustand): HaStateWrite[] {
       icon: 'mdi:map-marker-distance',
     },
   );
+  // ─── ANWEISUNG UND ENTFERNUNG KOMMEN AUS DEM ZUSTAND ──────────────────────
+  // Nicht aus `nav/instruction`. Das ist die ANSAGE: sie entsteht nur, wenn
+  // eine Ansage-Schwelle faellt, und ihre `distance_m` ist die Entfernung in
+  // genau diesem Augenblick. Gemeldet wurde: „Die Strecke bis zur naechsten
+  // Abbiegung wird nicht geupdated. Die anderen Werte wohl schon" -- die
+  // anderen kommen alle aus `navState`, im Sekundentakt.
+  //
+  // Der Text stand aus demselben Grund still: nach einer Abbiegung blieb die
+  // eben absolvierte Anweisung stehen, bis fuer die naechste eine Schwelle
+  // fiel. `next_maneuver` und `distance_to_maneuver_m` werden dagegen bei
+  // jedem Takt neu gebildet.
+  const manoever = navState?.next_maneuver ?? null;
   dazu(
     'sensor.yapaja_instruction',
-    instruction?.maneuver.instruction ?? UNBEKANNT,
+    manoever?.instruction ?? UNBEKANNT,
     'Instruction',
-    instruction
+    manoever
       ? {
           // Dieselben Zusatzangaben wie ueber MQTT -- die Vorlage des
           // Dashboards liest `icon` fuer den Richtungspfeil.
-          type: instruction.maneuver.type,
-          street_names: instruction.maneuver.street_names,
-          distance_m: instruction.distance_m,
-          icon: maneuverIcon(instruction.maneuver.type),
+          type: manoever.type,
+          street_names: manoever.street_names,
+          distance_m: navState?.distance_to_maneuver_m ?? null,
+          icon: maneuverIcon(manoever.type),
         }
       : { icon: 'mdi:navigation' },
   );
-  dazu('sensor.yapaja_instruction_distance', zahl(instruction?.distance_m ?? null), 'Instruction Distance', {
-    unit_of_measurement: 'm',
-    device_class: 'distance',
-    state_class: 'measurement',
-  });
+  dazu(
+    'sensor.yapaja_instruction_distance',
+    zahl(manoever ? (navState?.distance_to_maneuver_m ?? null) : null),
+    'Instruction Distance',
+    {
+      unit_of_measurement: 'm',
+      device_class: 'distance',
+      state_class: 'measurement',
+    },
+  );
   dazu('sensor.yapaja_altitude', zahl(navState?.altitude_m ?? null), 'Altitude', {
     unit_of_measurement: 'm',
     device_class: 'distance',
@@ -236,7 +252,7 @@ export interface HaStatesBridgeDeps {
 export class HaStatesBridge {
   private readonly deps: HaStatesBridgeDeps;
   private readonly unsubscribers: Array<() => void> = [];
-  private zustand: YapaiaZustand = { navState: null, instruction: null, position: null };
+  private zustand: YapaiaZustand = { navState: null, position: null };
   private zuletzt = new Map<string, HaStateWrite>();
   private timer: unknown = null;
   private naechsteAuffrischung = 0;
@@ -248,9 +264,6 @@ export class HaStatesBridge {
     this.unsubscribers.push(
       deps.bus.subscribe('nav/state', (state) => {
         this.zustand.navState = state as NavState;
-      }),
-      deps.bus.subscribe('nav/instruction', (payload) => {
-        this.zustand.instruction = payload as NavInstructionPayload;
       }),
       deps.bus.subscribe('pos/update', (pos) => {
         const p = pos as Position;

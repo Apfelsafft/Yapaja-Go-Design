@@ -10,6 +10,7 @@ import {
   buildDestinationPayload,
   buildEtaPayload,
   buildInstructionPayload,
+  buildManeuverPayload,
   buildRouteSummaryPayload,
   buildSpeedPayload,
   maneuverIcon,
@@ -153,6 +154,53 @@ function buildRoute(overrides: Partial<Route> = {}): Route {
     ...overrides,
   };
 }
+
+describe('buildManeuverPayload — die ANZEIGE, nicht die Ansage', () => {
+  // ─── DER GEMELDETE FEHLER ───────────────────────────────────────────────
+  // „Die Strecke bis zur naechsten Abbiegung wird nicht geupdated. Die
+  // anderen Werte wohl schon." Beide Anweisungs-Sensoren hingen an
+  // `nav/instruction`; deren `distance_m` ist laut eigenem Typ die Entfernung
+  // „AT THE MOMENT the threshold fired" und aendert sich bis zur naechsten
+  // Ansage nicht mehr. ETA, Tempo und Reststrecke kommen aus `nav/state` --
+  // deshalb liefen genau die.
+  it('nimmt die Entfernung aus dem Zustand, der jede Sekunde neu kommt', () => {
+    const weit = buildManeuverPayload(
+      baseState({ next_maneuver: maneuver(), distance_to_maneuver_m: 400 }),
+    );
+    const nah = buildManeuverPayload(
+      baseState({ next_maneuver: maneuver(), distance_to_maneuver_m: 85 }),
+    );
+    expect(weit?.distance_m).toBe(400);
+    expect(nah?.distance_m).toBe(85);
+  });
+
+  it('traegt dieselben Felder wie die Ansage -- die Anzeige darf sich nicht unterscheiden', () => {
+    expect(
+      buildManeuverPayload(baseState({ next_maneuver: maneuver(), distance_to_maneuver_m: 250 })),
+    ).toEqual({
+      type: 'turn_left',
+      instruction: 'Links abbiegen auf B27',
+      street_names: ['B27'],
+      distance_m: 250,
+      icon: 'mdi:arrow-left-top',
+    });
+  });
+
+  it('ist `null`, wenn kein Manoever ansteht', () => {
+    // Angekommen oder gar nicht unterwegs: dann gibt es nichts anzuzeigen.
+    expect(buildManeuverPayload(baseState({ next_maneuver: null }))).toBeNull();
+  });
+
+  it('macht aus einer unbekannten Entfernung 0 und nicht NaN', () => {
+    // `distance_to_maneuver_m` ist `null`, solange es keinen Fortschritt
+    // gibt. `null` durch die Vorlage zu schicken ergaebe in Home Assistant
+    // den Text „None" in einem Sensor mit Einheit Meter.
+    expect(
+      buildManeuverPayload(baseState({ next_maneuver: maneuver(), distance_to_maneuver_m: null }))
+        ?.distance_m,
+    ).toBe(0);
+  });
+});
 
 describe('buildRouteSummaryPayload', () => {
   it('carries distance_m/duration_s and a deduped, order-preserving via list', () => {

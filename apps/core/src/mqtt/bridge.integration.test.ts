@@ -387,6 +387,29 @@ describe('MqttBridge (aedes in-process broker)', () => {
       distance_m: 150,
       say: 'In 150 Metern links abbiegen',
     });
+    // Ein Zustandstakt mit anstehendem Manoever -- daraus muss
+    // `yapaja/nav/maneuver` entstehen. Genau dieses Topic speist die beiden
+    // Anzeige-Sensoren, seit die Entfernung im Dashboard einfror.
+    h.bus.publish('nav/state', {
+      status: 'navigating',
+      route_id: 'drive-route-1',
+      next_maneuver: {
+        index: 1,
+        type: 'turn_right',
+        instruction: 'Rechts abbiegen auf die Bergstrasse',
+        street_names: ['Bergstrasse'],
+        distance_m: 400,
+        begin_shape_index: 2,
+      },
+      distance_to_maneuver_m: 275,
+      distance_remaining_m: 1800,
+      duration_remaining_s: 120,
+      eta: '2026-01-01T00:05:00.000Z',
+      speed_kmh: 54,
+      speed_limit_kmh: 80,
+      altitude_m: 455,
+      destination: null,
+    });
     h.bus.publish('route/deviation', { at: { lat: 47.0, lon: 9.5 }, cross_track_m: 40, ts: new Date().toISOString() });
     h.bus.publish('event/arrived', { route_id: 'drive-route-1', destination: null, ts: new Date().toISOString() });
     h.bus.publish('event/gps_lost', { lastSource: 'simulator' });
@@ -434,6 +457,18 @@ describe('MqttBridge (aedes in-process broker)', () => {
       icon: 'mdi:arrow-left-top',
     });
 
+    // Die ANZEIGE des Manoevers -- aus dem Zustand, nicht aus der Ansage.
+    // Die Ansage oben trug `distance_m: 150`, der Zustand 275: steht hier
+    // 150, haengt die Anzeige wieder an der falschen Quelle.
+    const maneuverMsg = latestOf(h.records, 'yapaja/nav/maneuver')!;
+    expect(maneuverMsg.payload).toEqual({
+      type: 'turn_right',
+      instruction: 'Rechts abbiegen auf die Bergstrasse',
+      street_names: ['Bergstrasse'],
+      distance_m: 275,
+      icon: expect.stringContaining('mdi:'),
+    });
+
     for (const eventTopic of ['yapaja/event/deviation', 'yapaja/event/arrived', 'yapaja/event/gps_lost']) {
       expect(latestOf(h.records, eventTopic), `${eventTopic} should have been published`).toBeDefined();
     }
@@ -453,6 +488,7 @@ describe('MqttBridge (aedes in-process broker)', () => {
       'yapaja/nav/destination',
       'yapaja/route/summary',
       'yapaja/nav/instruction',
+      'yapaja/nav/maneuver',
     ]) {
       expect(retainedTopics.has(stateTopic), `${stateTopic} should be retained`).toBe(true);
     }

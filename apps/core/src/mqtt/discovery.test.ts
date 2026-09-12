@@ -154,12 +154,25 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
       name: 'Instruction',
       unique_id: 'yapaja_go_instruction',
       object_id: 'yapaja_instruction',
-      state_topic: 'yapaja/nav/instruction',
+      state_topic: 'yapaja/nav/maneuver',
       value_template: '{{ value_json.instruction }}',
-      json_attributes_topic: 'yapaja/nav/instruction',
+      json_attributes_topic: 'yapaja/nav/maneuver',
       ...AVAILABILITY,
       device: DEVICE,
     });
+  });
+
+  // ─── DER GEMELDETE FEHLER ───────────────────────────────────────────────
+  // Hingen diese beiden am Ansage-Topic, stand die Entfernung zwischen zwei
+  // Ansagen still und der Text zeigte nach einer Abbiegung weiter die eben
+  // absolvierte Anweisung. `nav/maneuver` kommt dagegen mit jedem `nav/state`.
+  it('keiner der beiden Anzeige-Sensoren haengt am Ansage-Topic', () => {
+    for (const id of ['instruction', 'instruction_distance']) {
+      const cfg = configFor(configs, `homeassistant/sensor/yapaja_${id}/config`);
+      const payload = cfg.payload as Record<string, unknown>;
+      expect(payload.state_topic, id).toBe('yapaja/nav/maneuver');
+      expect(payload.state_topic, id).not.toBe('yapaja/nav/instruction');
+    }
   });
 
   it('sensor.yapaja_instruction_distance', () => {
@@ -171,7 +184,7 @@ describe('buildDiscoveryConfigs (E08-T2, docs/04 §1) — frozen per-entity snap
       device_class: 'distance',
       state_class: 'measurement',
       unit_of_measurement: 'm',
-      state_topic: 'yapaja/nav/instruction',
+      state_topic: 'yapaja/nav/maneuver',
       value_template: '{{ value_json.distance_m }}',
       ...AVAILABILITY,
       device: DEVICE,

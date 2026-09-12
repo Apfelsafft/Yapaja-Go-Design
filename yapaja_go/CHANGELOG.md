@@ -10,6 +10,43 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.7.2
+
+**Die Entfernung bis zur nächsten Abbiegung steht jetzt nicht mehr still.**
+
+Gemeldet: *„Die Strecke bis zur nächsten Abbiegung wird nicht geupdated. Die
+anderen Werte wohl schon."*
+
+Genau so war es, und der Grund erklärt auch, warum ausgerechnet dieser eine
+Wert betroffen war. Tempo, Ankunftszeit und Reststrecke kommen aus dem
+**Fahrzustand**, den Yapaia jede Sekunde neu meldet. Die Abbiege-Entfernung
+kam dagegen aus der **Ansage** — und eine Ansage entsteht nur, wenn eine
+Ansage-Schwelle fällt. Zwischen zwei Ansagen änderte sich der Wert deshalb
+nie. Er war nicht kaputt, er war aus der falschen Quelle.
+
+**Dasselbe betraf den Anweisungstext, und das war das Schlimmere:** Nach einer
+Abbiegung blieb die gerade absolvierte Anweisung stehen, bis für die nächste
+eine Ansage fiel. Bei drei Kilometern bis zum nächsten Manöver sind das
+Minuten, in denen das Dashboard eine Anweisung zeigte, die längst erledigt
+war. Eine falsche Anweisung ist schlimmer als eine alte Zahl.
+
+Beides kommt jetzt aus dem Fahrzustand und läuft im selben Takt wie alles
+andere. **Das galt für beide Kanäle** — MQTT und HA-intern hatten denselben
+Fehler.
+
+**Was Sie dafür tun müssen: nichts.** Nach dem Update meldet Yapaia die
+Entitäten neu an, und die Kacheln laufen. Wer eigene Automationen auf
+`sensor.yapaja_instruction_distance` gebaut hat, bekommt dort jetzt einen Wert,
+der sich tatsächlich bewegt.
+
+**Für eigene MQTT-Basteleien:** Es gibt ein neues Topic `yapaja/nav/maneuver`
+mit `{type, instruction, street_names, distance_m, icon}` — dieselben Felder
+wie `yapaja/nav/instruction`, aber als Zustand im Sekundentakt statt als
+Ereignis. `yapaja/nav/instruction` bleibt unverändert und ist weiterhin das
+Richtige für Ansage-Automationen („sag das über den Lautsprecher").
+
+---
+
 ## 0.7.1
 
 **Bedienen geht jetzt auch ohne MQTT — und die Position darf aus der
