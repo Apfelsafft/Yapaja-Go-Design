@@ -28,14 +28,27 @@ Aktionen), **HA-Add-on-Packaging** (Installation & UI-Zugriff via Ingress).
 | `binary_sensor.yapaja_speeding` | binary_sensor | nav/speed |
 | `sensor.yapaja_eta` | sensor (timestamp) | nav/eta |
 | `sensor.yapaja_distance_remaining` | sensor (km) | nav/eta |
-| `sensor.yapaja_instruction` | sensor (Text) + Attribut `icon` (Richtungspfeil) | nav/instruction |
-| `sensor.yapaja_instruction_distance` | sensor (m) | nav/instruction |
+| `sensor.yapaja_instruction` | sensor (Text) + Attribut `icon` (Richtungspfeil) | **nav/maneuver** (Zustand, 1 Hz) |
+| `sensor.yapaja_instruction_distance` | sensor (m) | **nav/maneuver** (Zustand, 1 Hz) |
 | `sensor.yapaja_altitude` | sensor (m, device_class distance) | nav/altitude |
 | `sensor.yapaja_nav_state` | sensor (idle/navigating/…) | nav/state |
 | `device_tracker.yapaja_vehicle` | device_tracker (json_attributes lat/lon) | position |
 | `sensor.yapaja_destination` | sensor (Name) + Attribute lat/lon | nav/destination |
 | `button.yapaja_stop` / `pause` / `resume` | button → cmd/navigation | – |
 | `select.yapaja_profile` | select (Profilnamen) → cmd/profile | profiles |
+
+
+  **Warum die beiden Anweisungs-Sensoren an `nav/maneuver` hängen und nicht an
+  `nav/instruction` (0.7.2):** `nav/instruction` ist die ANSAGE. Sie entsteht
+  nur, wenn eine Ansage-Schwelle fällt, und ihre `distance_m` ist die
+  Entfernung in genau diesem Augenblick — der Typ sagt das selbst („AT THE
+  MOMENT the threshold fired"). Gemeldet wurde: „Die Strecke bis zur nächsten
+  Abbiegung wird nicht geupdated. Die anderen Werte wohl schon." Die anderen
+  kamen aus `nav/state`. Betroffen war auch der TEXT: nach einer Abbiegung
+  blieb die eben absolvierte Anweisung stehen, bis für die nächste eine
+  Schwelle fiel. `nav/maneuver` wird aus `nav/state` gebildet und kommt
+  deshalb im selben Takt wie Tempo, ETA und Reststrecke. Dasselbe gilt für den
+  HA-internen Kanal (`ha/statesBridge.ts`), der denselben Fehler hatte.
 
   Alle Entitäten hängen an einem HA-**Device** „Yapaia Go" (identifiers:
   `yapaja_go`, sw_version, configuration_url → App-URL).

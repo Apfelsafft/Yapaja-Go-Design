@@ -209,13 +209,17 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
         name: 'Instruction',
         unique_id: uniqueId('instruction'),
         object_id: objectId('instruction'),
-        state_topic: `${statePrefix}/nav/instruction`,
+        // `nav/maneuver`, NICHT `nav/instruction`: das eine ist der Zustand
+        // (jede Sekunde), das andere die Ansage (nur an der Schwelle). Hing
+        // die Anzeige an der Ansage, stand nach einer Abbiegung weiter die
+        // eben absolvierte Anweisung da -- siehe `mapping.ts`.
+        state_topic: `${statePrefix}/nav/maneuver`,
         value_template: '{{ value_json.instruction }}',
         // No json_attributes_template: the entire `{type, instruction,
         // street_names, distance_m, icon}` payload becomes attributes,
         // exactly the `icon` (mdi name for the maneuver arrow) attribute
         // docs/04 §1 asks for.
-        json_attributes_topic: `${statePrefix}/nav/instruction`,
+        json_attributes_topic: `${statePrefix}/nav/maneuver`,
         ...avail,
         device,
       },
@@ -229,7 +233,10 @@ function buildStaticConfigs(opts: BuildDiscoveryOptions): DiscoveryEntity[] {
         device_class: 'distance',
         state_class: 'measurement',
         unit_of_measurement: 'm',
-        state_topic: `${statePrefix}/nav/instruction`,
+        // Ebenfalls aus dem Zustand: `distance_m` in der Ansage ist die
+        // Entfernung im Augenblick der Ansage und aendert sich bis zur
+        // naechsten nicht mehr. Genau das war gemeldet.
+        state_topic: `${statePrefix}/nav/maneuver`,
         value_template: '{{ value_json.distance_m }}',
         ...avail,
         device,

@@ -37,7 +37,14 @@ export interface MqttInstructionPayload {
   icon: string;
 }
 
-/** `yapaja/nav/instruction` (docs/03 §4). */
+/**
+ * `yapaja/nav/instruction` (docs/03 §4) -- die ANSAGE.
+ *
+ * Achtung, das ist ein Ereignis, kein Zustand: es entsteht nur, wenn die
+ * Ansage-Schwelle ueberschritten wird, und `distance_m` ist die Entfernung in
+ * genau diesem Augenblick. Wer daraus eine ANZEIGE speist, bekommt einen Wert,
+ * der zwischen zwei Ansagen steht -- siehe {@link buildManeuverPayload}.
+ */
 export function buildInstructionPayload(payload: NavInstructionPayload): MqttInstructionPayload {
   return {
     type: payload.maneuver.type,
@@ -45,6 +52,41 @@ export function buildInstructionPayload(payload: NavInstructionPayload): MqttIns
     street_names: payload.maneuver.street_names,
     distance_m: payload.distance_m,
     icon: maneuverIcon(payload.maneuver.type),
+  };
+}
+
+/**
+ * `yapaja/nav/maneuver` -- dasselbe Manoever, aber als ZUSTAND.
+ *
+ * ─── WARUM ES DAS GEBEN MUSS ────────────────────────────────────────────────
+ * Gemeldet: „Die Strecke bis zur naechsten Abbiegung wird nicht geupdated. Die
+ * anderen Werte wohl schon."
+ *
+ * Genau so sah es aus, und die Ursache steht im Typ selbst: `distance_m` in
+ * `NavInstructionPayload` ist laut eigener Beschreibung „the distance to the
+ * maneuver AT THE MOMENT the threshold fired". Zwischen zwei Ansagen aendert
+ * sich dieser Wert nie. Tempo, Ankunft und Reststrecke kommen dagegen aus
+ * `nav/state` im Sekundentakt -- deshalb liefen die.
+ *
+ * Betroffen war nicht nur die Entfernung: auch der TEXT stand still. Nach
+ * einer Abbiegung zeigte die Anzeige weiter die eben absolvierte Anweisung,
+ * bis fuer die naechste eine Schwelle fiel. Bei 3 km bis zum naechsten
+ * Manoever sind das Minuten mit einer Anweisung, die man schon hinter sich
+ * hat -- schlimmer als eine eingefrorene Zahl, weil sie falsch ist statt alt.
+ *
+ * Diese Nutzlast kommt deshalb aus `NavState`: `next_maneuver` und
+ * `distance_to_maneuver_m` werden bei jedem Takt neu gebildet.
+ */
+export function buildManeuverPayload(state: NavState): MqttInstructionPayload | null {
+  if (!state.next_maneuver) return null;
+  return {
+    type: state.next_maneuver.type,
+    instruction: state.next_maneuver.instruction,
+    street_names: state.next_maneuver.street_names,
+    // `distance_to_maneuver_m` kann `null` sein (kein Fix, kein Fortschritt);
+    // dann steht hier 0 statt einer erfundenen Entfernung.
+    distance_m: state.distance_to_maneuver_m ?? 0,
+    icon: maneuverIcon(state.next_maneuver.type),
   };
 }
 

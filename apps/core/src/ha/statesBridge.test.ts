@@ -43,6 +43,18 @@ function navState(overrides: Partial<NavState> = {}): NavState {
   };
 }
 
+/** Ein anstehendes Manoever in `distance` Metern. */
+function abbiegung(distance: number): Partial<NavState> {
+  return {
+    next_maneuver: {
+      type: 'turn_right',
+      instruction: 'Rechts abbiegen',
+      street_names: ['Obere Heide'],
+    } as never,
+    distance_to_maneuver_m: distance,
+  };
+}
+
 function findeZustand(writes: HaStateWrite[], entityId: string): HaStateWrite | undefined {
   return writes.find((w) => w.entityId === entityId);
 }
@@ -52,7 +64,7 @@ describe('welche Entitaeten geschrieben werden', () => {
     // Der eigentliche Punkt: waeren die IDs auch nur leicht anders, stuende
     // im Dashboard weiter „Entitaet nicht gefunden".
     const geschrieben = new Set(
-      buildHaStates({ navState: navState(), instruction: null, position: null }).map(
+      buildHaStates({ navState: navState(), position: null }).map(
         (w) => w.entityId,
       ),
     );
@@ -70,12 +82,11 @@ describe('welche Entitaeten geschrieben werden', () => {
   });
 
   it('schreibt die Position nur, wenn es eine gibt', () => {
-    const ohne = buildHaStates({ navState: null, instruction: null, position: null });
+    const ohne = buildHaStates({ navState: null, position: null });
     expect(findeZustand(ohne, 'device_tracker.yapaja_vehicle')).toBeUndefined();
 
     const mit = buildHaStates({
       navState: null,
-      instruction: null,
       position: { lat: 49.3, lon: 8.2, accuracy: 5, timestamp: 0, source: 'browser' } as never,
     });
     expect(findeZustand(mit, 'device_tracker.yapaja_vehicle')?.attributes).toMatchObject({
@@ -88,7 +99,7 @@ describe('welche Entitaeten geschrieben werden', () => {
 });
 
 describe('die Werte selbst', () => {
-  const writes = buildHaStates({ navState: navState(), instruction: null, position: null });
+  const writes = buildHaStates({ navState: navState(), position: null });
 
   it('Tempo, Tempolimit und Hoehe als Zahl mit Einheit', () => {
     expect(findeZustand(writes, 'sensor.yapaja_speed')).toMatchObject({
@@ -110,14 +121,12 @@ describe('die Werte selbst', () => {
 
     const schnell = buildHaStates({
       navState: navState({ speed_kmh: 120 }),
-      instruction: null,
       position: null,
     });
     expect(findeZustand(schnell, 'binary_sensor.yapaja_speeding')?.state).toBe('on');
 
     const ohneLimit = buildHaStates({
       navState: navState({ speed_kmh: 120, speed_limit_kmh: null }),
-      instruction: null,
       position: null,
     });
     expect(findeZustand(ohneLimit, 'binary_sensor.yapaja_speeding')?.state).toBe('off');
@@ -126,7 +135,7 @@ describe('die Werte selbst', () => {
   it('unbekannte Werte heissen „unknown", nicht „null" oder „NaN"', () => {
     // Ein Sensor mit dem Text „null" sieht in Home Assistant aus wie ein
     // Messwert und ist keiner.
-    const leer = buildHaStates({ navState: null, instruction: null, position: null });
+    const leer = buildHaStates({ navState: null, position: null });
     for (const id of ['sensor.yapaja_speed', 'sensor.yapaja_eta', 'sensor.yapaja_altitude']) {
       expect(findeZustand(leer, id)?.state, id).toBe(UNBEKANNT);
     }
@@ -135,19 +144,55 @@ describe('die Werte selbst', () => {
 
   it('die Anweisung bringt den Richtungspfeil als Attribut mit', () => {
     // Die Dashboard-Vorlage liest `state_attr(..., 'icon')`.
-    const mit = buildHaStates({
-      navState: navState(),
-      instruction: {
-        maneuver: { type: 'turn_right', instruction: 'Rechts abbiegen', street_names: ['Obere Heide'] },
-        distance_m: 57,
-      } as never,
-      position: null,
-    });
+    const mit = buildHaStates({ navState: navState(abbiegung(57)), position: null });
     expect(findeZustand(mit, 'sensor.yapaja_instruction')).toMatchObject({
       state: 'Rechts abbiegen',
       attributes: expect.objectContaining({ icon: expect.stringContaining('mdi:'), distance_m: 57 }),
     });
     expect(findeZustand(mit, 'sensor.yapaja_instruction_distance')?.state).toBe('57');
+  });
+
+  // ─── DER GEMELDETE FEHLER ───────────────────────────────────────────────
+  // „Die Strecke bis zur naechsten Abbiegung wird nicht geupdated. Die
+  // anderen Werte wohl schon." Ursache: beide Anweisungs-Sensoren wurden aus
+  // `nav/instruction` gespeist -- der ANSAGE. Deren `distance_m` ist laut
+  // eigenem Typ „the distance to the maneuver AT THE MOMENT the threshold
+  // fired" und steht zwischen zwei Ansagen still.
+  it('die Entfernung folgt dem Zustand, nicht der Ansage', () => {
+    const weit = buildHaStates({ navState: navState(abbiegung(400)), position: null });
+    const nah = buildHaStates({ navState: navState(abbiegung(120)), position: null });
+    expect(findeZustand(weit, 'sensor.yapaja_instruction_distance')?.state).toBe('400');
+    expect(findeZustand(nah, 'sensor.yapaja_instruction_distance')?.state).toBe('120');
+  });
+
+  it('der Text springt mit dem Manoever um, nicht erst mit der naechsten Ansage', () => {
+    // Sonst stuende nach einer Abbiegung weiter die eben absolvierte
+    // Anweisung da -- bei 3 km bis zum naechsten Manoever minutenlang. Eine
+    // falsche Anweisung ist schlimmer als eine alte Zahl.
+    const danach = buildHaStates({
+      navState: navState({
+        next_maneuver: {
+          type: 'turn_left',
+          instruction: 'Links abbiegen auf den Talweg',
+          street_names: ['Talweg'],
+        } as never,
+        distance_to_maneuver_m: 2900,
+      }),
+      position: null,
+    });
+    expect(findeZustand(danach, 'sensor.yapaja_instruction')?.state).toBe(
+      'Links abbiegen auf den Talweg',
+    );
+    expect(findeZustand(danach, 'sensor.yapaja_instruction_distance')?.state).toBe('2900');
+  });
+
+  it('ohne anstehendes Manoever steht dort „unknown", keine erfundene Null', () => {
+    const leer = buildHaStates({
+      navState: navState({ next_maneuver: null, distance_to_maneuver_m: null }),
+      position: null,
+    });
+    expect(findeZustand(leer, 'sensor.yapaja_instruction')?.state).toBe(UNBEKANNT);
+    expect(findeZustand(leer, 'sensor.yapaja_instruction_distance')?.state).toBe(UNBEKANNT);
   });
 });
 

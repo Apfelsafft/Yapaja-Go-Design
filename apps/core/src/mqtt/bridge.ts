@@ -49,6 +49,7 @@ import {
   buildDestinationPayload,
   buildEtaPayload,
   buildInstructionPayload,
+  buildManeuverPayload,
   buildRouteSummaryPayload,
   buildSpeedPayload,
 } from './mapping.js';
@@ -471,6 +472,10 @@ export class MqttBridge {
     this.publishRetained(`${this.prefix}/nav/speed`, buildSpeedPayload(state));
     this.publishRetained(`${this.prefix}/nav/altitude`, buildAltitudePayload(state));
     this.publishRetained(`${this.prefix}/nav/destination`, buildDestinationPayload(state));
+    // Das anstehende Manoever als ZUSTAND, im selben Takt wie alles andere.
+    // Die Anzeige haengt hieran, nicht an der Ansage -- warum, steht bei
+    // `buildManeuverPayload`.
+    this.publishRetained(`${this.prefix}/nav/maneuver`, buildManeuverPayload(state));
     this.maybePublishRouteSummary(state);
   }
 
