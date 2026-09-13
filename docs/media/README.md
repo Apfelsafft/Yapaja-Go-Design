@@ -42,5 +42,6 @@ files here under the same names.
 | `fahrzeugprofil.png` | The vehicle profile list |
 | `favoriten.png` | The favourites and history drawer |
 | `installationspruefung.png` | The health check — here with genuine failures, because neither routing nor search runs in the harness |
+| `telefon-fahrmodus.png` | Drive mode on a phone in portrait (390 px), where the layout rearranges itself |
 | `fahrt.gif` | A drive: route, position, manoeuvres counting down and switching |
 | `bedienung.gif` | Opening the panels, including the health check |

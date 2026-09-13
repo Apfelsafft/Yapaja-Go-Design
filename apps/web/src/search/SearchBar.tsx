@@ -35,6 +35,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useSchmal } from '../shell/useSchmal.js';
 import type { Favorite, SearchResult } from '@yapaia/shared';
 import { useMapStore } from '../state/mapStore.js';
 import { useRoutingStore } from '../routing/store.js';
@@ -61,6 +62,7 @@ const PANEL_ID = 'search-panel';
  *  (those are exactly the "complex dialog" surface Speed-Lock exists to
  *  gate), just one-tap-to-navigate chips. */
 function FavoritesQuickSelect({ thresholdKmh }: { thresholdKmh: number }): React.ReactElement {
+  const schmal = useSchmal();
   const favorites = useFavoritesStore((state) => state.favorites);
   const fetchFavorites = useFavoritesStore((state) => state.fetchFavorites);
   const map = useMapStore((state) => state.map);
@@ -116,11 +118,22 @@ function FavoritesQuickSelect({ thresholdKmh }: { thresholdKmh: number }): React
             ))
           )}
         </div>
+        {/* ─── AUF DEM TELEFON EINE ZEILE STATT EINES BLOCKS ────────────────
+            Gemessen bei 390 Bildpunkten: der volle Satz brach in eine schmale
+            Saeule um, lief quer durch die Knopfspalte und war dabei nicht mehr
+            lesbar. Verschwiegen wird er trotzdem nicht -- ein gesperrtes
+            Bedienelement ohne Begruendung ist genau das, was dieses Projekt
+            sonst vermeidet. Der ganze Satz bleibt als `title` erreichbar. */}
         <p
-          className="mt-1 px-1 text-xs text-amber-700 dark:text-amber-400"
+          className="mt-1 px-1 text-[11px] leading-tight text-amber-700 dark:text-amber-400"
           data-testid="search-speed-lock-hint"
+          title={`Suche während der Fahrt gesperrt (> ${thresholdKmh} km/h) — nur Favoriten verfügbar.`}
         >
-          Suche während der Fahrt gesperrt (&gt; {thresholdKmh} km/h) — nur Favoriten verfügbar.
+          {schmal ? (
+            <>🔒 nur Favoriten</>
+          ) : (
+            <>Suche während der Fahrt gesperrt (&gt; {thresholdKmh} km/h) — nur Favoriten verfügbar.</>
+          )}
         </p>
       </div>
     </div>

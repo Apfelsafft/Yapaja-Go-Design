@@ -10,6 +10,47 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.1
+
+**Die Oberfläche auf dem Telefon.**
+
+### Gemeldet
+
+> „Bisher habe ich immer auf einem 13-Zoll-iPad getestet und da ist GUI ganz
+> ok. Auf kleinen screens sieht es nicht mehr gut aus."
+
+Auf einem iPhone im Hochformat (390 Bildpunkte breit) lagen **acht** Paare von
+Bedienelementen übereinander: die Abbiegeanweisung unter dem Tempolimit-Schild,
+die Fahrtdaten quer über Tacho *und* Pause/Stopp, die Karteneinstellung auf der
+Fahrtdaten-Kachel.
+
+### Was sich ändert
+
+Unterhalb von 480 Bildpunkten ordnet sich der Fahrmodus neu — so, wie man es
+von einer Navigation auf dem Telefon kennt:
+
+* **Unten eine Leiste über die ganze Breite** mit Ankunft, Restzeit und
+  Entfernung. Darüber, der Reihe nach, Favoriten, Pause/Stopp, die Ansagentaste
+  und die Kartenknöpfe. Nichts liegt mehr auf etwas anderem.
+* **Die Abbiegeanweisung steht links statt mittig.** Mittig blieben auf dem
+  Telefon 142 Bildpunkte, und „Bergstraße" wurde zu „Bergs…". Links sind es
+  238 — der Straßenname passt wieder hinein.
+
+### Drei Fehler, die auf jedem Bildschirm da waren
+
+Beim Nachmessen sind drei Überlappungen aufgefallen, die es auch auf dem iPad
+und am Monitor schon gab — nur hat sie nie jemand geprüft:
+
+* **„Favoriten & Verlauf" lag auf den Fahrtdaten.** Beide sitzen unten in der
+  Mitte, beide bündig am Rand. Die Schublade steht jetzt darüber.
+* **Der Profil-Dialog lag unter der Favoriten-Schublade.** „Speichern" war am
+  unteren Rand verdeckt.
+* **„© OpenStreetMap contributors" lag unter dem Verfolgen-Knopf.** Die
+  Namensnennung ist eine Auflage der Kartenlizenz, kein Beiwerk — der untere
+  Streifen gehört jetzt ihr.
+
+---
+
 ## 0.8.0
 
 **Routenoptionen, deutsche Anweisungstexte, und der blaue Punkt folgt der

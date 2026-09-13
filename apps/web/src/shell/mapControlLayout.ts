@@ -52,7 +52,123 @@ export const TTS_HEIGHT_PX = 64;
  * Zwei davon waeren 136 -- gerechnet wird mit dem Platz fuer ZWEI, weil
  * „Pause" und „Stopp" beide da sind, sobald gefahren wird.
  */
-export const DRIVE_CONTROLS_HEIGHT_PX = 64 * 2 + 8;
+export const DRIVE_CONTROLS_HEIGHT_PX = 64 + 8;
+
+/* ─── SCHMALE BILDSCHIRME ──────────────────────────────────────────────────
+ * Gemeldet mit Bildschirmfoto vom iPhone: „Bisher habe ich immer auf einem
+ * 13-Zoll-iPad getestet und da ist GUI ganz ok. Auf kleinen screens sieht es
+ * nicht mehr gut aus."
+ *
+ * Gemessen bei 390 Bildpunkten waren es ACHT sich ueberlappende Paare. Die
+ * Ursache ist nicht eine falsche Zahl, sondern eine fehlende: die Mitte
+ * (Manoeverkachel, Fahrtdaten) war so breit wie ihr Inhalt und stiess damit
+ * in BEIDE Seitenspalten. Auf 1280 ist dazwischen genug Luft, auf 390 nicht.
+ *
+ * Die Regel hier: die Seitenspalten sind gesetzt, die Mitte muss hineinpassen.
+ * Und unterhalb von {@link SCHMAL_MAX_PX} rueckt die Fahrtdaten-Leiste an den
+ * unteren Rand ueber die ganze Breite -- so, wie es jede Navigation auf einem
+ * Telefon macht -- und alles andere darueber.
+ */
+
+/** Bis zu dieser Breite gilt ein Bildschirm als schmal (Telefon hochkant). */
+export const SCHMAL_MAX_PX = 480;
+
+/**
+ * Hoehe der Fahrtdaten-Leiste, wenn sie am unteren Rand steht.
+ *
+ * Gemessen an der zweizeiligen Form (Wert + Beschriftung) mit `py-2`.
+ * Grosszuegig gerundet: zu viel Abstand sieht luftig aus, zu wenig ergibt
+ * wieder eine Ueberlappung.
+ */
+export const TRIP_BAR_HEIGHT_PX = 68;
+
+/**
+ * Der unterste Streifen gehoert der Namensnennung.
+ *
+ * ─── WARUM DAS EINE EIGENE ZAHL IST ─────────────────────────────────────────
+ * „© OpenStreetMap contributors" ist eine Auflage der ODbL
+ * (`docs/licenses.md` §1), kein Beiwerk. MapLibre setzt die Zeile selbst nach
+ * unten rechts -- und zwar in ZWEI Groessen, je nachdem, ob der Platz fuer den
+ * ausgeschriebenen Text reicht:
+ *
+ *     1280 breit:  20 hoch, buendig am unteren Rand      -> belegt  0..20
+ *      390 breit:  24 hoch, 10 Punkte ueber dem Rand     -> belegt 10..34
+ *
+ * Beides nachgemessen in `control-overlap.spec.ts`. Reserviert wird der
+ * groessere Fall plus etwas Luft -- eine Zahl fuer beide, weil die Alternative
+ * (breitenabhaengig rechnen) eine Annahme ueber MapLibres Innenleben waere,
+ * die niemand nachhaelt.
+ *
+ * Aufgefallen ist das ueberhaupt erst, als der Test die Zeile mitzumessen
+ * begann: der Verfolgen-Knopf lag auch auf 1280 Bildpunkten vier Punkte
+ * darueber -- seit jeher, nur hat es nie jemand geprueft. `map-render.spec.ts`
+ * fand es nicht, weil `toBeVisible()` auch fuer ein verdecktes Element wahr
+ * bleibt.
+ */
+export const ATTRIBUTION_RESERVE_PX = 36;
+
+/** Hoehe der ZUGEKLAPPTEN Favoriten-Schublade (`min-h-[48px]`). Aufgeklappt
+ *  waechst sie nach oben -- dann verdeckt sie bewusst, wie ein Dialog. */
+export const FAVORITES_BAR_HEIGHT_PX = 48;
+
+/* ─── DIE MITTE UNTEN: ZWEI DINGE, NICHT EINES ─────────────────────────────
+ * Unten in der Mitte liegen waehrend der Fahrt ZWEI breite Elemente: die
+ * Fahrtdaten (Ankunft/Restzeit/Entfernung) und die Favoriten-Schublade. Beide
+ * standen auf `EDGE_INSET_PX` -- also uebereinander, auf JEDER Breite.
+ *
+ * Gefunden hat das erst der Bildschirmfoto-Abgleich vom Telefon; gemessen
+ * wurde es nie, weil `favorites-drawer-toggle` in `control-overlap.spec.ts`
+ * gar nicht in der Liste stand. Der Aufnahmelauf fuer die Doku klappt die
+ * Schublade ausdruecklich zu, „sonst ueberlagert sie die Fahrtdaten unten" --
+ * die Ueberlappung war also bekannt und wurde umgangen statt behoben.
+ */
+
+/**
+ * Unterkante der Fahrtdaten -- das unterste Element der Mitte.
+ *
+ * ─── WARUM DAS NICHT VON DER BREITE ABHAENGT ────────────────────────────────
+ * Der erste Versuch hier war „auf schmalen Schirmen ueber der Namensnennung,
+ * sonst buendig am Rand". Gemessen bei 768 stiess die Schublade (448 breit,
+ * mittig, also bis 608) trotzdem in die Namensnennung (ab 595) -- die
+ * Schwelle fuer „schmal" liegt bei 480 und sagt ueber diese Frage gar nichts.
+ *
+ * Die richtige Bedingung waere „ragt das Element in den unteren rechten
+ * Winkel?" -- und die haengt an MapLibres eigener Textbreite, die niemand
+ * nachhaelt. Deshalb gilt die Reserve ueberall. Sie kostet auf breiten
+ * Schirmen 20 Bildpunkte und dafuer eine Fallunterscheidung weniger.
+ */
+export function tripInfoBottomPx(): number {
+  return ATTRIBUTION_RESERVE_PX;
+}
+
+/** Unterkante der Favoriten-Schublade -- direkt ueber den Fahrtdaten. */
+export function favoritesDrawerBottomPx(driveActive: boolean): number {
+  const basis = tripInfoBottomPx();
+  return driveActive ? basis + TRIP_BAR_HEIGHT_PX + STACK_GAP_PX : basis;
+}
+
+/**
+ * Der untere Rand fuer alles, was NICHT in der Mitte liegt.
+ *
+ * Auf breiten Schirmen ist das der alte Wert: die Mitte ist schmal genug, die
+ * Seiten kommen ihr nicht in die Quere. Auf schmalen Schirmen fuellen
+ * Fahrtdaten und Schublade die Breite -- dort beginnt alles andere darueber.
+ */
+export function bottomInsetPx(schmal: boolean, driveActive: boolean): number {
+  if (!schmal) return EDGE_INSET_PX;
+  return favoritesDrawerBottomPx(driveActive) + FAVORITES_BAR_HEIGHT_PX + STACK_GAP_PX;
+}
+
+/**
+ * Der untere Rand fuer die RECHTE Spalte.
+ *
+ * Dort steht die Namensnennung; die Spalte muss ueber ihr beginnen. Links und
+ * in der Mitte ist das nicht noetig -- MapLibre setzt sie nach rechts.
+ */
+export function rightColumnBottomPx(schmal: boolean, driveActive: boolean): number {
+  return Math.max(bottomInsetPx(schmal, driveActive), ATTRIBUTION_RESERVE_PX + STACK_GAP_PX);
+}
+
 
 /** Ein Platz in der rechten Spalte, von unten nach oben. */
 export type RightStackSlot = 'drive-controls' | 'tts' | 'viewmode' | 'compass' | 'recenter';
@@ -81,8 +197,12 @@ const RIGHT_STACK: readonly StackEntry[] = [
  * gibt -- so ruecken die Karten-Knoepfe nach unten, statt eine Luecke zu
  * lassen, wo die Fahrt-Bedienung waere.
  */
-export function rightStackBottomPx(slot: RightStackSlot, driveActive: boolean): number {
-  let bottom = EDGE_INSET_PX;
+export function rightStackBottomPx(
+  slot: RightStackSlot,
+  driveActive: boolean,
+  schmal = false,
+): number {
+  let bottom = rightColumnBottomPx(schmal, driveActive);
   for (const entry of RIGHT_STACK) {
     if (entry.driveOnly && !driveActive) continue;
     if (entry.slot === slot) return bottom;
@@ -94,9 +214,12 @@ export function rightStackBottomPx(slot: RightStackSlot, driveActive: boolean): 
 }
 
 /** Die belegten Bereiche der rechten Spalte -- fuer den Test. */
-export function rightStackRects(driveActive: boolean): { slot: RightStackSlot; bottom: number; top: number }[] {
+export function rightStackRects(
+  driveActive: boolean,
+  schmal = false,
+): { slot: RightStackSlot; bottom: number; top: number }[] {
   return RIGHT_STACK.filter((e) => driveActive || !e.driveOnly).map((entry) => {
-    const bottom = rightStackBottomPx(entry.slot, driveActive);
+    const bottom = rightStackBottomPx(entry.slot, driveActive, schmal);
     return { slot: entry.slot, bottom, top: bottom + entry.heightPx };
   });
 }
@@ -130,6 +253,40 @@ export function rightStackRects(driveActive: boolean): { slot: RightStackSlot; b
 export const TOP_RIGHT_INSET_PX = EDGE_INSET_PX + FAB_SIZE_PX + STACK_GAP_PX;
 
 /**
+ * Wie viel Platz eine Seitenspalte dem zentrierten Teil wegnimmt.
+ *
+ * Nicht `TOP_RIGHT_INSET_PX` allein: das ist nur der ABSTAND der Knopfspalte
+ * zum Rand. Die Knoepfe selbst stehen davor und sind `FAB_SIZE_PX` breit --
+ * gemessen lag die Manoeverkachel genau in diesen 48 Bildpunkten.
+ */
+export const MITTE_SEITENRESERVE_PX = TOP_RIGHT_INSET_PX + FAB_SIZE_PX;
+
+/**
+ * Wie breit etwas in der MITTE hoechstens sein darf, ohne eine Seitenspalte
+ * zu treffen -- als CSS, weil es der Browser mitrechnen muss: eine Zahl aus
+ * JavaScript waere beim Drehen des Geraets veraltet.
+ *
+ * Beide Seiten bekommen dieselbe Breite, weil ein zentriertes Element sonst
+ * auf der einen Seite frueher anstiesse als auf der anderen.
+ */
+export const MITTE_MAX_BREITE_CSS = `calc(100vw - ${2 * MITTE_SEITENRESERVE_PX}px)`;
+
+/**
+ * Dasselbe fuer ein LINKSBUENDIGES Element unter dem oberen Rand.
+ *
+ * ─── WARUM DAS AUF DEM TELEFON NOETIG IST ───────────────────────────────────
+ * Mittig kostet die Begrenzung beide Seiten -- auf 390 Bildpunkten bleiben
+ * 142 fuer die Kachel, und „Bergstraße" wurde zu „Bergs…". Ausgerechnet die
+ * Abbiegeanweisung, das Wichtigste auf dem Bildschirm.
+ *
+ * Neben ihr liegt aber nur RECHTS etwas (die obere Knopfspalte); links ist in
+ * dieser Hoehe frei. Linksbuendig bleiben deshalb 238 statt 142.
+ */
+export const LINKS_MAX_BREITE_CSS = `calc(100vw - ${
+  EDGE_INSET_PX + MITTE_SEITENRESERVE_PX + STACK_GAP_PX
+}px)`;
+
+/**
  * Oberkante der Abbiege-Anzeige.
  *
  * Sie stand auf `top-3` (12) und lag damit ueber der Suchzeile -- die
@@ -141,6 +298,16 @@ export const MANEUVER_PANEL_TOP_PX = TOP_BAR_HEIGHT_PX + 10;
 
 /** Kantenlaenge des runden Tempolimit-Schilds (`w-16 h-16`). */
 export const SPEED_LIMIT_SIGN_SIZE_PX = 64;
+/**
+ * Wie weit die Manoeverkachel auf schmalen Schirmen von oben wegrueckt.
+ *
+ * Das Tempolimit-Schild sitzt oben rechts (`top-3`, 64 hoch, belegt also
+ * 12..76). Die Kachel ist zentriert und auf 390 Bildpunkten breiter als der
+ * Platz links davon -- sie muss deshalb DARUNTER beginnen. Auf breiten
+ * Schirmen ist daneben genug Platz, dort bleibt es bei
+ * {@link MANEUVER_PANEL_TOP_PX}.
+ */
+export const MANEUVER_PANEL_TOP_SCHMAL_PX = 12 + SPEED_LIMIT_SIGN_SIZE_PX + STACK_GAP_PX;
 
 /**
  * Wie viel Platz die `TopBar` am rechten Rand freilassen muss.
@@ -180,17 +347,3 @@ export function topRightSlotPx(slot: TopRightSlot): number {
   if (index < 0) return TOP_RIGHT_STACK_START_PX;
   return TOP_RIGHT_STACK_START_PX + index * TOP_RIGHT_STACK_STEP_PX;
 }
-
-/* ─── UNTERER RAND, MITTE ──────────────────────────────────────────────────*/
-
-/**
- * Unterkante der Fahrtdaten (Ankunft / Restzeit / Entfernung).
- *
- * Mittig unten, weil dort waehrend der Fahrt nichts anderes liegt: die
- * Fahrt-Bedienung und die Karten-Knoepfe stehen rechts, der Tacho links.
- *
- * 16 waere buendig mit der Fahrt-Bedienung -- bei schmalen Fenstern lagen
- * beide dann nebeneinander auf derselben Hoehe und beruehrten sich. Der Wert
- * hebt die Fahrtdaten darueber; `control-overlap.spec.ts` misst nach.
- */
-export const TRIP_INFO_BOTTOM_PX = EDGE_INSET_PX;

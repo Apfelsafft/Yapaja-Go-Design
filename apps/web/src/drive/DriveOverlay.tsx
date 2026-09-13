@@ -24,6 +24,7 @@ import { announce, cancelSpeech, isSpeechAvailable } from './tts.js';
 import { useHandednessStore } from '../shell/handednessStore.js';
 import { sideClassFor } from '../shell/handedness.js';
 import { rightStackBottomPx } from '../shell/mapControlLayout.js';
+import { useSchmal } from '../shell/useSchmal.js';
 import { applyAutoZoomNow } from '../map/followMe.js';
 import TripInfoPanel from './TripInfoPanel.js';
 
@@ -31,6 +32,7 @@ function TtsToggle(): React.ReactElement {
   const enabled = useTtsStore((state) => state.enabled);
   const toggle = useTtsStore((state) => state.toggle);
   const handedness = useHandednessStore((state) => state.handedness);
+  const schmal = useSchmal();
 
   return (
     <button
@@ -52,7 +54,7 @@ function TtsToggle(): React.ReactElement {
       // sondern kommt aus `mapControlLayout.ts`. Vorher stand an dieser
       // Stelle eine Begruendung, die nur `DriveControls` betrachtete -- und
       // genau deshalb lag diese Taste ueber Zentrierung und Ansichtsmodus.
-      style={{ bottom: rightStackBottomPx('tts', true) }}
+      style={{ bottom: rightStackBottomPx('tts', true, schmal) }}
       className={`absolute ${sideClassFor(handedness)} z-20 min-h-[64px] min-w-[64px] rounded-full bg-slate-900/90 text-white px-3 py-2 text-sm font-medium shadow-lg`}
     >
       {enabled ? '🔊 Ansagen an' : '🔇 Ansagen aus'}

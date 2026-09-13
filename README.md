@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/Apfelsafft/Yapaja-Go-Design/actions/workflows/ci.yml/badge.svg)](https://github.com/Apfelsafft/Yapaja-Go-Design/actions/workflows/ci.yml)
 [![Home Assistant add-on](https://img.shields.io/badge/Home%20Assistant-add--on-41BDF5)](#installing)
-[![Version](https://img.shields.io/badge/version-0.7.1-green)](yapaja_go/CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/changelog-what%20changed-blue)](yapaja_go/CHANGELOG.md)
 
 Yapaia Go routes your motorhome around the bridge that is too low and the road
 that is too narrow — with **no internet connection, no account, and no data
@@ -117,6 +117,19 @@ and street names, you lose house numbers. The
 
 ---
 
+## Licence — not yet chosen
+
+**Yapaia Go does not have a licence yet, and that is deliberate, not an
+oversight.** Until one is published here, standard copyright applies: all
+rights reserved. Please do not build on this code, redistribute it or ship it
+in a product yet — the terms that will govern that have not been decided.
+
+Reading the code, running it yourself and reporting problems are welcome.
+
+> **If you are thinking of contributing code:** please open an issue first. A
+> pull request merged before the licence exists would tie the project's hands,
+> because the licence can then no longer be chosen freely.
+
 ## Documentation
 
 | For | Document |
@@ -147,8 +160,8 @@ Architecture, module boundaries and the reasoning behind these choices:
 
 ## Project status
 
-Yapaia Go is at **0.7.1** and in active use. The CI pipeline runs 3200+ unit
-tests, 167 browser tests, a sandbox-escape security suite, performance budgets,
+Yapaia Go is at **0.8.1** and in active use. The CI pipeline runs 3300+ unit
+tests, 170 browser tests, a sandbox-escape security suite, performance budgets,
 a dependency and licence gate, and a routing safety gate on every pull request
 — all of them blocking. What is still open is tracked in
 [`docs/backlog.md`](docs/backlog.md).

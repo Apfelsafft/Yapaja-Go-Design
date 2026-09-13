@@ -13,9 +13,16 @@ import React from 'react';
 import type { Maneuver, NavState } from '@yapaia/shared';
 import { useNavState, useNavStore } from './navStore.js';
 import { useRoutingStore } from '../routing/store.js';
+import {
+  MANEUVER_PANEL_TOP_PX as MANEUVER_TOP_BREIT,
+  MANEUVER_PANEL_TOP_SCHMAL_PX,
+  MITTE_MAX_BREITE_CSS,
+  LINKS_MAX_BREITE_CSS,
+  EDGE_INSET_PX,
+} from '../shell/mapControlLayout.js';
+import { useSchmal } from '../shell/useSchmal.js';
 import { ManeuverArrow } from './arrows.js';
 import { formatDistance } from '../routing/format.js';
-import { MANEUVER_PANEL_TOP_PX } from '../shell/mapControlLayout.js';
 
 // Liegt seit 0.5.5 in `driveActive.ts` -- ein komponentenfreies Modul, damit
 // auch die Karten-Knoepfe es benutzen koennen, ohne eine React-Komponente zu
@@ -63,6 +70,7 @@ export interface ManeuverPanelProps {
 
 export default function ManeuverPanel(props: ManeuverPanelProps = {}): React.ReactElement | null {
   const hookNavState = useNavState();
+  const schmal = useSchmal();
   const routes = useRoutingStore((state) => state.routes);
   // W-19 (E04-T5): stays hidden until any reload-recovery prompt is
   // acknowledged, even if `navState` already reports an active session --
@@ -84,16 +92,37 @@ export default function ManeuverPanel(props: ManeuverPanelProps = {}): React.Rea
   return (
     <div
       data-testid="maneuver-panel"
-      style={{ top: MANEUVER_PANEL_TOP_PX }}
-      className="absolute left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 rounded-2xl bg-slate-900/90 text-white px-4 py-3 shadow-lg pointer-events-none"
+      // Die Breite ist begrenzt, sonst stoesst die Kachel in die Knopfspalte
+      // am rechten Rand -- gemessen bei 390 Bildpunkten, siehe
+      // `mapControlLayout.ts#MITTE_MAX_BREITE_CSS`.
+      style={{
+        // Auf schmalen Schirmen UNTER dem Tempolimit-Schild. Auch
+        // linksbuendig reicht der Platz daneben nicht: das Schild sitzt bei
+        // 390 Bildpunkten ab 250, die Kachel endet bei 254.
+        top: schmal ? MANEUVER_PANEL_TOP_SCHMAL_PX : MANEUVER_TOP_BREIT,
+        // Auf dem Telefon linksbuendig statt mittig -- das ist kein
+        // Geschmack, sondern Platz: mittig bleiben 142 Bildpunkte fuer die
+        // Anweisung, linksbuendig 238.
+        maxWidth: schmal ? LINKS_MAX_BREITE_CSS : MITTE_MAX_BREITE_CSS,
+        ...(schmal ? { left: EDGE_INSET_PX } : null),
+      }}
+      className={`absolute z-20 flex items-center gap-3 rounded-2xl bg-slate-900/90 text-white px-4 py-3 shadow-lg pointer-events-none ${
+        schmal ? '' : 'left-1/2 -translate-x-1/2'
+      }`}
     >
       <ManeuverArrow type={maneuver.type} className="shrink-0" />
-      <div className="flex flex-col">
+      <div className="flex min-w-0 flex-col">
         <span data-testid="maneuver-distance" className="text-xl font-bold leading-tight tabular-nums">
           {formatDistance(distanceM)}
         </span>
         {street && (
-          <span data-testid="maneuver-street" className="text-sm text-slate-200 leading-tight">
+          <span
+            data-testid="maneuver-street"
+            // `truncate`: auf 390 Bildpunkten wurde „Bergstraße" mitten im
+            // Wort von der Kachelkante abgeschnitten -- ohne Punkte, also
+            // ohne Hinweis, dass da noch etwas fehlt.
+            className="truncate text-sm text-slate-200 leading-tight"
+          >
             {street}
           </span>
         )}
@@ -104,7 +133,7 @@ export default function ManeuverPanel(props: ManeuverPanelProps = {}): React.Rea
           className="flex items-center gap-1 pl-3 ml-1 border-l border-white/30 text-slate-300"
         >
           <ManeuverArrow type={following.type} size={24} />
-          {following.street && <span className="text-xs">{following.street}</span>}
+          {following.street && <span className="truncate text-xs">{following.street}</span>}
         </div>
       )}
     </div>

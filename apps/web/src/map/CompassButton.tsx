@@ -10,11 +10,13 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { mapController, useMapStore } from '../state/mapStore';
 import { useSetViewMode } from './viewMode';
 import { rightStackBottomPx, EDGE_INSET_PX } from '../shell/mapControlLayout.js';
+import { useSchmal } from '../shell/useSchmal.js';
 import { useNavStore } from '../drive/navStore.js';
 import { isDriveActive } from '../drive/driveActive.js';
 
 export default function CompassButton(): React.ReactElement | null {
   const driveActive = isDriveActive(useNavStore((state) => state.navState?.status));
+  const schmal = useSchmal();
   const [bearing, setBearing] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const setViewMode = useSetViewMode();
@@ -63,7 +65,7 @@ export default function CompassButton(): React.ReactElement | null {
   return (
     <button
       onClick={handleClick}
-      style={{ bottom: rightStackBottomPx('compass', driveActive), right: EDGE_INSET_PX }}
+      style={{ bottom: rightStackBottomPx('compass', driveActive, schmal), right: EDGE_INSET_PX }}
       className="fixed w-12 h-12 rounded-full bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
       aria-label="Zurück zu Nord"
       title="Zurück zu Nord"
