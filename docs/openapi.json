@@ -1089,6 +1089,29 @@
         }
       }
     },
+    "/api/v1/routes/optimize": {
+      "post": {
+        "summary": "POST /api/v1/routes/optimize",
+        "tags": [
+          "Sonstige"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/routes/{id}": {
       "get": {
         "summary": "Route abrufen (Cache, TTL 1 h)",
@@ -2886,6 +2909,15 @@
             "minimum": 0,
             "maximum": 3,
             "description": "Number of alternative routes to return (0–3)"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "fastest",
+              "shortest",
+              "balanced"
+            ],
+            "description": "Was optimiert wird: fastest = kuerzeste Fahrzeit (Vorgabe), shortest = kuerzeste Strecke, balanced = Mittelweg ohne ausgepraegte Autobahn-Vorliebe"
           },
           "exclude_locations": {
             "type": "array",

@@ -130,8 +130,9 @@ interface NavState {
 ### Routing & Navigation
 | Methode & Pfad | Zweck |
 |---|---|
-| `POST /api/v1/routes` | Route(n) berechnen (`RouteRequest` → `Route[]`, erste = empfohlen) |
+| `POST /api/v1/routes` | Route(n) berechnen (`RouteRequest` → `Route[]`, erste = empfohlen). `mode` wählt `fastest`/`shortest`/`balanced`; fehlt es, gilt die Einstellung `route_mode` (0.8.0) |
 | `GET /api/v1/routes/{id}` | Route abrufen (Cache, TTL 1 h) |
+| `POST /api/v1/routes/optimize` | Günstigste Reihenfolge der Zwischenziele (`RouteRequest` → `{order: number[]}`, Stellen in der übergebenen Liste). Rechnet über Valhallas `/optimized_route`; eine unbrauchbare Antwort ergibt die unveränderte Reihenfolge (0.8.0) |
 | `POST /api/v1/navigation/start` | `{route_id}` → Navigation starten |
 | `POST /api/v1/navigation/pause` \| `resume` \| `stop` | Steuerung |
 | `GET /api/v1/navigation/state` | aktueller `NavState` |

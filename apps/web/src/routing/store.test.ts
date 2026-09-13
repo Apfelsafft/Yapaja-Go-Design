@@ -6,6 +6,7 @@ vi.mock('./client.js', async (importOriginal) => {
   return {
     ...actual,
     requestRoutes: vi.fn(),
+    optimiereReihenfolge: vi.fn(),
   };
 });
 
@@ -14,6 +15,7 @@ import * as client from './client.js';
 import { RoutingApiError } from './client.js';
 
 const requestRoutesMock = client.requestRoutes as unknown as ReturnType<typeof vi.fn>;
+const optimiereMock = client.optimiereReihenfolge as unknown as ReturnType<typeof vi.fn>;
 
 function makeRoute(id: string, overrides: Partial<Route> = {}): Route {
   return {
@@ -37,6 +39,8 @@ const INITIAL_STATE = {
   error: null,
   avoidOverrides: {},
   tempAvoidances: [],
+  waypoints: [],
+  routeMode: 'fastest' as const,
 };
 
 describe('routing store', () => {
@@ -138,6 +142,7 @@ describe('routing store', () => {
         waypoints: [],
         profile_id: 'profile-1',
         alternatives: 2,
+        mode: 'fastest',
       });
       const state = useRoutingStore.getState();
       expect(state.status).toBe('success');
@@ -187,6 +192,7 @@ describe('routing store', () => {
         waypoints: [],
         profile_id: 'profile-1',
         alternatives: 2,
+        mode: 'fastest',
         avoid_overrides: { toll: true, motorway: false },
       });
     });
@@ -209,6 +215,7 @@ describe('routing store', () => {
         waypoints: [],
         profile_id: 'profile-1',
         alternatives: 2,
+        mode: 'fastest',
         exclude_polygons: [polygon],
       });
     });
@@ -457,5 +464,78 @@ describe('routing store', () => {
       expect(useRoutingStore.getState().routes).toEqual([]);
       expect(useRoutingStore.getState().activeRouteId).toBeNull();
     });
+  });
+});
+
+describe('die Routenart und die Reihenfolge der Zwischenziele', () => {
+  const ZIEL = { lat: 49, lon: 8.4 };
+  const PARAMS = { origin: 'current' as const, profileId: 'profile-1' };
+  const WP = [
+    { id: 'w1', latlng: { lat: 49.1, lon: 8.5 }, name: 'A' },
+    { id: 'w2', latlng: { lat: 49.2, lon: 8.6 }, name: 'B' },
+    { id: 'w3', latlng: { lat: 49.3, lon: 8.7 }, name: 'C' },
+  ];
+
+  beforeEach(() => {
+    useRoutingStore.setState({ ...INITIAL_STATE, destination: ZIEL });
+    requestRoutesMock.mockReset();
+    requestRoutesMock.mockResolvedValue([makeRoute('r1')]);
+    optimiereMock.mockReset();
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true }) as never;
+  });
+
+  it('schickt die gewaehlte Routenart mit der Anfrage', async () => {
+    useRoutingStore.getState().setRouteMode('shortest', null);
+    await useRoutingStore.getState().requestRoute(PARAMS);
+    expect(requestRoutesMock.mock.calls[0][0]).toMatchObject({ mode: 'shortest' });
+  });
+
+  it('berechnet bei einem Wechsel sofort neu -- aber nur mit Ziel', async () => {
+    useRoutingStore.getState().setRouteMode('balanced', PARAMS);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(requestRoutesMock).toHaveBeenCalledTimes(1);
+
+    // Ohne Ziel gibt es nichts neu zu berechnen.
+    useRoutingStore.setState({ ...INITIAL_STATE, destination: null });
+    requestRoutesMock.mockClear();
+    useRoutingStore.getState().setRouteMode('shortest', PARAMS);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(requestRoutesMock).not.toHaveBeenCalled();
+  });
+
+  it('sortiert die Zwischenziele in die gelieferte Reihenfolge um', async () => {
+    useRoutingStore.setState({ waypoints: WP as never });
+    optimiereMock.mockResolvedValue([2, 0, 1]);
+    await useRoutingStore.getState().optimizeWaypointOrder(PARAMS);
+    expect(useRoutingStore.getState().waypoints.map((w) => w.id)).toEqual(['w3', 'w1', 'w2']);
+  });
+
+  // ─── GERATEN WIRD HIER NICHTS ───────────────────────────────────────────
+  // Der Fahrer faehrt diese Reihenfolge ab. Eine unbrauchbare Antwort laesst
+  // die Liste deshalb unveraendert, statt sie zu verstuemmeln.
+  it('laesst die Liste unveraendert, wenn die Antwort nicht passt', async () => {
+    for (const kaputt of [[], [0, 1], [0, 1, 1], [0, 1, 5], [0.5, 1, 2]]) {
+      useRoutingStore.setState({ waypoints: WP as never });
+      optimiereMock.mockResolvedValue(kaputt);
+      await useRoutingStore.getState().optimizeWaypointOrder(PARAMS);
+      expect(
+        useRoutingStore.getState().waypoints.map((w) => w.id),
+        JSON.stringify(kaputt),
+      ).toEqual(['w1', 'w2', 'w3']);
+    }
+  });
+
+  it('fragt bei weniger als zwei Zwischenzielen gar nicht', async () => {
+    useRoutingStore.setState({ waypoints: [WP[0]] as never });
+    await useRoutingStore.getState().optimizeWaypointOrder(PARAMS);
+    expect(optimiereMock).not.toHaveBeenCalled();
+  });
+
+  it('meldet einen Fehler, statt still zu scheitern', async () => {
+    useRoutingStore.setState({ waypoints: WP as never });
+    optimiereMock.mockRejectedValue(new RoutingApiError('NO_ROUTE', 'Keine Route'));
+    await useRoutingStore.getState().optimizeWaypointOrder(PARAMS);
+    expect(useRoutingStore.getState().status).toBe('error');
+    expect(useRoutingStore.getState().error?.code).toBe('NO_ROUTE');
   });
 });

@@ -56,3 +56,25 @@ export async function requestRoutes(body: RouteRequest): Promise<Route[]> {
   const responseBody = (await response.json()) as { data: Route[] };
   return Array.isArray(responseBody?.data) ? responseBody.data : [];
 }
+
+/**
+ * Die guenstigste Reihenfolge der Zwischenziele (`POST /routes/optimize`).
+ *
+ * Gibt Stellen in der uebergebenen Zwischenziel-Liste zurueck: `[2, 0, 1]`
+ * heisst „erst das dritte, dann das erste, dann das zweite". Wirft
+ * `RoutingApiError` wie jede andere Routenanfrage.
+ */
+export async function optimiereReihenfolge(body: RouteRequest): Promise<number[]> {
+  const response = await fetch(apiUrl('api/v1/routes/optimize'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+  const responseBody = (await response.json()) as { data?: { order?: unknown } };
+  const order = responseBody?.data?.order;
+  // Eine unbrauchbare Antwort ist kein Grund, die Liste durcheinanderzubringen.
+  return Array.isArray(order) && order.every((n) => Number.isInteger(n)) ? (order as number[]) : [];
+}

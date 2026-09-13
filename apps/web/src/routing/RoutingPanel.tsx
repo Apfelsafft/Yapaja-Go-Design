@@ -49,6 +49,8 @@ const AVOID_LABELS: Record<(typeof AVOID_FLAGS)[number], string> = {
 
 export default function RoutingPanel(): React.ReactElement | null {
   const destination = useRoutingStore((state) => state.destination);
+  const routeMode = useRoutingStore((state) => state.routeMode);
+  const setRouteMode = useRoutingStore((state) => state.setRouteMode);
   const destinationName = useRoutingStore((state) => state.destinationName);
   const routes = useRoutingStore((state) => state.routes);
   const activeRouteId = useRoutingStore((state) => state.activeRouteId);
@@ -344,6 +346,48 @@ export default function RoutingPanel(): React.ReactElement | null {
             wählt wieder ein Ziel.
           </p>
         )}
+      </div>
+
+      {/* ─── WONACH GESUCHT WIRD ────────────────────────────────────────────
+          Die Masse des Fahrzeugs gelten in allen dreien unveraendert -- die
+          Wahl entscheidet nur, welche ERLAUBTE Route genommen wird. Deshalb
+          steht sie hier und nicht beim Profil: sie ist eine Vorliebe, keine
+          Sicherheitsangabe. */}
+      <div
+        className="rounded-md border border-slate-200 dark:border-slate-700 p-2 space-y-1"
+        data-testid="route-mode-section"
+      >
+        <div className="text-xs font-medium text-slate-600 dark:text-slate-300">Route</div>
+        <div className="flex gap-1" role="group" aria-label="Routenart">
+          {(
+            [
+              ['fastest', 'Schnellste', 'Kürzeste Fahrzeit'],
+              ['shortest', 'Kürzeste', 'Kürzeste Strecke'],
+              ['balanced', 'Ausgewogen', 'Mittelweg — nimmt die Autobahn nur, wenn sie sich lohnt'],
+            ] as const
+          ).map(([wert, beschriftung, titel]) => (
+            <button
+              key={wert}
+              type="button"
+              title={titel}
+              aria-pressed={routeMode === wert}
+              onClick={() =>
+                setRouteMode(
+                  wert,
+                  activeProfile ? { origin: 'current', profileId: activeProfile.id } : null,
+                )
+              }
+              className={
+                routeMode === wert
+                  ? 'flex-1 text-xs px-2 py-1 rounded-md bg-blue-600 text-white'
+                  : 'flex-1 text-xs px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+              }
+              data-testid={`route-mode-${wert}`}
+            >
+              {beschriftung}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Zwischenziele direkt unter dem Start: das ist die Reihenfolge, in

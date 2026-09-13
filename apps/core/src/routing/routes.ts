@@ -11,7 +11,7 @@
  */
 
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
-import type { ApiError, RouteRequest } from '@yapaia/shared';
+import type { ApiError, RouteMode, RouteRequest } from '@yapaia/shared';
 import { validateRouteRequest } from '@yapaia/shared';
 import { isRoutingError, type RoutingError } from './errors.js';
 import { type InstalledRegionsProvider } from './coverageCheck.js';
@@ -48,6 +48,11 @@ export interface RoutingRoutesOptions {
    * the navigation plugin. Falls back to building one from the options above.
    */
   service?: RoutingService;
+  /** Eingestellte Sprache fuer Valhallas Manoevertexte -- siehe
+   *  `RoutingServiceOptions.sprache`. */
+  sprache?: () => string | null | undefined;
+  /** Gespeicherte Routenart -- siehe `RoutingServiceOptions.routeMode`. */
+  routeMode?: () => RouteMode | null | undefined;
   logger?: RoutingLogger;
   cache?: RouteCacheOptions;
 }
@@ -104,6 +109,8 @@ export function buildRoutingService(
     regionsProvider,
     logger,
     cache: opts.cache,
+    sprache: opts.sprache,
+    routeMode: opts.routeMode,
   });
 }
 
@@ -167,6 +174,48 @@ export const routingPlugin: FastifyPluginAsync<RoutingRoutesOptions> = async (fa
         return reply
           .code(500)
           .send(errorResponse('INTERNAL_ERROR', 'Unexpected error computing routes'));
+      }
+    },
+  );
+
+  // POST /routes/optimize -- die guenstigste Reihenfolge der Zwischenziele.
+  //
+  // Eigener Endpunkt statt eines Schalters an `POST /routes`: das eine
+  // BERECHNET eine Route, das andere SORTIERT eine Liste. Zusammengelegt
+  // muesste jeder Aufrufer wissen, welches von beidem er gerade bekommt.
+  fastify.post<{ Body: unknown; Reply: { data: unknown } | ApiError }>(
+    '/routes/optimize',
+    async (request, reply) => {
+      const body = request.body;
+      if (!validateRouteRequest(body)) {
+        return reply
+          .code(400)
+          .send(errorResponse('VALIDATION_ERROR', 'Invalid RouteRequest body'));
+      }
+      const routeRequest: RouteRequest = body;
+
+      try {
+        const order = await service.optimiereReihenfolge(routeRequest);
+        return reply.code(200).send({ data: { order } });
+      } catch (err) {
+        if (isRoutingError(err)) {
+          const typedErr = err as RoutingError & {
+            missing_region_hint?: string;
+            details?: Record<string, unknown>;
+          };
+          return reply.code(err.httpStatus).send(
+            errorResponse(err.code, err.message, {
+              missing_region_hint: typedErr.missing_region_hint,
+              details: typedErr.details,
+            }),
+          );
+        }
+        logger.error('Unexpected error optimizing waypoint order', {
+          reason: err instanceof Error ? err.message : String(err),
+        });
+        return reply
+          .code(500)
+          .send(errorResponse('INTERNAL_ERROR', 'Unexpected error optimizing waypoint order'));
       }
     },
   );

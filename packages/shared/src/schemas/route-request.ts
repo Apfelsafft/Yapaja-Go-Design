@@ -35,6 +35,12 @@ export const routeRequestSchema = {
       maximum: 3,
       description: 'Number of alternative routes to return (0–3)',
     },
+    mode: {
+      type: 'string',
+      enum: ['fastest', 'shortest', 'balanced'],
+      description:
+        'Was optimiert wird: fastest = kuerzeste Fahrzeit (Vorgabe), shortest = kuerzeste Strecke, balanced = Mittelweg ohne ausgepraegte Autobahn-Vorliebe',
+    },
     // E03-T4: optional, backward-compatible temporary-avoidance fields.
     // Absent in a request => identical behavior to before this schema
     // version (no exclusions, no avoid overrides).

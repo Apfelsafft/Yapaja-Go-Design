@@ -135,3 +135,73 @@ export function splitRouteAtProgress(
 
   return { traveled, remaining: [split, ...coords.slice(i + 1)] };
 }
+
+/**
+ * Der Punkt auf der Linie bei `progressM` -- mit dem Kurs des Abschnitts,
+ * auf dem er liegt.
+ *
+ * ─── DIE MELDUNG ────────────────────────────────────────────────────────────
+ * „Es sieht so aus als ob die aktuelle Position bei scharfen Abbiegungen so
+ * was wie eine sanfte Kurve wählt. Sie folgt nicht exakt der Straße sondern
+ * mittelt irgendwie."
+ *
+ * ─── WAS DA GEMITTELT WURDE ─────────────────────────────────────────────────
+ * Nicht der Simulator -- der laeuft die Stuetzpunkte exakt ab
+ * (`position/simulator/track.ts`). Gemittelt hat die ANZEIGE: zwischen zwei
+ * Meldungen wanderte der Punkt auf der LUFTLINIE
+ * (`position/smoothing.ts#interpolateFix`). Vor der Ecke liegt Meldung A,
+ * dahinter Meldung B -- die Gerade dazwischen schneidet die Kurve ab.
+ *
+ * Im Zeitraffer ist der Effekt gross: der Simulator erzeugt je simulierter
+ * Sekunde eine Position, durchgelassen wird eine je echter Sekunde. Bei 32x
+ * liegen zwei Meldungen rund 440 m auseinander -- eine Sehne ueber 440 m
+ * schneidet jede Kreuzung.
+ *
+ * ─── WARUM DER WEG UEBER DEN FORTSCHRITT ────────────────────────────────────
+ * Weil die Linie bekannt ist. Statt zwischen zwei ORTEN zu interpolieren,
+ * wird zwischen zwei FORTSCHRITTEN interpoliert und der Punkt auf der Linie
+ * nachgeschlagen. Damit folgt der Punkt der Strasse auf den Meter genau und
+ * bewegt sich trotzdem gleichmaessig -- die Glaettung aus 0.6.6 bleibt also
+ * erhalten, sie laeuft nur nicht mehr quer ueber die Kreuzung.
+ *
+ * Der Fortschritt kommt weiterhin aus `distance_remaining_m` des Cores; hier
+ * entsteht keine zweite Wahrheit (siehe Kopfkommentar).
+ */
+export function punktBeiProgress(
+  coords: readonly Coord[],
+  cumulative: readonly number[],
+  progressM: number,
+): { lat: number; lon: number; heading: number } | null {
+  if (coords.length < 2 || cumulative.length !== coords.length) return null;
+  if (!Number.isFinite(progressM)) return null;
+
+  const totalM = cumulative[cumulative.length - 1];
+  const kursVon = (i: number, j: number): number => {
+    const dLon = ((coords[j][0] - coords[i][0]) * Math.PI) / 180;
+    const lat1 = (coords[i][1] * Math.PI) / 180;
+    const lat2 = (coords[j][1] * Math.PI) / 180;
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    return (((Math.atan2(y, x) * 180) / Math.PI) + 360) % 360;
+  };
+
+  // Vor dem Anfang und hinter dem Ende gilt der jeweilige Endpunkt. Ein
+  // Fortschritt ausserhalb der Linie ist kein Grund, gar nichts zu zeigen.
+  if (progressM <= 0) return { lat: coords[0][1], lon: coords[0][0], heading: kursVon(0, 1) };
+  if (progressM >= totalM) {
+    const n = coords.length - 1;
+    return { lat: coords[n][1], lon: coords[n][0], heading: kursVon(n - 1, n) };
+  }
+
+  let i = 0;
+  while (i < coords.length - 2 && cumulative[i + 1] <= progressM) i++;
+
+  const abschnittM = cumulative[i + 1] - cumulative[i];
+  // Doppelte Stuetzpunkte kommen in echten Geometrien vor; 0/0 waere NaN.
+  const anteil = abschnittM > 0 ? (progressM - cumulative[i]) / abschnittM : 0;
+  return {
+    lat: coords[i][1] + (coords[i + 1][1] - coords[i][1]) * anteil,
+    lon: coords[i][0] + (coords[i + 1][0] - coords[i][0]) * anteil,
+    heading: kursVon(i, i + 1),
+  };
+}

@@ -12,6 +12,7 @@ import { describe, it, expect } from 'vitest';
 import {
   cumulativeMeters,
   progressFromRemaining,
+  punktBeiProgress,
   splitRouteAtProgress,
   type Coord,
 } from './traveledSplit.js';
@@ -195,5 +196,73 @@ describe('die gefahrene Haelfte taugt immer als Linie', () => {
       const { traveled } = splitRouteAtProgress(LINE, CUM, p);
       expect(traveled.length === 0 || traveled.length >= 2, `bei ${p} m`).toBe(true);
     }
+  });
+});
+
+describe('der Punkt auf der Linie bei einem Fortschritt', () => {
+  // Ein rechtwinkliges L: erst 1 km nach Norden, dann 1 km nach Osten.
+  // Genau die Form, bei der die Luftlinie zwischen zwei Meldungen die Ecke
+  // abschneidet.
+  const ECKE: Coord[] = [
+    [9.0, 47.0],
+    [9.0, 47.009],
+    [9.0132, 47.009],
+  ];
+  const CUM = cumulativeMeters(ECKE);
+
+  it('liegt auf dem ersten Schenkel, solange der Fortschritt dort liegt', () => {
+    const p = punktBeiProgress(ECKE, CUM, CUM[1] / 2)!;
+    expect(p.lon).toBeCloseTo(9.0, 6);
+    expect(p.lat).toBeGreaterThan(47.0);
+    expect(p.lat).toBeLessThan(47.009);
+    expect(p.heading).toBeCloseTo(0, 0); // Norden
+  });
+
+  it('liegt auf dem zweiten Schenkel, sobald die Ecke passiert ist', () => {
+    const p = punktBeiProgress(ECKE, CUM, CUM[1] + (CUM[2] - CUM[1]) / 2)!;
+    expect(p.lat).toBeCloseTo(47.009, 6);
+    expect(p.lon).toBeGreaterThan(9.0);
+    expect(p.heading).toBeCloseTo(90, 0); // Osten
+  });
+
+  // ─── DER GEMELDETE FEHLER ───────────────────────────────────────────────
+  // „Sie folgt nicht exakt der Straße sondern mittelt irgendwie." Die alte
+  // Glaettung zog eine Gerade von Meldung zu Meldung. Auf diesem L liegt die
+  // Mitte dieser Geraden deutlich INNERHALB der Ecke -- im Feld also quer
+  // ueber die Kreuzung. Der Punkt auf der Linie tut das nie.
+  it('bleibt in der Ecke auf der Strasse, statt sie abzuschneiden', () => {
+    const gesamt = CUM[2];
+    for (let i = 0; i <= 40; i++) {
+      const p = punktBeiProgress(ECKE, CUM, (gesamt * i) / 40)!;
+      // Auf dem L gilt IMMER: entweder auf dem Laengengrad des ersten
+      // Schenkels, oder auf dem Breitengrad des zweiten. Eine Sehne ueber die
+      // Ecke erfuellt beides nicht.
+      const aufSchenkel1 = Math.abs(p.lon - 9.0) < 1e-9;
+      const aufSchenkel2 = Math.abs(p.lat - 47.009) < 1e-9;
+      expect(aufSchenkel1 || aufSchenkel2, `Fortschritt ${(gesamt * i) / 40} m liegt neben der Linie`).toBe(true);
+    }
+  });
+
+  it('haelt sich an den Enden fest, statt nichts zu liefern', () => {
+    expect(punktBeiProgress(ECKE, CUM, -50)).toMatchObject({ lat: 47.0, lon: 9.0 });
+    expect(punktBeiProgress(ECKE, CUM, CUM[2] + 500)).toMatchObject({ lat: 47.009 });
+  });
+
+  it('liefert `null`, wenn es keine Linie gibt', () => {
+    expect(punktBeiProgress([], [], 10)).toBeNull();
+    expect(punktBeiProgress([[9, 47]], [0], 10)).toBeNull();
+    expect(punktBeiProgress(ECKE, CUM, Number.NaN)).toBeNull();
+  });
+
+  it('ueberlebt doppelte Stuetzpunkte ohne NaN', () => {
+    // Kommen in echten Geometrien vor; 0/0 waere ein Punkt aus zwei NaN.
+    const doppelt: Coord[] = [
+      [9.0, 47.0],
+      [9.0, 47.0],
+      [9.0, 47.009],
+    ];
+    const p = punktBeiProgress(doppelt, cumulativeMeters(doppelt), 0.0001)!;
+    expect(Number.isFinite(p.lat)).toBe(true);
+    expect(Number.isFinite(p.lon)).toBe(true);
   });
 });

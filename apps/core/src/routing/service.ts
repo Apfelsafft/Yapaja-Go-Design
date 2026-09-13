@@ -8,7 +8,7 @@
  * with 500 -- an unplausible route is NEVER delivered.
  */
 
-import type { LatLng, Position, Route, RouteRequest, VehicleProfile } from '@yapaia/shared';
+import type { LatLng, Position, Route, RouteMode, RouteRequest, VehicleProfile } from '@yapaia/shared';
 import { checkRoute } from '@yapaia/shared';
 import { RouteCache, type RouteCacheOptions } from './cache.js';
 import { checkCoverage, type InstalledRegionsProvider } from './coverageCheck.js';
@@ -35,6 +35,20 @@ export interface RoutingServiceOptions {
   regionsProvider: InstalledRegionsProvider;
   logger?: RoutingLogger;
   cache?: RouteCacheOptions;
+  /**
+   * Die eingestellte Sprache (`'de'`/`'en'`) fuer Valhallas Manoevertexte.
+   *
+   * Eine ABFRAGE, keine Konstante: so gilt ein Sprachwechsel ab der naechsten
+   * Route, ohne Neustart. Fehlt sie, bleibt es bei Deutsch -- dieselbe Sprache,
+   * in der die Ansagen entstehen.
+   *
+   * Bereits BERECHNETE Routen behalten ihre Texte: sie liegen mit dem fertigen
+   * Text im Zwischenspeicher (TTL 1 h). Wer die Sprache mitten in einer Fahrt
+   * umstellt, sieht sie erst ab der naechsten Neuberechnung.
+   */
+  sprache?: () => string | null | undefined;
+  /** Die gespeicherte Routenart, wenn die Anfrage keine mitbringt. */
+  routeMode?: () => RouteMode | null | undefined;
 }
 
 const noopLogger: RoutingLogger = {
@@ -65,6 +79,8 @@ export class RoutingService {
   private readonly regionsProvider: InstalledRegionsProvider;
   private readonly logger: RoutingLogger;
   private readonly cache: RouteCache;
+  private readonly sprache?: () => string | null | undefined;
+  private readonly routeMode?: () => RouteMode | null | undefined;
 
   constructor(opts: RoutingServiceOptions) {
     this.client = opts.client;
@@ -73,10 +89,97 @@ export class RoutingService {
     this.regionsProvider = opts.regionsProvider;
     this.logger = opts.logger ?? noopLogger;
     this.cache = new RouteCache(opts.cache);
+    this.sprache = opts.sprache;
+    this.routeMode = opts.routeMode;
   }
 
   getCachedRoute(id: string): Route | null {
     return this.cache.get(id);
+  }
+
+  /**
+   * Die guenstigste Reihenfolge der Zwischenziele.
+   *
+   * ─── WOFUER ─────────────────────────────────────────────────────────────
+   * Gewuenscht: „Routen Optionen … optimierte". Zwei Bedeutungen stecken in
+   * dem Wort; das hier ist die zweite: nicht eine andere Routenart, sondern
+   * die Frage, in welcher REIHENFOLGE man mehrere Halte anfaehrt. Wer vier
+   * Stellplaetze eintippt, tippt sie selten in der guenstigsten Folge ein.
+   *
+   * ─── WARUM VALHALLA DAS RECHNET UND NICHT WIR ───────────────────────────
+   * Weil es das Handlungsreisendenproblem ist. Valhalla bringt dafuer einen
+   * eigenen Endpunkt mit (`/optimized_route`), der dieselben Fahrzeugmasse
+   * und dieselben Vermeidungen beruecksichtigt wie jede andere Route. Eine
+   * eigene Loesung waere eine zweite, schlechtere Wahrheit.
+   *
+   * ─── WAS ZURUECKKOMMT ───────────────────────────────────────────────────
+   * Die neue Reihenfolge der ZWISCHENZIELE als Liste von Stellen in der
+   * urspruenglichen Liste (`[2, 0, 1]` heisst: erst das dritte, dann das
+   * erste, dann das zweite). Start und Ziel bleiben, wo sie sind -- Valhalla
+   * haelt den ersten und den letzten Ort fest.
+   *
+   * Wirft {@link RoutingError} wie jede andere Routenberechnung.
+   */
+  async optimiereReihenfolge(request: RouteRequest): Promise<number[]> {
+    const profile = this.profileService.getById(request.profile_id);
+    if (!profile) {
+      throw new RoutingError(404, 'PROFILE_NOT_FOUND', `Profile ${request.profile_id} not found`);
+    }
+    // Unter zwei Halten gibt es nichts umzusortieren. Das ist kein Fehler --
+    // die Antwort ist die unveraenderte Reihenfolge.
+    if (request.waypoints.length < 2) {
+      return request.waypoints.map((_, i) => i);
+    }
+
+    const originLatLng = this.resolveOrigin(request.origin);
+    await checkCoverage(originLatLng, request.destination, request.waypoints, this.regionsProvider);
+
+    const body = buildValhallaRouteBody(
+      originLatLng,
+      request.destination,
+      request.waypoints,
+      profile,
+      0, // Alternativen ergeben beim Sortieren keinen Sinn.
+      {
+        excludeLocations: request.exclude_locations,
+        excludePolygons: request.exclude_polygons,
+        avoidOverrides: request.avoid_overrides,
+      },
+      undefined,
+      this.sprache?.() ?? undefined,
+      request.mode ?? this.routeMode?.() ?? 'fastest',
+    );
+
+    const antwort = await this.client.route(body, '/optimized_route');
+    const orte = antwort.trip.locations;
+    if (!Array.isArray(orte) || orte.length !== request.waypoints.length + 2) {
+      // Antwortet Valhalla anders als erwartet, bleibt die Reihenfolge, wie
+      // sie war. Eine geratene Sortierung waere schlimmer als keine.
+      this.logger.warn('Valhalla lieferte keine brauchbare Reihenfolge -- es bleibt bei der eingegebenen', {
+        erhalten: Array.isArray(orte) ? orte.length : null,
+        erwartet: request.waypoints.length + 2,
+      });
+      return request.waypoints.map((_, i) => i);
+    }
+
+    // Die Stellen 0 und n-1 sind Start und Ziel; dazwischen stehen die
+    // Zwischenziele, deren `original_index` um 1 verschoben ist (weil der
+    // Start in der Anfrage die Stelle 0 belegt).
+    const reihenfolge = orte
+      .slice(1, -1)
+      .map((o) => (typeof o.original_index === 'number' ? o.original_index - 1 : -1));
+
+    const gueltig =
+      reihenfolge.length === request.waypoints.length &&
+      reihenfolge.every((i) => Number.isInteger(i) && i >= 0 && i < request.waypoints.length) &&
+      new Set(reihenfolge).size === reihenfolge.length;
+    if (!gueltig) {
+      this.logger.warn('Reihenfolge von Valhalla war unvollstaendig -- es bleibt bei der eingegebenen', {
+        reihenfolge,
+      });
+      return request.waypoints.map((_, i) => i);
+    }
+    return reihenfolge;
   }
 
   /**
@@ -103,6 +206,12 @@ export class RoutingService {
       heading,
     } = request;
 
+    // Die Anfrage gewinnt; sonst gilt die gespeicherte Einstellung. So
+    // bekommen auch Routen, die ueber MQTT oder Home Assistant ausgeloest
+    // werden, die Wahl des Betreibers -- ohne dass jeder Aufrufer sie
+    // mitschicken muss.
+    const mode = request.mode ?? this.routeMode?.() ?? 'fastest';
+
     // E03-T6: Coverage check before Valhalla call
     await checkCoverage(originLatLng, destination, waypoints, this.regionsProvider);
 
@@ -120,6 +229,10 @@ export class RoutingService {
       // E04-T4 (W-05): forward-facing reroute — the origin edge is biased to the
       // current heading so the first new instruction never says "turn around".
       heading,
+      // Ohne diese Angabe antwortet Valhalla in en-US -- siehe
+      // `valhallaSprache`.
+      this.sprache?.() ?? undefined,
+      mode,
     );
 
     const response = await this.client.route(body);
