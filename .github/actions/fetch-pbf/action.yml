@@ -1,0 +1,80 @@
+name: OSM-Extrakt holen
+description: >-
+  Laedt eine .osm.pbf mit Cache, hartem Zeitlimit und Abbruch bei stehendem
+  Transfer. Ergebnis ist eine LOKALE Datei fuer services/valhalla/build-tiles.sh.
+
+inputs:
+  url:
+    description: Adresse des Extrakts (Geofabrik).
+    required: true
+  path:
+    description: Wohin die Datei gelegt wird. NICHT unter data/valhalla -- das raeumt build-tiles.sh aus.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # ─── WARUM ES DIESEN SCHRITT UEBERHAUPT GIBT ──────────────────────────
+    # `build-tiles.sh` nimmt entweder eine URL oder eine lokale Datei. Mit
+    # der URL laedt der gis-ops-Build-Container die Datei SELBST, und das
+    # Skript pollt danach bis zu 1800 s auf /status. Ein langsamer
+    # Geofabrik-Download sieht darin exakt aus wie ein haengender
+    # Graph-Build: kein Fortschritt, keine Meldung, nach 30 Minuten
+    # Job-Abbruch.
+    #
+    # Gemessen an derselben Datei (Liechtenstein, wenige MB): 21 s, 2:33 min
+    # -- und zweimal ueber 30 Minuten, was jeweils einen Merge blockierte und
+    # 30 Actions-Minuten kostete. Bei dieser Dateigroesse ist das kein
+    # Rechnen, das ist ein stehender Transfer.
+    #
+    # Hier faellt derselbe Fall in Sekunden auf, mit Klartext.
+    - name: Cache-Schluessel bilden
+      id: schluessel
+      shell: bash
+      run: |
+        # Woechentlich frisch. OSM-Extrakte aendern sich taeglich, aber fuer
+        # ein Routing-Gate ist der Stand dieser Woche gut genug -- und jeder
+        # Lauf neu zu laden ist genau das, was hier haengen bleibt.
+        echo "wert=pbf-$(basename '${{ inputs.url }}')-$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
+    - name: Aus dem Cache holen
+      uses: actions/cache@v4
+      with:
+        path: ${{ inputs.path }}
+        key: ${{ steps.schluessel.outputs.wert }}
+
+    - name: Notfalls herunterladen
+      shell: bash
+      run: |
+        set -euo pipefail
+        ZIEL='${{ inputs.path }}'
+        if [ -s "${ZIEL}" ]; then
+          echo "PBF aus dem Cache ($(du -h "${ZIEL}" | cut -f1)) -- kein Netzzugriff noetig."
+          exit 0
+        fi
+        mkdir -p "$(dirname "${ZIEL}")"
+        # `--speed-limit/--speed-time` ist der entscheidende Teil: bricht ab,
+        # wenn der Durchsatz 30 s lang unter 1 KB/s faellt. GENAU dieser Fall
+        # trat auf -- die Verbindung stand, es kam nur nichts mehr. Ein
+        # reines `--max-time` haette 30 Minuten lang gewartet.
+        curl --fail --location --show-error --silent \
+             --connect-timeout 20 --max-time 300 \
+             --speed-limit 1024 --speed-time 30 \
+             --retry 3 --retry-delay 5 --retry-all-errors \
+             --output "${ZIEL}" '${{ inputs.url }}'
+        echo "PBF geladen: $(du -h "${ZIEL}" | cut -f1)"
+
+    - name: Datei ist brauchbar
+      shell: bash
+      run: |
+        set -euo pipefail
+        ZIEL='${{ inputs.path }}'
+        # Ein abgeschnittener Download aus dem Cache waere schlimmer als gar
+        # keiner: der Graph-Build liefe an und scheiterte spaeter mit einer
+        # Meldung ueber kaputte Kacheln. PBF beginnt mit einem BlobHeader --
+        # die ersten Bytes enthalten "OSMHeader".
+        test -s "${ZIEL}" || { echo "::error::PBF fehlt oder ist leer: ${ZIEL}"; exit 1; }
+        head -c 64 "${ZIEL}" | grep -q "OSMHeader" || {
+          echo "::error::${ZIEL} sieht nicht wie eine .osm.pbf aus (kein OSMHeader in den ersten 64 Bytes)."
+          exit 1
+        }
