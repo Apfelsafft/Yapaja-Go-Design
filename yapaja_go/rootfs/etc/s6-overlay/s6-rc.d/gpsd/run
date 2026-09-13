@@ -12,6 +12,9 @@
 # separately (documented in DOCS.md); this add-on's own gpsd doesn't need to
 # run. "none" -> no GPS at all (simulator source only, e.g. for a first
 # smoke-test of the add-on before wiring real hardware).
+#
+# WELCHES Gerät genommen wird, entscheidet `/etc/yapaja/find-gps-device.sh` --
+# und zwar nicht mehr nach „das erste ttyACM*". Die Begründung steht dort.
 # ==============================================================================
 set -uo pipefail
 
@@ -20,28 +23,33 @@ if [ "${GPS_SOURCE}" != "usb" ]; then
   exec sleep infinity
 fi
 
-# Common USB-GPS device node patterns (ttyACM* = u-blox and most
-# USB-CDC-ACM GPS mice; ttyUSB* = USB-serial-adapter-based receivers).
-find_gps_device() {
-  for pattern in /dev/ttyACM* /dev/ttyUSB*; do
-    if [ -e "${pattern}" ]; then
-      echo "${pattern}"
-      return 0
-    fi
-  done
-  return 1
-}
+# shellcheck source=/dev/null
+source /etc/yapaja/find-gps-device.sh
 
-DEVICE="$(find_gps_device || true)"
+# Alle 15 s neu sehen, statt abzustürzen: ein fehlender oder mehrdeutiger
+# Empfänger ist kein Fehler des Add-ons. Der Fahrer soll Yapaia benutzen
+# können, während der Dongle noch in der Post ist -- die Position fällt im
+# Core auf die übrigen Quellen zurück, wie bei jedem anderen „kein GPS".
+#
+# Der Grund wird nur beim WECHSEL protokolliert. Sonst schriebe dieser Dienst
+# alle 15 Sekunden dieselbe Zeile ins Add-on-Protokoll und machte es
+# unbrauchbar für alles andere.
+LETZTER_GRUND=""
+while true; do
+  # OHNE `$(...)`: die Funktion setzt zwei Variablen, und eine Subshell
+  # wuerde beide wieder verwerfen (siehe find-gps-device.sh).
+  if gps_device_waehlen; then
+    DEVICE="${GPS_DEVICE_PFAD}"
+    bashio::log.info "gpsd: benutze ${DEVICE} (${GPS_DEVICE_GRUND})."
+    break
+  fi
 
-if [ -z "${DEVICE}" ]; then
-  bashio::log.warning "gpsd: gps_source=usb but no /dev/ttyACM*|/dev/ttyUSB* device is present -- check the USB-GPS is plugged in and config.yaml's usb+udev passthrough is working (DOCS.md 'USB-GPS'). Retrying every 15s, not crash-looping (position falls back to the simulator/dead-reckoning source in the Core, same as any other 'no GPS' state)."
-  while [ -z "${DEVICE}" ]; do
-    sleep 15
-    DEVICE="$(find_gps_device || true)"
-  done
-  bashio::log.info "gpsd: found GPS device at ${DEVICE}."
-fi
+  if [ "${GPS_DEVICE_GRUND}" != "${LETZTER_GRUND}" ]; then
+    bashio::log.warning "gpsd: kein Empfänger in Betrieb genommen -- ${GPS_DEVICE_GRUND} (siehe DOCS.md, Abschnitt 'USB-GPS'). Wird alle 15 s erneut geprüft; die Position fällt solange auf die übrigen Quellen zurück."
+    LETZTER_GRUND="${GPS_DEVICE_GRUND}"
+  fi
+  sleep 15
+done
 
 # -N: foreground (required under s6 supervision -- no daemonizing/double-fork,
 #     so SIGTERM from s6 on shutdown reaches this process directly).

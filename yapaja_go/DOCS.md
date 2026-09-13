@@ -71,11 +71,40 @@ plugged-in GPS receiver.
 1. Plug in a USB GPS receiver (most USB-CDC-ACM "GPS mice" show up as
    `/dev/ttyACM0`; USB-serial-adapter-based ones as `/dev/ttyUSB0`).
 2. Restart the add-on (device passthrough is evaluated at container start).
-3. Check the add-on log: the internal `gpsd` service logs either "found GPS
-   device at /dev/ttyACMx" or a warning that it's still waiting for one
-   (retried every 15 s, does not crash the add-on).
+3. Check the add-on log: the internal `gpsd` service logs which device it
+   picked and why, or why it picked none (retried every 15 s, never crashes
+   the add-on).
 4. In the Yapaia Go UI, Settings → GPS should show a live fix once gpsd has
    one.
+
+### Which device gets used
+
+You normally do not have to say. Yapaia decides in this order:
+
+1. **`gps_device` is set** → exactly that path, and nothing else. If it is not
+   there, no other device is used: naming a device and silently getting a
+   different one would be worse than an error message.
+2. **A device identifies itself as a GNSS receiver** under
+   `/dev/serial/by-id/` (u-blox, SiRF, MediaTek, Garmin, or a name containing
+   GPS/GNSS). The VK-162 and similar "G-Mouse" dongles carry a u-blox chip and
+   are recognised this way.
+3. **There is exactly one serial device** → that one. It cannot be confused
+   with anything.
+4. **Several devices, none of which says GPS** → Yapaia touches none of them
+   and asks you to set `gps_device`.
+
+Step 4 matters on a Home Assistant machine, because a Zigbee coordinator
+(SkyConnect, Sonoff, ConBee) or a Z-Wave stick appears under exactly the same
+`/dev/ttyACM*` / `/dev/ttyUSB*` names, and `usb: true` passes all of them into
+the container. gpsd writes probe strings to a device to identify the receiver
+type — pointing it at a radio coordinator that belongs to another add-on is
+not harmless. Up to and including 0.8.1 Yapaia simply took the first match.
+
+**Use the `/dev/serial/by-id/…` path, not `/dev/ttyACM0`.** The number shifts
+as soon as another USB stick is added or removed; the `by-id` name does not.
+You do not need a terminal to find it: with `gps_source: usb` set and gpsd not
+answering, the health check inside Yapaia lists every serial device it can see,
+with the full path to copy.
 
 If you don't have (or don't yet have) a GPS receiver connected, leave
 `gps_source` at `none` (the default): the app remains fully usable, and the
@@ -114,6 +143,7 @@ not a replacement for a live browser fix.
 | `mqtt_prefix` | string | `yapaia` | MQTT topic prefix (docs/03-api-spec.md §4). |
 | `photon_enabled` | bool | `true` | Full-text search via Photon. `false` = RAM-saver, falls back to the offline lite-search index (W-12). |
 | `gps_source` | `usb` \| `network` \| `ha_tracker` \| `none` | `none` | Where the Core's position service gets a GPS fix from. `usb`/`network` start gpsd; `ha_tracker` reads a Home Assistant `device_tracker` (Companion App); `none` leaves the browser as the source. Browser positions are accepted at **every** value. |
+| `gps_device` | string (optional) | *(empty)* | Which serial device is the GPS receiver, e.g. `/dev/serial/by-id/usb-u-blox_AG_…-if00`. Only needed when several serial devices are present and none identifies itself as a GNSS receiver — see "Which device gets used" above. |
 | `ha_device_tracker` | string (optional) | *(empty)* | Which `device_tracker` entity to read, e.g. `device_tracker.my_phone`. Only needed with `gps_source: ha_tracker` **and** more than one candidate — with exactly one, Yapaia picks it itself. |
 | `log_level` | `debug` \| `info` \| `warn` \| `error` | `info` | Core log verbosity (pino). |
 | `photon_xmx_mb` | int 256–4096 | `1024` | Photon JVM heap cap (`-Xmx`). See the RAM table above. |

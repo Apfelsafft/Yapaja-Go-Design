@@ -59,6 +59,15 @@ REGION="$(bashio::config 'region')"
 MQTT_PREFIX="$(bashio::config 'mqtt_prefix')"
 PHOTON_ENABLED="$(bashio::config 'photon_enabled')"
 GPS_SOURCE="$(bashio::config 'gps_source')"
+# Welcher USB-Anschluss der Empfaenger ist. Leer = Yapaia sucht selbst
+# (/etc/yapaja/find-gps-device.sh). Dieselbe "null"-Falle wie unten bei
+# `ha_device_tracker`: `str?` liefert bei leerer Option den String "null", und
+# ein Geraet dieses Namens gibt es nicht -- gpsd wuerde dann gar nicht starten,
+# obwohl ein Empfaenger steckt.
+GPS_DEVICE="$(bashio::config 'gps_device')"
+if [ "${GPS_DEVICE}" = "null" ]; then
+  GPS_DEVICE=""
+fi
 # B-05. `str?` liefert bei leerer Option den String "null"; das ist KEINE
 # Entity-ID und muss zu leer werden, sonst startet der Core eine Quelle, die
 # eine Entitaet namens "null" sucht.
@@ -228,6 +237,10 @@ export_env "GPS_SOURCE" "${GPS_SOURCE}"
 # Leer UND `gps_source != ha_tracker` = aus; der Core startet die Quelle dann
 # gar nicht erst.
 export_env "HA_DEVICE_TRACKER" "${HA_DEVICE_TRACKER:-}"
+# Liest `gpsd/run` beim Aussuchen des Geraets. Immer exportieren, auch leer:
+# das run-Skript laeuft unter `set -u`, und eine ungesetzte Variable braeche es
+# ab, statt einfach selbst zu suchen.
+export_env "GPS_DEVICE" "${GPS_DEVICE:-}"
 if [ "${GPS_SOURCE}" = "usb" ] || [ "${GPS_SOURCE}" = "network" ]; then
   export_env "GPSD_ENABLED" "true"
   export_env "GPSD_HOST" "127.0.0.1"

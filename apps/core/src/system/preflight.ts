@@ -165,6 +165,45 @@ async function defaultListDir(path: string): Promise<string[]> {
   return readdir(path);
 }
 
+/** Wo die stabilen Gerätenamen liegen. Im Container dasselbe `/dev` wie für
+ *  gpsd — der Kern läuft daneben, nicht woanders. */
+export const SERIAL_BY_ID_DIR = '/dev/serial/by-id';
+
+/**
+ * Welche seriellen Geräte im Container sichtbar sind.
+ *
+ * ─── WARUM DAS IN DIE INSTALLATIONSPRUEFUNG GEHOERT ─────────────────────────
+ * Der Hilfetext weiter unten sagt seit 0.3.1 „tragen Sie das Gerät unter
+ * `gps_device` ein". Wo man den Pfad HERBEKOMMT, stand nirgends — und ohne
+ * SSH kommt man im Add-on gar nicht an ein `ls`. Der Betreiber hat
+ * ausdrücklich gesagt, dass er alles aus der Oberfläche erledigen möchte.
+ *
+ * `by-id` zuerst, weil genau diese Pfade in die Konfiguration gehören: die
+ * Nummer in `ttyACM0` verschiebt sich, sobald ein anderer USB-Stick dazukommt
+ * oder wegfällt. Die rohen Knoten kommen nur, wenn es kein `by-id` gibt --
+ * dann sind sie das Einzige, was man eintragen KANN.
+ */
+export async function listSerialDevices(listDir: ListDirFn): Promise<string[]> {
+  try {
+    const eintraege = await listDir(SERIAL_BY_ID_DIR);
+    if (eintraege.length > 0) {
+      return eintraege.sort().map((name) => `${SERIAL_BY_ID_DIR}/${name}`);
+    }
+  } catch {
+    // Kein `by-id`-Verzeichnis (udev nicht durchgereicht, älteres System).
+    // Kein Fehler, nur ein Grund, die rohen Knoten zu nehmen.
+  }
+  try {
+    const eintraege = await listDir('/dev');
+    return eintraege
+      .filter((name) => /^tty(ACM|USB)\d+$/.test(name))
+      .sort()
+      .map((name) => `/dev/${name}`);
+  } catch {
+    return [];
+  }
+}
+
 async function defaultFileSize(path: string): Promise<number | null> {
   try {
     const info = await stat(path);
@@ -465,6 +504,7 @@ async function checkPosition(
   env: Record<string, string | undefined>,
   tcpProbe: TcpProbeFn,
   listHaTrackers: ListHaTrackersFn,
+  listDir: ListDirFn,
 ): Promise<PreflightCheck> {
   const base = {
     id: 'position' as const,
@@ -482,14 +522,27 @@ async function checkPosition(
     if (up) {
       return { ...base, status: 'ok', detail: `gpsd erreichbar unter ${host}:${port}.` };
     }
+    // ─── WELCHE GERAETE ES UEBERHAUPT GIBT ────────────────────────────────
+    // Ohne diese Liste muesste man fuer den Pfad auf die Kommandozeile --
+    // und der Betreiber hat ausdruecklich gesagt, dass er alles aus der
+    // Oberflaeche heraus erledigen moechte. Der Kern laeuft im selben
+    // Container wie gpsd, sieht also dasselbe `/dev`.
+    const geraete = await listSerialDevices(listDir);
+    const geraeteHinweis =
+      geraete.length > 0
+        ? ` Gefunden wurden: ${geraete.join(', ')}.`
+        : ' Im Container ist derzeit gar kein serielles Gerät sichtbar — der Empfänger steckt also nicht, oder die USB-Durchreichung des Supervisors greift nicht.';
     return {
       ...base,
       status: 'warn',
       detail: `gpsd ist eingeschaltet, antwortet aber nicht unter ${host}:${port}.`,
       remedy:
         'Prüfen Sie, ob der USB-GPS-Empfänger gesteckt ist und ob das Gerät in der ' +
-        'Add-on-Konfiguration unter „gps_device" eingetragen ist (meist /dev/ttyACM0 ' +
-        'oder /dev/ttyUSB0). Haben Sie gar keinen USB-Empfänger, ist „gps_source: usb" ' +
+        'Add-on-Konfiguration unter „gps_device" eingetragen ist.' +
+        geraeteHinweis +
+        ' Bitte den Pfad unter /dev/serial/by-id/ eintragen und nicht /dev/ttyACM0: ' +
+        'die Nummer verschiebt sich, sobald ein anderer USB-Stick dazukommt. ' +
+        'Haben Sie gar keinen USB-Empfänger, ist „gps_source: usb" ' +
         'schlicht die falsche Einstellung — stellen Sie sie auf „ha_tracker" ' +
         '(Position aus der Home-Assistant-Companion-App) oder auf „none" ' +
         '(Position aus dem Browser). Solange gpsd fehlt, kann Yapaia die Position ' +
@@ -808,7 +861,7 @@ export async function runPreflight(deps: PreflightDeps = {}): Promise<PreflightR
     checkTiles(tilesDir, listDir),
     checkRouting(env, httpProbe),
     checkSearch(env, httpProbe, fileSize, deps.listSearchIndexes ?? listLiteSearchDbFiles),
-    checkPosition(env, tcpProbe, listHaTrackers),
+    checkPosition(env, tcpProbe, listHaTrackers, listDir),
     Promise.resolve(checkMemory(env, totalMem)),
     checkDisk(tilesDir, diskFree),
     Promise.resolve(checkMqtt(env)),

@@ -1034,3 +1034,124 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
     expect(env.HA_INTERNAL).toBe('1');
   });
 });
+
+/**
+ * ─── WELCHES GERÄT IST DER GPS-EMPFÄNGER? ───────────────────────────────────
+ * Der Anlass ist eine Frage zum VK-162, einem u-blox-7-Empfänger, der sich
+ * unter `/dev/ttyACM0` meldet. Genau dort meldet sich auf einem
+ * Home-Assistant-Rechner aber auch der Zigbee-Koordinator oder der
+ * Z-Wave-Stick, und `usb: true` reicht ALLE davon in den Container.
+ *
+ * Bis 0.8.1 nahm `gpsd/run` schlicht das erste Gerät, das passte. Diese Tests
+ * FÜHREN die Auswahl mit einem nachgebauten `/dev` AUS -- eine Textprüfung
+ * wäre grün, sobald das Wort „by-id" irgendwo im Skript steht, auch wenn die
+ * Bedingung darum herum nie zutrifft.
+ */
+describe('find-gps-device.sh — die Geräteauswahl, ausgeführt', () => {
+  const FIND_SCRIPT = join(ADDON_DIR, 'rootfs', 'etc', 'yapaja', 'find-gps-device.sh');
+
+  interface Auswahl {
+    /** Gerätepfad OHNE das Temp-Präfix, so wie er im Container stünde. */
+    device: string;
+    grund: string;
+    code: number;
+  }
+
+  /** Baut ein `/dev` aus den angegebenen Pfaden und lässt das Skript wählen. */
+  function waehle(geraete: string[], gpsDevice = ''): Auswahl {
+    const wurzel = mkdtempSync(join(tmpdir(), 'yapaja-dev-'));
+    for (const pfad of geraete) {
+      const ziel = join(wurzel, pfad);
+      mkdirSync(dirname(ziel), { recursive: true });
+      writeFileSync(ziel, '');
+    }
+
+    const stubPath = join(wurzel, 'run.sh');
+    writeFileSync(
+      stubPath,
+      [
+        '#!/usr/bin/env bash',
+        `source ${JSON.stringify(FIND_SCRIPT)}`,
+        // Bewusst ohne `$(...)`: genau so ruft `gpsd/run` die Funktion auch.
+        // Der erste Entwurf tat es mit Subshell -- und verlor dabei die
+        // Begruendung, im Test wie im Betrieb.
+        'gps_device_waehlen; CODE=$?',
+        'printf "%s\\n%s\\n%s" "${CODE}" "${GPS_DEVICE_PFAD}" "${GPS_DEVICE_GRUND}"',
+      ].join('\n'),
+    );
+
+    const ausgabe = execFileSync('bash', [stubPath], {
+      env: { ...process.env, YAPAIA_DEV_ROOT: wurzel, GPS_DEVICE: gpsDevice },
+      encoding: 'utf-8',
+    });
+    const [code, device, ...rest] = ausgabe.split('\n');
+    return {
+      code: Number(code),
+      // Das Temp-Präfix wieder abziehen, damit die Erwartungen lesbar bleiben.
+      device: device.replace(wurzel, ''),
+      grund: rest.join('\n'),
+    };
+  }
+
+  const UBLOX = '/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_7_-_GPS_GNSS_Receiver-if00';
+  const SKYCONNECT =
+    '/dev/serial/by-id/usb-Nabu_Casa_SkyConnect_v1.0_9e2adbd75b8beb119fe564a0f320645d-if00-port0';
+  const ZWAVE = '/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0';
+
+  it('erkennt den u-blox-Empfänger neben einem Zigbee-Stick', () => {
+    // DER FALL, UM DEN ES GEHT. Vorher gewann schlicht, was zuerst kam.
+    const ergebnis = waehle([SKYCONNECT, UBLOX]);
+    expect(ergebnis.code).toBe(0);
+    expect(ergebnis.device).toBe(UBLOX);
+  });
+
+  it('fasst gar nichts an, wenn mehrere Geräte da sind und keines GPS sagt', () => {
+    // Lieber kein GPS als gpsd, das auf einem fremden Funk-Koordinator
+    // herumschreibt. Der Hinweis muss beide Geräte benennen, sonst weiss der
+    // Betreiber nicht, was er eintragen soll.
+    const ergebnis = waehle([SKYCONNECT, ZWAVE]);
+    expect(ergebnis.code).toBe(2);
+    expect(ergebnis.device).toBe('');
+    expect(ergebnis.grund).toContain('SkyConnect');
+    expect(ergebnis.grund).toContain('CP2102');
+    expect(ergebnis.grund).toContain('gps_device');
+  });
+
+  it('nimmt das einzige serielle Gerät, auch ohne sprechenden Namen', () => {
+    // Ein Empfänger mit Prolific- oder CH340-Wandler sagt im Namen nichts über
+    // sich. Steckt sonst nichts, ist eine Verwechslung ausgeschlossen -- dann
+    // wäre eine Nachfrage nur Schikane.
+    const ergebnis = waehle(['/dev/ttyUSB0']);
+    expect(ergebnis.code).toBe(0);
+    expect(ergebnis.device).toBe('/dev/ttyUSB0');
+  });
+
+  it('meldet sauber, wenn gar nichts angesteckt ist', () => {
+    const ergebnis = waehle([]);
+    expect(ergebnis.code).toBe(1);
+    expect(ergebnis.device).toBe('');
+  });
+
+  it('bevorzugt den stabilen by-id-Pfad vor dem rohen Knoten', () => {
+    // `ttyACM0` kann nach dem nächsten Neustart ein anderes Gerät sein, sobald
+    // ein USB-Stick dazukommt; der by-id-Pfad bleibt derselbe.
+    const ergebnis = waehle([UBLOX, '/dev/ttyACM0']);
+    expect(ergebnis.device).toBe(UBLOX);
+  });
+
+  it('nimmt das ausdrücklich angegebene Gerät, auch wenn ein anderes nach GPS aussieht', () => {
+    const ergebnis = waehle([UBLOX, '/dev/ttyUSB0'], '/dev/ttyUSB0');
+    expect(ergebnis.code).toBe(0);
+    expect(ergebnis.device).toBe('/dev/ttyUSB0');
+  });
+
+  it('weicht NICHT auf ein anderes Gerät aus, wenn das angegebene fehlt', () => {
+    // Wer ein Gerät benennt, bekommt kein anderes. Still etwas anderes zu
+    // öffnen wäre genau der Fehler, den diese Datei beseitigt -- und der
+    // Betreiber suchte den Grund an der falschen Stelle.
+    const ergebnis = waehle([UBLOX], '/dev/ttyUSB9');
+    expect(ergebnis.code).toBe(1);
+    expect(ergebnis.device).toBe('');
+    expect(ergebnis.grund).toContain('/dev/ttyUSB9');
+  });
+});
