@@ -411,7 +411,8 @@ RUN chmod +x \
     /etc/s6-overlay/s6-rc.d/gpsd/run \
     /etc/s6-overlay/s6-rc.d/core/run \
     /etc/s6-overlay/s6-rc.d/core/finish \
-    /etc/yapaja/init-yapaja-config.sh
+    /etc/yapaja/init-yapaja-config.sh \
+    /etc/yapaja/find-gps-device.sh
 
 # 8099 ist der Supervisor-Default fuer `ingress_port`, den config.yaml
 # bewusst NICHT setzt (der Add-on-Linter verwirft Schluessel, die nur den

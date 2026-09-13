@@ -339,6 +339,68 @@ describe('Positionsprüfung', () => {
     expect(pos.remedy).toContain('Browser');
   });
 
+  // ─── DEN PFAD MUSS MAN IRGENDWO ABLESEN KOENNEN ───────────────────────────
+  // Der Hilfetext sagt seit 0.3.1 „tragen Sie das Gerät unter `gps_device`
+  // ein". Die Option gab es bis 0.8.2 gar nicht -- und wo man den Pfad
+  // herbekommt, stand nirgends. Im Add-on gibt es keine Kommandozeile, und
+  // der Betreiber möchte ausdrücklich alles aus der Oberfläche erledigen.
+  // Also nennt die Prüfung die Geräte selbst.
+  //
+  // `listDir` ist hier pfadabhängig: die Prüfung darf nicht irgendein
+  // Verzeichnis auflisten, sondern muss `/dev/serial/by-id` lesen.
+  const BY_ID_UBLOX = 'usb-u-blox_AG_-_www.u-blox.com_u-blox_7_-_GPS_GNSS_Receiver-if00';
+  const BY_ID_ZIGBEE = 'usb-Nabu_Casa_SkyConnect_v1.0_9e2adbd-if00-port0';
+
+  function mitGeraeten(namen: string[], dev: string[] = []): Partial<PreflightDeps> {
+    return {
+      tcpProbe: async () => false,
+      listDir: async (path: string) => {
+        if (path === '/dev/serial/by-id') {
+          if (namen.length === 0) throw new Error('ENOENT');
+          return namen;
+        }
+        if (path === '/dev') return dev;
+        return ['liechtenstein.pmtiles'];
+      },
+    };
+  }
+
+  it('nennt die gefundenen Geräte beim vollen Pfad, damit man sie abschreiben kann', async () => {
+    const report = await runPreflight(healthyDeps(mitGeraeten([BY_ID_ZIGBEE, BY_ID_UBLOX])));
+    const pos = byId(report.checks, 'position');
+    expect(pos.status).toBe('warn');
+    // Der VOLLE Pfad, nicht nur der Dateiname -- genau dieser String gehört
+    // in das Feld, und Abtippen mit einer fehlenden Hälfte hilft niemandem.
+    expect(pos.remedy).toContain(`/dev/serial/by-id/${BY_ID_UBLOX}`);
+    // Auch die anderen: welches davon das GPS ist, weiß der Betreiber, und
+    // eine Vorauswahl wäre wieder ein Raten.
+    expect(pos.remedy).toContain(BY_ID_ZIGBEE);
+  });
+
+  it('sagt es, wenn gar kein serielles Gerät sichtbar ist', async () => {
+    // Der häufigste Fall: Empfänger steckt nicht, oder die USB-Durchreichung
+    // greift nicht. Eine leere Aufzählung wäre hier schlimmer als nichts --
+    // sie sähe aus wie ein Anzeigefehler.
+    const report = await runPreflight(healthyDeps(mitGeraeten([], [])));
+    const pos = byId(report.checks, 'position');
+    expect(pos.remedy).toContain('kein serielles Gerät sichtbar');
+  });
+
+  it('nimmt die rohen Knoten, wenn es kein by-id-Verzeichnis gibt', async () => {
+    // Ältere Systeme oder fehlende udev-Durchreichung. Dann sind `ttyACM0`
+    // und Geschwister das Einzige, was man überhaupt eintragen KANN.
+    const report = await runPreflight(
+      healthyDeps(mitGeraeten([], ['ttyACM0', 'tty', 'null', 'ttyUSB1'])),
+    );
+    const pos = byId(report.checks, 'position');
+    expect(pos.remedy).toContain('/dev/ttyACM0');
+    expect(pos.remedy).toContain('/dev/ttyUSB1');
+    // `/dev/tty` und `/dev/null` sind keine seriellen Geräte. Stünden sie in
+    // der Liste, trüge sie jemand ein -- und gpsd bekäme die Konsole.
+    expect(pos.remedy).not.toContain('/dev/tty,');
+    expect(pos.remedy).not.toContain('/dev/null');
+  });
+
   // Kein gpsd ist ausdrücklich KEIN Fehler (ADR-007: gpsd > Browser >
   // Simulator). Die Warnung existiert nur wegen der HTTPS-Bedingung, die
   // man sonst erst im Fahrzeug bemerkt.

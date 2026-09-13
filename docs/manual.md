@@ -305,6 +305,21 @@ under `gps_source`.
 | **HA Companion App** | `ha_tracker` | A phone you already carry |
 | **Simulator** | `gps_simulator` | Trying the app without moving |
 
+### Using a USB GPS receiver
+
+Any receiver that Linux exposes as a serial device works — there is no driver
+to install and no vendor software. The common "G-Mouse" dongles (VK-162 and
+relatives) carry a u-blox chip, appear as `/dev/ttyACM0`, and are recognised
+automatically.
+
+Set `gps_source: usb` in the add-on options, plug the receiver in, and restart
+the add-on. Yapaia picks the device itself, and it does so carefully: on a Home
+Assistant machine a Zigbee coordinator or a Z-Wave stick appears under exactly
+the same device names. If Yapaia cannot tell which one is the GPS, it touches
+none of them and says so, rather than writing to a radio stick that belongs to
+another add-on. You then name the right one under `gps_device` — the health
+check lists the available paths, so you never need a terminal.
+
 ### Why the browser often will not work
 
 Browsers only release GPS over a secure connection. If your Home Assistant runs

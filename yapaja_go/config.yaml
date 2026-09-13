@@ -10,7 +10,7 @@
 name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.8.1"
+version: "0.8.2"
 url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
 
 # amd64 covers typical Mini-PC/NUC installs; aarch64 covers Raspberry Pi
@@ -199,6 +199,28 @@ options:
   # in der man es merkt. (Bestehende Installationen behalten ihre eigene
   # Einstellung -- Vorgaben gelten nur fuer neue.)
   gps_source: "none"
+  # `gps_device` -- WELCHER USB-Anschluss der GPS-Empfaenger ist.
+  #
+  # Leer lassen ist der Normalfall: Yapaia sucht sich das Geraet selbst.
+  # Eintragen muss man nur, wenn die Installationspruefung oder das
+  # Add-on-Protokoll ausdruecklich danach fragt -- naemlich dann, wenn mehrere
+  # serielle Geraete angesteckt sind und keines sich von selbst als
+  # GNSS-Empfaenger zu erkennen gibt.
+  #
+  # Das ist auf einem Home-Assistant-Rechner nicht selten: ein Zigbee-
+  # Koordinator (SkyConnect, Sonoff, ConBee) oder ein Z-Wave-Stick meldet sich
+  # unter genau denselben Namen wie ein GPS-Empfaenger. Bis 0.8.1 nahm Yapaia
+  # einfach das erste und schrieb beim Erkennen darauf -- auf ein Geraet, das
+  # einem anderen Add-on gehoert.
+  #
+  # Bitte den stabilen Pfad nehmen, nicht /dev/ttyACM0:
+  #
+  #   /dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_7_-_GPS_GNSS_Receiver-if00
+  #
+  # Die Nummer in `ttyACM0` verschiebt sich, sobald ein anderer USB-Stick
+  # dazukommt oder wegfaellt; der `by-id`-Pfad bleibt. Welche Pfade es auf
+  # Ihrem Geraet gibt, zeigt die Installationspruefung in Yapaia an.
+  gps_device: ""
   ha_device_tracker: ""
   log_level: "info"
   photon_xmx_mb: 1024
@@ -228,6 +250,7 @@ schema:
   mqtt_prefix: "str"
   photon_enabled: "bool"
   gps_source: "list(usb|network|ha_tracker|none)"
+  gps_device: "str?"
   ha_device_tracker: "str?"
   log_level: "list(debug|info|warn|error)"
   photon_xmx_mb: "int(256,4096)"

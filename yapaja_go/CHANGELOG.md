@@ -10,6 +10,52 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.2
+
+**USB-GPS: Yapaia greift nicht mehr nach dem falschen Stecker.**
+
+### Der Anlass
+
+Eine Frage zum **VK-162**, einem verbreiteten USB-GPS-Empfänger. Die Antwort
+ist ja, der funktioniert — der Empfänger trägt einen u-blox-7-Chip, meldet
+sich als serielles Standardgerät, und gpsd läuft im Add-on ohnehin mit. Beim
+Nachsehen kam allerdings etwas anderes ans Licht.
+
+### Zwei Fehler, die beim Nachsehen auffielen
+
+**Yapaia nahm das erste serielle Gerät, das es fand.** Auf einem
+Home-Assistant-Rechner ist das oft nicht der GPS-Empfänger, sondern der
+Zigbee-Koordinator (SkyConnect, Sonoff, ConBee) oder der Z-Wave-Stick: die
+melden sich unter genau denselben Namen, und das Add-on bekommt sie alle
+durchgereicht. gpsd hätte dann auf einem Funk-Koordinator herumgeschrieben,
+der einem anderen Add-on gehört.
+
+Jetzt wird nicht mehr geraten. Ein Gerät, das sich selbst als GNSS-Empfänger
+ausweist, gewinnt. Gibt es nur ein einziges serielles Gerät, ist es das. Sind
+mehrere da und keines sagt „GPS", fasst Yapaia **keines** an und sagt, welche
+zur Wahl stehen.
+
+**Die Installationsprüfung verwies auf eine Einstellung, die es nicht gab.**
+Seit 0.3.1 stand dort „tragen Sie das Gerät unter `gps_device` ein" — das Feld
+existierte nie. Jetzt gibt es es.
+
+### Neu: `gps_device`
+
+In der Add-on-Konfiguration, normalerweise leer zu lassen. Wenn die
+Installationsprüfung danach fragt, tragen Sie den Pfad ein:
+
+```
+/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_7_-_GPS_GNSS_Receiver-if00
+```
+
+**Bitte diesen langen Pfad und nicht `/dev/ttyACM0`.** Die Nummer verschiebt
+sich, sobald ein anderer USB-Stick dazukommt oder wegfällt; der Name bleibt.
+
+Welche Pfade es auf Ihrem Gerät gibt, zeigt die Installationsprüfung in Yapaia
+jetzt selbst an — kein SSH, keine Kommandozeile.
+
+---
+
 ## 0.8.1
 
 **Die Oberfläche auf dem Telefon.**
