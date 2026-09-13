@@ -113,7 +113,7 @@ function TrackerAuswahlFeld(): React.ReactElement | null {
   return (
     <div className="border rounded-lg p-2 border-slate-300 dark:border-slate-600" data-testid="tracker-picker">
       <label className="block text-xs font-medium" htmlFor="yapaia-tracker-select">
-        Position aus der Home-Assistant-App
+        Gerät der Companion App
       </label>
       <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
         Damit läuft die Anzeige weiter, wenn Yapaia nicht offen ist. Die Wahl gilt sofort.

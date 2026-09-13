@@ -59,6 +59,14 @@ REGION="$(bashio::config 'region')"
 MQTT_PREFIX="$(bashio::config 'mqtt_prefix')"
 PHOTON_ENABLED="$(bashio::config 'photon_enabled')"
 GPS_SOURCE="$(bashio::config 'gps_source')"
+# `ha_tracker` hiess bis 0.8.2 so und heisst jetzt `companion_app`. Der alte
+# Wert steht in jeder bestehenden Konfiguration; hier wird er einmal
+# umgeschrieben, damit der Rest des Systems nur noch EINEN Wert kennt. Ein
+# Update darf die Positionsquelle nicht still abschalten.
+if [ "${GPS_SOURCE}" = "ha_tracker" ]; then
+  bashio::log.info "init-yapaja-config: gps_source='ha_tracker' ist der alte Name -- gilt weiter, gelesen als 'companion_app'."
+  GPS_SOURCE="companion_app"
+fi
 # Welcher USB-Anschluss der Empfaenger ist. Leer = Yapaia sucht selbst
 # (/etc/yapaja/find-gps-device.sh). Dieselbe "null"-Falle wie unten bei
 # `ha_device_tracker`: `str?` liefert bei leerer Option den String "null", und
@@ -251,7 +259,7 @@ else
   # es nicht gibt.
   export_env "GPSD_ENABLED" "false"
 fi
-if [ "${GPS_SOURCE}" = "ha_tracker" ] && [ -z "${HA_DEVICE_TRACKER}" ]; then
+if [ "${GPS_SOURCE}" = "companion_app" ] && [ -z "${HA_DEVICE_TRACKER}" ]; then
   bashio::log.info "init-yapaja-config: gps_source=ha_tracker ohne feste Entity-ID -- der Core waehlt selbst, sofern es genau einen device_tracker mit Koordinaten gibt (sonst sagt die Installationspruefung, welche zur Wahl stehen)."
 fi
 

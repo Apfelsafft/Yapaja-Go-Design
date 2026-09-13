@@ -10,7 +10,7 @@
 name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.8.2"
+version: "0.8.3"
 url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
 
 # amd64 covers typical Mini-PC/NUC installs; aarch64 covers Raspberry Pi
@@ -119,10 +119,16 @@ homeassistant_api: true
 
 # `gps_source` -- WOHER die Position kommt. Vier Werte, und der Reihe nach:
 #
-#   usb        fest eingebauter GPS-Empfaenger am USB-Port (gpsd)
-#   network    gpsd auf einem anderen Geraet im Netz
-#   ha_tracker Home-Assistant-Companion-App auf Telefon/Tablet/Autoradio
-#   none       kein eigener Empfaenger -- die Position kommt aus dem Browser
+#   usb           fest eingebauter GPS-Empfaenger am USB-Port (gpsd)
+#   network       gpsd auf einem anderen Geraet im Netz
+#   companion_app Home-Assistant-Companion-App auf Telefon/Tablet/Autoradio
+#   none          kein eigener Empfaenger -- die Position kommt aus dem Browser
+#
+# `ha_tracker` ist der alte Name von `companion_app` und gilt unveraendert
+# weiter -- bestehende Installationen tragen ihn in ihrer Konfiguration, und
+# ein Update darf die Positionsquelle nicht still abschalten. Umbenannt wurde
+# er, weil er den WEG beschrieb (eine device_tracker-Entitaet) und nicht die
+# Sache: wer die Option einstellt, sucht das Wort „Companion App".
 #
 # `ha_tracker` fehlte bis 0.3.0 in dieser Liste. Die Quelle GAB es (0.3.0 hat
 # sie gebaut), aber einschalten liess sie sich nur ueber das freie Textfeld
@@ -249,7 +255,7 @@ schema:
   ha_internal: "bool"
   mqtt_prefix: "str"
   photon_enabled: "bool"
-  gps_source: "list(usb|network|ha_tracker|none)"
+  gps_source: "list(usb|network|companion_app|ha_tracker|none)"
   gps_device: "str?"
   ha_device_tracker: "str?"
   log_level: "list(debug|info|warn|error)"

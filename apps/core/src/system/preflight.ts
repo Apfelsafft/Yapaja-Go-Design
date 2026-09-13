@@ -60,6 +60,7 @@
  */
 
 import { readdir, stat } from 'fs/promises';
+import { istCompanionAppQuelle } from '../position/gpsSourceOption.js';
 import { totalmem } from 'os';
 import { createConnection } from 'net';
 import { resolveTilesDir } from '../map/paths.js';
@@ -138,6 +139,19 @@ export interface PreflightDeps {
   tcpProbe?: TcpProbeFn;
   httpProbe?: HttpProbeFn;
   listHaTrackers?: ListHaTrackersFn;
+  /**
+   * Welche Tracker-Entitaet tatsaechlich gilt.
+   *
+   * MUSS dieselbe Aufloesung benutzen wie `HaTrackerSource` (Einstellung
+   * `ha.device_tracker` zuerst, dann die Add-on-Option) -- sonst prueft diese
+   * Datei etwas anderes, als das laufende System tut. Genau das war der
+   * Fehler: seit 0.7.1 waehlt man den Tracker in Yapaia, und die Pruefung las
+   * weiterhin nur die Umgebung.
+   *
+   * Vorgabe ohne Angabe: nur die Umgebung -- fuer Tests und fuer jeden
+   * Aufrufer, der keine Einstellungen hat.
+   */
+  resolveTrackerId?: () => string;
   totalMem?: () => number;
   /** Freier Plattenplatz im Datenverzeichnis, in Bytes. */
   diskFree?: (path: string) => Promise<number>;
@@ -505,6 +519,7 @@ async function checkPosition(
   tcpProbe: TcpProbeFn,
   listHaTrackers: ListHaTrackersFn,
   listDir: ListDirFn,
+  resolveTrackerId: () => string,
 ): Promise<PreflightCheck> {
   const base = {
     id: 'position' as const,
@@ -556,8 +571,8 @@ async function checkPosition(
   // B-05: die Companion-App-Entitaet ist der Weg, der OHNE HTTPS funktioniert
   // -- und damit fuer viele Aufbauten der einzige, der ueberhaupt eine
   // Position liefert.
-  const haTracker = (env.HA_DEVICE_TRACKER ?? '').trim();
-  const haTrackerSelected = env.GPS_SOURCE === 'ha_tracker';
+  const haTracker = resolveTrackerId().trim();
+  const haTrackerSelected = istCompanionAppQuelle(env.GPS_SOURCE);
 
   // Nachsehen, WAS es gibt, statt den Betreiber raten zu lassen. Genau das
   // verspricht die Add-on-Konfiguration an dieser Stelle.
@@ -579,10 +594,10 @@ async function checkPosition(
           (found ??
             'Home Assistant kennt derzeit gar keinen `device_tracker` mit Koordinaten. ' +
               HA_TRACKER_SETUP_HINT) +
-          ' Tragen Sie den gewünschten Namen in der Add-on-Konfiguration unter ' +
-          '„ha_device_tracker" ein — oder lassen Sie das Feld leer und setzen Sie ' +
-          '„gps_source" auf „ha_tracker", dann sucht Yapaia selbst, solange es ' +
-          'genau einen gibt.',
+          ' Wählen Sie das richtige Gerät hier in dieser Prüfung aus (Auswahlfeld ' +
+          '„Gerät der Companion App") — die Wahl gilt sofort. Oder lassen Sie sie ' +
+          'leer und setzen „gps_source" auf „companion_app", dann sucht Yapaia ' +
+          'selbst, solange es genau einen Tracker gibt.',
       };
     }
     return {
@@ -643,7 +658,11 @@ async function checkPosition(
         `Als Positionsquelle ist die Companion App gewählt, aber es gibt ${trackers.length} ` +
         'Tracker mit Koordinaten. Yapaia rät nicht, welcher gemeint ist — der zweite ' +
         'könnte das Telefon einer anderen Person sein.',
-      remedy: `${found ?? ''} Tragen Sie den gewünschten in der Add-on-Konfiguration unter „ha_device_tracker" ein.`,
+      remedy:
+        `${found ?? ''} Wählen Sie den richtigen direkt hier in dieser Prüfung aus — ` +
+        'das Auswahlfeld „Gerät der Companion App" steht gleich darunter. Die Wahl ' +
+        'gilt sofort, ohne Neustart des Add-ons. (Wer es lieber fest einträgt, kann ' +
+        'stattdessen die Add-on-Option „ha_device_tracker" setzen.)',
     };
   }
 
@@ -851,6 +870,7 @@ export async function runPreflight(deps: PreflightDeps = {}): Promise<PreflightR
   const tcpProbe = deps.tcpProbe ?? defaultTcpProbe;
   const httpProbe = deps.httpProbe ?? defaultHttpProbe;
   const listHaTrackers = deps.listHaTrackers ?? defaultListHaTrackers(env);
+  const resolveTrackerId = deps.resolveTrackerId ?? ((): string => env.HA_DEVICE_TRACKER ?? '');
   const totalMem = deps.totalMem ?? totalmem;
   const diskFree = deps.diskFree ?? defaultDiskFree;
   const now = deps.now ?? ((): Date => new Date());
@@ -861,7 +881,7 @@ export async function runPreflight(deps: PreflightDeps = {}): Promise<PreflightR
     checkTiles(tilesDir, listDir),
     checkRouting(env, httpProbe),
     checkSearch(env, httpProbe, fileSize, deps.listSearchIndexes ?? listLiteSearchDbFiles),
-    checkPosition(env, tcpProbe, listHaTrackers, listDir),
+    checkPosition(env, tcpProbe, listHaTrackers, listDir, resolveTrackerId),
     Promise.resolve(checkMemory(env, totalMem)),
     checkDisk(tilesDir, diskFree),
     Promise.resolve(checkMqtt(env)),

@@ -365,6 +365,39 @@ describe('Positionsprüfung', () => {
     };
   }
 
+  // ─── DIE PRUEFUNG MUSS DASSELBE LESEN WIE DIE LAUFENDE QUELLE ────────────
+  // Seit 0.7.1 wählt man den Tracker IN YAPAIA (Installationsprüfung ->
+  // Auswahlfeld); die Wahl landet in der Einstellung `ha.device_tracker`, und
+  // `HaTrackerSource` liest sie bei der nächsten Abfrage. Die Prüfung las
+  // dagegen nur die Add-on-Option `HA_DEVICE_TRACKER`.
+  //
+  // Folge: wer in der Oberfläche wählt, bekommt eine Prüfung, die davon nichts
+  // weiß -- bei mehreren Trackern meldet sie „Yapaia rät nicht", während die
+  // Quelle längst einen benutzt. Eine Diagnose, die etwas anderes sagt als das
+  // laufende System, ist schlimmer als keine.
+  it('liest den in der Oberfläche gewählten Tracker, nicht nur die Add-on-Option', async () => {
+    const report = await runPreflight(
+      healthyDeps({
+        // `GPSD_ENABLED: 'false'`, weil `gps_source: ha_tracker` gpsd
+        // ausschaltet (init-yapaja-config.sh) -- sonst gewinnt der
+        // gpsd-Zweig, und der Test prüfte gar nicht, was er soll.
+        env: {
+          ...healthyDeps().env,
+          GPSD_ENABLED: 'false',
+          GPS_SOURCE: 'ha_tracker',
+          HA_DEVICE_TRACKER: '',
+        },
+        // Zwei Tracker: ohne Wahl würde die Prüfung zu Recht warnen.
+        listHaTrackers: async () => ['device_tracker.radio', 'device_tracker.telefon'],
+        // Genau das hat der Betreiber im Auswahlfeld angeklickt.
+        resolveTrackerId: () => 'device_tracker.radio',
+      }),
+    );
+    const pos = byId(report.checks, 'position');
+    expect(pos.status).toBe('ok');
+    expect(pos.detail).toContain('device_tracker.radio');
+  });
+
   it('nennt die gefundenen Geräte beim vollen Pfad, damit man sie abschreiben kann', async () => {
     const report = await runPreflight(healthyDeps(mitGeraeten([BY_ID_ZIGBEE, BY_ID_UBLOX])));
     const pos = byId(report.checks, 'position');

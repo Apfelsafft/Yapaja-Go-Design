@@ -181,12 +181,17 @@ describe('yapaja_go/config.yaml is valid YAML with the required HA add-on keys',
   // one operator running the add-on reported exactly that: "den ha tracker
   // kann ich nicht auswaehlen. In der Konfiguration sehe ich nur usb."
   // A feature that cannot be selected is not a feature.
-  it('offers every implemented position source in gps_source, including ha_tracker', () => {
+  it('offers every implemented position source in gps_source, including the Companion App', () => {
     const config = loadConfig();
     const schema = config.schema.gps_source as string;
     const match = /^list\((.+)\)$/.exec(schema);
     expect(match, `gps_source schema is not a list(): ${schema}`).not.toBeNull();
     const values = (match as RegExpExecArray)[1].split('|');
+    expect(values).toContain('companion_app');
+    // Der ALTE Name muss im Schema bleiben. Bestehende Installationen tragen
+    // ihn in ihrer Konfiguration; verschwindet er, kennt der Supervisor den
+    // gespeicherten Wert nicht mehr -- und die Positionsquelle waere nach
+    // einem Update still aus.
     expect(values).toContain('ha_tracker');
     expect(values).toContain('usb');
     expect(values).toContain('network');
@@ -934,6 +939,25 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
     expect(runInit({}).ENABLE_SIMULATOR).toBeUndefined();
   });
 
+  // ─── DER ALTE OPTIONSWERT DARF NICHT INS LEERE LAUFEN ────────────────────
+  // Umbenannt wurde `ha_tracker` zu `companion_app`. Wer vor dem Update
+  // `ha_tracker` eingestellt hatte, muss danach dieselbe Quelle haben --
+  // sonst schaltet ein Update die Navigation ab, und es fällt erst im
+  // Fahrzeug auf. Deshalb wird das Skript hier AUSGEFÜHRT und nachgesehen,
+  // was am Ende in der Umgebung steht.
+  it('schreibt den alten Wert „ha_tracker" auf „companion_app" um', () => {
+    const env = runInit({ gps_source: 'ha_tracker' });
+    expect(env.GPS_SOURCE).toBe('companion_app');
+    // Und gpsd bleibt dabei aus -- wie beim neuen Wert auch.
+    expect(env.GPSD_ENABLED).toBe('false');
+  });
+
+  it('lässt den neuen Wert unverändert', () => {
+    const env = runInit({ gps_source: 'companion_app' });
+    expect(env.GPS_SOURCE).toBe('companion_app');
+    expect(env.GPSD_ENABLED).toBe('false');
+  });
+
   it('schaltet gpsd bei "usb" ein', () => {
     const env = runInit({ gps_source: 'usb' });
     expect(env.GPSD_ENABLED).toBe('true');
@@ -942,10 +966,13 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
 
   // Der eigentliche Punkt: eine Installation ohne USB-Empfänger soll nicht
   // dauerhaft melden, dass ein Gerät nicht antwortet, das es nie gab.
-  it('schaltet gpsd bei "ha_tracker" AUS und reicht die Quelle an den Core weiter', () => {
-    const env = runInit({ gps_source: 'ha_tracker' });
+  it('schaltet gpsd bei der Companion App AUS und reicht die Quelle an den Core weiter', () => {
+    // Stand bis 0.8.2 auf `gps_source: 'ha_tracker'` und erwartete denselben
+    // Wert zurück. Seit der Umbenennung schreibt das Skript ihn um; der alte
+    // Wert hat jetzt einen eigenen Test direkt darüber.
+    const env = runInit({ gps_source: 'companion_app' });
     expect(env.GPSD_ENABLED).toBe('false');
-    expect(env.GPS_SOURCE).toBe('ha_tracker');
+    expect(env.GPS_SOURCE).toBe('companion_app');
   });
 
   it('schaltet gpsd bei "none" aus', () => {
