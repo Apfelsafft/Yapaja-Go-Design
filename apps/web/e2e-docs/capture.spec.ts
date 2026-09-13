@@ -190,3 +190,22 @@ test('Fahrmodus: Bilder und Film', async ({ page }) => {
 
   await page.request.post(`${DRIVE_CORE_BASE_URL}/api/v1/navigation/stop`);
 });
+
+test('Telefon hochkant: Fahrmodus', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(DRIVE_CORE_BASE_URL + '/');
+  await karteBereit(page);
+
+  await page.request.post(`${DRIVE_CORE_BASE_URL}/api/v1/navigation/start`, {
+    data: { route: ROUTE, destination: { latlng: PUNKTE[PUNKTE.length - 1], name: 'Malbun' } },
+  });
+  for (let i = 0; i <= 8; i += 1) {
+    await page.request.post(`${DRIVE_CORE_BASE_URL}/api/v1/position/browser`, {
+      data: fix(i / 26, 16),
+    });
+    await page.waitForTimeout(1100);
+  }
+  await page.screenshot({ path: `${AUSGABE}/telefon-fahrmodus.png` });
+  await page.request.post(`${DRIVE_CORE_BASE_URL}/api/v1/navigation/stop`);
+});

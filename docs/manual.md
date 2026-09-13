@@ -433,6 +433,15 @@ side where the driver's free hand naturally falls.
 **Day and night.** The interface and the map switch together, following the
 sun at your position, or the clock if there is no position yet.
 
+**On a phone.** Below 480 px of width, drive mode rearranges itself: the trip
+data becomes a bar across the bottom, and everything else stacks above it —
+favourites, pause/stop, the announcement button, then the map buttons. The
+manoeuvre panel moves to the left edge so that a long street name still fits.
+Nothing is hidden; it is the same screen in a different order.
+
+<p align="center"><img src="media/telefon-fahrmodus.png" width="300"
+alt="Drive mode on a phone in portrait"></p>
+
 **Install it as an app.** Yapaia is a progressive web app: "Add to home
 screen" gives it its own icon and no browser chrome.
 

@@ -22,11 +22,13 @@ import React, { useCallback } from 'react';
 import { recenterOnPosition } from './followMe';
 import { usePositionStore } from '../position/positionStore';
 import { rightStackBottomPx, EDGE_INSET_PX } from '../shell/mapControlLayout.js';
+import { useSchmal } from '../shell/useSchmal.js';
 import { useNavStore } from '../drive/navStore.js';
 import { isDriveActive } from '../drive/driveActive.js';
 
 export default function ReCenterButton(): React.ReactElement | null {
   const driveActive = isDriveActive(useNavStore((state) => state.navState?.status));
+  const schmal = useSchmal();
   const hasPosition = usePositionStore((state) => state.position !== null);
 
   const handleClick = useCallback(() => {
@@ -40,7 +42,7 @@ export default function ReCenterButton(): React.ReactElement | null {
   return (
     <button
       onClick={handleClick}
-      style={{ bottom: rightStackBottomPx('recenter', driveActive), right: EDGE_INSET_PX }}
+      style={{ bottom: rightStackBottomPx('recenter', driveActive, schmal), right: EDGE_INSET_PX }}
       className="fixed w-12 h-12 rounded-full bg-blue-500 dark:bg-blue-600 text-white shadow-lg hover:shadow-xl hover:bg-blue-600 dark:hover:bg-blue-700 transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
       aria-label="Zur Position zurückkehren"
       title="Zur Position zurückkehren"

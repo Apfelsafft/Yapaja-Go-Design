@@ -105,6 +105,12 @@ const CONTROLS = [
   'preflight-panel-toggle',
   'simulator-panel-toggle',
   'speed-display',
+  // Die Favoriten-Schublade, und zwar ihre KOPFZEILE: die ist immer da, das
+  // aufgeklappte Innere nicht. Sie fehlte hier -- und genau sie lag auf dem
+  // Telefon-Bildschirmfoto unter „Pause". Waehrend der Fahrt ist sie der
+  // einzige Weg zu einem Ziel (die Suche ist gesperrt), sie darf also nicht
+  // verdeckt sein.
+  'favorites-drawer-toggle',
   // Nur waehrend der Fahrt vorhanden:
   'maneuver-panel',
   'tts-toggle',
@@ -142,6 +148,24 @@ async function maplibreControlRect(page: Page): Promise<Rect | null> {
   if (!(await locator.isVisible())) return null;
   const box = await locator.boundingBox();
   return box ? { name: 'maplibre-zoom-controls', ...box } : null;
+}
+
+/**
+ * Die Namensnennung von MapLibre („© OpenStreetMap contributors").
+ *
+ * ─── WARUM SIE HIER MITGEMESSEN WIRD ────────────────────────────────────────
+ * Sie ist keine Zierde, sondern eine Auflage der ODbL (docs/licenses.md §1).
+ * `map-render.spec.ts` prueft, dass sie DA ist -- aber `toBeVisible()` bleibt
+ * wahr, auch wenn etwas anderes davorliegt. Auf 390 Bildpunkten lag sie
+ * waehrend der Fahrt unter der Fahrtdaten-Leiste, und genau das faellt einem
+ * Sichtbarkeitstest nicht auf.
+ */
+async function attributionRect(page: Page): Promise<Rect | null> {
+  const locator = page.locator('.maplibregl-ctrl-attrib').first();
+  if ((await locator.count()) === 0) return null;
+  if (!(await locator.isVisible())) return null;
+  const box = await locator.boundingBox();
+  return box ? { name: 'osm-attribution', ...box } : null;
 }
 
 /** Überlappungsflaeche zweier Rechtecke in Quadratpunkten (0 = beruehrt sich hoechstens). */
@@ -231,6 +255,17 @@ async function seedPosition(page: Page): Promise<void> {
 const VIEWPORTS = [
   { name: 'breit', size: { width: 1280, height: 720 } },
   { name: 'Tablet hochkant', size: { width: 768, height: 1024 } },
+  // ─── TELEFON ──────────────────────────────────────────────────────────────
+  // Gemeldet mit Bildschirmfoto vom iPhone: „Bisher habe ich immer auf einem
+  // 13-Zoll-iPad getestet und da ist GUI ganz ok. Auf kleinen screens sieht es
+  // nicht mehr gut aus."
+  //
+  // Und so war es: Kopfzeile, Tempolimit und Manoeverkachel lagen
+  // uebereinander, der Sperr-Hinweis lief quer durch die Knopfspalte, und die
+  // Fahrtdaten brachen dreizeilig ueber Pause/Stopp. Dieser Test hat das nicht
+  // gefunden, weil er bei 768 aufhoerte -- 390 ist die Breite, auf der
+  // wirklich jemand faehrt.
+  { name: 'Telefon hochkant', size: { width: 390, height: 844 } },
 ] as const;
 
 // ─── DIESE DATEI LAEUFT SERIELL ─────────────────────────────────────────────
@@ -269,6 +304,9 @@ test.describe('Bedienelemente ueberlappen einander nicht', () => {
     const rects = await visibleControlRects(page);
     const mapCtrl = await maplibreControlRect(page);
     if (mapCtrl) rects.push(mapCtrl);
+    // ODbL-Pflicht -- darf von nichts verdeckt werden.
+    const attrib = await attributionRect(page);
+    if (attrib) rects.push(attrib);
 
     // Mindestens die Karten-Knoepfe muessen da sein -- sonst prueft der Test
     // eine leere Liste und ist immer gruen.
@@ -302,6 +340,9 @@ test.describe('Bedienelemente ueberlappen einander nicht', () => {
     const rects = await visibleControlRects(page);
     const mapCtrl = await maplibreControlRect(page);
     if (mapCtrl) rects.push(mapCtrl);
+    // ODbL-Pflicht -- darf von nichts verdeckt werden.
+    const attrib = await attributionRect(page);
+    if (attrib) rects.push(attrib);
 
     // Die Fahrt-Bedienelemente muessen wirklich da sein.
     expect(rects.map((r) => r.name)).toEqual(

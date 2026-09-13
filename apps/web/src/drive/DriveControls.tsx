@@ -10,6 +10,8 @@ import { pauseNavigation, resumeNavigation, stopNavigation, NavigationApiError }
 import { useNavStore } from './navStore.js';
 import { useHandednessStore } from '../shell/handednessStore.js';
 import { sideClassFor, itemsAlignClassFor } from '../shell/handedness.js';
+import { rightStackBottomPx } from '../shell/mapControlLayout.js';
+import { useSchmal } from '../shell/useSchmal.js';
 
 export default function DriveControls(): React.ReactElement {
   const status = useNavStore((state) => state.navState?.status ?? null);
@@ -52,11 +54,19 @@ export default function DriveControls(): React.ReactElement {
   // `driveLockStore`, so there is no code path here that COULD lock it.
   // Pause/Resume are the same (documented decision, `driveLock.ts`).
   const sideClass = sideClassFor(handedness);
+  const schmal = useSchmal();
   const alignClass = itemsAlignClassFor(handedness);
 
   return (
     <div
-      className={`absolute bottom-4 ${sideClass} z-20 flex flex-col ${alignClass} gap-2`}
+      // Die unterste Stufe der Seitenspalte -- deshalb `rightStackBottomPx`
+      // mit dem eigenen Platz und nicht `bottomInsetPx` roh: dieselbe Funktion
+      // stapelt alles darueber, und sie kennt die beiden Dinge, die ganz unten
+      // sonst noch liegen (die Fahrtdaten-Leiste auf schmalen Schirmen, die
+      // Namensnennung immer). Genau daran hat es gefehlt: auf 1280 lag die
+      // Bedienung vier Punkte auf „© OpenStreetMap contributors".
+      style={{ bottom: rightStackBottomPx('drive-controls', true, schmal) }}
+      className={`absolute ${sideClass} z-20 flex flex-col ${alignClass} gap-2`}
       data-testid="drive-controls"
     >
       {error && (

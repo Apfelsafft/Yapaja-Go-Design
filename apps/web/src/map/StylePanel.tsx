@@ -17,6 +17,10 @@ import DriveLockGate from '../drive/DriveLockGate.js';
 import HandednessToggle from '../shell/HandednessToggle.js';
 import { useOnboardingStore } from '../onboarding/store.js';
 import { useRegionStore } from './regionStore.js';
+import { bottomInsetPx } from '../shell/mapControlLayout.js';
+import { useSchmal } from '../shell/useSchmal.js';
+import { useNavStore } from '../drive/navStore.js';
+import { isDriveActive } from '../drive/driveActive.js';
 import { pickActiveRegion } from './activeRegion.js';
 import { usePosition } from '../position/positionStore.js';
 
@@ -39,6 +43,8 @@ const POI_OPTIONS: Array<{ value: StylePoiDensity; label: string }> = [
 
 export default function StylePanel(): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
+  const schmal = useSchmal();
+  const driveActive = isDriveActive(useNavStore((state) => state.navState)?.status);
   const [styles, setStyles] = useState<StyleSummary[]>([]);
   const styleId = useStyleStore((state) => state.styleId);
   const options = useStyleStore((state) => state.options);
@@ -77,7 +83,9 @@ export default function StylePanel(): React.ReactElement {
   // all bottom-right, plus the "Yapaia Go" header badge top-left) don't use —
   // avoids a pointer-event-intercepting overlap with any of them.
   return (
-    <div className="fixed bottom-4 left-4 z-10">
+    // Waehrend einer Fahrt liegt auf schmalen Schirmen unten die
+    // Fahrtdaten-Leiste ueber die ganze Breite -- der Knopf muss darueber.
+    <div className="fixed left-4 z-10" style={{ bottom: bottomInsetPx(schmal, driveActive) }}>
       {isOpen && (
         <div
           className="absolute bottom-14 left-0 mb-2 w-64 rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"

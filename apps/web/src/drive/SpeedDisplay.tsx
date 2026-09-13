@@ -17,16 +17,23 @@
 import React from 'react';
 import { usePosition } from '../position/positionStore.js';
 import { displayedSpeedKmh } from './speedDisplay.js';
+import { FAB_SIZE_PX, STACK_GAP_PX, bottomInsetPx } from '../shell/mapControlLayout.js';
+import { useSchmal } from '../shell/useSchmal.js';
 
 export default function SpeedDisplay(): React.ReactElement | null {
   const position = usePosition();
   const kmh = displayedSpeedKmh(position?.speed ?? null);
+  const schmal = useSchmal();
   if (kmh === null) return null;
 
   return (
     <div
       data-testid="speed-display"
-      className="fixed bottom-20 left-4 z-10 flex items-baseline gap-1 rounded-xl bg-white/90 dark:bg-slate-800/90 px-3 py-2 shadow-lg pointer-events-none"
+      // Auf schmalen Schirmen ueber der Fahrtdaten-Leiste, sonst wie bisher.
+      style={{ bottom: schmal ? bottomInsetPx(true, true) + FAB_SIZE_PX + STACK_GAP_PX : undefined }}
+      className={`fixed left-4 z-10 flex items-baseline gap-1 rounded-xl bg-white/90 dark:bg-slate-800/90 px-3 py-2 shadow-lg pointer-events-none ${
+        schmal ? '' : 'bottom-20'
+      }`}
     >
       <span
         data-testid="speed-display-value"

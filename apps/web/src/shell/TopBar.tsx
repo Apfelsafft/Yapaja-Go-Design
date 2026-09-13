@@ -40,7 +40,9 @@ import ProfilesPanel from '../profiles/ProfilesPanel.js';
 import SearchBar from '../search/SearchBar.js';
 
 import { TOP_BAR_RIGHT_RESERVE_PX } from './mapControlLayout.js';
+import { useSchmal } from './useSchmal.js';
 export default function TopBar(): React.ReactElement {
+  const schmal = useSchmal();
   return (
     // `<header>` und nicht `<div>`: das ist die Kopfzeile der Anwendung, also
     // ein Landmark. Beim ersten Umbau stand hier ein `div` -- `pwa.spec.ts`
@@ -51,6 +53,12 @@ export default function TopBar(): React.ReactElement {
       style={{ paddingRight: TOP_BAR_RIGHT_RESERVE_PX }}
       data-testid="top-bar"
     >
+      {/* ─── AUF DEM TELEFON NUR DAS ZEICHEN ──────────────────────────────
+          Gemessen bei 390 Bildpunkten: der Schriftzug allein belegte rund 180
+          davon, und rechts sind 148 fuer Tempolimit und Zoom reserviert. Fuer
+          Fahrzeugwahl und Suche blieb dann nichts -- sie rutschten unter das
+          Schild. Das Emblem traegt die Marke auch ohne Wort; der Name steht
+          fuer Screenreader weiter da (`sr-only`). */}
       <h1 className="flex-shrink-0 pointer-events-auto flex items-center gap-2 bg-white/90 dark:bg-slate-900/90 rounded px-3 py-1 text-lg font-bold text-slate-900 dark:text-white shadow-md">
         {/* ─── DAS ZEICHEN, NICHT DER GANZE SCHRIFTZUG ─────────────────────
             Die Weitfassung des Logos traegt den Namen bereits als Schrift;
@@ -69,7 +77,7 @@ export default function TopBar(): React.ReactElement {
           className="h-7 w-7 flex-shrink-0"
           data-testid="brand-emblem"
         />
-        Yapaia Go
+        <span className={schmal ? 'sr-only' : undefined}>Yapaia Go</span>
       </h1>
       <ProfilesPanel />
       <SearchBar />

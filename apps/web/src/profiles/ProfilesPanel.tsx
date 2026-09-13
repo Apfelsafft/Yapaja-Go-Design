@@ -6,6 +6,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { VehicleProfile } from '@yapaia/shared';
 import { useProfileStore, type ProfileState } from './store.js';
 import ProfileChip from './ProfileChip.js';
@@ -229,7 +230,21 @@ export default function ProfilesPanel(): React.ReactElement {
       )}
 
       {/* Editor modal */}
-      {editorMode && editingProfile && (
+      {/* ─── WARUM DAS AUS DER KOPFZEILE HERAUSGEREICHT WIRD ──────────────────
+          Der Dialog stand auf `z-50` und lag trotzdem UNTER der
+          Favoriten-Schublade (`z-20`): er wird innerhalb der `TopBar`
+          gerendert, und die ist selbst `fixed … z-20`. Damit gilt seine 50
+          nur INNERHALB dieser Schicht -- gegen alles ausserhalb zaehlt die 20
+          der Kopfzeile, und bei Gleichstand gewinnt, was spaeter im Dokument
+          steht. Das war die Schublade.
+
+          Aufgefallen ist es, als die Schublade um 20 Bildpunkte hoeher rueckte
+          und damit auf „Speichern" zu liegen kam. Verdeckt war der untere Rand
+          des Dialogs aber schon vorher -- nur eben unterhalb der Knoepfe.
+
+          `createPortal` haengt den Dialog direkt an `document.body`; dort
+          bedeutet `z-50` wieder, was es sagt. */}
+      {editorMode && editingProfile && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 pointer-events-auto">
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 space-y-4">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
@@ -250,7 +265,8 @@ export default function ProfilesPanel(): React.ReactElement {
               </DriveLockGate>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

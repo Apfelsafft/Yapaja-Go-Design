@@ -481,7 +481,29 @@ test.describe('Drive basics (E04-T3, Flow 2)', () => {
       });
     });
 
-    expect(proben.length, 'es wurde ueberhaupt gezeichnet').toBeGreaterThan(10);
+    // ─── DIE ABSICHERUNG: ES WURDE WIRKLICH UNTERWEGS GEMESSEN ─────────────
+    // Frueher stand hier `proben.length > 10` -- eine Zaehlung von BILDERN.
+    // Das haengt an der Bildrate, und die bricht ein, wenn die ganze Test-
+    // Mappe parallel laeuft: im vollen Lauf kamen genau 10 Proben an, allein
+    // laufend ueber 80. Der Test schlug damit fehl, ohne dass sich an der
+    // Sache etwas geaendert haette.
+    //
+    // Gezaehlt wird stattdessen, was der Test wirklich braucht: Stellen
+    // ZWISCHEN den beiden Meldungen. Ohne Bewegung (harter Sprung) gibt es
+    // davon keine einzige -- das ist der Fehler, um den es geht -- und die
+    // Zahl haengt nicht daran, wie oft der Browser gerade zeichnet.
+    const AM_PUNKT_GRAD = 0.00005; // ~5 m
+    const nahe = (p: { lat: number; lon: number }, lat: number, lon: number): boolean =>
+      Math.abs(p.lat - lat) < AM_PUNKT_GRAD && Math.abs(p.lon - lon) < AM_PUNKT_GRAD;
+    const unterwegs = proben.filter(
+      (p) =>
+        !nahe(p, ECK_LAT + ECK_NORD * 0.8, ECK_LON) &&
+        !nahe(p, ECK_LAT + ECK_NORD, ECK_LON + ECK_OST * 0.2),
+    );
+    expect(
+      unterwegs.length,
+      `Proben: ${proben.length}, davon unterwegs: ${unterwegs.length}`,
+    ).toBeGreaterThan(2);
 
     // Rund 15 m Toleranz -- deutlich enger als die Ecke (200 m je Schenkel),
     // aber weit genug fuer Rundungen im Kartenabgleich.
