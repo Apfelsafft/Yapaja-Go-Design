@@ -50,6 +50,29 @@ Unverändert bleibt die Bezeichnung in den Home-Assistant-Entitäten und in den
 MQTT-Nutzlasten (`source: ha_tracker`). Dort ist sie Übertragungsformat, und
 wer darauf eine Automatisierung gebaut hat, soll sie behalten.
 
+### Die Konfigurationsseite ist aufgeräumt
+
+Die zwölf Optionen standen in beliebiger Reihenfolge da und trugen ihre rohen
+Schlüssel als Beschriftung: „photon_xmx_mb", „ha_device_tracker",
+„valhalla_memory_mb". Wer die Seite zum ersten Mal öffnete, musste für jedes
+einzelne Wort in die Dokumentation.
+
+Jetzt stehen sie in Gruppen — **Karte, Suche, Routing, Position, Home
+Assistant, System** — und jede trägt einen verständlichen Namen samt
+Erklärung, auf Deutsch und Englisch.
+
+Zwei Dinge dazu, damit die Erwartung stimmt:
+
+* **Echte Überschriften kennt die Add-on-Konfiguration nicht.** Home Assistant
+  zeichnet die Optionen einfach untereinander. Die Gliederung entsteht deshalb
+  aus der Reihenfolge und aus dem Gebiet im Namen („Position — Quelle").
+  Abschnitte gingen nur über verschachtelte Schlüssel — und die würden jede
+  bestehende Konfiguration ungültig machen.
+* **Karten installieren bleibt in Yapaia.** Das ist kein Schalter, sondern ein
+  langer Vorgang mit Fortschritt (Herunterladen, Kacheln bauen,
+  Routinggraph). Die Beschreibung der Option „Karte — Region" sagt jetzt
+  ausdrücklich, wo es steht, damit niemand danach sucht.
+
 ### Wenn weiterhin keine Position kommt
 
 Die häufigste Ursache ist banal: **es gibt mehr als ein Gerät mit der Companion

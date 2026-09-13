@@ -1182,3 +1182,95 @@ describe('find-gps-device.sh — die Geräteauswahl, ausgeführt', () => {
     expect(ergebnis.grund).toContain('/dev/ttyUSB9');
   });
 });
+
+/**
+ * ─── DIE KONFIGURATIONSSEITE MUSS LESBAR SEIN ───────────────────────────────
+ * Gewünscht: „Hier sollten wir ein wenig aufräumen. Bitte gruppiere die
+ * Einstellungen besser."
+ *
+ * Die Add-on-Konfiguration kennt keine Überschriften — Home Assistant zeichnet
+ * die Optionen in der Reihenfolge untereinander, in der sie in `config.yaml`
+ * stehen. Gruppen entstehen deshalb aus der REIHENFOLGE plus den NAMEN in
+ * `translations/`. Beides muss zusammenpassen, und beides driftet sonst
+ * auseinander, sobald jemand eine Option hinzufügt.
+ */
+describe('die Add-on-Konfiguration ist gegliedert und beschriftet', () => {
+  const SPRACHEN = ['de', 'en'] as const;
+
+  interface Uebersetzung {
+    configuration?: Record<string, { name?: string; description?: string }>;
+  }
+
+  function ladeUebersetzung(sprache: string): Uebersetzung {
+    const pfad = join(ADDON_DIR, 'translations', `${sprache}.yaml`);
+    return load(readFileSync(pfad, 'utf-8')) as Uebersetzung;
+  }
+
+  for (const sprache of SPRACHEN) {
+    it(`jede Option hat in ${sprache}.yaml einen Namen und eine Beschreibung`, () => {
+      const config = loadConfig();
+      const eintraege = ladeUebersetzung(sprache).configuration ?? {};
+      for (const schluessel of Object.keys(config.options)) {
+        const eintrag = eintraege[schluessel];
+        expect(eintrag, `Option "${schluessel}" fehlt in ${sprache}.yaml`).toBeDefined();
+        expect(eintrag?.name, `Name fehlt für "${schluessel}"`).toBeTruthy();
+        expect(eintrag?.description, `Beschreibung fehlt für "${schluessel}"`).toBeTruthy();
+      }
+    });
+
+    it(`${sprache}.yaml beschriftet nichts, was es nicht gibt`, () => {
+      // Eine Beschriftung für eine entfernte Option ist kein Fehler, den man
+      // sieht -- sie steht einfach nirgends. Sie bleibt aber liegen und
+      // erweckt beim nächsten Lesen den Eindruck, es gäbe die Option noch.
+      const config = loadConfig();
+      const eintraege = ladeUebersetzung(sprache).configuration ?? {};
+      for (const schluessel of Object.keys(eintraege)) {
+        expect(Object.keys(config.options), `"${schluessel}" in ${sprache}.yaml`).toContain(
+          schluessel,
+        );
+      }
+    });
+
+    it(`die Namen in ${sprache}.yaml tragen ihre Gruppe vorn`, () => {
+      // Das IST die Gruppierung -- ohne Präfix steht die Seite wieder als
+      // zwölf zusammenhanglose Felder da.
+      const eintraege = ladeUebersetzung(sprache).configuration ?? {};
+      for (const [schluessel, eintrag] of Object.entries(eintraege)) {
+        expect(eintrag.name, `"${schluessel}" ohne Gruppe: ${eintrag.name}`).toMatch(/ — /);
+      }
+    });
+  }
+
+  it('die Optionen stehen in Gruppen beieinander, nicht durcheinander', () => {
+    // Gemessen an der Reihenfolge in config.yaml: alle Schlüssel einer Gruppe
+    // müssen einen zusammenhängenden Block bilden. Sonst zeichnet Home
+    // Assistant „Suche", dann „Position", dann wieder „Suche".
+    const config = loadConfig();
+    const gruppe: Record<string, string> = {
+      region: 'Karte',
+      photon_enabled: 'Suche',
+      photon_xmx_mb: 'Suche',
+      valhalla_memory_mb: 'Routing',
+      gps_source: 'Position',
+      gps_device: 'Position',
+      ha_device_tracker: 'Position',
+      gps_simulator: 'Position',
+      ha_internal: 'Home Assistant',
+      mqtt_enabled: 'Home Assistant',
+      mqtt_prefix: 'Home Assistant',
+      log_level: 'System',
+    };
+    const folge = Object.keys(config.options).map((k) => gruppe[k]);
+    expect(folge, 'unbekannte Option ohne Gruppe').not.toContain(undefined);
+    // Jede Gruppe darf höchstens einmal beginnen.
+    const beginne = folge.filter((g, i) => g !== folge[i - 1]);
+    expect(new Set(beginne).size, `Gruppen zerrissen: ${folge.join(', ')}`).toBe(beginne.length);
+  });
+
+  it('options und schema stehen in derselben Reihenfolge', () => {
+    // Sonst gilt die eine Gliederung und die andere ist Zierde -- und welche,
+    // hängt daran, woraus Home Assistant das Formular gerade baut.
+    const config = loadConfig();
+    expect(Object.keys(config.options)).toEqual(Object.keys(config.schema));
+  });
+});
