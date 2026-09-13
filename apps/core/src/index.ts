@@ -295,6 +295,16 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     positionService,
     profileService,
     valhallaUrl: process.env.VALHALLA_URL,
+    // Live gelesen, damit ein Sprachwechsel ab der naechsten Route gilt.
+    sprache: () => {
+      const wert = settingsService.get('language');
+      return typeof wert === 'string' ? wert : null;
+    },
+    // Ebenso live: die gewaehlte Routenart gilt ab der naechsten Berechnung.
+    routeMode: () => {
+      const wert = settingsService.get('route_mode');
+      return wert === 'shortest' || wert === 'balanced' || wert === 'fastest' ? wert : null;
+    },
   });
   await fastify.register(routingPlugin, {
     prefix: '/api/v1',

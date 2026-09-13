@@ -5,6 +5,7 @@
 
 import React, { useEffect } from 'react';
 import { useProfileStore } from '../profiles/store.js';
+import { useRoutingStore } from './store.js';
 import RouteLayer from './RouteLayer.js';
 import RouteRestorer from './RouteRestorer.js';
 import DestinationSelector from './DestinationSelector.js';
@@ -13,6 +14,7 @@ import RoutingPanel from './RoutingPanel.js';
 export default function RoutingInitializer(): React.ReactElement {
   const profileCount = useProfileStore((state) => state.profiles.length);
   const fetchProfiles = useProfileStore((state) => state.fetchProfiles);
+  const ladeRouteMode = useRoutingStore((state) => state.ladeRouteMode);
 
   // Routing needs `activeProfile.id` as soon as the user picks a
   // destination -- fetch profiles proactively on mount rather than waiting
@@ -22,6 +24,9 @@ export default function RoutingInitializer(): React.ReactElement {
     if (profileCount === 0) {
       void fetchProfiles();
     }
+    // Die gemerkte Routenart holen, damit die Anzeige nach einem Neuladen
+    // das zeigt, was auch wirklich gilt.
+    void ladeRouteMode();
     // Only ever needs to run once on mount.
   }, []);
 

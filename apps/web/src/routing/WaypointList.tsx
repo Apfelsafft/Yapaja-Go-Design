@@ -38,6 +38,8 @@ export default function WaypointList({ rerouteParams }: WaypointListProps): Reac
   const pickTarget = useRoutingStore((state) => state.pickTarget);
   const setPickTarget = useRoutingStore((state) => state.setPickTarget);
   const removeWaypoint = useRoutingStore((state) => state.removeWaypoint);
+  const optimizeWaypointOrder = useRoutingStore((state) => state.optimizeWaypointOrder);
+  const status = useRoutingStore((state) => state.status);
   const moveWaypoint = useRoutingStore((state) => state.moveWaypoint);
 
   const voll = waypoints.length >= MAX_WAYPOINTS;
@@ -140,6 +142,26 @@ export default function WaypointList({ rerouteParams }: WaypointListProps): Reac
             </li>
           ))}
         </ol>
+      )}
+
+      {/* ─── DIE REIHENFOLGE OPTIMIEREN ───────────────────────────────────────
+          Gewuenscht: „optimierte" Route. Wer vier Stellplaetze eintippt, tippt
+          sie selten in der guenstigsten Folge ein. Gerechnet wird das von
+          Valhalla (`/optimized_route`) -- mit denselben Fahrzeugmassen und
+          Vermeidungen wie jede andere Route, siehe `routing/service.ts`.
+
+          Erst ab ZWEI Zwischenzielen: bei einem gibt es nichts zu sortieren,
+          und ein Knopf, der nichts tut, ist schlimmer als keiner. */}
+      {waypoints.length >= 2 && rerouteParams && (
+        <button
+          type="button"
+          onClick={() => void optimizeWaypointOrder(rerouteParams)}
+          disabled={status === 'loading'}
+          className="w-full text-xs px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50"
+          data-testid="optimize-waypoints-button"
+        >
+          ↕ Reihenfolge optimieren
+        </button>
       )}
     </div>
   );

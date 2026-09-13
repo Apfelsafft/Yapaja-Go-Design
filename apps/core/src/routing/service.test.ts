@@ -423,3 +423,109 @@ describe('RoutingService success + cache', () => {
     expect(svc.getCachedRoute('unknown')).toBeNull();
   });
 });
+
+describe('die guenstigste Reihenfolge der Zwischenziele', () => {
+  const WP: LatLng[] = [
+    { lat: 0, lon: 0.02 },
+    { lat: 0, lon: 0.04 },
+    { lat: 0, lon: 0.06 },
+  ];
+
+  function anfrage(waypoints: LatLng[] = WP): RouteRequest {
+    return {
+      origin: ORIGIN,
+      destination: DEST,
+      waypoints,
+      profile_id: 'p1',
+      alternatives: 0,
+    };
+  }
+
+  /** Ein Client, der nur auf `/optimized_route` antwortet -- und mitschreibt. */
+  function client(orte: unknown, gerufen: string[] = []): {
+    client: { route: (b: unknown, p?: string) => Promise<ValhallaRouteResponse> };
+    gerufen: string[];
+  } {
+    return {
+      client: {
+        route: async (_b: unknown, p = '/route') => {
+          gerufen.push(p);
+          return {
+            trip: { ...tripWithLengthKm(11, 600), locations: orte },
+          } as unknown as ValhallaRouteResponse;
+        },
+      },
+      gerufen,
+    };
+  }
+
+  function dienst(c: { route: (b: unknown, p?: string) => Promise<ValhallaRouteResponse> }): RoutingService {
+    return new RoutingService({
+      client: c as never,
+      profileService: profileService(camper()),
+      positionService: positionService(null),
+      regionsProvider: allAcceptingRegionsProvider(),
+    });
+  }
+
+  it('fragt den Optimierungs-Endpunkt, nicht den normalen', async () => {
+    // Sonst bekaeme man eine Route zurueck und nennte sie eine Reihenfolge.
+    const gerufen: string[] = [];
+    const c = client(
+      [{ original_index: 0 }, { original_index: 3 }, { original_index: 1 }, { original_index: 2 }, { original_index: 4 }],
+      gerufen,
+    );
+    await dienst(c.client).optimiereReihenfolge(anfrage());
+    expect(gerufen).toEqual(['/optimized_route']);
+  });
+
+  it('rechnet Valhallas Stellen auf die Zwischenziele um', async () => {
+    // Valhalla zaehlt Start (0), Zwischenziele (1..n) und Ziel mit. Die
+    // Antwort hier heisst: erst das dritte, dann das erste, dann das zweite.
+    const c = client([
+      { original_index: 0 },
+      { original_index: 3 },
+      { original_index: 1 },
+      { original_index: 2 },
+      { original_index: 4 },
+    ]);
+    await expect(dienst(c.client).optimiereReihenfolge(anfrage())).resolves.toEqual([2, 0, 1]);
+  });
+
+  it('laesst die Reihenfolge, wie sie war, wenn Valhalla Unsinn liefert', async () => {
+    // Eine geratene Sortierung waere schlimmer als keine: der Fahrer faehrt
+    // sie ab.
+    for (const kaputt of [
+      undefined,
+      [],
+      [{ original_index: 0 }, { original_index: 1 }], // zu kurz
+      [{ original_index: 0 }, { original_index: 1 }, { original_index: 1 }, { original_index: 2 }, { original_index: 4 }], // doppelt
+      [{ original_index: 0 }, {}, { original_index: 2 }, { original_index: 3 }, { original_index: 4 }], // ohne Zahl
+    ]) {
+      const c = client(kaputt);
+      await expect(
+        dienst(c.client).optimiereReihenfolge(anfrage()),
+        JSON.stringify(kaputt),
+      ).resolves.toEqual([0, 1, 2]);
+    }
+  });
+
+  it('fragt bei weniger als zwei Halten gar nicht erst', async () => {
+    const gerufen: string[] = [];
+    const c = client([], gerufen);
+    await expect(dienst(c.client).optimiereReihenfolge(anfrage([WP[0]]))).resolves.toEqual([0]);
+    await expect(dienst(c.client).optimiereReihenfolge(anfrage([]))).resolves.toEqual([]);
+    expect(gerufen, 'kein Netzaufruf ohne etwas zu sortieren').toEqual([]);
+  });
+
+  it('meldet ein unbekanntes Profil wie jede andere Routenberechnung', async () => {
+    const c = client([]);
+    const ohneProfil = new RoutingService({
+      client: c.client as never,
+      profileService: profileService(null),
+      positionService: positionService(null),
+      regionsProvider: allAcceptingRegionsProvider(),
+    });
+    await expect(ohneProfil.optimiereReihenfolge(anfrage())).rejects.toBeInstanceOf(RoutingError);
+  });
+});

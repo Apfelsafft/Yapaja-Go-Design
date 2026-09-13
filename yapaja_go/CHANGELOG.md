@@ -10,6 +10,65 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.0
+
+**Routenoptionen, deutsche Anweisungstexte, und der blaue Punkt folgt der
+Straße.**
+
+### Sie können jetzt wählen, wonach gesucht wird
+
+Im Routenpanel stehen drei Schaltflächen:
+
+| | |
+|---|---|
+| **Schnellste** | Kürzeste Fahrzeit. Das ist, was Yapaia bisher immer gerechnet hat, und bleibt die Vorgabe. |
+| **Kürzeste** | Kürzeste Strecke. Zeit spielt keine Rolle mehr — eine Ortsdurchfahrt kann die Autobahn schlagen. |
+| **Ausgewogen** | Ein Mittelweg: die Autobahn wird genommen, wenn sie sich lohnt, aber ein langer Umweg dorthin nicht mehr. |
+
+**Wichtig: die Maße Ihres Fahrzeugs gelten in allen dreien unverändert.** Die
+Wahl entscheidet nur, welche *erlaubte* Route genommen wird — nie, ob eine
+verbotene erlaubt wird.
+
+Die Wahl wird gemerkt und gilt auch für Routen, die über Home Assistant oder
+MQTT ausgelöst werden.
+
+### Und die Reihenfolge Ihrer Zwischenziele
+
+Ab zwei Zwischenzielen erscheint **„↕ Reihenfolge optimieren"**. Wer vier
+Stellplätze eintippt, tippt sie selten in der günstigsten Folge ein. Gerechnet
+wird das mit denselben Fahrzeugmaßen und Vermeidungen wie jede andere Route.
+
+Kommt dabei etwas Unvollständiges heraus, bleibt Ihre Reihenfolge unangetastet
+— geraten wird hier nichts, Sie fahren diese Reihenfolge schließlich ab.
+
+### Die nächste Anweisung steht jetzt auf Deutsch
+
+Gemeldet: *„Der Text der nächsten Anweisung ist auf Englisch."* Im Dashboard
+stand „Enter the roundabout and take the 2nd exit onto B 44."
+
+Die Routenanfrage schickte keine Sprache mit, und ohne Angabe antwortet der
+Routendienst auf Englisch. Dass es in der App selbst nicht auffiel, hat einen
+eigenen Grund: die **gesprochenen** Ansagen baut Yapaia selbst auf Deutsch. Der
+englische Satz wurde nur dort sichtbar, wo er unverändert durchgereicht wird —
+im Dashboard.
+
+### Der blaue Punkt schneidet keine Kurven mehr ab
+
+Gemeldet: *„bei scharfen Abbiegungen … eine sanfte Kurve … folgt nicht exakt
+der Straße sondern mittelt irgendwie."*
+
+Nicht der Simulator hat gemittelt, sondern die Anzeige. Damit sich der Punkt
+flüssig bewegt (0.6.6), wandert er zwischen zwei Positionsmeldungen — und zwar
+bisher auf der **Luftlinie**. Vor der Ecke liegt eine Meldung, dahinter die
+nächste; die Gerade dazwischen schneidet die Kurve ab. Im Zeitraffer des
+Simulators liegen zwei Meldungen mehrere hundert Meter auseinander, dann
+schneidet diese Linie ganze Kreuzungen.
+
+Jetzt wandert der Punkt **entlang der Route**. Er bewegt sich genauso flüssig,
+bleibt dabei aber auf der Straße.
+
+---
+
 ## 0.7.2
 
 **Die Entfernung bis zur nächsten Abbiegung steht jetzt nicht mehr still.**

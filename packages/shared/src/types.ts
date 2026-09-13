@@ -66,6 +66,27 @@ export interface RouteAvoidOverrides {
   unpaved?: boolean;
 }
 
+/**
+ * Wonach die Route gesucht wird.
+ *
+ * ─── WAS DIE DREI BEDEUTEN ──────────────────────────────────────────────────
+ *  - `fastest`   die kuerzeste FAHRZEIT. Valhallas Vorgabe.
+ *  - `shortest`  die kuerzeste STRECKE. Valhalla rechnet dann rein nach
+ *                Entfernung (`shortest: true`) -- Zeit spielt keine Rolle
+ *                mehr, eine Ortsdurchfahrt kann die Autobahn schlagen.
+ *  - `balanced`  ein Mittelweg: Zeitkosten wie bei `fastest`, aber ohne die
+ *                starke Vorliebe fuer Autobahnen. Das ist KEINE eingebaute
+ *                Betriebsart von Valhalla, sondern unsere eigene Gewichtung --
+ *                siehe `routing/profileMapping.ts#buildTruckCostingOptions`.
+ *                Deshalb steht hier auch kein Versprechen ueber Verbrauch:
+ *                den kann Yapaia nicht berechnen.
+ *
+ * Die Masse des Fahrzeugs gelten in ALLEN dreien unveraendert. Die Wahl
+ * entscheidet, welche erlaubte Route gewaehlt wird -- nie, ob eine verbotene
+ * erlaubt wird.
+ */
+export type RouteMode = 'fastest' | 'shortest' | 'balanced';
+
 // Request to calculate route(s)
 export interface RouteRequest {
   origin: LatLng | 'current';
@@ -73,6 +94,9 @@ export interface RouteRequest {
   waypoints: LatLng[]; // max 25
   profile_id: string;
   alternatives: number; // 0–3
+  /** Wonach gesucht wird. Fehlt sie, gilt die Einstellung `route_mode`,
+   *  und ohne die `'fastest'`. */
+  mode?: RouteMode;
   // E03-T4: optional temporary avoidances, independent of the vehicle
   // profile and not persisted anywhere -- scoped to this single request.
   /** Point locations to exclude from routing. */

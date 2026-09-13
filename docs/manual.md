@@ -197,12 +197,33 @@ The avoidance lasts for the current trip only.
 When Yapaia offers alternatives it draws them as grey lines alongside the main
 route. Tap one to make it the active route.
 
+### Choosing what to optimise for
+
+Three buttons in the routing panel:
+
+| | |
+|---|---|
+| **Schnellste** | Shortest travel time. The default. |
+| **Kürzeste** | Shortest distance. Time no longer counts — a village high street can beat the motorway. |
+| **Ausgewogen** | A middle ground: the motorway gets taken when it pays off, but a long detour to reach it no longer does. |
+
+**Your vehicle's dimensions apply in all three.** The choice only decides which
+*permitted* route is taken — never whether a forbidden one becomes permitted.
+Yapaia remembers the choice, and it also applies to routes triggered from Home
+Assistant.
+
 ### Stops along the way
 
 A route can have intermediate stops, not just a destination. Add them, drag
 them into the order you want, and the route follows that order. You can add a
 stop **while you are already driving** — the route recalculates from where you
 are now.
+
+With two or more stops, **↕ Reihenfolge optimieren** works out the cheapest
+order to visit them in — the same job you would otherwise do on paper. It uses
+your vehicle's dimensions and avoidances like any other route. If the result
+comes back incomplete, your order is left exactly as it was: you are the one
+who drives it, so nothing here is guessed.
 
 ### Favourites
 

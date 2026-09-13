@@ -16,13 +16,23 @@
  *   MapLibre paint-property transitions -- never a "teleport flicker"
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
 import { usePosition, usePositionConnected, usePositionExtrapolated, usePositionStore } from './positionStore';
 import { useGpsSignalState } from './gpsSignal';
 import { useMapStore } from '../state/mapStore';
 import { runWhenStyleReady } from '../map/styleReady';
 import { followAnimationMs } from '../map/followMe';
 import { interpolateFix, type SmoothFix } from './smoothing.js';
+import { useNavStore } from '../drive/navStore.js';
+import { useRoutingStore, selectActiveRoute } from '../routing/store.js';
+import { decodePolyline6 } from '../routing/polyline.js';
+import {
+  cumulativeMeters,
+  progressFromRemaining,
+  punktBeiProgress,
+  type Coord,
+} from '../routing/traveledSplit.js';
+import { isDriveActive } from '../drive/driveActive.js';
 import { headingArrowRing } from './headingArrow.js';
 import { metersPerPixel as mapMetersPerPixel } from '../map/scale.js';
 
@@ -76,7 +86,44 @@ export default function PositionPuck(): null {
     ziel: SmoothFix;
     startMs: number;
     dauerMs: number;
+    /** Fortschritt auf der Route, wenn eine gefahren wird -- siehe
+     *  `traveledSplit.ts#punktBeiProgress`. Ohne Route bleibt es bei der
+     *  Luftlinie zwischen zwei Meldungen. */
+    vonProgressM?: number;
+    zielProgressM?: number;
   } | null>(null);
+  /** Der zuletzt GEZEICHNETE Fortschritt -- Gegenstueck zu `angezeigt`. */
+  const angezeigtProgressM = useRef<number | null>(null);
+  // ─── DER PUNKT FOLGT DER STRASSE, NICHT DER LUFTLINIE ────────────────────
+  // Gemeldet: „bei scharfen Abbiegungen … eine sanfte Kurve … folgt nicht
+  // exakt der Straße sondern mittelt irgendwie." Dieselbe Herleitung wie in
+  // `RouteLayer` -- Geometrie einmal je Route, Fortschritt aus der
+  // Restentfernung des Cores. Warum nicht selbst gerechnet:
+  // `traveledSplit.ts`, Kopfkommentar.
+  const routes = useRoutingStore((state) => state.routes);
+  const activeRouteId = useRoutingStore((state) => state.activeRouteId);
+  const navState = useNavStore((state) => state.navState);
+  const activeRoute = useMemo(
+    () => selectActiveRoute({ routes, activeRouteId }),
+    [routes, activeRouteId],
+  );
+  const routenGeom = useMemo((): { coords: Coord[]; cumulative: number[] } => {
+    if (!activeRoute) return { coords: [], cumulative: [] };
+    const coords = decodePolyline6(activeRoute.geometry) as Coord[];
+    return { coords, cumulative: cumulativeMeters(coords) };
+  }, [activeRoute]);
+  const progressM = useMemo(() => {
+    if (!activeRoute || !isDriveActive(navState?.status)) return null;
+    // Gehoert die Zahl zu DIESER Linie? Direkt nach einer Neuberechnung
+    // fuehrt der Core schon die neue Route, waehrend im Browser noch die
+    // alte Geometrie liegt -- der Fortschritt der einen auf der anderen
+    // ergaebe einen Punkt im Nirgendwo.
+    if (navState?.route_id !== activeRoute.id) return null;
+    const totalM = routenGeom.cumulative[routenGeom.cumulative.length - 1];
+    if (totalM === undefined) return null;
+    return progressFromRemaining(totalM, navState.distance_remaining_m);
+  }, [activeRoute, routenGeom, navState]);
+
   const isConnected = usePositionConnected();
   const extrapolated = usePositionExtrapolated();
   const signalState = useGpsSignalState();
@@ -324,7 +371,18 @@ export default function PositionPuck(): null {
             // glaetten, und eine Animation ueber wenige Millisekunden kostet
             // mehr, als sie bringt.
             null
-          : { von: angezeigt.current, ziel, startMs: performance.now(), dauerMs: dauer };
+          : {
+              von: angezeigt.current,
+              ziel,
+              startMs: performance.now(),
+              dauerMs: dauer,
+              // Beides oder keines: fehlt einer der zwei Fortschritte, wird
+              // wie bisher die Luftlinie gezogen. Ein halb gefuellter Lauf
+              // waere schlimmer als der alte Zustand.
+              vonProgressM: angezeigtProgressM.current ?? undefined,
+              zielProgressM: progressM ?? undefined,
+            };
+      angezeigtProgressM.current = progressM;
     }
 
     // ─── WARUM DIE BEWEGUNG DIESE WIRKUNG UEBERLEBEN MUSS ───────────────────
@@ -335,6 +393,38 @@ export default function PositionPuck(): null {
     // heraus, der Rest war wieder ein Sprung. Der Lauf liegt deshalb in einer
     // Referenz und wird hier nur FORTGESETZT, mit seiner urspruenglichen
     // Startzeit.
+    /**
+     * Ein Zwischenschritt der Bewegung.
+     *
+     * ─── AUF DER STRASSE STATT AUF DER LUFTLINIE ──────────────────────────
+     * Gemeldet: „bei scharfen Abbiegungen … eine sanfte Kurve … mittelt
+     * irgendwie." Gemittelt hat genau diese Stelle: zwischen zwei Meldungen
+     * wurde geradlinig gerechnet, und eine Gerade ueber eine Ecke schneidet
+     * sie ab. Im Zeitraffer liegen zwei Meldungen einige hundert Meter
+     * auseinander -- dann schneidet die Sehne ganze Kreuzungen.
+     *
+     * Liegt eine Route an, wird deshalb der FORTSCHRITT geglaettet und der
+     * Punkt auf der Linie nachgeschlagen. Sonst bleibt es bei der Luftlinie:
+     * ohne Route gibt es nichts, dem man folgen koennte.
+     */
+    const zwischenschritt = (
+      l: NonNullable<typeof lauf.current>,
+      t: number,
+    ): SmoothFix => {
+      const anteil = t <= 0 ? 0 : t >= 1 ? 1 : t;
+      if (l.vonProgressM !== undefined && l.zielProgressM !== undefined) {
+        const p = l.vonProgressM + (l.zielProgressM - l.vonProgressM) * anteil;
+        const auf = punktBeiProgress(routenGeom.coords, routenGeom.cumulative, p);
+        if (auf) {
+          // Der Kurs kommt weiter aus den Meldungen: er dreht dort weich
+          // ueber den Kreis (`smoothing.ts`), waehrend der Abschnittskurs an
+          // der Ecke um 90 Grad springen wuerde.
+          return { lat: auf.lat, lon: auf.lon, heading: interpolateFix(l.von, l.ziel, anteil).heading };
+        }
+      }
+      return interpolateFix(l.von, l.ziel, anteil);
+    };
+
     let bild = 0;
     const schritt = (): void => {
       const lauffend = lauf.current;
@@ -344,7 +434,7 @@ export default function PositionPuck(): null {
         return;
       }
       const t = (performance.now() - lauffend.startMs) / lauffend.dauerMs;
-      const jetzt = interpolateFix(lauffend.von, lauffend.ziel, t);
+      const jetzt = zwischenschritt(lauffend, t);
       angezeigt.current = jetzt;
       zeichne(jetzt);
       if (t >= 1) {
@@ -356,7 +446,7 @@ export default function PositionPuck(): null {
     schritt();
 
     return () => cancelAnimationFrame(bild);
-  }, [map, position, isConnected, extrapolated, signalState, lastRealUpdateTime, tick, styleEpoch]);
+  }, [map, position, isConnected, extrapolated, signalState, lastRealUpdateTime, tick, styleEpoch, routenGeom, progressM]);
 
   return null;
 }

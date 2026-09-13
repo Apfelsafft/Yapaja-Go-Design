@@ -40,7 +40,13 @@
  *    profile itself is never mutated.
  */
 
-import type { LatLng, RouteAvoidOverrides, RouteRequest, VehicleProfile } from '@yapaia/shared';
+import type {
+  LatLng,
+  RouteAvoidOverrides,
+  RouteMode,
+  RouteRequest,
+  VehicleProfile,
+} from '@yapaia/shared';
 import type {
   ValhallaExcludeLocation,
   ValhallaExcludePolygonRing,
@@ -65,6 +71,7 @@ export const VALHALLA_COSTING = 'truck';
 export function buildTruckCostingOptions(
   profile: VehicleProfile,
   avoidOverrides?: RouteAvoidOverrides,
+  mode: RouteMode = 'fastest',
 ): ValhallaTruckCostingOptions {
   const truck: ValhallaTruckCostingOptions = {
     height: profile.height_m,
@@ -87,6 +94,26 @@ export function buildTruckCostingOptions(
   if (effectiveToll) truck.use_tolls = 0;
   if (effectiveFerry) truck.use_ferry = 0;
   if (effectiveUnpaved) truck.use_tracks = 0;
+
+  // ─── WONACH GESUCHT WIRD ──────────────────────────────────────────────────
+  // Die Masse oben sind Zugangsbedingungen und gelten in JEDER Betriebsart
+  // unveraendert. Was hier folgt, waehlt nur unter den erlaubten Routen aus.
+  if (mode === 'shortest') {
+    // Valhalla rechnet dann rein nach Entfernung.
+    truck.shortest = true;
+  } else if (mode === 'balanced' && !effectiveMotorway) {
+    // „Ausgewogen" ist KEINE eingebaute Betriebsart von Valhalla, sondern
+    // diese eine Zeile: die Vorliebe fuer Autobahnen wird halbiert (Vorgabe
+    // ist 1). Die Zeit bleibt das Mass -- die Autobahn wird also weiter
+    // genommen, wenn sie deutlich schneller ist, aber ein langer Umweg
+    // dorthin lohnt sich nicht mehr.
+    //
+    // Nur, wenn Autobahnen nicht ohnehin gemieden werden: sonst ueber-
+    // schriebe diese Zeile die 0 von oben mit 0.5 und machte aus einem
+    // „meiden" ein „ein bisschen meiden". Genau die Sorte stiller
+    // Aufweichung, die man spaeter nicht wiederfindet.
+    truck.use_highways = 0.5;
+  }
 
   return truck;
 }
@@ -128,6 +155,29 @@ export interface RouteExcludeOptions {
  *   input array is non-empty; an absent/empty input leaves the key off the
  *   body entirely (matches the `use_*` "omit when unused" convention above).
  */
+/**
+ * Die Sprache, in der Valhalla die Manoevertexte formuliert.
+ *
+ * ─── WARUM DAS HIER STEHT ───────────────────────────────────────────────────
+ * Gemeldet: „Der Text der naechsten Anweisung ist auf Englisch." Im Dashboard
+ * stand „Enter the roundabout and take the 2nd exit onto B 44." Die Anfrage
+ * schickte `units`, aber keine Sprache -- und ohne Angabe antwortet Valhalla
+ * in `en-US`.
+ *
+ * Dass es in der App selbst nicht auffiel, hat einen eigenen Grund: die
+ * gesprochene Ansage baut `navigation/instructions.ts#buildSayText` selbst auf
+ * Deutsch, und die Manoeverkachel zeigt vor allem Pfeil und Strassenname. Der
+ * englische Satz von Valhalla wurde also nur dort sichtbar, wo er unveraendert
+ * durchgereicht wird: im Home-Assistant-Dashboard.
+ *
+ * Vorgabe ist Deutsch, nicht `en-US`: die gesamte Oberflaeche ist deutsch und
+ * die Ansagen sind es auch. Eine englische Route in einer deutschen App waere
+ * nicht neutral, sondern falsch.
+ */
+export function valhallaSprache(einstellung?: string | null): string {
+  return einstellung === 'en' ? 'en-US' : 'de-DE';
+}
+
 export function buildValhallaRouteBody(
   originLatLng: LatLng,
   destination: LatLng,
@@ -136,6 +186,8 @@ export function buildValhallaRouteBody(
   alternatives: number,
   excludeOptions?: RouteExcludeOptions,
   originHeadingDeg?: number,
+  sprache?: string,
+  mode: RouteMode = 'fastest',
 ): ValhallaRouteRequestBody {
   const toLocation = (p: LatLng): ValhallaLocation => ({
     lat: p.lat,
@@ -160,8 +212,8 @@ export function buildValhallaRouteBody(
   const body: ValhallaRouteRequestBody = {
     locations,
     costing: VALHALLA_COSTING,
-    costing_options: { truck: buildTruckCostingOptions(profile, excludeOptions?.avoidOverrides) },
-    directions_options: { units: 'kilometers' },
+    costing_options: { truck: buildTruckCostingOptions(profile, excludeOptions?.avoidOverrides, mode) },
+    directions_options: { units: 'kilometers', language: valhallaSprache(sprache) },
     alternates: alternatives,
   };
 

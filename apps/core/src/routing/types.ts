@@ -58,6 +58,13 @@ export interface ValhallaTruckCostingOptions {
   use_ferry?: number;
   /** present & 0 only when the profile avoids unpaved ways (closest Valhalla equivalent). */
   use_tracks?: number;
+  /**
+   * Nur bei `mode: 'shortest'` gesetzt. Valhalla rechnet dann rein nach
+   * ENTFERNUNG. Wichtig: laut Valhalla-Referenz schaltet das die uebrigen
+   * Kostenfaktoren ab -- die MASSE des Fahrzeugs bleiben davon unberuehrt,
+   * sie sind keine Kosten, sondern Zugangsbedingungen.
+   */
+  shortest?: boolean;
 }
 
 /**
@@ -82,7 +89,13 @@ export interface ValhallaRouteRequestBody {
   locations: ValhallaLocation[];
   costing: 'truck';
   costing_options: { truck: ValhallaTruckCostingOptions };
-  directions_options: { units: 'kilometers' };
+  /**
+   * `language` ist NICHT optional, obwohl Valhalla ohne sie auskommt: ohne
+   * Angabe antwortet Valhalla in `en-US`, und genau das stand im Dashboard
+   * („Enter the roundabout and take the 2nd exit onto B 44."). Ein Feld, das
+   * man vergessen KANN, wird vergessen -- deshalb erzwingt der Typ es.
+   */
+  directions_options: { units: 'kilometers'; language: string };
   /** number of alternative routes requested (Valhalla naming: "alternates"). */
   alternates: number;
   /** present & non-empty only when the request carries `exclude_locations`. */
@@ -130,6 +143,13 @@ export interface ValhallaTrip {
   /** 0 = success. */
   status?: number;
   status_message?: string;
+  /**
+   * Nur bei `/optimized_route` von Belang: Valhalla gibt die Halte in der
+   * GUENSTIGSTEN Reihenfolge zurueck und haengt an jeden `original_index` --
+   * die Stelle, an der er in der Anfrage stand. Ohne diese Zahl waere die
+   * Antwort eine Liste ohne Zuordnung.
+   */
+  locations?: Array<{ original_index?: number }>;
 }
 
 export interface ValhallaAlternate {

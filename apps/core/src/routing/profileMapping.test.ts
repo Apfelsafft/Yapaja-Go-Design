@@ -5,7 +5,11 @@
 
 import { describe, it, expect } from 'vitest';
 import type { LatLng, VehicleProfile } from '@yapaia/shared';
-import { buildTruckCostingOptions, buildValhallaRouteBody } from './profileMapping.js';
+import {
+  buildTruckCostingOptions,
+  buildValhallaRouteBody,
+  valhallaSprache,
+} from './profileMapping.js';
 
 function camper(overrides: Partial<VehicleProfile> = {}): VehicleProfile {
   return {
@@ -96,7 +100,7 @@ describe('buildValhallaRouteBody', () => {
       { lat: 48.5, lon: 9.5, type: 'break' },
     ]);
     expect(body.costing).toBe('truck');
-    expect(body.directions_options).toEqual({ units: 'kilometers' });
+    expect(body.directions_options).toEqual({ units: 'kilometers', language: 'de-DE' });
     expect(body.alternates).toBe(2);
   });
 
@@ -268,5 +272,104 @@ describe('buildTruckCostingOptions with avoidOverrides (E03-T4)', () => {
     const truck = buildTruckCostingOptions(profile, {});
     expect(truck.use_tolls).toBe(0);
     expect('use_highways' in truck).toBe(false);
+  });
+});
+
+describe('die Sprache der Manoevertexte', () => {
+  // ─── DER GEMELDETE FEHLER ───────────────────────────────────────────────
+  // „Der Text der naechsten Anweisung ist auf Englisch." Im Dashboard stand
+  // „Enter the roundabout and take the 2nd exit onto B 44." Die Anfrage
+  // schickte `units`, aber keine Sprache -- und ohne Angabe antwortet Valhalla
+  // in en-US.
+  it('steht auch ohne Einstellung auf Deutsch, nicht auf Valhallas en-US', () => {
+    expect(valhallaSprache(undefined)).toBe('de-DE');
+    expect(valhallaSprache(null)).toBe('de-DE');
+    expect(valhallaSprache('')).toBe('de-DE');
+  });
+
+  it('folgt der Einstellung, wenn sie auf Englisch steht', () => {
+    expect(valhallaSprache('en')).toBe('en-US');
+  });
+
+  it('faellt bei einem unbekannten Wert auf Deutsch zurueck', () => {
+    // Ein unerwarteter Wert darf nicht dazu fuehren, dass Valhalla wieder
+    // seine eigene Vorgabe waehlt -- das waere genau der gemeldete Zustand.
+    expect(valhallaSprache('kli')).toBe('de-DE');
+  });
+
+  it('landet wirklich im Anfragekoerper', () => {
+    const body = buildValhallaRouteBody(
+      { lat: 47, lon: 9 },
+      { lat: 48, lon: 9.5 },
+      [],
+      camper(),
+      0,
+      undefined,
+      undefined,
+      'en',
+    );
+    expect(body.directions_options.language).toBe('en-US');
+  });
+});
+
+describe('wonach gesucht wird (schnellste / kuerzeste / ausgewogen)', () => {
+  it('schnellste ist die Vorgabe und setzt gar nichts', () => {
+    // Valhallas eigene Vorgabe ist die kuerzeste Fahrzeit. Wer hier etwas
+    // setzt, aendert sie -- also wird hier nichts gesetzt.
+    const o = buildTruckCostingOptions(camper(), undefined, 'fastest');
+    expect(o.shortest).toBeUndefined();
+    expect(o.use_highways).toBeUndefined();
+  });
+
+  it('kuerzeste rechnet nach Entfernung', () => {
+    expect(buildTruckCostingOptions(camper(), undefined, 'shortest').shortest).toBe(true);
+  });
+
+  it('ausgewogen halbiert die Vorliebe fuer Autobahnen', () => {
+    const o = buildTruckCostingOptions(camper(), undefined, 'balanced');
+    expect(o.use_highways).toBe(0.5);
+    expect(o.shortest).toBeUndefined();
+  });
+
+  // ─── DIE FALLE ──────────────────────────────────────────────────────────
+  // „Ausgewogen" senkt `use_highways` auf 0.5. Wer Autobahnen im Profil
+  // MEIDET, hat dort eine 0 stehen -- aus einem „meiden" wuerde sonst ein
+  // „ein bisschen meiden", und zwar still.
+  it('weicht ein „Autobahn meiden" NICHT auf', () => {
+    const meidend = camper({ avoid: { motorway: true, toll: false, ferry: false, unpaved: false } });
+    expect(buildTruckCostingOptions(meidend, undefined, 'balanced').use_highways).toBe(0);
+  });
+
+  it('gilt das auch fuer die Vermeidung nur fuer diese Anfrage', () => {
+    const o = buildTruckCostingOptions(camper(), { motorway: true }, 'balanced');
+    expect(o.use_highways).toBe(0);
+  });
+
+  it('die Masse gelten in JEDER Betriebsart unveraendert', () => {
+    // Die Wahl entscheidet, welche ERLAUBTE Route genommen wird -- nie, ob
+    // eine verbotene erlaubt wird. Das ist der Punkt, an dem ein Fehler hier
+    // gefaehrlich waere statt nur aergerlich.
+    for (const mode of ['fastest', 'shortest', 'balanced'] as const) {
+      const o = buildTruckCostingOptions(camper(), undefined, mode);
+      expect(o.height, mode).toBe(3.2);
+      expect(o.width, mode).toBe(2.35);
+      expect(o.length, mode).toBe(7.4);
+      expect(o.weight, mode).toBe(7.5);
+    }
+  });
+
+  it('landet im Anfragekoerper', () => {
+    const body = buildValhallaRouteBody(
+      { lat: 47, lon: 9 },
+      { lat: 48, lon: 9.5 },
+      [],
+      camper(),
+      0,
+      undefined,
+      undefined,
+      undefined,
+      'shortest',
+    );
+    expect(body.costing_options.truck.shortest).toBe(true);
   });
 });

@@ -66,7 +66,10 @@ export interface ValhallaClientOptions {
 
 /** Structural contract the RoutingService depends on -- eases mocking. */
 export interface ValhallaClientLike {
-  route(body: ValhallaRouteRequestBody): Promise<ValhallaRouteResponse>;
+  /** `pfad` waehlt den Valhalla-Endpunkt: `/route` (Vorgabe) oder
+   *  `/optimized_route` fuer die guenstigste Reihenfolge der Halte. Beide
+   *  nehmen denselben Koerper und antworten in derselben Form. */
+  route(body: ValhallaRouteRequestBody, pfad?: string): Promise<ValhallaRouteResponse>;
   /** Tempolimits zu einer bereits berechneten Route. `null` = nicht zu haben;
    *  das ist ein normaler Ausgang, keine Ausnahme (siehe Implementierung). */
   traceAttributes?(body: Record<string, unknown>): Promise<unknown | null>;
@@ -115,8 +118,8 @@ export class ValhallaClient implements ValhallaClientLike {
     this.logger = opts.logger ?? consoleLogger;
   }
 
-  async route(body: ValhallaRouteRequestBody): Promise<ValhallaRouteResponse> {
-    const url = `${this.baseUrl}/route`;
+  async route(body: ValhallaRouteRequestBody, pfad = '/route'): Promise<ValhallaRouteResponse> {
+    const url = `${this.baseUrl}${pfad}`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 

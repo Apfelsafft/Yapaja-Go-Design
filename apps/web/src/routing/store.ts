@@ -21,7 +21,7 @@
  */
 
 import { create } from 'zustand';
-import type { LatLng, Route, RouteAvoidOverrides } from '@yapaia/shared';
+import type { LatLng, Route, RouteAvoidOverrides, RouteMode } from '@yapaia/shared';
 import * as client from './client.js';
 import { RoutingApiError } from './client.js';
 import {
@@ -117,6 +117,8 @@ export interface RoutingState {
    * lag, es hing nur nichts daran.
    */
   waypoints: Waypoint[];
+  /** Wonach gesucht wird. Wird mit jeder Anfrage mitgeschickt. */
+  routeMode: RouteMode;
 
   /** Sets (or clears, with `null`) the selected destination, optionally with
    *  a display `name` (E05-T2, search result selection). Always resets any
@@ -144,9 +146,35 @@ export interface RoutingState {
     params: RequestRouteParams,
   ) => void;
   /** Adds a temporary avoidance polygon and immediately reroutes with `params`. */
+  /** Setzt die Routenart und berechnet neu, wenn schon eine Route steht. */
+  setRouteMode: (mode: RouteMode, params: RequestRouteParams | null) => void;
+  /**
+   * Holt die gemerkte Routenart einmalig aus den Einstellungen.
+   *
+   * Ohne das zeigte die Oberflaeche nach jedem Neuladen „Schnellste", waehrend
+   * gespeichert etwas anderes steht -- eine Anzeige, die nicht stimmt, ist
+   * schlimmer als gar keine.
+   */
+  ladeRouteMode: () => Promise<void>;
+  /** Sortiert die Zwischenziele in die guenstigste Reihenfolge und berechnet
+   *  neu. Unter zwei Zwischenzielen passiert nichts. */
+  optimizeWaypointOrder: (params: RequestRouteParams) => Promise<void>;
   addSectionAvoidance: (polygon: LatLng[], params: RequestRouteParams) => void;
   /** Removes a temporary avoidance by id and immediately reroutes with `params`. */
   removeAvoidance: (id: string, params: RequestRouteParams) => void;
+}
+
+/** Merkt die Routenart dauerhaft. Bestes Bemuehen -- offline ist hier normal. */
+async function patchSetting(key: string, value: unknown): Promise<void> {
+  try {
+    await fetch(`${import.meta.env.BASE_URL}api/v1/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: value }),
+    });
+  } catch {
+    // Siehe oben.
+  }
 }
 
 function nextAvoidanceId(): string {
@@ -199,6 +227,7 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
   avoidOverrides: {},
   tempAvoidances: [],
   waypoints: [],
+  routeMode: 'fastest',
 
   setDestination: (destination, name = null) => {
     set({
@@ -287,6 +316,7 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
         waypoints: toRequestWaypoints(waypoints),
         profile_id: profileId,
         alternatives: 2,
+        mode: get().routeMode,
         // Only attach these when non-empty, so a request with no
         // avoidances is byte-for-byte identical to the pre-E03-T4 shape.
         ...(Object.keys(avoidOverrides).length > 0 ? { avoid_overrides: avoidOverrides } : {}),
@@ -349,6 +379,78 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
     const effective = avoidOverrides[flag] ?? profileDefault;
     set({ avoidOverrides: { ...avoidOverrides, [flag]: !effective } });
     void get().requestRoute(params);
+  },
+
+  ladeRouteMode: async () => {
+    try {
+      const antwort = await fetch(`${import.meta.env.BASE_URL}api/v1/settings`);
+      if (!antwort.ok) return;
+      const koerper = (await antwort.json()) as { data?: Record<string, unknown> };
+      const wert = koerper?.data?.route_mode;
+      if (wert === 'fastest' || wert === 'shortest' || wert === 'balanced') {
+        set({ routeMode: wert });
+      }
+    } catch {
+      // Offline ist hier ein normaler Betriebszustand; dann bleibt es bei
+      // der Vorgabe.
+    }
+  },
+
+  setRouteMode: (mode, params) => {
+    if (get().routeMode === mode) return;
+    set({ routeMode: mode });
+    // Dauerhaft merken, damit auch Routen, die ueber Home Assistant oder MQTT
+    // ausgeloest werden, dieselbe Wahl bekommen -- der Core liest die
+    // Einstellung, wenn eine Anfrage keine mitbringt.
+    void patchSetting('route_mode', mode);
+    if (params && get().destination) void get().requestRoute(params);
+  },
+
+  optimizeWaypointOrder: async (params) => {
+    const { waypoints, destination, startPoint, avoidOverrides, tempAvoidances, routeMode } = get();
+    // Ohne Profil gibt es keine Route -- und damit auch nichts zu sortieren.
+    // Dieselbe Abfrage wie in `requestRoute`, nur still: die Optimierung ist
+    // eine Zusatzfunktion, keine Fahrfunktion.
+    if (waypoints.length < 2 || !destination || !params.profileId) return;
+
+    const effectiveOrigin = startPoint ?? params.origin;
+    const excludePolygons = tempAvoidances.map((a) => a.polygon);
+    set({ status: 'loading', error: null });
+    try {
+      const order = await client.optimiereReihenfolge({
+        origin: effectiveOrigin,
+        destination,
+        waypoints: toRequestWaypoints(waypoints),
+        profile_id: params.profileId,
+        alternatives: 0,
+        mode: routeMode,
+        ...(Object.keys(avoidOverrides).length > 0 ? { avoid_overrides: avoidOverrides } : {}),
+        ...(excludePolygons.length > 0 ? { exclude_polygons: excludePolygons } : {}),
+      });
+      // Eine unbrauchbare Antwort laesst die Liste, wie sie ist: der Fahrer
+      // faehrt diese Reihenfolge ab -- geraten wird hier nichts.
+      const brauchbar =
+        order.length === waypoints.length &&
+        order.every((i) => Number.isInteger(i) && i >= 0 && i < waypoints.length) &&
+        new Set(order).size === order.length;
+      if (brauchbar) {
+        const sortiert = order.map((i) => waypoints[i]);
+        set({ waypoints: sortiert });
+        void updateNavigationWaypoints(toRequestWaypoints(sortiert)).catch(() => {
+          // Wie bei jeder anderen Aenderung der Liste.
+        });
+      }
+      await get().requestRoute(params);
+    } catch (err) {
+      if (err instanceof RoutingApiError) {
+        set({ status: 'error', error: { code: err.code, message: err.message } });
+      } else {
+        set({
+          status: 'error',
+          error: { code: 'UNKNOWN', message: 'Reihenfolge konnte nicht optimiert werden.' },
+        });
+      }
+    }
   },
 
   addSectionAvoidance: (polygon, params) => {

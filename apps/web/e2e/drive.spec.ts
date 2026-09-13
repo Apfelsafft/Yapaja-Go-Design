@@ -416,4 +416,138 @@ test.describe('Drive basics (E04-T3, Flow 2)', () => {
 
     expect(pageErrors).toEqual([]);
   });
+
+  test('der blaue Punkt schneidet eine rechtwinklige Ecke nicht ab', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.goto(DRIVE_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+
+    const start = await page.request.post(`${DRIVE_CORE_BASE_URL}/api/v1/navigation/start`, {
+      data: { route: ECK_ROUTE, destination: { latlng: ECK_PUNKTE[2], name: 'Ecke' } },
+    });
+    expect(start.ok()).toBe(true);
+
+    // Die Route in den Routenspeicher des Browsers legen -- im Betrieb tut das
+    // `RouteRestorer` ueber `GET /routes/:id`. Hier ist die Route per
+    // `navigation/start` direkt uebergeben worden und liegt nicht im
+    // Zwischenspeicher; ohne diesen Schritt haette der Browser gar keine
+    // Linie, der der Punkt folgen koennte (und auf dem Bildschirmfoto des
+    // Betreibers ist die Linie zu sehen -- der Fall, um den es geht).
+    await page.evaluate((route) => {
+      window.__yapaiaRoutingStore?.setState({
+        routes: [route],
+        activeRouteId: route.id,
+        status: 'success',
+        error: null,
+      } as never);
+    }, ECK_ROUTE as unknown as Record<string, unknown>);
+    await page.waitForTimeout(200);
+
+    const fix = (lat: number, lon: number): Record<string, unknown> => ({
+      lat,
+      lon,
+      alt: null,
+      speed: 25,
+      heading: 0,
+      accuracy: 5,
+      fix: '3d',
+      ts: new Date().toISOString(),
+    });
+
+    // Erste Meldung: 200 m VOR der Ecke. Sie setzt den Takt, aus dem sich die
+    // Dauer der Bewegung ergibt.
+    await page.request.post(`${DRIVE_CORE_BASE_URL}/api/v1/position/browser`, {
+      data: fix(ECK_LAT + ECK_NORD * 0.8, ECK_LON),
+    });
+    await page.waitForTimeout(1200);
+
+    // Zweite Meldung: 200 m HINTER der Ecke -- der Sprung, den der Zeitraffer
+    // erzeugt. Dazwischen wird gezeichnet.
+    await page.request.post(`${DRIVE_CORE_BASE_URL}/api/v1/position/browser`, {
+      data: fix(ECK_LAT + ECK_NORD, ECK_LON + ECK_OST * 0.2),
+    });
+
+    const proben = await page.evaluate(() => {
+      return new Promise<Array<{ lat: number; lon: number }>>((fertig) => {
+        const werte: Array<{ lat: number; lon: number }> = [];
+        const startMs = performance.now();
+        const schritt = (): void => {
+          const p = window.__yapaiaPuckPosition;
+          if (p && typeof p.lat === 'number') werte.push({ lat: p.lat, lon: p.lon });
+          if (performance.now() - startMs < 1400) requestAnimationFrame(schritt);
+          else fertig(werte);
+        };
+        schritt();
+      });
+    });
+
+    expect(proben.length, 'es wurde ueberhaupt gezeichnet').toBeGreaterThan(10);
+
+    // Rund 15 m Toleranz -- deutlich enger als die Ecke (200 m je Schenkel),
+    // aber weit genug fuer Rundungen im Kartenabgleich.
+    const TOLERANZ_GRAD = 0.00015;
+    const daneben = proben.filter(
+      (p) =>
+        Math.abs(p.lon - ECK_LON) > TOLERANZ_GRAD &&
+        Math.abs(p.lat - (ECK_LAT + ECK_NORD)) > TOLERANZ_GRAD,
+    );
+    expect(
+      daneben,
+      `Stellen neben der Strasse (Sehne ueber die Ecke): ${JSON.stringify(daneben.slice(0, 3))}`,
+    ).toEqual([]);
+
+    await page.request.post(`${DRIVE_CORE_BASE_URL}/api/v1/navigation/stop`);
+  });
 });
+
+// ─── DER PUNKT FOLGT DER STRASSE, NICHT DER LUFTLINIE ──────────────────────
+// Gemeldet: „Es sieht so aus als ob die aktuelle Position bei scharfen
+// Abbiegungen so was wie eine sanfte Kurve wählt. Sie folgt nicht exakt der
+// Straße sondern mittelt irgendwie."
+//
+// Die Glaettung (0.6.6) zog eine Gerade von Meldung zu Meldung. Auf einer
+// rechtwinkligen Ecke liegt diese Gerade INNERHALB der Ecke -- im Feld quer
+// ueber die Kreuzung. Im Zeitraffer, wo zwei Meldungen hunderte Meter
+// auseinanderliegen, ist das gut sichtbar.
+//
+// Geprueft wird nicht „sieht glatt aus", sondern die harte Eigenschaft: auf
+// einem L liegt JEDE gezeichnete Stelle entweder auf dem einen oder auf dem
+// anderen Schenkel. Eine Sehne ueber die Ecke erfuellt das nicht.
+const ECK_LAT = 47.3;
+const ECK_LON = 9.6;
+const ECK_NORD = 0.009; // ~1000 m
+const ECK_OST = 0.0132; // ~1000 m auf dieser Breite
+
+const ECK_PUNKTE: LatLon[] = [
+  { lat: ECK_LAT, lon: ECK_LON },
+  { lat: ECK_LAT + ECK_NORD, lon: ECK_LON },
+  { lat: ECK_LAT + ECK_NORD, lon: ECK_LON + ECK_OST },
+];
+
+const ECK_ROUTE: Route = {
+  id: 'ecken-route',
+  distance_m: 2000,
+  duration_s: 120,
+  geometry: encodePolyline6(ECK_PUNKTE),
+  legs: [{ index: 0, distance_m: 2000, duration_s: 120 }],
+  maneuvers: [
+    {
+      index: 0,
+      type: 'continue',
+      instruction: 'Der Strasse folgen',
+      street_names: ['Nordstrasse'],
+      distance_m: 1000,
+      begin_shape_index: 0,
+    },
+    {
+      index: 1,
+      type: 'turn_right',
+      instruction: 'Rechts abbiegen',
+      street_names: ['Oststrasse'],
+      distance_m: 1000,
+      begin_shape_index: 1,
+    },
+  ],
+  speed_limits: [],
+  warnings: [],
+};
