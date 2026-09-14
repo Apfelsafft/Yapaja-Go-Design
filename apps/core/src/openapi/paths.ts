@@ -133,6 +133,10 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
 
   // --- Einstellungen ---
   'GET /api/v1/settings': { summary: 'Alle App-Einstellungen', tags: ['Einstellungen'] },
+  'GET /api/v1/settings/defaults': {
+    summary: 'Vorgaben aus der Add-on-Konfiguration (keine Einstellungen)',
+    tags: ['Einstellungen'],
+  },
   'GET /api/v1/settings/:key': { summary: 'Einzelne Einstellung', tags: ['Einstellungen'] },
   'PATCH /api/v1/settings': { summary: 'Einstellungen ändern (Einheiten, Sprache, GPS-Priorität, MQTT …)', tags: ['Einstellungen'] },
 

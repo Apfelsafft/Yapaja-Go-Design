@@ -98,4 +98,63 @@ describe('Settings Routes Integration', () => {
       expect(JSON.parse(response.body).error.code).toBe('VALIDATION_ERROR');
     });
   });
+
+  describe('GET /api/v1/settings/defaults', () => {
+    it('meldet "keine Vorgabe", wenn kein Add-on eine macht (Standalone-Betrieb)', async () => {
+      const response = await server.inject({ method: 'GET', url: '/api/v1/settings/defaults' });
+      expect(response.statusCode).toBe(200);
+      expect(JSON.parse(response.body).data).toEqual({ theme: null });
+    });
+
+    it('kommt dem Schluesselweg nicht in die Quere -- "defaults" ist keine Einstellung namens "defaults"', async () => {
+      // Ohne diese Zusicherung koennte die Route den Weg /settings/:key
+      // verdecken und ein Schluessel "defaults" waere unerreichbar.
+      await server.inject({ method: 'PATCH', url: '/api/v1/settings', payload: { units: 'metric' } });
+      const response = await server.inject({ method: 'GET', url: '/api/v1/settings/defaults' });
+      expect(JSON.parse(response.body).data).toEqual({ theme: null });
+    });
+  });
+});
+
+describe('GET /api/v1/settings/defaults mit gesetzter Add-on-Option', () => {
+  let server: FastifyInstance;
+
+  afterEach(async () => {
+    await server.close();
+    closeDb();
+    delete process.env.THEME_MODE;
+  });
+
+  async function starteMit(themeMode: string | undefined): Promise<FastifyInstance> {
+    process.env.DB_PATH = ':memory:';
+    if (themeMode === undefined) delete process.env.THEME_MODE;
+    else process.env.THEME_MODE = themeMode;
+    closeDb();
+    return buildServer();
+  }
+
+  it('reicht THEME_MODE aus der Add-on-Konfiguration durch', async () => {
+    server = await starteMit('dark');
+    const response = await server.inject({ method: 'GET', url: '/api/v1/settings/defaults' });
+    expect(JSON.parse(response.body).data).toEqual({ theme: { mode: 'dark' } });
+  });
+
+  it('behandelt einen leeren Wert wie "keine Vorgabe" -- bashio liefert fuer eine ungesetzte Option einen leeren String', async () => {
+    server = await starteMit('   ');
+    const response = await server.inject({ method: 'GET', url: '/api/v1/settings/defaults' });
+    expect(JSON.parse(response.body).data).toEqual({ theme: null });
+  });
+
+  it('schreibt die Vorgabe NICHT in den Einstellungsspeicher -- sonst waere sie von einer Wahl nicht zu unterscheiden', async () => {
+    // Genau das ist der Grund fuer den eigenen Weg: landete die Vorgabe im
+    // Speicher, bliebe ein spaeteres Aendern der Option wirkungslos.
+    server = await starteMit('dark');
+    // Erst den Vorgabe-Weg wirklich BENUTZEN -- sonst prueft der Test nur,
+    // dass ein frischer Speicher leer ist, und nicht, dass der Weg nichts
+    // hineinschreibt.
+    const vorgabe = await server.inject({ method: 'GET', url: '/api/v1/settings/defaults' });
+    expect(JSON.parse(vorgabe.body).data).toEqual({ theme: { mode: 'dark' } });
+    const response = await server.inject({ method: 'GET', url: '/api/v1/settings' });
+    expect(JSON.parse(response.body).data).toEqual({});
+  });
 });

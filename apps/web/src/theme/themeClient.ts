@@ -21,7 +21,7 @@ import type { ThemeMode } from './resolveTheme.js';
 const LOCAL_STORAGE_KEY = 'yapaja.theme.mode';
 const SETTINGS_KEY = 'theme';
 
-const VALID_MODES: readonly ThemeMode[] = ['light', 'dark', 'auto'];
+const VALID_MODES: readonly ThemeMode[] = ['light', 'dark', 'auto', 'system'];
 
 /**
  * Deliberately `'light'`, NOT `'auto'`, even though "automatic day/night" is
@@ -101,6 +101,24 @@ export async function patchServerThemeMode(mode: ThemeMode): Promise<void> {
   }
 }
 
+/**
+ * Die VORGABE aus der Add-on-Konfiguration (`display.theme`).
+ *
+ * `null`, wenn keine gesetzt ist oder die Anfrage scheitert -- im
+ * Standalone-Betrieb gibt es kein Add-on, das eine Vorgabe machen könnte.
+ */
+export async function fetchAddonDefaultThemeMode(): Promise<ThemeMode | null> {
+  try {
+    const response = await fetch(apiUrl('api/v1/settings/defaults'));
+    if (!response.ok) return null;
+    const body = (await response.json()) as { data?: Record<string, unknown> };
+    const value = body?.data?.[SETTINGS_KEY] as { mode?: unknown } | null | undefined;
+    return isThemeMode(value?.mode) ? (value.mode as ThemeMode) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Boot-time load: local cache first (instant, no flash of the wrong
  *  theme), then the server value once it resolves (a value already synced
  *  from another device). Writes back to the local cache in the meantime, so
@@ -110,8 +128,21 @@ export async function patchServerThemeMode(mode: ThemeMode): Promise<void> {
  *  is known). */
 export async function loadThemeMode(): Promise<ThemeMode> {
   const local = loadLocalThemeMode();
-  const server = await fetchServerThemeMode();
-  const resolved = server ?? local ?? DEFAULT_THEME_MODE;
+  const [server, addonDefault] = await Promise.all([
+    fetchServerThemeMode(),
+    fetchAddonDefaultThemeMode(),
+  ]);
+  // ─── DIE RANGFOLGE ────────────────────────────────────────────────────────
+  // 1. `server` -- was der Betreiber in Yapaia GEWAEHLT hat. Nur `setMode`
+  //    schreibt diesen Wert, er ist also immer eine ausdrueckliche Wahl.
+  // 2. `addonDefault` -- die Add-on-Option `display.theme`. Eine Vorgabe, die
+  //    fuer alle Geraete gilt, die noch nichts gewaehlt haben. Sie steht VOR
+  //    dem Geraetespeicher, weil dort auch blosse Boot-Ergebnisse landen und
+  //    nicht nur Entscheidungen -- sonst koennte ein einmaliges Oeffnen ein
+  //    Geraet dauerhaft gegen die Vorgabe immunisieren.
+  // 3. `local` -- der Geraetespeicher, damit es ohne Kern sofort stimmt.
+  // 4. Die eingebaute Vorgabe.
+  const resolved = server ?? addonDefault ?? local ?? DEFAULT_THEME_MODE;
   saveLocalThemeMode(resolved);
   return resolved;
 }

@@ -430,7 +430,14 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // `settingsService` instance created at the top of `buildServer` (so the auth
   // guard + HA output channel + MQTT bridge all read the SAME live settings) is
   // injected here rather than letting the plugin build its own.
-  await fastify.register(settingsPlugin, { prefix: '/api/v1', service: settingsService });
+  await fastify.register(settingsPlugin, {
+    prefix: '/api/v1',
+    service: settingsService,
+    // Die Vorgabe aus der Add-on-Option `display.theme` -- siehe
+    // `settings/routes.ts` dazu, warum sie NICHT in den Speicher geschrieben
+    // wird. Im Standalone-Betrieb ist die Variable ungesetzt: keine Vorgabe.
+    defaults: { themeMode: process.env.THEME_MODE },
+  });
 
   // Add-on manifest/install/lifecycle plugin (E09-T1, docs/05 §2/§5):
   // additive, does not touch other plugins. `coreVersion` is the CORE's own

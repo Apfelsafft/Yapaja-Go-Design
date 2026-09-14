@@ -55,6 +55,16 @@ configuration:
       name: Memory for Valhalla (MB)
       description: Upper limit for route calculation. Grows with the size of the
         region; 2048 is a good starting point for one country.
+  display:
+    name: Appearance
+    description: Light or dark — for the interface and the map together.
+    theme:
+      name: Theme
+      description: 'A DEFAULT for devices that have not chosen inside Yapaia; choosing
+        something there under "Design" overrides it for that device. "light"/"dark":
+        fixed. "system": follows the device''s light/dark setting. "sun": follows
+        the sun at your position — usually the better one in a vehicle, because
+        it goes dark when it gets dark outside.'
   home_assistant:
     name: Home Assistant
     description: How Yapaia reports its values to Home Assistant.

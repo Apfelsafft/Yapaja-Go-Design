@@ -31,6 +31,11 @@ function createErrorResponse(code: string, message: string): ApiError {
 export interface SettingsPluginOptions {
   /** Injectable for tests; defaults to a fresh `SettingsService`. */
   service?: SettingsService;
+  /** Vorgaben aus der Add-on-Konfiguration -- siehe `GET /settings/defaults`. */
+  defaults?: {
+    /** `display.theme` der Add-on-Option; leer/fehlend = keine Vorgabe. */
+    themeMode?: string;
+  };
 }
 
 export const settingsPlugin: FastifyPluginAsync<SettingsPluginOptions> = async (fastify, opts) => {
@@ -38,6 +43,27 @@ export const settingsPlugin: FastifyPluginAsync<SettingsPluginOptions> = async (
 
   fastify.get<{ Reply: SettingsReply }>('/settings', async (_request, reply) => {
     reply.code(200).send({ data: settingsService.getAll() });
+  });
+
+  /**
+   * Die VORGABEN aus der Add-on-Konfiguration.
+   *
+   * ─── WARUM EIN EIGENER WEG UND NICHT DER EINSTELLUNGS-SPEICHER ────────────
+   * Eine Vorgabe ist keine Einstellung. Schriebe das Add-on sie beim Start in
+   * den Speicher, waere sie von der Wahl des Betreibers nicht mehr zu
+   * unterscheiden -- und ein spaeteres Aendern der Option bliebe wirkungslos,
+   * weil der Schluessel ja schon belegt ist. Genau diese Sorte stiller
+   * Wirkungslosigkeit hat in diesem Projekt schon mehrfach Zeit gekostet.
+   *
+   * Hier bleiben beide getrennt: der Speicher haelt, was der Betreiber
+   * GEWAEHLT hat, dieser Weg nennt, was gaelte, wenn er nichts gewaehlt hat.
+   * Die Rangfolge bildet der Aufrufer (`apps/web/src/theme/themeClient.ts`).
+   *
+   * `null` heisst „keine Vorgabe" -- etwa im Standalone-Betrieb ohne Add-on.
+   */
+  fastify.get('/settings/defaults', async (_request, reply) => {
+    const wert = (opts.defaults?.themeMode ?? '').trim();
+    reply.code(200).send({ data: { theme: wert.length > 0 ? { mode: wert } : null } });
   });
 
   fastify.get<{ Params: SettingsKeyParams; Reply: SettingsValueReply | ApiError }>(

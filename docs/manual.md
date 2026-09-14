@@ -451,8 +451,24 @@ default" is in the same menu.
 Switch to LHD and they mirror to the bottom-left — for a tablet mounted on the
 side where the driver's free hand naturally falls.
 
-**Day and night.** The interface and the map switch together, following the
-sun at your position, or the clock if there is no position yet.
+**Day and night.** The interface and the map switch together. Under **Design**
+there are four modes:
+
+| Mode | What it follows |
+|---|---|
+| **Light** / **Dark** | nothing — it stays as you set it |
+| **System** | the device's own light/dark setting (the iOS Control Centre switch) |
+| **Sun** | sunrise and sunset at your position, or the clock if there is no position yet |
+
+In a vehicle **Sun** is usually the better one: it goes dark when it actually
+gets dark outside, whatever the tablet is set to. The dark map is not the light
+one inverted — it has its own palette so that roads stay distinguishable at
+night.
+
+If you run Yapaia as a Home Assistant add-on, the add-on option
+**Appearance → Theme** sets what a device starts with. It is a default, not an
+override: once you pick a mode here, that device keeps it. So the dashboard
+tablet can follow the sun while your phone stays light.
 
 **On a phone.** Below 480 px of width, drive mode rearranges itself: the trip
 data becomes a bar across the bottom, and everything else stacks above it —

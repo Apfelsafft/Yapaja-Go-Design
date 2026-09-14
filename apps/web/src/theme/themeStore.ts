@@ -45,6 +45,7 @@ import {
   type ThemeOverride,
   type ThemeResolution,
 } from './resolveTheme.js';
+import { systemBevorzugtDunkel } from './systemPreference.js';
 import { DEFAULT_THEME_MODE, loadThemeMode, patchServerThemeMode, saveLocalThemeMode } from './themeClient.js';
 import { useStyleStore } from '../state/styleStore.js';
 import { DEFAULT_STYLE_ID } from '../map/styleClient.js';
@@ -121,7 +122,15 @@ export const useThemeStore = create<ThemeStoreState>((set, get) => ({
   tick: (now = new Date(), position) => {
     const pos = position !== undefined ? position : null;
     const { mode, override, lastAppliedTheme } = get();
-    const resolution = resolveTheme({ mode, now, position: pos, override });
+    // Das Geraet wird HIER befragt und als Wert hineingereicht --
+    // `resolveTheme` bleibt rein (siehe dessen Modulkommentar).
+    const resolution = resolveTheme({
+      mode,
+      now,
+      position: pos,
+      override,
+      systemPrefersDark: systemBevorzugtDunkel(),
+    });
     // An override that has just lapsed (now >= expiresAt) must be cleared
     // from state too, not just ignored by `resolveTheme` this one time --
     // otherwise a later `tick()` with a position but no override state
