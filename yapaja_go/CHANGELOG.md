@@ -10,6 +10,44 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.5
+
+**49 europäische Länder stehen zur Auswahl.**
+
+### Gewünscht
+
+> „Wir können noch die Option von Karten anderer europäischer Länder
+> bereitstellen. Wichtig wären bspw. Auch Schweiz, Österreich, Frankreich bzw.
+> Die an Deutschland angrenzenden Länder."
+
+Der Katalog kannte bisher drei Einträge: Liechtenstein, Rheinland-Pfalz und
+Deutschland. Jetzt sind es 49 — alle deutschen Nachbarn (Österreich, Schweiz,
+Frankreich, Niederlande, Belgien, Luxemburg, Dänemark, Polen, Tschechien) und
+dazu der Rest Europas von Albanien bis zur Ukraine.
+
+Zu finden in Yapaia unter **Regionen**. Dort wird auch gebaut — das ist ein
+Vorgang mit Fortschrittsanzeige, keine Einstellung in der Add-on-Konfiguration.
+
+### Groß oder klein — die Anzeige sagt es
+
+Jeder Eintrag ist markiert, ob der Kachelbau auf einer HAOS-VM neben Home
+Assistant läuft oder ob er woanders gebaut werden sollte. Frankreich, Italien,
+Spanien, Großbritannien und Polen gehören zur zweiten Gruppe: der Bau belegt
+die VM sonst stundenlang und scheitert am Ende womöglich am Speicher.
+
+### Die Adressen werden jetzt nachgeprüft
+
+Der Katalog trug früher schon einmal Adressen, die es gar nicht gab — die
+Oberfläche bot dann einen Knopf an, der sicher fehlschlug. Bei 49 Einträgen ist
+ein Tippfehler in einem Ländernamen eine Frage der Zeit, und er fällt sonst
+erst auf, nachdem Sie „Karte bauen" gedrückt haben.
+
+Ein wöchentlicher Prüflauf fragt deshalb jede einzelne Adresse ab. Ein falscher
+Eintrag ist damit ein roter Job bei uns statt ein vergeblicher Bauauftrag bei
+Ihnen.
+
+---
+
 ## 0.8.4
 
 **Die Konfigurationsseite hat jetzt echte, aufklappbare Abschnitte.**
