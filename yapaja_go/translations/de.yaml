@@ -4,104 +4,100 @@
 # ─── WOZU DIESE DATEI ───────────────────────────────────────────────────────
 # Ohne sie zeigt Home Assistant die rohen Schlüssel an: „photon_xmx_mb",
 # „ha_device_tracker", „valhalla_memory_mb". Wer die Seite zum ersten Mal
-# öffnet, sieht zwölf technische Wörter ohne Zusammenhang und muss für jedes
+# öffnet, sieht technische Wörter ohne Zusammenhang und muss für jedes
 # einzelne in die Dokumentation.
 #
-# ─── UND WOHER DIE GRUPPEN KOMMEN ───────────────────────────────────────────
-# Die Add-on-Konfiguration kennt KEINE Überschriften — Home Assistant zeichnet
-# die Optionen einfach in der Reihenfolge untereinander, in der sie in
-# `config.yaml` stehen. Die Gruppen entstehen deshalb hier, im Namen: jede
-# Option trägt ihr Gebiet vorn („Position — Quelle"). Zusammen mit der
-# Reihenfolge in `config.yaml` liest sich die Seite wie ein gegliedertes
-# Formular.
+# ─── DIE STRUKTUR FOLGT DEM SCHEMA ──────────────────────────────────────────
+# Seit 0.8.4 sind die selten angefassten Optionen in `config.yaml` in Gruppen
+# verschachtelt, und Home Assistant zeichnet daraus aufklappbare Blöcke (wie
+# „Terminal & SSH" es mit seinem Block „Server" macht). Diese Datei bildet
+# dieselbe Verschachtelung ab: erst der Name der Gruppe, darunter ihre
+# Optionen.
 #
-# Der Preis wäre sonst hoch gewesen: eine echte Gruppierung ginge nur über
-# verschachtelte Schlüssel, und die würde jede bestehende Konfiguration
-# ungültig machen.
+# Bis 0.8.3 stand hier das Gegenteil — die Gruppe klebte als Präfix im Namen
+# jeder Option („Position — Quelle"), weil ich angenommen hatte, echte
+# Abschnitte seien nicht möglich. Das war falsch; der Betreiber hat das
+# Gegenbeispiel gefunden.
 configuration:
   region:
-    name: Karte — Region
-    description: >-
-      Welche Kartenregion Yapaia benutzt (zum Beispiel „germany" oder
-      „liechtenstein"). Leer lassen: dann führt Sie der Einrichtungsassistent
-      in Yapaia durch die Auswahl. Regionen herunterladen und bauen können Sie
-      nicht hier, sondern in Yapaia selbst unter „Regionen" — das ist ein
-      Vorgang mit Fortschritt, keine Einstellung.
-  photon_enabled:
-    name: Suche — Adresssuche mit Photon
-    description: >-
-      Volle Adresssuche samt Hausnummern. Braucht den meisten Arbeitsspeicher
-      von allem, was Yapaia startet. Ausgeschaltet bleibt die Suche nutzbar:
-      ein eingebauter schlanker Index findet Orte und Straßennamen, nur keine
-      Hausnummern.
-  photon_xmx_mb:
-    name: Suche — Arbeitsspeicher für Photon (MB)
-    description: >-
-      Obergrenze für den Speicher der Adresssuche. Zu wenig, und die Suche
-      bricht ab; zu viel, und sie nimmt ihn Home Assistant weg. 1024 reicht
-      für ein Land.
-  valhalla_memory_mb:
-    name: Routing — Arbeitsspeicher für Valhalla (MB)
-    description: >-
-      Obergrenze für den Speicher der Routenberechnung. Wächst mit der Größe
-      der Region; für ein Land sind 2048 ein guter Ausgangswert.
+    name: Region
+    description: 'Welche Kartenregion Yapaia benutzt (zum Beispiel „germany" oder
+      „liechtenstein"). Leer lassen: dann führt Sie der Einrichtungsassistent in
+      Yapaia durch die Auswahl. Regionen herunterladen und bauen können Sie nicht
+      hier, sondern in Yapaia selbst unter „Regionen" — das ist ein Vorgang mit
+      Fortschritt, keine Einstellung.'
   gps_source:
-    name: Position — Quelle
-    description: >-
-      Woher die Position kommt. „usb": ein GPS-Empfänger am USB-Anschluss.
-      „network": ein gpsd auf einem anderen Gerät im Netz. „companion_app":
-      die Home-Assistant-Companion-App auf Telefon, Tablet oder Autoradio —
-      der richtige Weg, wenn Home Assistant über http:// läuft, denn dann gibt
-      kein Browser seinen Standort frei. „none": die Position kommt aus dem
-      Browser. Ein Browser-Standort wird übrigens bei JEDER Einstellung
-      angenommen. („ha_tracker" ist der alte Name von „companion_app" und gilt
-      unverändert weiter.)
+    name: Quelle
+    description: 'Woher die Position kommt. „usb": ein GPS-Empfänger am USB-Anschluss.
+      „network": ein gpsd auf einem anderen Gerät im Netz. „companion_app": die
+      Home-Assistant-Companion-App auf Telefon, Tablet oder Autoradio — der richtige
+      Weg, wenn Home Assistant über http:// läuft, denn dann gibt kein Browser seinen
+      Standort frei. „none": die Position kommt aus dem Browser. Ein Browser-Standort
+      wird übrigens bei JEDER Einstellung angenommen. („ha_tracker" ist der alte
+      Name von „companion_app" und gilt unverändert weiter.)'
   gps_device:
-    name: Position — USB-Gerät
-    description: >-
-      Welcher Anschluss der GPS-Empfänger ist. Normalerweise leer lassen —
-      Yapaia sucht ihn selbst. Eintragen müssen Sie nur, wenn die
-      Installationsprüfung danach fragt: dann sind mehrere serielle Geräte
-      angesteckt (oft ein Zigbee- oder Z-Wave-Stick) und keines gibt sich von
-      selbst als GPS zu erkennen. Bitte den Pfad unter /dev/serial/by-id/
-      nehmen, nicht /dev/ttyACM0 — die Nummer verschiebt sich, sobald ein
-      anderer USB-Stick dazukommt.
+    name: USB-Gerät
+    description: 'Welcher Anschluss der GPS-Empfänger ist. Normalerweise leer lassen
+      — Yapaia sucht ihn selbst. Eintragen müssen Sie nur, wenn die Installationsprüfung
+      danach fragt: dann sind mehrere serielle Geräte angesteckt (oft ein Zigbee-
+      oder Z-Wave-Stick) und keines gibt sich von selbst als GPS zu erkennen. Bitte
+      den Pfad unter /dev/serial/by-id/ nehmen, nicht /dev/ttyACM0 — die Nummer
+      verschiebt sich, sobald ein anderer USB-Stick dazukommt.'
   ha_device_tracker:
-    name: Position — Gerät der Companion App
-    description: >-
-      Welches Gerät die Position liefert, zum Beispiel
-      „device_tracker.mein_telefon". Nur nötig, wenn mehrere Geräte die
-      Companion App benutzen — bei genau einem wählt Yapaia es selbst. Sie
-      können es auch direkt in Yapaia auswählen (Installationsprüfung →
-      „Gerät der Companion App"); das gilt sofort und ohne Neustart.
-  gps_simulator:
-    name: Position — Testfahrer freischalten
-    description: >-
-      Schaltet den eingebauten Simulator frei, mit dem Sie eine Fahrt ohne
-      Fahrzeug ausprobieren können. AUS als Vorgabe, und das mit Absicht: der
-      Simulator speist beliebige Positionen ein und verdrängt dabei den echten
-      Empfänger. In einem fahrenden Fahrzeug darf das nicht aus Versehen
-      passieren.
-  ha_internal:
-    name: Home Assistant — Werte direkt melden
-    description: >-
-      Meldet Position, Ankunftszeit, Reststrecke und die nächste Anweisung als
-      Home-Assistant-Entitäten, ohne einen MQTT-Broker. Der einfachste Weg,
-      wenn Sie kein MQTT betreiben.
-  mqtt_enabled:
-    name: Home Assistant — Werte über MQTT melden
-    description: >-
-      Dasselbe über einen MQTT-Broker. Nützlich, wenn andere Geräte
-      mithören sollen (ESPHome, eigene Automatisierungen). Beide Wege dürfen
-      gleichzeitig an sein; fällt der Broker aus, laufen die Werte über den
-      direkten Weg weiter.
-  mqtt_prefix:
-    name: Home Assistant — MQTT-Themenpräfix
-    description: >-
-      Unter welchem Präfix die Themen veröffentlicht werden, etwa
-      „yapaja/nav/eta". Nur ändern, wenn der Name bei Ihnen schon belegt ist.
-  log_level:
-    name: System — Protokollstufe
-    description: >-
-      Wie ausführlich das Add-on-Protokoll ist. „debug" nur zur Fehlersuche
-      einschalten — es schreibt viel.
+    name: Gerät der Companion App
+    description: Welches Gerät die Position liefert, zum Beispiel „device_tracker.mein_telefon".
+      Nur nötig, wenn mehrere Geräte die Companion App benutzen — bei genau einem
+      wählt Yapaia es selbst. Sie können es auch direkt in Yapaia auswählen (Installationsprüfung
+      → „Gerät der Companion App"); das gilt sofort und ohne Neustart.
+  search:
+    name: Suche
+    description: Adresssuche und ihr Arbeitsspeicher. Nur anfassen, wenn der Speicher
+      knapp ist.
+    photon_enabled:
+      name: Adresssuche mit Photon
+      description: 'Volle Adresssuche samt Hausnummern. Braucht den meisten Arbeitsspeicher
+        von allem, was Yapaia startet. Ausgeschaltet bleibt die Suche nutzbar: ein
+        eingebauter schlanker Index findet Orte und Straßennamen, nur keine Hausnummern.'
+    photon_xmx_mb:
+      name: Arbeitsspeicher für Photon (MB)
+      description: Obergrenze für den Speicher der Adresssuche. Zu wenig, und die
+        Suche bricht ab; zu viel, und sie nimmt ihn Home Assistant weg. 1024 reicht
+        für ein Land.
+  routing:
+    name: Routing
+    description: Wie viel Arbeitsspeicher die Routenberechnung bekommt.
+    valhalla_memory_mb:
+      name: Arbeitsspeicher für Valhalla (MB)
+      description: Obergrenze für den Speicher der Routenberechnung. Wächst mit
+        der Größe der Region; für ein Land sind 2048 ein guter Ausgangswert.
+  home_assistant:
+    name: Home Assistant
+    description: Auf welchen Wegen Yapaia seine Werte an Home Assistant meldet.
+    ha_internal:
+      name: Werte direkt melden
+      description: Meldet Position, Ankunftszeit, Reststrecke und die nächste Anweisung
+        als Home-Assistant-Entitäten, ohne einen MQTT-Broker. Der einfachste Weg,
+        wenn Sie kein MQTT betreiben.
+    mqtt_enabled:
+      name: Werte über MQTT melden
+      description: Dasselbe über einen MQTT-Broker. Nützlich, wenn andere Geräte
+        mithören sollen (ESPHome, eigene Automatisierungen). Beide Wege dürfen gleichzeitig
+        an sein; fällt der Broker aus, laufen die Werte über den direkten Weg weiter.
+    mqtt_prefix:
+      name: MQTT-Themenpräfix
+      description: Unter welchem Präfix die Themen veröffentlicht werden, etwa „yapaja/nav/eta".
+        Nur ändern, wenn der Name bei Ihnen schon belegt ist.
+  advanced:
+    name: Erweitert
+    description: Testfahrer und Protokollstufe. Im Alltag bleibt hier alles, wie
+      es ist.
+    gps_simulator:
+      name: Testfahrer freischalten
+      description: 'Schaltet den eingebauten Simulator frei, mit dem Sie eine Fahrt
+        ohne Fahrzeug ausprobieren können. AUS als Vorgabe, und das mit Absicht:
+        der Simulator speist beliebige Positionen ein und verdrängt dabei den echten
+        Empfänger. In einem fahrenden Fahrzeug darf das nicht aus Versehen passieren.'
+    log_level:
+      name: Protokollstufe
+      description: Wie ausführlich das Add-on-Protokoll ist. „debug" nur zur Fehlersuche
+        einschalten — es schreibt viel.

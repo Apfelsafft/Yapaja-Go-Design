@@ -10,6 +10,51 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.4
+
+**Die Konfigurationsseite hat jetzt echte, aufklappbare Abschnitte.**
+
+### ⚠️ Bitte vor dem Update lesen
+
+Diese Version **verschiebt Optionen in der gespeicherten Konfiguration**.
+Yapaia liest zwar beide Formen — erst die neue, dann die alte —, aber ob der
+Supervisor Ihre bisherigen Werte über den Schemawechsel rettet, liegt nicht in
+unserer Hand.
+
+**Notieren Sie sich vorher bitte diese Werte** und sehen Sie nach dem Update
+kurz nach, ob sie noch stehen:
+
+| Einstellung | Wo sie jetzt steht |
+|---|---|
+| Region | offen, ganz oben |
+| Positionsquelle, USB-Gerät, Gerät der Companion App | offen, darunter |
+| Adresssuche (Photon) ein/aus und ihr Speicher | Block **Suche** |
+| Speicher für die Routenberechnung | Block **Routing** |
+| Werte direkt melden / über MQTT, MQTT-Präfix | Block **Home Assistant** |
+| Testfahrer, Protokollstufe | Block **Erweitert** |
+
+### Was sich ändert
+
+Bis 0.8.3 standen zwölf Felder untereinander, und die Gruppe klebte als Text im
+Etikett („Position — Quelle"). Das war ein Ersatz: ich hatte angenommen, echte
+Abschnitte seien in einer Add-on-Konfiguration nicht möglich.
+
+Das stimmte nicht — das Add-on „Terminal & SSH" macht es mit seinem Block
+„Server" vor. Jetzt gilt dieselbe Form hier:
+
+* **Offen sichtbar bleibt, was man wirklich einstellt:** Region,
+  Positionsquelle, USB-Gerät, Gerät der Companion App.
+* **Alles Übrige liegt in vier aufklappbaren Blöcken:** Suche, Routing, Home
+  Assistant, Erweitert.
+
+### Mindestens Home Assistant 2025.10
+
+Verschachtelte Konfiguration gibt es erst ab dieser Version. Das Add-on sagt es
+dem Supervisor jetzt ausdrücklich — lieber eine klare Meldung „zu alt" als eine
+Konfigurationsseite, auf der die Hälfte der Einstellungen fehlt.
+
+---
+
 ## 0.8.3
 
 **Die Companion App heißt jetzt so — und die Prüfung sagt endlich die

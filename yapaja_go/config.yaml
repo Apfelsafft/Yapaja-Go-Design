@@ -10,7 +10,16 @@
 name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.8.3"
+version: "0.8.4"
+# ─── MINDESTVERSION VON HOME ASSISTANT ──────────────────────────────────────
+# Seit 0.8.4 sind die selten angefassten Optionen in aufklappbaren Gruppen
+# zusammengefasst. Verschachtelte Konfiguration gibt es in Home Assistant aber
+# erst ab 2025.10 (maximal zwei Ebenen). Auf einer aelteren Installation wuerde
+# die Konfigurationsseite die Gruppen nicht zeichnen -- und wer sie nicht sieht,
+# kann Photon, das Routing-Budget und die HA-Kanaele nicht mehr einstellen.
+#
+# Lieber der Supervisor sagt „zu alt" als eine Seite, auf der die Haelfte fehlt.
+homeassistant: "2025.10.0"
 url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
 
 # amd64 covers typical Mini-PC/NUC installs; aarch64 covers Raspberry Pi
@@ -193,9 +202,6 @@ homeassistant_api: true
 # zwei Saetze Knoepfe fuer dieselbe Sache.
 options:
   region: ""
-  photon_enabled: true
-  photon_xmx_mb: 1024
-  valhalla_memory_mb: 2048
   # Voreinstellung `none` statt `usb`: ein USB-GPS-Empfaenger ist Zubehoer,
   # das die wenigsten haben. Mit `usb` meldete die Installationspruefung bei
   # jeder frischen Installation „gpsd ist eingeschaltet, antwortet aber nicht
@@ -227,81 +233,66 @@ options:
   # Ihrem Geraet gibt, zeigt die Installationspruefung in Yapaia an.
   gps_device: ""
   ha_device_tracker: ""
-  # `gps_simulator` -- den eingebauten Testfahrer freischalten.
-  #
-  # AUS als Vorgabe, und das ist der wichtige Teil: der Simulator kann
-  # beliebige Positionen einspeisen und verdraengt dabei den echten
-  # Empfaenger. Auf einem fahrenden Fahrzeug darf das nicht aus Versehen
-  # gehen -- deshalb bleibt er verschlossen, bis jemand ihn ausdruecklich
-  # aufschliesst.
-  #
-  # Bis 0.5.7 gab es diesen Schalter nicht, und der Simulator war damit im
-  # Add-on UEBERHAUPT nicht erreichbar: der Core laeuft hier mit
-  # NODE_ENV=production, und dort antworten alle Simulator-Routen mit 403,
-  # solange ENABLE_SIMULATOR nicht gesetzt ist. Die Funktion war gebaut,
-  # getestet -- und hinter einer Tuer ohne Klinke.
-  #
-  # Wieder einschalten: Einstellungen -> Add-ons -> Yapaia Go ->
-  # Konfiguration, Haken setzen, Add-on neu starten. Kein SSH noetig.
-  gps_simulator: false
-  ha_internal: true
-  mqtt_enabled: true
-  mqtt_prefix: "yapaja"
-  log_level: "info"
+  search:
+    photon_enabled: true
+    photon_xmx_mb: 1024
+  routing:
+    valhalla_memory_mb: 2048
+  home_assistant:
+    ha_internal: true
+    mqtt_enabled: true
+    mqtt_prefix: "yapaja"
+  advanced:
+    # `gps_simulator` -- den eingebauten Testfahrer freischalten.
+    #
+    # AUS als Vorgabe, und das ist der wichtige Teil: der Simulator kann
+    # beliebige Positionen einspeisen und verdraengt dabei den echten
+    # Empfaenger. Auf einem fahrenden Fahrzeug darf das nicht aus Versehen
+    # gehen -- deshalb bleibt er verschlossen, bis jemand ihn ausdruecklich
+    # aufschliesst.
+    #
+    # Bis 0.5.7 gab es diesen Schalter nicht, und der Simulator war damit im
+    # Add-on UEBERHAUPT nicht erreichbar: der Core laeuft hier mit
+    # NODE_ENV=production, und dort antworten alle Simulator-Routen mit 403,
+    # solange ENABLE_SIMULATOR nicht gesetzt ist. Die Funktion war gebaut,
+    # getestet -- und hinter einer Tuer ohne Klinke.
+    #
+    # Wieder einschalten: Einstellungen -> Add-ons -> Yapaia Go ->
+    # Konfiguration, Haken setzen, Add-on neu starten. Kein SSH noetig.
+    gps_simulator: false
+    log_level: "info"
 
-# ─── REIHENFOLGE = GRUPPIERUNG ──────────────────────────────────────────────
-# Home Assistant zeichnet die Optionen in GENAU DIESER Reihenfolge
-# untereinander; Ueberschriften kennt die Add-on-Konfiguration nicht. Die
-# Gruppen entstehen deshalb aus zwei Dingen: der Reihenfolge hier und den
-# Namen in `translations/`, die jeder Option ihr Gebiet voranstellen
-# („Position — Quelle"). Zusammen liest sich die Seite wie ein gegliedertes
-# Formular, ohne dass ein einziger Schluessel umbenannt werden muss -- und
-# eine Umbenennung wuerde jede bestehende Installation zuruecksetzen.
+# ─── GLIEDERUNG ────────────────────────────────────────────────────────────
+# Was man wirklich einstellt, steht OFFEN da; der Rest liegt in aufklappbaren
+# Bloecken. Genau die Form, die das Add-on „Terminal & SSH" benutzt (dort der
+# Block „Server"): ein verschachtelter Schluessel im Schema wird von Home
+# Assistant als eigener, zusammenklappbarer Abschnitt gezeichnet.
 #
-# Die Gruppen, von oben nach unten:
-#   Karte      region
-#   Suche      photon_enabled, photon_xmx_mb
-#   Routing    valhalla_memory_mb
-#   Position   gps_source, gps_device, ha_device_tracker, gps_simulator
-#   Home Ass.  ha_internal, mqtt_enabled, mqtt_prefix
-#   System     log_level
+# Die Alternative -- alles flach, die Gruppe nur im Namen -- stand bis 0.8.3
+# hier und war ein Kompromiss: zwoelf Felder untereinander, die Gliederung nur
+# als Text im Etikett. Aufgeklappt wird jetzt nur, was man selten anfasst.
+#
+# Die Gruppenschluessel sind ENGLISCH wie alle anderen Schluessel auch
+# (`photon_enabled`, `log_level`); was der Betreiber liest, steht in
+# `translations/` und ist deutsch.
+#
+# ACHTUNG BEIM UMSTIEG: die Schluessel liegen damit an einer anderen Stelle in
+# der gespeicherten Konfiguration. `init-yapaja-config.sh` liest deshalb BEIDE
+# Formen -- erst die neue, dann die alte (siehe `config_mit_rueckfall` dort).
 schema:
   region: "str?"
-  photon_enabled: "bool"
-  photon_xmx_mb: "int(256,4096)"
-  valhalla_memory_mb: "int(512,8192)"
   gps_source: "list(usb|network|companion_app|ha_tracker|none)"
   gps_device: "str?"
   ha_device_tracker: "str?"
-  gps_simulator: "bool"
-  ha_internal: "bool"
-  mqtt_enabled: "bool"
-  mqtt_prefix: "str"
-  log_level: "list(debug|info|warn|error)"
-
-# KEIN `image:` -- und das ist eine bewusste Entscheidung, keine Auslassung.
-#
-# Steht hier ein `image:`, ZIEHT der Supervisor dieses Image aus einer
-# Registry und baut NICHTS lokal. Bis 2026-09-02 stand hier
-# `ghcr.io/yapaja/yapaja-go-{arch}`. Dieses Image existiert nicht und hat nie
-# existiert: `yapaia` ist nicht einmal der Namensraum dieses Repositories
-# (das waere `apfelsafft`), und kein einziger Workflow hat je
-# `yapaja_go/Dockerfile` gebaut oder gepusht -- `publish-images` in
-# `release.yml` baut `apps/core/Dockerfile`, also den eigenstaendigen Core,
-# nicht dieses Add-on. Die Folge war ein Installationsabbruch, den niemand
-# selbst beheben konnte:
-#
-#   Can't install ghcr.io/yapaja/yapaja-go-amd64:0.1.0:
-#   [403] Head ".../manifests/0.1.0": denied
-#
-# Ohne `image:` baut der Supervisor das Add-on aus `Dockerfile` auf dem
-# Geraet -- genau das, was `DOCS.md` und `docs/installation.md` §A Schritt 2
-# seit jeher beschreiben („Der Container wird dabei auf dem Geraet gebaut --
-# 10-30 Minuten"). Konfiguration und Dokumentation widersprachen sich; die
-# Dokumentation hatte recht.
-#
-# Wer spaeter fertige Images ausliefern will, braucht BEIDES: diesen
-# Schluessel UND einen Workflow, der `yapaja_go/Dockerfile` fuer alle unter
-# `arch:` genannten Architekturen baut und in genau diesen Namensraum pusht.
-# `config.test.ts` erzwingt diese Kopplung -- ein `image:` ohne
-# veroeffentlichenden Workflow laesst die Tests fehlschlagen.
+  search:
+    photon_enabled: "bool"
+    photon_xmx_mb: "int(256,4096)"
+  routing:
+    valhalla_memory_mb: "int(512,8192)"
+  home_assistant:
+    ha_internal: "bool"
+    mqtt_enabled: "bool"
+    mqtt_prefix: "str"
+  advanced:
+    gps_simulator: "bool"
+    log_level: "list(debug|info|warn|error)"
