@@ -15,6 +15,7 @@ import { SimulatorSource } from './position/simulator/index.js';
 import { simulatorPlugin } from './position/simulator/routes.js';
 import { GpsdSource } from './position/gpsd/index.js';
 import { HaTrackerSource, listGpsTrackers } from './position/haTracker/index.js';
+import { istCompanionAppQuelle } from './position/gpsSourceOption.js';
 import { resolveHaConnection, resolveTrackerEntityId } from './ha/config.js';
 import { mapPlugin } from './map/routes.js';
 import { routingPlugin, buildRoutingService } from './routing/routes.js';
@@ -248,7 +249,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     // „schlag die Entity-ID in Entwicklerwerkzeuge -> Zustaende nach und
     // schreib sie ab". Gibt es genau einen Tracker mit Koordinaten, waehlt
     // die Quelle ihn selbst; bei mehreren raet sie bewusst nicht.
-    autoSelect: process.env.GPS_SOURCE === 'ha_tracker',
+    autoSelect: istCompanionAppQuelle(process.env.GPS_SOURCE),
     logger: {
       info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
       warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
@@ -521,6 +522,15 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // region step to derive its "< 3 GB free -> recommend Photon off"
   // recommendation from. Additive; does not touch other plugins.
   await fastify.register(systemPlugin, {
+    // Die Installationspruefung muss DASSELBE lesen wie die laufende Quelle.
+    // Ohne das hier las sie nur die Add-on-Option, waehrend `HaTrackerSource`
+    // zuerst die Einstellung `ha.device_tracker` nimmt -- wer den Tracker in
+    // der Oberflaeche waehlte, bekam eine Pruefung, die davon nichts wusste
+    // und bei mehreren Trackern „Yapaia raet nicht" meldete, obwohl laengst
+    // einer benutzt wurde.
+    preflightDeps: {
+      resolveTrackerId: () => resolveTrackerEntityId(settingsService, process.env),
+    },
     // B-05: die Auswahl der Positionsquelle aus der Companion App. Die Liste
     // kommt aus Home Assistant, die Wahl landet in den Einstellungen -- und
     // `HaTrackerSource` liest sie bei der naechsten Abfrage, ohne Neustart.

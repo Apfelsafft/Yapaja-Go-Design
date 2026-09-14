@@ -10,7 +10,24 @@
  * `useGpsSignalState()` hook (`position/gpsSignal.ts`) -- not duplicated here.
  */
 
-export type PositionSourceName = 'gpsd' | 'browser' | 'simulator';
+import type { Position } from '@yapaia/shared';
+
+/**
+ * Die Namen der Positionsquellen — ABGELEITET, nicht abgeschrieben.
+ *
+ * ─── WARUM DAS WICHTIG IST ──────────────────────────────────────────────────
+ * Hier stand `'gpsd' | 'browser' | 'simulator'` von Hand. Der Kern kennt aber
+ * VIER Quellen: `ha_tracker` (die Companion App) fehlte. Folge: der Kern
+ * liefert sie in `GET /position/sources` mit, und die Oberfläche zeichnete
+ * dafür eine Zeile OHNE Beschriftung — `SOURCE_LABELS[source.name]` war
+ * `undefined`. Wer nachsehen wollte, ob die Companion App liefert, fand einen
+ * leeren Eintrag.
+ *
+ * Abgeleitet aus `Position['source']` kann das nicht wieder passieren: eine
+ * neue Quelle im gemeinsamen Typ macht jede `Record<PositionSourceName, …>`
+ * hier zum Übersetzungsfehler, solange sie keine Beschriftung hat.
+ */
+export type PositionSourceName = Position['source'];
 
 export interface SourceStatus {
   name: PositionSourceName;

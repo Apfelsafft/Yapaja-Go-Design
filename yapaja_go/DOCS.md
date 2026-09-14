@@ -119,7 +119,7 @@ position, and no add-on setting can change that. The Companion App reports to
 Home Assistant instead of to the browser, and keeps reporting with the screen
 locked.
 
-Set `gps_source: ha_tracker`. That is normally all: if exactly one
+Set `gps_source: companion_app`. That is normally all: if exactly one
 `device_tracker` entity in Home Assistant carries coordinates, Yapaia picks it
 itself. If there are several, none is guessed — the second one could be
 someone else's phone, and a navigation that silently follows it is worse than
@@ -131,24 +131,31 @@ one that asks.
 **takes effect immediately** — no add-on restart. The `ha_device_tracker`
 option below still works and acts as the default; the pick in the UI wins.
 
-Source priority is `gpsd > browser > ha_tracker > simulator`: the app reports
+Source priority is `gpsd > browser > Companion App > simulator`: the app reports
 at intervals, so it is the source that *exists* when the browser gives none —
 not a replacement for a live browser fix.
 
 ## Configuration options
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `region` | string (optional) | *(empty)* | Which map region to use. Empty = onboarding/no-data state (E08-T5 builds the full setup wizard; this add-on version simply doesn't crash without one). |
-| `mqtt_prefix` | string | `yapaia` | MQTT topic prefix (docs/03-api-spec.md §4). |
-| `photon_enabled` | bool | `true` | Full-text search via Photon. `false` = RAM-saver, falls back to the offline lite-search index (W-12). |
-| `gps_source` | `usb` \| `network` \| `ha_tracker` \| `none` | `none` | Where the Core's position service gets a GPS fix from. `usb`/`network` start gpsd; `ha_tracker` reads a Home Assistant `device_tracker` (Companion App); `none` leaves the browser as the source. Browser positions are accepted at **every** value. |
-| `gps_device` | string (optional) | *(empty)* | Which serial device is the GPS receiver, e.g. `/dev/serial/by-id/usb-u-blox_AG_…-if00`. Only needed when several serial devices are present and none identifies itself as a GNSS receiver — see "Which device gets used" above. |
-| `ha_device_tracker` | string (optional) | *(empty)* | Which `device_tracker` entity to read, e.g. `device_tracker.my_phone`. Only needed with `gps_source: ha_tracker` **and** more than one candidate — with exactly one, Yapaia picks it itself. |
-| `log_level` | `debug` \| `info` \| `warn` \| `error` | `info` | Core log verbosity (pino). |
-| `photon_xmx_mb` | int 256–4096 | `1024` | Photon JVM heap cap (`-Xmx`). See the RAM table above. |
-| `valhalla_memory_mb` | int 512–8192 | `2048` | Documented RAM budget for Valhalla; informational (Valhalla's actual runtime cache size is set at graph-build time, not per-start — see `yapaja_go/rootfs/.../valhalla/run`'s comment). |
-| `gps_simulator` | bool | `false` | Unlocks the built-in test driver (see below). **Off by default on purpose** — it can inject arbitrary positions and displaces the real receiver. |
+The options are ordered by topic, and each carries its group in its name on
+the configuration page (`Position — Source`). The add-on configuration has no
+headings of its own, so the order in `config.yaml` plus the names in
+`translations/` are what create the grouping.
+
+| Group | Option | Type | Default | Meaning |
+|---|---|---|---|---|
+| Map | `region` | string (optional) | *(empty)* | Which map region to use. Empty = onboarding/no-data state (E08-T5 builds the full setup wizard; this add-on version simply doesn't crash without one). |
+| Search | `photon_enabled` | bool | `true` | Full-text search via Photon. `false` = RAM-saver, falls back to the offline lite-search index (W-12). |
+|  | `photon_xmx_mb` | int 256–4096 | `1024` | Photon JVM heap cap (`-Xmx`). See the RAM table above. |
+| Routing | `valhalla_memory_mb` | int 512–8192 | `2048` | Documented RAM budget for Valhalla; informational (Valhalla's actual runtime cache size is set at graph-build time, not per-start — see `yapaja_go/rootfs/.../valhalla/run`'s comment). |
+| Position | `gps_source` | `usb` \| `network` \| `companion_app` \| `none` | `none` | Where the Core's position service gets a GPS fix from. `usb`/`network` start gpsd; `companion_app` reads a Home Assistant `device_tracker` fed by the Companion App; `none` leaves the browser as the source. Browser positions are accepted at **every** value. The old name `ha_tracker` still works and is read as `companion_app`. |
+|  | `gps_device` | string (optional) | *(empty)* | Which serial device is the GPS receiver, e.g. `/dev/serial/by-id/usb-u-blox_AG_…-if00`. Only needed when several serial devices are present and none identifies itself as a GNSS receiver — see "Which device gets used" above. |
+|  | `ha_device_tracker` | string (optional) | *(empty)* | Which `device_tracker` entity to read, e.g. `device_tracker.my_phone`. Only needed with `gps_source: companion_app` **and** more than one candidate. With exactly one, Yapaia picks it itself; with several you can also choose in the app's health check, which takes effect immediately. |
+|  | `gps_simulator` | bool | `false` | Unlocks the built-in test driver (see below). **Off by default on purpose** — it can inject arbitrary positions and displaces the real receiver. |
+| Home Assistant | `ha_internal` | bool | `true` | Publishes position, ETA, remaining distance and the next instruction as Home Assistant entities **without** a broker. |
+|  | `mqtt_enabled` | bool | `true` | Publishes the same values over MQTT. Both channels may run at once; losing the broker does not stop the direct one. |
+|  | `mqtt_prefix` | string | `yapaia` | MQTT topic prefix (docs/03-api-spec.md §4). |
+| System | `log_level` | `debug` \| `info` \| `warn` \| `error` | `info` | Core log verbosity (pino). |
 
 ## Test drive (GPS simulator)
 
@@ -272,7 +279,7 @@ Mosquitto add-on provides the broker.
 **And the numbers only live while the add-on receives positions.** With
 `gps_source: none` the position comes from the BROWSER — close Yapaia and the
 dashboard freezes. A dashboard that keeps running without Yapaia open needs a
-source inside the add-on: `usb` (GPS receiver) or `ha_tracker` (Companion
+source inside the add-on: `usb` (GPS receiver) or `companion_app` (Companion
 app). The built-in test driver also keeps running, it lives in the add-on.
 
 If the map card reports that no add-on was found, the Supervisor gave this

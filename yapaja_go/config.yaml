@@ -10,7 +10,7 @@
 name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.8.2"
+version: "0.8.3"
 url: "https://github.com/Apfelsafft/Yapaja-Go-Design"
 
 # amd64 covers typical Mini-PC/NUC installs; aarch64 covers Raspberry Pi
@@ -119,10 +119,16 @@ homeassistant_api: true
 
 # `gps_source` -- WOHER die Position kommt. Vier Werte, und der Reihe nach:
 #
-#   usb        fest eingebauter GPS-Empfaenger am USB-Port (gpsd)
-#   network    gpsd auf einem anderen Geraet im Netz
-#   ha_tracker Home-Assistant-Companion-App auf Telefon/Tablet/Autoradio
-#   none       kein eigener Empfaenger -- die Position kommt aus dem Browser
+#   usb           fest eingebauter GPS-Empfaenger am USB-Port (gpsd)
+#   network       gpsd auf einem anderen Geraet im Netz
+#   companion_app Home-Assistant-Companion-App auf Telefon/Tablet/Autoradio
+#   none          kein eigener Empfaenger -- die Position kommt aus dem Browser
+#
+# `ha_tracker` ist der alte Name von `companion_app` und gilt unveraendert
+# weiter -- bestehende Installationen tragen ihn in ihrer Konfiguration, und
+# ein Update darf die Positionsquelle nicht still abschalten. Umbenannt wurde
+# er, weil er den WEG beschrieb (eine device_tracker-Entitaet) und nicht die
+# Sache: wer die Option einstellt, sucht das Wort „Companion App".
 #
 # `ha_tracker` fehlte bis 0.3.0 in dieser Liste. Die Quelle GAB es (0.3.0 hat
 # sie gebaut), aber einschalten liess sie sich nur ueber das freie Textfeld
@@ -187,10 +193,9 @@ homeassistant_api: true
 # zwei Saetze Knoepfe fuer dieselbe Sache.
 options:
   region: ""
-  mqtt_enabled: true
-  ha_internal: true
-  mqtt_prefix: "yapaja"
   photon_enabled: true
+  photon_xmx_mb: 1024
+  valhalla_memory_mb: 2048
   # Voreinstellung `none` statt `usb`: ein USB-GPS-Empfaenger ist Zubehoer,
   # das die wenigsten haben. Mit `usb` meldete die Installationspruefung bei
   # jeder frischen Installation „gpsd ist eingeschaltet, antwortet aber nicht
@@ -222,9 +227,6 @@ options:
   # Ihrem Geraet gibt, zeigt die Installationspruefung in Yapaia an.
   gps_device: ""
   ha_device_tracker: ""
-  log_level: "info"
-  photon_xmx_mb: 1024
-  valhalla_memory_mb: 2048
   # `gps_simulator` -- den eingebauten Testfahrer freischalten.
   #
   # AUS als Vorgabe, und das ist der wichtige Teil: der Simulator kann
@@ -242,20 +244,40 @@ options:
   # Wieder einschalten: Einstellungen -> Add-ons -> Yapaia Go ->
   # Konfiguration, Haken setzen, Add-on neu starten. Kein SSH noetig.
   gps_simulator: false
+  ha_internal: true
+  mqtt_enabled: true
+  mqtt_prefix: "yapaja"
+  log_level: "info"
 
+# ─── REIHENFOLGE = GRUPPIERUNG ──────────────────────────────────────────────
+# Home Assistant zeichnet die Optionen in GENAU DIESER Reihenfolge
+# untereinander; Ueberschriften kennt die Add-on-Konfiguration nicht. Die
+# Gruppen entstehen deshalb aus zwei Dingen: der Reihenfolge hier und den
+# Namen in `translations/`, die jeder Option ihr Gebiet voranstellen
+# („Position — Quelle"). Zusammen liest sich die Seite wie ein gegliedertes
+# Formular, ohne dass ein einziger Schluessel umbenannt werden muss -- und
+# eine Umbenennung wuerde jede bestehende Installation zuruecksetzen.
+#
+# Die Gruppen, von oben nach unten:
+#   Karte      region
+#   Suche      photon_enabled, photon_xmx_mb
+#   Routing    valhalla_memory_mb
+#   Position   gps_source, gps_device, ha_device_tracker, gps_simulator
+#   Home Ass.  ha_internal, mqtt_enabled, mqtt_prefix
+#   System     log_level
 schema:
   region: "str?"
-  mqtt_enabled: "bool"
-  ha_internal: "bool"
-  mqtt_prefix: "str"
   photon_enabled: "bool"
-  gps_source: "list(usb|network|ha_tracker|none)"
-  gps_device: "str?"
-  ha_device_tracker: "str?"
-  log_level: "list(debug|info|warn|error)"
   photon_xmx_mb: "int(256,4096)"
   valhalla_memory_mb: "int(512,8192)"
+  gps_source: "list(usb|network|companion_app|ha_tracker|none)"
+  gps_device: "str?"
+  ha_device_tracker: "str?"
   gps_simulator: "bool"
+  ha_internal: "bool"
+  mqtt_enabled: "bool"
+  mqtt_prefix: "str"
+  log_level: "list(debug|info|warn|error)"
 
 # KEIN `image:` -- und das ist eine bewusste Entscheidung, keine Auslassung.
 #

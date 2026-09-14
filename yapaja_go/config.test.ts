@@ -181,12 +181,17 @@ describe('yapaja_go/config.yaml is valid YAML with the required HA add-on keys',
   // one operator running the add-on reported exactly that: "den ha tracker
   // kann ich nicht auswaehlen. In der Konfiguration sehe ich nur usb."
   // A feature that cannot be selected is not a feature.
-  it('offers every implemented position source in gps_source, including ha_tracker', () => {
+  it('offers every implemented position source in gps_source, including the Companion App', () => {
     const config = loadConfig();
     const schema = config.schema.gps_source as string;
     const match = /^list\((.+)\)$/.exec(schema);
     expect(match, `gps_source schema is not a list(): ${schema}`).not.toBeNull();
     const values = (match as RegExpExecArray)[1].split('|');
+    expect(values).toContain('companion_app');
+    // Der ALTE Name muss im Schema bleiben. Bestehende Installationen tragen
+    // ihn in ihrer Konfiguration; verschwindet er, kennt der Supervisor den
+    // gespeicherten Wert nicht mehr -- und die Positionsquelle waere nach
+    // einem Update still aus.
     expect(values).toContain('ha_tracker');
     expect(values).toContain('usb');
     expect(values).toContain('network');
@@ -934,6 +939,25 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
     expect(runInit({}).ENABLE_SIMULATOR).toBeUndefined();
   });
 
+  // ─── DER ALTE OPTIONSWERT DARF NICHT INS LEERE LAUFEN ────────────────────
+  // Umbenannt wurde `ha_tracker` zu `companion_app`. Wer vor dem Update
+  // `ha_tracker` eingestellt hatte, muss danach dieselbe Quelle haben --
+  // sonst schaltet ein Update die Navigation ab, und es fällt erst im
+  // Fahrzeug auf. Deshalb wird das Skript hier AUSGEFÜHRT und nachgesehen,
+  // was am Ende in der Umgebung steht.
+  it('schreibt den alten Wert „ha_tracker" auf „companion_app" um', () => {
+    const env = runInit({ gps_source: 'ha_tracker' });
+    expect(env.GPS_SOURCE).toBe('companion_app');
+    // Und gpsd bleibt dabei aus -- wie beim neuen Wert auch.
+    expect(env.GPSD_ENABLED).toBe('false');
+  });
+
+  it('lässt den neuen Wert unverändert', () => {
+    const env = runInit({ gps_source: 'companion_app' });
+    expect(env.GPS_SOURCE).toBe('companion_app');
+    expect(env.GPSD_ENABLED).toBe('false');
+  });
+
   it('schaltet gpsd bei "usb" ein', () => {
     const env = runInit({ gps_source: 'usb' });
     expect(env.GPSD_ENABLED).toBe('true');
@@ -942,10 +966,13 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
 
   // Der eigentliche Punkt: eine Installation ohne USB-Empfänger soll nicht
   // dauerhaft melden, dass ein Gerät nicht antwortet, das es nie gab.
-  it('schaltet gpsd bei "ha_tracker" AUS und reicht die Quelle an den Core weiter', () => {
-    const env = runInit({ gps_source: 'ha_tracker' });
+  it('schaltet gpsd bei der Companion App AUS und reicht die Quelle an den Core weiter', () => {
+    // Stand bis 0.8.2 auf `gps_source: 'ha_tracker'` und erwartete denselben
+    // Wert zurück. Seit der Umbenennung schreibt das Skript ihn um; der alte
+    // Wert hat jetzt einen eigenen Test direkt darüber.
+    const env = runInit({ gps_source: 'companion_app' });
     expect(env.GPSD_ENABLED).toBe('false');
-    expect(env.GPS_SOURCE).toBe('ha_tracker');
+    expect(env.GPS_SOURCE).toBe('companion_app');
   });
 
   it('schaltet gpsd bei "none" aus', () => {
@@ -1153,5 +1180,97 @@ describe('find-gps-device.sh — die Geräteauswahl, ausgeführt', () => {
     expect(ergebnis.code).toBe(1);
     expect(ergebnis.device).toBe('');
     expect(ergebnis.grund).toContain('/dev/ttyUSB9');
+  });
+});
+
+/**
+ * ─── DIE KONFIGURATIONSSEITE MUSS LESBAR SEIN ───────────────────────────────
+ * Gewünscht: „Hier sollten wir ein wenig aufräumen. Bitte gruppiere die
+ * Einstellungen besser."
+ *
+ * Die Add-on-Konfiguration kennt keine Überschriften — Home Assistant zeichnet
+ * die Optionen in der Reihenfolge untereinander, in der sie in `config.yaml`
+ * stehen. Gruppen entstehen deshalb aus der REIHENFOLGE plus den NAMEN in
+ * `translations/`. Beides muss zusammenpassen, und beides driftet sonst
+ * auseinander, sobald jemand eine Option hinzufügt.
+ */
+describe('die Add-on-Konfiguration ist gegliedert und beschriftet', () => {
+  const SPRACHEN = ['de', 'en'] as const;
+
+  interface Uebersetzung {
+    configuration?: Record<string, { name?: string; description?: string }>;
+  }
+
+  function ladeUebersetzung(sprache: string): Uebersetzung {
+    const pfad = join(ADDON_DIR, 'translations', `${sprache}.yaml`);
+    return load(readFileSync(pfad, 'utf-8')) as Uebersetzung;
+  }
+
+  for (const sprache of SPRACHEN) {
+    it(`jede Option hat in ${sprache}.yaml einen Namen und eine Beschreibung`, () => {
+      const config = loadConfig();
+      const eintraege = ladeUebersetzung(sprache).configuration ?? {};
+      for (const schluessel of Object.keys(config.options)) {
+        const eintrag = eintraege[schluessel];
+        expect(eintrag, `Option "${schluessel}" fehlt in ${sprache}.yaml`).toBeDefined();
+        expect(eintrag?.name, `Name fehlt für "${schluessel}"`).toBeTruthy();
+        expect(eintrag?.description, `Beschreibung fehlt für "${schluessel}"`).toBeTruthy();
+      }
+    });
+
+    it(`${sprache}.yaml beschriftet nichts, was es nicht gibt`, () => {
+      // Eine Beschriftung für eine entfernte Option ist kein Fehler, den man
+      // sieht -- sie steht einfach nirgends. Sie bleibt aber liegen und
+      // erweckt beim nächsten Lesen den Eindruck, es gäbe die Option noch.
+      const config = loadConfig();
+      const eintraege = ladeUebersetzung(sprache).configuration ?? {};
+      for (const schluessel of Object.keys(eintraege)) {
+        expect(Object.keys(config.options), `"${schluessel}" in ${sprache}.yaml`).toContain(
+          schluessel,
+        );
+      }
+    });
+
+    it(`die Namen in ${sprache}.yaml tragen ihre Gruppe vorn`, () => {
+      // Das IST die Gruppierung -- ohne Präfix steht die Seite wieder als
+      // zwölf zusammenhanglose Felder da.
+      const eintraege = ladeUebersetzung(sprache).configuration ?? {};
+      for (const [schluessel, eintrag] of Object.entries(eintraege)) {
+        expect(eintrag.name, `"${schluessel}" ohne Gruppe: ${eintrag.name}`).toMatch(/ — /);
+      }
+    });
+  }
+
+  it('die Optionen stehen in Gruppen beieinander, nicht durcheinander', () => {
+    // Gemessen an der Reihenfolge in config.yaml: alle Schlüssel einer Gruppe
+    // müssen einen zusammenhängenden Block bilden. Sonst zeichnet Home
+    // Assistant „Suche", dann „Position", dann wieder „Suche".
+    const config = loadConfig();
+    const gruppe: Record<string, string> = {
+      region: 'Karte',
+      photon_enabled: 'Suche',
+      photon_xmx_mb: 'Suche',
+      valhalla_memory_mb: 'Routing',
+      gps_source: 'Position',
+      gps_device: 'Position',
+      ha_device_tracker: 'Position',
+      gps_simulator: 'Position',
+      ha_internal: 'Home Assistant',
+      mqtt_enabled: 'Home Assistant',
+      mqtt_prefix: 'Home Assistant',
+      log_level: 'System',
+    };
+    const folge = Object.keys(config.options).map((k) => gruppe[k]);
+    expect(folge, 'unbekannte Option ohne Gruppe').not.toContain(undefined);
+    // Jede Gruppe darf höchstens einmal beginnen.
+    const beginne = folge.filter((g, i) => g !== folge[i - 1]);
+    expect(new Set(beginne).size, `Gruppen zerrissen: ${folge.join(', ')}`).toBe(beginne.length);
+  });
+
+  it('options und schema stehen in derselben Reihenfolge', () => {
+    // Sonst gilt die eine Gliederung und die andere ist Zierde -- und welche,
+    // hängt daran, woraus Home Assistant das Formular gerade baut.
+    const config = loadConfig();
+    expect(Object.keys(config.options)).toEqual(Object.keys(config.schema));
   });
 });

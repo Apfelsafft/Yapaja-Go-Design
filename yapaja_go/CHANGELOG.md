@@ -10,6 +10,80 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.3
+
+**Die Companion App heißt jetzt so — und die Prüfung sagt endlich die
+Wahrheit.**
+
+### Gemeldet
+
+> „Irgendwie bekomme ich von der Companion App keinen Standort mehr. In der
+> Konfiguration ist ha_tracker ausgewählt."
+
+Beim Nachsehen kamen **drei** Stellen zusammen, an denen Yapaia dazu etwas
+Falsches oder gar nichts sagte.
+
+### Die Installationsprüfung las die falsche Einstellung
+
+Seit 0.7.1 wählt man das Gerät der Companion App **in Yapaia** aus (in der
+Installationsprüfung selbst). Die Prüfung las aber weiterhin nur die
+Add-on-Option. Wer also in der Oberfläche gewählt hatte, bekam bei mehreren
+Geräten weiter die Meldung „Yapaia rät nicht, welches gemeint ist" — obwohl
+längst eines benutzt wurde. Eine Diagnose, die etwas anderes sagt als das
+laufende System, ist schlimmer als keine. Beide lesen jetzt dasselbe.
+
+### Die Liste der Positionsquellen hatte eine leere Zeile
+
+In der Quellen-Übersicht kannte die Oberfläche nur Browser, USB-GPS und
+Simulator. Die Companion App lieferte der Kern zwar mit, sie erschien aber als
+Eintrag **ohne Beschriftung**. Wer nachsehen wollte, ob sie liefert, fand eine
+leere Zeile. Jetzt steht dort „Companion App".
+
+### `ha_tracker` heißt `companion_app`
+
+Der alte Name beschrieb den Weg (eine `device_tracker`-Entität), nicht die
+Sache. **Ihre bestehende Einstellung bleibt gültig** — `ha_tracker` wird
+weiterhin akzeptiert und intern auf den neuen Namen umgeschrieben. Sie müssen
+nichts ändern.
+
+Unverändert bleibt die Bezeichnung in den Home-Assistant-Entitäten und in den
+MQTT-Nutzlasten (`source: ha_tracker`). Dort ist sie Übertragungsformat, und
+wer darauf eine Automatisierung gebaut hat, soll sie behalten.
+
+### Die Konfigurationsseite ist aufgeräumt
+
+Die zwölf Optionen standen in beliebiger Reihenfolge da und trugen ihre rohen
+Schlüssel als Beschriftung: „photon_xmx_mb", „ha_device_tracker",
+„valhalla_memory_mb". Wer die Seite zum ersten Mal öffnete, musste für jedes
+einzelne Wort in die Dokumentation.
+
+Jetzt stehen sie in Gruppen — **Karte, Suche, Routing, Position, Home
+Assistant, System** — und jede trägt einen verständlichen Namen samt
+Erklärung, auf Deutsch und Englisch.
+
+Zwei Dinge dazu, damit die Erwartung stimmt:
+
+* **Echte Überschriften kennt die Add-on-Konfiguration nicht.** Home Assistant
+  zeichnet die Optionen einfach untereinander. Die Gliederung entsteht deshalb
+  aus der Reihenfolge und aus dem Gebiet im Namen („Position — Quelle").
+  Abschnitte gingen nur über verschachtelte Schlüssel — und die würden jede
+  bestehende Konfiguration ungültig machen.
+* **Karten installieren bleibt in Yapaia.** Das ist kein Schalter, sondern ein
+  langer Vorgang mit Fortschritt (Herunterladen, Kacheln bauen,
+  Routinggraph). Die Beschreibung der Option „Karte — Region" sagt jetzt
+  ausdrücklich, wo es steht, damit niemand danach sucht.
+
+### Wenn weiterhin keine Position kommt
+
+Die häufigste Ursache ist banal: **es gibt mehr als ein Gerät mit der Companion
+App.** Yapaia rät dann bewusst nicht, welches Ihr Fahrzeug ist — das zweite
+könnte das Telefon einer anderen Person sein. Öffnen Sie die
+Installationsprüfung; unter „Positionsquelle" steht, was gefunden wurde, und
+direkt darunter wählen Sie das richtige Gerät aus. Die Wahl gilt sofort, ohne
+Neustart.
+
+---
+
 ## 0.8.2
 
 **USB-GPS: Yapaia greift nicht mehr nach dem falschen Stecker.**
