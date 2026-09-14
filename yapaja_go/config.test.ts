@@ -59,6 +59,37 @@ function loadConfig(): AddonConfig {
   return parsed as AddonConfig;
 }
 
+/**
+ * Optionen und Schema sind seit 0.8.4 VERSCHACHTELT: die selten angefassten
+ * Schluessel liegen in Gruppen (`search.photon_enabled`), damit Home Assistant
+ * sie als aufklappbaren Block zeichnet -- wie „Terminal & SSH" es mit „Server"
+ * macht.
+ *
+ * Diese beiden Helfer machen daraus wieder eine flache Sicht, damit die Tests
+ * ueber Pfade reden koennen statt ueber Verschachtelung.
+ */
+function anPfad(wurzel: unknown, pfad: string): unknown {
+  return pfad
+    .split('.')
+    .reduce<unknown>(
+      (aktuell, teil) =>
+        aktuell && typeof aktuell === 'object'
+          ? (aktuell as Record<string, unknown>)[teil]
+          : undefined,
+      wurzel,
+    );
+}
+
+/** Alle Blatt-Pfade, gepunktet: `region`, `search.photon_enabled`, ... */
+function blattPfade(wurzel: Record<string, unknown>, praefix = ''): string[] {
+  return Object.entries(wurzel).flatMap(([schluessel, wert]) => {
+    const pfad = praefix ? `${praefix}.${schluessel}` : schluessel;
+    return wert !== null && typeof wert === 'object' && !Array.isArray(wert)
+      ? blattPfade(wert as Record<string, unknown>, pfad)
+      : [pfad];
+  });
+}
+
 describe('yapaja_go/config.yaml is valid YAML with the required HA add-on keys', () => {
   it('parses as YAML without error', () => {
     expect(() => loadConfig()).not.toThrow();
@@ -146,10 +177,12 @@ describe('yapaja_go/config.yaml is valid YAML with the required HA add-on keys',
    */
   it('bietet beide Kanaele als eigene Schalter an', () => {
     const config = loadConfig();
-    for (const key of ['mqtt_enabled', 'ha_internal']) {
-      expect(config.options, `options.${key} fehlt`).toHaveProperty(key);
-      expect(config.schema[key], `schema.${key}`).toBe('bool');
-      expect(typeof config.options[key], `options.${key} muss ein Schalter sein`).toBe('boolean');
+    for (const key of ['home_assistant.mqtt_enabled', 'home_assistant.ha_internal']) {
+      expect(anPfad(config.options, key), `options.${key} fehlt`).toBeDefined();
+      expect(anPfad(config.schema, key), `schema.${key}`).toBe('bool');
+      expect(typeof anPfad(config.options, key), `options.${key} muss ein Schalter sein`).toBe(
+        'boolean',
+      );
     }
   });
 
@@ -163,16 +196,16 @@ describe('yapaja_go/config.yaml is valid YAML with the required HA add-on keys',
     const config = loadConfig();
     const requiredKeys = [
       'region',
-      'mqtt_prefix',
-      'photon_enabled',
       'gps_source',
-      'log_level',
-      'photon_xmx_mb',
-      'valhalla_memory_mb',
+      'home_assistant.mqtt_prefix',
+      'search.photon_enabled',
+      'search.photon_xmx_mb',
+      'routing.valhalla_memory_mb',
+      'advanced.log_level',
     ];
     for (const key of requiredKeys) {
-      expect(config.options, `options.${key} missing`).toHaveProperty(key);
-      expect(config.schema, `schema.${key} missing`).toHaveProperty(key);
+      expect(anPfad(config.options, key), `options.${key} missing`).toBeDefined();
+      expect(anPfad(config.schema, key), `schema.${key} missing`).toBeDefined();
     }
   });
 
@@ -839,18 +872,24 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
     mkdirSync(envDir, { recursive: true });
     const shareDir = join(dir, 'share');
 
+    // Seit 0.8.4 liegen die selten angefassten Optionen in Gruppen. Der
+    // gefälschte `bashio::config` antwortet deshalb auf die GEPUNKTETEN
+    // Schlüssel -- und auf „null" für alles, was ein Test nicht setzt. Genau
+    // so verhält sich bashio bei einem fehlenden Schlüssel, und nur dadurch
+    // lässt sich der Rückfall auf die alte, flache Form überhaupt prüfen.
     const defaults: Record<string, string> = {
       region: 'liechtenstein',
-      mqtt_prefix: 'yapaja',
-      photon_enabled: 'false',
       gps_source: 'none',
+      gps_device: '',
       ha_device_tracker: '',
-      log_level: 'info',
-      photon_xmx_mb: '1024',
-      valhalla_memory_mb: '2048',
-      gps_simulator: 'false',
-      mqtt_enabled: 'true',
-      ha_internal: 'true',
+      'search.photon_enabled': 'false',
+      'search.photon_xmx_mb': '1024',
+      'routing.valhalla_memory_mb': '2048',
+      'home_assistant.ha_internal': 'true',
+      'home_assistant.mqtt_enabled': 'true',
+      'home_assistant.mqtt_prefix': 'yapaja',
+      'advanced.gps_simulator': 'false',
+      'advanced.log_level': 'info',
       ...options,
     };
 
@@ -862,7 +901,8 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
       ...Object.entries(defaults).map(
         ([key, value]) => `  if [ "$1" = "${key}" ]; then printf '%s' ${JSON.stringify(value)}; return 0; fi`,
       ),
-      '  printf ""',
+      // Wie bashio: ein Schlüssel, den es nicht gibt, ist "null".
+      '  printf "null"',
       '}',
       'bashio::log.info() { :; }',
       'bashio::log.warning() { :; }',
@@ -923,13 +963,13 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
    * Skript steht -- auch dann, wenn die Bedingung darum herum nie zutrifft.
    */
   it('schaltet den GPS-Simulator frei, wenn der Haken gesetzt ist', () => {
-    expect(runInit({ gps_simulator: 'true' }).ENABLE_SIMULATOR).toBe('1');
+    expect(runInit({ 'advanced.gps_simulator': 'true' }).ENABLE_SIMULATOR).toBe('1');
   });
 
   it('laesst den Simulator ohne Haken gesperrt -- und setzt die Variable gar nicht erst', () => {
     // Nicht „0", sondern UNGESETZT: so gilt genau die Sperre des Cores und
     // nicht eine zweite, hier nachgebaute Regel. Der Core prueft auf === '1'.
-    const env = runInit({ gps_simulator: 'false' });
+    const env = runInit({ 'advanced.gps_simulator': 'false' });
     expect(env.ENABLE_SIMULATOR).toBeUndefined();
   });
 
@@ -966,6 +1006,40 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
 
   // Der eigentliche Punkt: eine Installation ohne USB-Empfänger soll nicht
   // dauerhaft melden, dass ein Gerät nicht antwortet, das es nie gab.
+  // ─── EIN UPDATE DARF DIE EINSTELLUNGEN NICHT VERLIEREN ───────────────────
+  // Seit 0.8.4 liegen die selten angefassten Optionen in Gruppen
+  // (`search.photon_enabled`). Bestehende Installationen haben sie noch FLACH
+  // gespeichert. Wer aktualisiert, darf nicht plötzlich mit den Vorgaben
+  // dastehen -- etwa mit wieder eingeschaltetem Photon auf einem Gerät, dem
+  // dafür der Arbeitsspeicher fehlt.
+  //
+  // Geprüft wird das AUSGEFÜHRT: der gefälschte `bashio::config` liefert für
+  // den neuen Schlüssel „null" (so verhält sich bashio bei einem fehlenden
+  // Schlüssel) und nur für den alten einen Wert.
+  it('liest eine noch flach gespeicherte Konfiguration weiter', () => {
+    const env = runInit({
+      'search.photon_enabled': 'null',
+      photon_enabled: 'true',
+      'search.photon_xmx_mb': 'null',
+      photon_xmx_mb: '512',
+      'routing.valhalla_memory_mb': 'null',
+      valhalla_memory_mb: '4096',
+      'advanced.log_level': 'null',
+      log_level: 'debug',
+    });
+    expect(env.PHOTON_ENABLED, 'Photon wäre stillschweigend wieder an').toBe('true');
+    expect(env.PHOTON_XMX_MB).toBe('512');
+    expect(env.VALHALLA_MEMORY_MB).toBe('4096');
+    expect(env.YAPAIA_LOG_LEVEL ?? env.LOG_LEVEL).toBe('debug');
+  });
+
+  it('die neue Form hat Vorrang vor der alten', () => {
+    // Stehen beide da (Supervisor hat den alten Schlüssel liegen lassen), gilt
+    // das, was der Betreiber zuletzt in der neuen Oberfläche gesetzt hat.
+    const env = runInit({ 'search.photon_xmx_mb': '2048', photon_xmx_mb: '512' });
+    expect(env.PHOTON_XMX_MB).toBe('2048');
+  });
+
   it('schaltet gpsd bei der Companion App AUS und reicht die Quelle an den Core weiter', () => {
     // Stand bis 0.8.2 auf `gps_source: 'ha_tracker'` und erwartete denselben
     // Wert zurück. Seit der Umbenennung schreibt das Skript ihn um; der alte
@@ -1031,32 +1105,32 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
   }
 
   it('schaltet MQTT ab, obwohl ein Broker vorhanden ist', () => {
-    const env = runInitMitBroker({ mqtt_enabled: 'false' });
+    const env = runInitMitBroker({ 'home_assistant.mqtt_enabled': 'false' });
     expect(env.MQTT_BROKER_URL).toBeUndefined();
   });
 
   it('nutzt den vorhandenen Broker, solange der Schalter an ist', () => {
-    const env = runInitMitBroker({ mqtt_enabled: 'true' });
+    const env = runInitMitBroker({ 'home_assistant.mqtt_enabled': 'true' });
     expect(env.MQTT_BROKER_URL).toBe('mqtt://test-broker:1883');
   });
 
   it('schaltet den HA-internen Kanal ein und aus', () => {
     // Nicht „0", sondern UNGESETZT: der Core prueft auf === '1', und so gilt
     // genau eine Regel statt zweier, die auseinanderlaufen koennen.
-    expect(runInit({ ha_internal: 'true' }).HA_INTERNAL).toBe('1');
-    expect(runInit({ ha_internal: 'false' }).HA_INTERNAL).toBeUndefined();
+    expect(runInit({ 'home_assistant.ha_internal': 'true' }).HA_INTERNAL).toBe('1');
+    expect(runInit({ 'home_assistant.ha_internal': 'false' }).HA_INTERNAL).toBeUndefined();
   });
 
   it('bleibt bei leerem oder „null"-Wert eingeschaltet', () => {
     // Dieselbe Falle wie bei `ha_device_tracker`: bashio liefert fuer eine
     // nicht gesetzte Option den STRING "null". Ohne die Absicherung waere
     // MQTT damit fuer alle still aus.
-    expect(runInitMitBroker({ mqtt_enabled: 'null' }).MQTT_BROKER_URL).toBeTruthy();
-    expect(runInit({ ha_internal: '' }).HA_INTERNAL).toBe('1');
+    expect(runInitMitBroker({ 'home_assistant.mqtt_enabled': 'null', mqtt_enabled: 'null' }).MQTT_BROKER_URL).toBeTruthy();
+    expect(runInit({ 'home_assistant.ha_internal': '', ha_internal: '' }).HA_INTERNAL).toBe('1');
   });
 
   it('beide Wege lassen sich gleichzeitig einschalten', () => {
-    const env = runInitMitBroker({ mqtt_enabled: 'true', ha_internal: 'true' });
+    const env = runInitMitBroker({ 'home_assistant.mqtt_enabled': 'true', 'home_assistant.ha_internal': 'true' });
     expect(env.MQTT_BROKER_URL).toBeTruthy();
     expect(env.HA_INTERNAL).toBe('1');
   });
@@ -1197,80 +1271,109 @@ describe('find-gps-device.sh — die Geräteauswahl, ausgeführt', () => {
 describe('die Add-on-Konfiguration ist gegliedert und beschriftet', () => {
   const SPRACHEN = ['de', 'en'] as const;
 
-  interface Uebersetzung {
-    configuration?: Record<string, { name?: string; description?: string }>;
+  /** Die Gruppen und was in sie gehoert. Aendert sich das, aendert sich die
+   *  Seite, die der Betreiber sieht -- deshalb steht es hier und nicht nur in
+   *  `config.yaml`. */
+  const GRUPPEN: Record<string, string[]> = {
+    search: ['photon_enabled', 'photon_xmx_mb'],
+    routing: ['valhalla_memory_mb'],
+    home_assistant: ['ha_internal', 'mqtt_enabled', 'mqtt_prefix'],
+    advanced: ['gps_simulator', 'log_level'],
+  };
+  /** Was OFFEN stehenbleibt -- das, was man wirklich einstellt. */
+  const OFFEN = ['region', 'gps_source', 'gps_device', 'ha_device_tracker'];
+
+  function ladeUebersetzung(sprache: string): Record<string, unknown> {
+    const pfad = join(ADDON_DIR, 'translations', `${sprache}.yaml`);
+    const daten = load(readFileSync(pfad, 'utf-8')) as { configuration?: Record<string, unknown> };
+    return daten.configuration ?? {};
   }
 
-  function ladeUebersetzung(sprache: string): Uebersetzung {
-    const pfad = join(ADDON_DIR, 'translations', `${sprache}.yaml`);
-    return load(readFileSync(pfad, 'utf-8')) as Uebersetzung;
-  }
+  it('die selten angefassten Optionen liegen in Gruppen, der Rest offen', () => {
+    // DAS ist die Gliederung: ein verschachtelter Schluessel wird von Home
+    // Assistant als aufklappbarer Block gezeichnet. Flach mit Praefix im
+    // Namen (bis 0.8.3) war nur ein Ersatz dafuer.
+    const config = loadConfig();
+    for (const schluessel of OFFEN) {
+      const wert = anPfad(config.schema, schluessel);
+      expect(typeof wert, `${schluessel} muss OFFEN stehen, nicht in einer Gruppe`).toBe('string');
+    }
+    for (const [gruppe, kinder] of Object.entries(GRUPPEN)) {
+      const block = anPfad(config.schema, gruppe);
+      expect(typeof block, `schema.${gruppe} muss eine Gruppe sein`).toBe('object');
+      expect(Object.keys(block as Record<string, unknown>).sort()).toEqual([...kinder].sort());
+    }
+  });
+
+  it('options und schema haben dieselbe Form', () => {
+    // Sonst gilt die eine Gliederung und die andere ist Zierde.
+    const config = loadConfig();
+    expect(blattPfade(config.options as Record<string, unknown>).sort()).toEqual(
+      blattPfade(config.schema as Record<string, unknown>).sort(),
+    );
+  });
+
+  it('die Verschachtelung bleibt bei hoechstens zwei Ebenen', () => {
+    // Home Assistant unterstuetzt verschachtelte Konfiguration erst ab 2025.10
+    // und dort ausdruecklich nur bis Tiefe zwei. Eine dritte Ebene waere eine
+    // Seite, die bei niemandem so aussieht, wie sie hier gemeint ist.
+    const config = loadConfig();
+    for (const pfad of blattPfade(config.schema as Record<string, unknown>)) {
+      expect(pfad.split('.').length, `zu tief verschachtelt: ${pfad}`).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('config.yaml nennt die Home-Assistant-Mindestversion', () => {
+    // Ohne sie installiert der Supervisor das Add-on auch auf einer zu alten
+    // Version -- und zeichnet die Gruppen dann nicht. Wer sie nicht sieht,
+    // kommt an Photon, das Routing-Budget und die HA-Kanaele nicht mehr heran.
+    const config = loadConfig() as unknown as { homeassistant?: string };
+    expect(config.homeassistant, 'Schluessel `homeassistant` fehlt').toBeTruthy();
+    const [jahr, monat] = String(config.homeassistant).split('.').map(Number);
+    expect(jahr * 100 + monat, 'muss mindestens 2025.10 sein').toBeGreaterThanOrEqual(2025 * 100 + 10);
+  });
 
   for (const sprache of SPRACHEN) {
     it(`jede Option hat in ${sprache}.yaml einen Namen und eine Beschreibung`, () => {
       const config = loadConfig();
-      const eintraege = ladeUebersetzung(sprache).configuration ?? {};
-      for (const schluessel of Object.keys(config.options)) {
-        const eintrag = eintraege[schluessel];
-        expect(eintrag, `Option "${schluessel}" fehlt in ${sprache}.yaml`).toBeDefined();
-        expect(eintrag?.name, `Name fehlt für "${schluessel}"`).toBeTruthy();
-        expect(eintrag?.description, `Beschreibung fehlt für "${schluessel}"`).toBeTruthy();
+      const eintraege = ladeUebersetzung(sprache);
+      for (const pfad of blattPfade(config.options as Record<string, unknown>)) {
+        const eintrag = anPfad(eintraege, pfad) as { name?: string; description?: string } | undefined;
+        expect(eintrag, `Option "${pfad}" fehlt in ${sprache}.yaml`).toBeDefined();
+        expect(eintrag?.name, `Name fehlt für "${pfad}"`).toBeTruthy();
+        expect(eintrag?.description, `Beschreibung fehlt für "${pfad}"`).toBeTruthy();
+      }
+    });
+
+    it(`jede Gruppe hat in ${sprache}.yaml eine eigene Überschrift`, () => {
+      // Der Block traegt in der Oberflaeche NUR diesen Namen. Fehlt er, steht
+      // dort der rohe Schluessel „home_assistant".
+      const eintraege = ladeUebersetzung(sprache);
+      for (const gruppe of Object.keys(GRUPPEN)) {
+        const eintrag = eintraege[gruppe] as { name?: string; description?: string } | undefined;
+        expect(eintrag?.name, `Überschrift fehlt für Gruppe "${gruppe}"`).toBeTruthy();
+        expect(eintrag?.description, `Beschreibung fehlt für Gruppe "${gruppe}"`).toBeTruthy();
       }
     });
 
     it(`${sprache}.yaml beschriftet nichts, was es nicht gibt`, () => {
-      // Eine Beschriftung für eine entfernte Option ist kein Fehler, den man
-      // sieht -- sie steht einfach nirgends. Sie bleibt aber liegen und
-      // erweckt beim nächsten Lesen den Eindruck, es gäbe die Option noch.
       const config = loadConfig();
-      const eintraege = ladeUebersetzung(sprache).configuration ?? {};
-      for (const schluessel of Object.keys(eintraege)) {
-        expect(Object.keys(config.options), `"${schluessel}" in ${sprache}.yaml`).toContain(
-          schluessel,
-        );
-      }
-    });
-
-    it(`die Namen in ${sprache}.yaml tragen ihre Gruppe vorn`, () => {
-      // Das IST die Gruppierung -- ohne Präfix steht die Seite wieder als
-      // zwölf zusammenhanglose Felder da.
-      const eintraege = ladeUebersetzung(sprache).configuration ?? {};
-      for (const [schluessel, eintrag] of Object.entries(eintraege)) {
-        expect(eintrag.name, `"${schluessel}" ohne Gruppe: ${eintrag.name}`).toMatch(/ — /);
+      const echt = new Set([
+        ...blattPfade(config.options as Record<string, unknown>),
+        ...Object.keys(GRUPPEN),
+      ]);
+      const eintraege = ladeUebersetzung(sprache);
+      for (const [schluessel, wert] of Object.entries(eintraege)) {
+        expect([...echt], `"${schluessel}" in ${sprache}.yaml`).toContain(schluessel);
+        // Und innerhalb einer Gruppe dasselbe -- ein Kind, das es im Schema
+        // nicht gibt, bliebe sonst unbemerkt liegen.
+        for (const kind of Object.keys(wert as Record<string, unknown>)) {
+          if (kind === 'name' || kind === 'description') continue;
+          expect([...echt], `"${schluessel}.${kind}" in ${sprache}.yaml`).toContain(
+            `${schluessel}.${kind}`,
+          );
+        }
       }
     });
   }
-
-  it('die Optionen stehen in Gruppen beieinander, nicht durcheinander', () => {
-    // Gemessen an der Reihenfolge in config.yaml: alle Schlüssel einer Gruppe
-    // müssen einen zusammenhängenden Block bilden. Sonst zeichnet Home
-    // Assistant „Suche", dann „Position", dann wieder „Suche".
-    const config = loadConfig();
-    const gruppe: Record<string, string> = {
-      region: 'Karte',
-      photon_enabled: 'Suche',
-      photon_xmx_mb: 'Suche',
-      valhalla_memory_mb: 'Routing',
-      gps_source: 'Position',
-      gps_device: 'Position',
-      ha_device_tracker: 'Position',
-      gps_simulator: 'Position',
-      ha_internal: 'Home Assistant',
-      mqtt_enabled: 'Home Assistant',
-      mqtt_prefix: 'Home Assistant',
-      log_level: 'System',
-    };
-    const folge = Object.keys(config.options).map((k) => gruppe[k]);
-    expect(folge, 'unbekannte Option ohne Gruppe').not.toContain(undefined);
-    // Jede Gruppe darf höchstens einmal beginnen.
-    const beginne = folge.filter((g, i) => g !== folge[i - 1]);
-    expect(new Set(beginne).size, `Gruppen zerrissen: ${folge.join(', ')}`).toBe(beginne.length);
-  });
-
-  it('options und schema stehen in derselben Reihenfolge', () => {
-    // Sonst gilt die eine Gliederung und die andere ist Zierde -- und welche,
-    // hängt daran, woraus Home Assistant das Formular gerade baut.
-    const config = loadConfig();
-    expect(Object.keys(config.options)).toEqual(Object.keys(config.schema));
-  });
 });

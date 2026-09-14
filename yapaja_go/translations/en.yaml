@@ -1,84 +1,87 @@
 ---
-# Add-on configuration labels. See `de.yaml` for the reasoning — in short:
-# without this file Home Assistant shows the raw keys, and the add-on
-# configuration page has no headings, so the grouping lives in the names.
+# Add-on configuration labels. Without this file Home Assistant shows the raw
+# keys. The structure mirrors the schema in `config.yaml`: since 0.8.4 the
+# rarely-touched options are nested in groups, which Home Assistant draws as
+# collapsible blocks — so here, too, the group name comes first and its
+# options sit underneath. See `de.yaml` for the full reasoning.
 configuration:
   region:
-    name: Map — Region
-    description: >-
-      Which map region Yapaia uses (for example "germany" or "liechtenstein").
-      Leave empty and the setup wizard inside Yapaia walks you through it.
-      Downloading and building regions does not happen here but in Yapaia
-      itself, under "Regions" — that is a job with progress, not a setting.
-  photon_enabled:
-    name: Search — Address search with Photon
-    description: >-
-      Full address search including house numbers. It is the single biggest
-      consumer of memory in Yapaia. Turned off, search still works: a built-in
-      lightweight index finds places and street names, just not house numbers.
-  photon_xmx_mb:
-    name: Search — Memory for Photon (MB)
-    description: >-
-      Upper limit for the address search. Too little and search dies; too much
-      and it takes memory away from Home Assistant. 1024 is enough for one
-      country.
-  valhalla_memory_mb:
-    name: Routing — Memory for Valhalla (MB)
-    description: >-
-      Upper limit for route calculation. Grows with the size of the region;
-      2048 is a good starting point for one country.
+    name: Region
+    description: Which map region Yapaia uses (for example "germany" or "liechtenstein").
+      Leave empty and the setup wizard inside Yapaia walks you through it. Downloading
+      and building regions does not happen here but in Yapaia itself, under "Regions"
+      — that is a job with progress, not a setting.
   gps_source:
-    name: Position — Source
-    description: >-
-      Where your position comes from. "usb": a GPS receiver on the USB port.
-      "network": a gpsd on another machine. "companion_app": the Home
-      Assistant Companion App on a phone, tablet or car radio — the right
-      choice when Home Assistant runs over http://, because no browser will
-      release its location sensor then. "none": the position comes from the
-      browser. A browser position is accepted at every setting. ("ha_tracker"
-      is the old name of "companion_app" and still works.)
+    name: Source
+    description: 'Where your position comes from. "usb": a GPS receiver on the USB
+      port. "network": a gpsd on another machine. "companion_app": the Home Assistant
+      Companion App on a phone, tablet or car radio — the right choice when Home
+      Assistant runs over http://, because no browser will release its location
+      sensor then. "none": the position comes from the browser. A browser position
+      is accepted at every setting. ("ha_tracker" is the old name of "companion_app"
+      and still works.)'
   gps_device:
-    name: Position — USB device
-    description: >-
-      Which port the GPS receiver is on. Normally leave empty — Yapaia finds
-      it itself. You only need to fill this in when the health check asks: that
-      means several serial devices are plugged in (often a Zigbee or Z-Wave
-      stick) and none identifies itself as a GPS. Use the path under
-      /dev/serial/by-id/ rather than /dev/ttyACM0 — the number shifts as soon
-      as another USB stick appears.
+    name: USB device
+    description: 'Which port the GPS receiver is on. Normally leave empty — Yapaia
+      finds it itself. You only need to fill this in when the health check asks:
+      that means several serial devices are plugged in (often a Zigbee or Z-Wave
+      stick) and none identifies itself as a GPS. Use the path under /dev/serial/by-id/
+      rather than /dev/ttyACM0 — the number shifts as soon as another USB stick
+      appears.'
   ha_device_tracker:
-    name: Position — Companion App device
-    description: >-
-      Which device supplies the position, e.g. "device_tracker.my_phone". Only
-      needed when several devices run the Companion App — with exactly one,
-      Yapaia picks it itself. You can also choose it inside Yapaia (health
-      check → "Companion App device"); that takes effect immediately.
-  gps_simulator:
-    name: Position — Enable the test driver
-    description: >-
-      Unlocks the built-in simulator so you can try a drive without a vehicle.
-      Off by default, deliberately: the simulator feeds arbitrary positions and
-      displaces the real receiver while it does. That must not happen by
-      accident in a moving vehicle.
-  ha_internal:
-    name: Home Assistant — Report values directly
-    description: >-
-      Publishes position, ETA, remaining distance and the next instruction as
-      Home Assistant entities without an MQTT broker. The simplest route if you
-      do not run MQTT.
-  mqtt_enabled:
-    name: Home Assistant — Report values over MQTT
-    description: >-
-      The same over an MQTT broker. Useful when other devices should listen in
-      (ESPHome, your own automations). Both channels may be on at once; if the
-      broker fails, values keep flowing over the direct one.
-  mqtt_prefix:
-    name: Home Assistant — MQTT topic prefix
-    description: >-
-      The prefix the topics are published under, e.g. "yapaja/nav/eta". Only
-      change it if the name is already taken on your broker.
-  log_level:
-    name: System — Log level
-    description: >-
-      How verbose the add-on log is. Only turn on "debug" to chase a problem —
-      it writes a lot.
+    name: Companion App device
+    description: Which device supplies the position, e.g. "device_tracker.my_phone".
+      Only needed when several devices run the Companion App — with exactly one,
+      Yapaia picks it itself. You can also choose it inside Yapaia (health check
+      → "Companion App device"); that takes effect immediately.
+  search:
+    name: Search
+    description: Address search and its memory. Only touch this when memory is tight.
+    photon_enabled:
+      name: Address search with Photon
+      description: 'Full address search including house numbers. It is the single
+        biggest consumer of memory in Yapaia. Turned off, search still works: a
+        built-in lightweight index finds places and street names, just not house
+        numbers.'
+    photon_xmx_mb:
+      name: Memory for Photon (MB)
+      description: Upper limit for the address search. Too little and search dies;
+        too much and it takes memory away from Home Assistant. 1024 is enough for
+        one country.
+  routing:
+    name: Routing
+    description: How much memory route calculation gets.
+    valhalla_memory_mb:
+      name: Memory for Valhalla (MB)
+      description: Upper limit for route calculation. Grows with the size of the
+        region; 2048 is a good starting point for one country.
+  home_assistant:
+    name: Home Assistant
+    description: How Yapaia reports its values to Home Assistant.
+    ha_internal:
+      name: Report values directly
+      description: Publishes position, ETA, remaining distance and the next instruction
+        as Home Assistant entities without an MQTT broker. The simplest route if
+        you do not run MQTT.
+    mqtt_enabled:
+      name: Report values over MQTT
+      description: The same over an MQTT broker. Useful when other devices should
+        listen in (ESPHome, your own automations). Both channels may be on at once;
+        if the broker fails, values keep flowing over the direct one.
+    mqtt_prefix:
+      name: MQTT topic prefix
+      description: The prefix the topics are published under, e.g. "yapaja/nav/eta".
+        Only change it if the name is already taken on your broker.
+  advanced:
+    name: Advanced
+    description: Test driver and log level. In everyday use nothing here needs changing.
+    gps_simulator:
+      name: Enable the test driver
+      description: 'Unlocks the built-in simulator so you can try a drive without
+        a vehicle. Off by default, deliberately: the simulator feeds arbitrary positions
+        and displaces the real receiver while it does. That must not happen by accident
+        in a moving vehicle.'
+    log_level:
+      name: Log level
+      description: How verbose the add-on log is. Only turn on "debug" to chase
+        a problem — it writes a lot.

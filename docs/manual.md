@@ -96,10 +96,10 @@ Assistant VM should have 6 GB or more in total.
 
 If that is more than you have, in order of how much they buy you:
 
-1. **Turn off `photon_enabled`** in the add-on options. This removes the single
+1. **Turn off `photon_enabled`** in the add-on options, under **Search**. This removes the single
    biggest consumer. Search still works through a built-in lightweight index —
    you keep place names and street names, you lose house numbers.
-2. **Lower `photon_xmx_mb`** instead, if you would rather keep full search with
+2. **Lower `photon_xmx_mb`** instead (same group), if you would rather keep full search with
    a smaller memory allowance.
 3. **Install a smaller region** — one state instead of a whole country. Both
    routing and search shrink with it.
@@ -303,7 +303,7 @@ under `gps_source`.
 | **Browser** | `none` | Quick testing. **Only works over HTTPS** |
 | **USB GPS receiver** | `usb` / `network` | The most accurate option; needs hardware |
 | **HA Companion App** | `companion_app` | A phone you already carry |
-| **Simulator** | `gps_simulator` | Trying the app without moving |
+| **Simulator** | `gps_simulator` (group **Advanced**) | Trying the app without moving |
 
 ### Using a USB GPS receiver
 

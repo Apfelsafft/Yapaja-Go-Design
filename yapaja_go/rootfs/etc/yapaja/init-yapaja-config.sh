@@ -53,11 +53,32 @@ export_env() {
   echo -n "${value}" > "${S6_CONTAINER_ENVIRONMENT_DIR:-/run/s6/container_environment}/${name}"
 }
 
+# ─── EINE OPTION, ZWEI MOEGLICHE STELLEN ────────────────────────────────────
+# Seit 0.8.4 liegen die selten angefassten Optionen in aufklappbaren Gruppen
+# (`search.photon_enabled` statt `photon_enabled`) -- so, wie es „Terminal &
+# SSH" mit seinem Block „Server" macht.
+#
+# Bestehende Installationen haben die Werte aber noch FLACH gespeichert. Wer
+# aktualisiert, darf deswegen nicht ploetzlich mit den Vorgaben dastehen --
+# etwa mit wieder eingeschaltetem Photon auf einem Geraet, dem dafuer der
+# Arbeitsspeicher fehlt. Also: erst die neue Stelle, dann die alte.
+#
+# `bashio::config` liefert fuer einen fehlenden Schluessel den String "null";
+# das zaehlt hier wie leer.
+config_mit_rueckfall() {
+  local neu="$1" alt="$2" wert
+  wert="$(bashio::config "${neu}")"
+  if [ -z "${wert}" ] || [ "${wert}" = "null" ]; then
+    wert="$(bashio::config "${alt}")"
+  fi
+  printf '%s' "${wert}"
+}
+
 bashio::log.info "init-yapaja-config: reading add-on options..."
 
 REGION="$(bashio::config 'region')"
-MQTT_PREFIX="$(bashio::config 'mqtt_prefix')"
-PHOTON_ENABLED="$(bashio::config 'photon_enabled')"
+MQTT_PREFIX="$(config_mit_rueckfall 'home_assistant.mqtt_prefix' 'mqtt_prefix')"
+PHOTON_ENABLED="$(config_mit_rueckfall 'search.photon_enabled' 'photon_enabled')"
 GPS_SOURCE="$(bashio::config 'gps_source')"
 # `ha_tracker` hiess bis 0.8.2 so und heisst jetzt `companion_app`. Der alte
 # Wert steht in jeder bestehenden Konfiguration; hier wird er einmal
@@ -83,14 +104,14 @@ HA_DEVICE_TRACKER="$(bashio::config 'ha_device_tracker')"
 if [ "${HA_DEVICE_TRACKER}" = "null" ]; then
   HA_DEVICE_TRACKER=""
 fi
-LOG_LEVEL="$(bashio::config 'log_level')"
-PHOTON_XMX_MB="$(bashio::config 'photon_xmx_mb')"
-VALHALLA_MEMORY_MB="$(bashio::config 'valhalla_memory_mb')"
-GPS_SIMULATOR="$(bashio::config 'gps_simulator')"
+LOG_LEVEL="$(config_mit_rueckfall 'advanced.log_level' 'log_level')"
+PHOTON_XMX_MB="$(config_mit_rueckfall 'search.photon_xmx_mb' 'photon_xmx_mb')"
+VALHALLA_MEMORY_MB="$(config_mit_rueckfall 'routing.valhalla_memory_mb' 'valhalla_memory_mb')"
+GPS_SIMULATOR="$(config_mit_rueckfall 'advanced.gps_simulator' 'gps_simulator')"
 # Die beiden Wege, auf denen Yapaia seine Werte an Home Assistant meldet.
 # Warum es zwei gibt und wie sie sich vertragen, steht in `config.yaml`.
-MQTT_ENABLED="$(bashio::config 'mqtt_enabled')"
-HA_INTERNAL="$(bashio::config 'ha_internal')"
+MQTT_ENABLED="$(config_mit_rueckfall 'home_assistant.mqtt_enabled' 'mqtt_enabled')"
+HA_INTERNAL="$(config_mit_rueckfall 'home_assistant.ha_internal' 'ha_internal')"
 # Beide sind in `config.yaml` mit Vorgabe `true` deklariert. Kaeme hier
 # trotzdem einmal Leeres oder das beruehmte "null" heraus (genau die Falle,
 # die `ha_device_tracker` oben schon gestellt hat), waere `bashio::var.true`
