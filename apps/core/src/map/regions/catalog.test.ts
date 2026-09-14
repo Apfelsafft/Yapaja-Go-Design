@@ -1,8 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, rmSync } from 'fs';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
-import { loadCatalog, resolveCatalogPath } from './catalog.js';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+import { isValidCatalogEntry, loadCatalog, resolveCatalogPath } from './catalog.js';
 
 describe('regions catalog parsing', () => {
   const tempDirs: string[] = [];
@@ -157,6 +158,89 @@ describe('regions catalog parsing', () => {
         entry.url ?? entry.pbfUrl,
         `Katalogeintrag "${entry.id}" nennt weder url noch pbfUrl`,
       ).toBeTruthy();
+    }
+  });
+});
+
+/**
+ * ─── DER AUSGELIEFERTE KATALOG SELBST ───────────────────────────────────────
+ * Seit 0.8.5 stehen 49 europäische Länder darin. Die Adressen prüft der
+ * wöchentliche Nightly gegen Geofabrik (`scripts/check-region-catalog.mjs`) —
+ * hier geht es um das, was ohne Netz prüfbar ist und sonst still verrutscht.
+ */
+describe('regions-catalog.json — der ausgelieferte Katalog', () => {
+  const eintraege = JSON.parse(
+    readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'regions-catalog.json'), 'utf-8'),
+  ) as Array<Record<string, unknown>>;
+
+  it('jeder Eintrag ist gültig', () => {
+    // Dieselbe Prüfung, die der Core beim Laden anwendet. Ein ungültiger
+    // Eintrag verschwindet dort stillschweigend aus der Liste — der Betreiber
+    // sähe nur ein Land, das nicht da ist.
+    for (const eintrag of eintraege) {
+      expect(isValidCatalogEntry(eintrag), `ungültig: ${String(eintrag.id)}`).toBe(true);
+    }
+  });
+
+  it('die IDs sind eindeutig und taugen als Verzeichnisname', () => {
+    // Die ID wird zum Ordner unter /share/yapaja/tiles. Ein Punkt oder
+    // Schrägstrich darin wäre ein Pfad, kein Name.
+    const ids = eintraege.map((e) => String(e.id));
+    expect(new Set(ids).size, 'doppelte ID').toBe(ids.length);
+    for (const id of ids) {
+      expect(id, `ID taugt nicht als Verzeichnisname: ${id}`).toMatch(/^[a-zA-Z0-9_-]+$/);
+    }
+  });
+
+  it('jede pbfUrl folgt dem Geofabrik-Muster', () => {
+    // Genau hier ist der Katalog schon einmal gescheitert: an einer
+    // funktionierenden Adresse wurde die Endung getauscht, und heraus kam ein
+    // sicherer 404. Die Form lässt sich ohne Netz prüfen, die Existenz nicht.
+    for (const eintrag of eintraege) {
+      const url = eintrag.pbfUrl as string | undefined;
+      if (url === undefined) continue;
+      expect(url, `${String(eintrag.id)}: keine .osm.pbf`).toMatch(
+        /^https:\/\/download\.geofabrik\.de\/[a-z-]+(\/[a-z-]+)*\/[a-z-]+-latest\.osm\.pbf$/,
+      );
+      // Der Dateiname muss zur ID passen -- sonst baut man unter dem Namen
+      // „austria" die Kacheln der Schweiz.
+      expect(url, `${String(eintrag.id)}: Dateiname passt nicht zur ID`).toContain(
+        `/${String(eintrag.id)}-latest.osm.pbf`,
+      );
+    }
+  });
+
+  it('die Grenzen sind plausibel und nicht entartet', () => {
+    for (const eintrag of eintraege) {
+      const [minLon, minLat, maxLon, maxLat] = eintrag.bounds as number[];
+      expect(minLon, `${String(eintrag.id)}`).toBeLessThan(maxLon);
+      expect(minLat, `${String(eintrag.id)}`).toBeLessThan(maxLat);
+      expect(Math.abs(minLon)).toBeLessThanOrEqual(180);
+      expect(Math.abs(maxLat)).toBeLessThanOrEqual(90);
+    }
+  });
+
+  it('große Extrakte sind als solche markiert', () => {
+    // `buildEffort` steuert, ob die GUI zum Bauen auf der HAOS-VM rät. Ein
+    // falsch als „klein" markiertes Land ist ein Bauauftrag, der die VM
+    // stundenlang belegt und dann am Speicher scheitert.
+    for (const eintrag of eintraege) {
+      const mb = (eintrag.sizeBytes as number) / 1_000_000;
+      if (mb >= 1000) {
+        expect(eintrag.buildEffort, `${String(eintrag.id)} (${mb} MB)`).toBe('large');
+      }
+    }
+  });
+
+  it('enthält die Nachbarländer Deutschlands', () => {
+    // Der ausdrückliche Wunsch: „Wichtig wären bspw. Auch Schweiz, Österreich,
+    // Frankreich bzw. Die an Deutschland angrenzenden Länder."
+    const ids = new Set(eintraege.map((e) => String(e.id)));
+    for (const nachbar of [
+      'austria', 'switzerland', 'france', 'netherlands', 'belgium',
+      'luxembourg', 'denmark', 'poland', 'czech-republic',
+    ]) {
+      expect(ids, `Nachbarland fehlt: ${nachbar}`).toContain(nachbar);
     }
   });
 });

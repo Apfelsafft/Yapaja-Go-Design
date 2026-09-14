@@ -812,6 +812,36 @@ jobs:
       - name: Perf-Degradations-Nachweis
         run: pnpm perf:degradation-proof
 
+  # ─── GIBT ES DIE EXTRAKTE IM KATALOG WIRKLICH? ──────────────────────────
+  # Der Katalog trug schon einmal Adressen, die es nicht gab (siehe
+  # `apps/core/src/map/regions/catalog.ts`). Mit 49 Eintraegen ist ein
+  # Tippfehler im Laendernamen kein Einzelfallrisiko mehr -- und er faellt
+  # sonst erst beim Betreiber auf, Stunden nachdem er „Karte bauen" gedrueckt
+  # hat.
+  #
+  # WOECHENTLICH und nicht per PR: die Pruefung befragt eine FREMDE Seite. Ein
+  # Ausfall bei Geofabrik wuerde sonst jeden Pull Request blockieren, ohne dass
+  # an Yapaia etwas falsch waere -- und genau das hat in diesem Projekt schon
+  # zweimal einen Merge-Blocker haengen lassen.
+  region-catalog-urls:
+    name: Regionen-Katalog — gibt es die Extrakte?
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Jede pbfUrl im Katalog per HEAD pruefen
+        run: node scripts/check-region-catalog.mjs
+
   photon-li-nightly:
     name: Photon CH+LI Live Search (manuell, zurueckgestellt -- siehe docs/backlog.md B-02)
     runs-on: ubuntu-latest

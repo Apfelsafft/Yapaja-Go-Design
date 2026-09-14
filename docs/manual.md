@@ -104,6 +104,11 @@ If that is more than you have, in order of how much they buy you:
 3. **Install a smaller region** — one state instead of a whole country. Both
    routing and search shrink with it.
 
+The catalogue offers 49 European countries, including every neighbour of
+Germany. Entries are marked by build effort: a large one (France, Italy, Spain,
+Great Britain, Poland, Germany) should not be built on the Home Assistant VM —
+build it on a desktop and drop the finished file in.
+
 ---
 
 ## Getting started
