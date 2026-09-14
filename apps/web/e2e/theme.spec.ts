@@ -86,6 +86,72 @@ test.describe('theme default mode (no user choice made)', () => {
   });
 });
 
+/** Dasselbe wie `forceAutoMode`, nur fuer den Modus `system`. */
+async function forceSystemMode(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.__yapaiaThemeStore?.setState({ mode: 'system', override: null, lastAppliedTheme: null });
+    window.__yapaiaThemeStore?.getState().tick();
+  });
+}
+
+/**
+ * Der Modus „System" — folgt der Hell/Dunkel-Einstellung des GERAETS.
+ *
+ * Das ist der Schalter im iOS-Kontrollzentrum, nicht die Sonne. Geprueft wird
+ * hier durch den ganzen Stapel: `prefers-color-scheme` → `systemPreference.ts`
+ * → `resolveTheme` → Klasse am `<html>` UND Kartenstil. Eine Unit-Pruefung
+ * allein kann nicht zeigen, dass die Umschaltung im Browser wirklich ankommt.
+ */
+test.describe('theme system mode (prefers-color-scheme)', () => {
+  test('dunkles Geraet: dunkle Oberflaeche UND dunkle Karte', async ({ page }) => {
+    // Mittags -- unter „Sonne" waere es hell. Wird es trotzdem dunkel, folgt
+    // der Modus wirklich dem Geraet und nicht heimlich der Uhr.
+    await page.clock.install({ time: new Date('2026-01-15T12:00:00Z') });
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto(CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    await forceSystemMode(page);
+
+    await expect.poll(() => isHtmlDark(page), { timeout: 10_000 }).toBe(true);
+    await expect
+      .poll(async () => relativeLuminance(await readCenterPixel(page)), { timeout: 10_000 })
+      .toBeLessThan(0.3);
+  });
+
+  test('helles Geraet: helle Oberflaeche UND helle Karte', async ({ page }) => {
+    // Nachts -- unter „Sonne" waere es dunkel. Die Gegenprobe zum Test oben.
+    await page.clock.install({ time: new Date('2026-01-15T23:00:00Z') });
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto(CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    await forceSystemMode(page);
+
+    await expect.poll(() => isHtmlDark(page), { timeout: 10_000 }).toBe(false);
+    await expect
+      .poll(async () => relativeLuminance(await readCenterPixel(page)), { timeout: 10_000 })
+      .toBeGreaterThan(0.7);
+  });
+
+  test('das Umschalten am Geraet wirkt sofort, ohne Neuladen', async ({ page }) => {
+    // Der eigentliche Punkt: es gibt einen Horcher auf `matchMedia`
+    // (`systemPreference.ts#beiSystemwechsel`). Ohne ihn waere „System" beim
+    // Laden richtig und danach fuer immer eingefroren -- und genau das faellt
+    // erst auf, wenn jemand abends den Schalter am Tablet umlegt.
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto(CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    await forceSystemMode(page);
+    await expect.poll(() => isHtmlDark(page), { timeout: 10_000 }).toBe(false);
+
+    await page.emulateMedia({ colorScheme: 'dark' });
+
+    await expect.poll(() => isHtmlDark(page), { timeout: 10_000 }).toBe(true);
+    await expect
+      .poll(async () => relativeLuminance(await readCenterPixel(page)), { timeout: 10_000 })
+      .toBeLessThan(0.3);
+  });
+});
+
 test.describe('theme auto-switch (clock fallback, no position)', () => {
   test('night time: UI dark class AND dark map style, applied together', async ({ page }) => {
     // 22:00 UTC -- container/browser TZ is UTC (see playwright.config.ts /

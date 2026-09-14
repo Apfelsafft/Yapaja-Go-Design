@@ -10,6 +10,55 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.6
+
+**Die Karte kann dunkel — und die Add-on-Konfiguration bestimmt, womit ein
+neues Gerät startet.**
+
+### Gewünscht
+
+> „Bitte füge noch einen darkmode für die Karten hinzu. In der Konfiguration
+> auswählbar hell - dunkel - Auto (system)."
+
+### Neu: **Erscheinungsbild → Design**
+
+Unter **Erscheinungsbild** steht jetzt eine Option mit vier Werten:
+
+| Wert | Was passiert |
+| --- | --- |
+| `light` | immer hell |
+| `dark` | immer dunkel |
+| `system` | folgt der Hell/Dunkel-Einstellung des Geräts |
+| `sun` | folgt der Sonne an Ihrem Standort |
+
+`system` ist der Wert, den iPhone und iPad im Kontrollzentrum umschalten —
+das Gerät wird dunkel, Yapaia wird mit dunkel. `sun` richtet sich statt­dessen
+nach Sonnenauf- und -untergang an der aktuellen Position; im Fahrzeug ist das
+meist das Bessere, weil es dunkel wird, wenn es draußen dunkel wird, egal was
+am Tablet eingestellt ist.
+
+### Es ist eine Vorgabe, keine Fernsteuerung
+
+Die Option gilt für Geräte, die **in Yapaia noch nichts gewählt haben**. Wer
+dort unter **Design** auf einen Modus tippt, behält ihn — die Add-on-Option
+übersteuert das nicht. So kann das iPad am Armaturenbrett dauerhaft der Sonne
+folgen, während das Telefon hell bleibt.
+
+Umgekehrt heißt das: Ändern Sie die Option, wirkt sie sofort auf jedes Gerät,
+das noch nie etwas gewählt hat — auch auf eines, das Yapaia schon einmal
+geöffnet hatte. Das bloße Öffnen zählt nicht als Wahl.
+
+### Im Design-Umschalter: vier Knöpfe statt drei
+
+**Hell**, **Dunkel**, **System** und **Sonne** — dazu eine Zeile, die sagt,
+wonach sich der gewählte Modus richtet. „Auto" hieß bisher der Sonnenmodus;
+er heißt jetzt **Sonne**, weil „Auto" nicht verriet, wonach automatisch.
+
+Die dunkle Karte selbst ist keine umgedrehte helle: sie hat eine eigene
+Palette, damit Straßen auch bei Nacht auseinanderzuhalten sind.
+
+---
+
 ## 0.8.5
 
 **49 europäische Länder stehen zur Auswahl.**

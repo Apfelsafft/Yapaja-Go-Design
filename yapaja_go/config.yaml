@@ -10,7 +10,7 @@
 name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.8.5"
+version: "0.8.6"
 # ─── MINDESTVERSION VON HOME ASSISTANT ──────────────────────────────────────
 # Seit 0.8.4 sind die selten angefassten Optionen in aufklappbaren Gruppen
 # zusammengefasst. Verschachtelte Konfiguration gibt es in Home Assistant aber
@@ -238,6 +238,20 @@ options:
     photon_xmx_mb: 1024
   routing:
     valhalla_memory_mb: 2048
+  # `display.theme` -- Hell, Dunkel oder automatisch.
+  #
+  # Das ist eine VORGABE, keine Festlegung: sie gilt fuer Geraete, die in
+  # Yapaia noch nichts gewaehlt haben. Wer dort unter „Design" etwas auswaehlt,
+  # ueberschreibt sie fuer sein Geraet -- ein Tablet in der Sonne und ein
+  # Telefon nachts brauchen nicht dasselbe.
+  #
+  # Die beiden automatischen Betriebsarten sind NICHT dasselbe:
+  #   system  folgt dem Geraet (dessen Hell/Dunkel-Einstellung)
+  #   sun     folgt dem Sonnenstand an der eigenen Position -- fuer ein
+  #           Fahrzeug meist das Bessere: dunkel wird es, wenn es draussen
+  #           dunkel wird, unabhaengig davon, wie das Tablet eingestellt ist.
+  display:
+    theme: "light"
   home_assistant:
     ha_internal: true
     mqtt_enabled: true
@@ -289,6 +303,8 @@ schema:
     photon_xmx_mb: "int(256,4096)"
   routing:
     valhalla_memory_mb: "int(512,8192)"
+  display:
+    theme: "list(light|dark|system|sun)"
   home_assistant:
     ha_internal: "bool"
     mqtt_enabled: "bool"

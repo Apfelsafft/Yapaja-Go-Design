@@ -157,3 +157,81 @@ describe('resolveTheme / createOverride / isOverrideActive: override-until-next-
     expect(result).toMatchObject({ theme: 'light', overrideActive: false });
   });
 });
+
+/**
+ * ─── „AUTO (SYSTEM)" ────────────────────────────────────────────────────────
+ * Gewünscht: „In der Konfiguration auswählbar hell - dunkel - Auto (system)".
+ *
+ * `auto` gab es schon, folgt aber dem SONNENSTAND. Das ist etwas anderes als
+ * „wie das Gerät" — und für ein Fahrzeug sogar meist das Bessere. Beides unter
+ * einem Wort zu führen wäre die schlechteste Lösung, also gibt es vier Modi.
+ */
+describe('resolveTheme: der Modus „system"', () => {
+  const irgendwann = new Date('2026-06-21T12:00:00Z');
+
+  it('folgt dem Gerät, wenn es dunkel möchte', () => {
+    const ergebnis = resolveTheme({
+      mode: 'system',
+      now: irgendwann,
+      position: null,
+      override: null,
+      systemPrefersDark: true,
+    });
+    expect(ergebnis.theme).toBe('dark');
+    expect(ergebnis.styleId).toBe('yapaja-dark');
+  });
+
+  it('folgt dem Gerät, wenn es hell möchte — auch mitten in der Nacht', () => {
+    // DER PUNKT: „system" darf NICHT heimlich auf die Uhr zurückfallen. Wer
+    // „wie das Gerät" wählt, bekommt das Gerät.
+    const nachts = new Date('2026-12-21T23:30:00Z');
+    const ergebnis = resolveTheme({
+      mode: 'system',
+      now: nachts,
+      position: { lat: 50.1, lon: 8.7 },
+      override: null,
+      systemPrefersDark: false,
+    });
+    expect(ergebnis.theme).toBe('light');
+  });
+
+  it('nimmt Hell, wenn sich das Gerät nicht befragen lässt', () => {
+    // Kein `matchMedia` (Testrenderer, sehr alter Browser). Ein Rückfall auf
+    // die Uhr wäre eine dritte, ungenannte Betriebsart.
+    for (const unbekannt of [null, undefined]) {
+      const ergebnis = resolveTheme({
+        mode: 'system',
+        now: new Date('2026-12-21T23:30:00Z'),
+        position: null,
+        override: null,
+        systemPrefersDark: unbekannt,
+      });
+      expect(ergebnis.theme, String(unbekannt)).toBe('light');
+    }
+  });
+
+  it('kennt keine Grenze, an der es von selbst umschlägt', () => {
+    // Das Gerät wechselt auf Zuruf. Ein `nextBoundaryAt` hier wäre ein
+    // Versprechen auf eine Uhrzeit, die es nicht gibt.
+    const ergebnis = resolveTheme({
+      mode: 'system',
+      now: irgendwann,
+      position: { lat: 50.1, lon: 8.7 },
+      override: null,
+      systemPrefersDark: true,
+    });
+    expect(ergebnis.nextBoundaryAt).toBeNull();
+  });
+
+  it('lässt „auto" unverändert dem Sonnenstand folgen', () => {
+    // Die bestehende Betriebsart darf sich durch die neue nicht ändern.
+    const ergebnis = resolveTheme({
+      mode: 'auto',
+      now: new Date('2026-06-21T12:00:00Z'),
+      position: { lat: 50.1, lon: 8.7 },
+      override: null,
+      systemPrefersDark: true,
+    });
+    expect(ergebnis.theme, 'mittags im Juni ist es hell, egal was das Gerät sagt').toBe('light');
+  });
+});

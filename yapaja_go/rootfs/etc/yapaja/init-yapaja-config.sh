@@ -64,12 +64,21 @@ export_env() {
 # Arbeitsspeicher fehlt. Also: erst die neue Stelle, dann die alte.
 #
 # `bashio::config` liefert fuer einen fehlenden Schluessel den String "null";
-# das zaehlt hier wie leer.
+# das zaehlt hier wie leer -- an BEIDEN Stellen.
+#
+# Der Rueckfall wurde anfangs nur auf der neuen Stelle geprueft. Steht eine
+# Option an keiner von beiden, kam dann "null" heraus und wanderte als
+# vermeintlicher Wert weiter -- dieselbe Falle, die `gps_device` und
+# `ha_device_tracker` oben schon einzeln abfangen mussten (B-05). Sie gehoert
+# hierher, an die eine Stelle, die beide Wege kennt.
 config_mit_rueckfall() {
   local neu="$1" alt="$2" wert
   wert="$(bashio::config "${neu}")"
   if [ -z "${wert}" ] || [ "${wert}" = "null" ]; then
     wert="$(bashio::config "${alt}")"
+  fi
+  if [ "${wert}" = "null" ]; then
+    wert=""
   fi
   printf '%s' "${wert}"
 }
@@ -105,6 +114,19 @@ if [ "${HA_DEVICE_TRACKER}" = "null" ]; then
   HA_DEVICE_TRACKER=""
 fi
 LOG_LEVEL="$(config_mit_rueckfall 'advanced.log_level' 'log_level')"
+# ─── DAS ERSCHEINUNGSBILD ───────────────────────────────────────────────────
+# Die Option heisst `sun`, weil „Nach Sonnenstand" das ist, was sie tut. Der
+# Kern kennt diese Betriebsart seit E07-T3 unter dem Namen `auto`, und der
+# steht in den Einstellungen jeder bestehenden Installation.
+#
+# Uebersetzt wird deshalb HIER, an genau einer Stelle. Ohne das reicht das
+# Add-on „sun" durch, die Weboberflaeche erkennt den Wert nicht als gueltigen
+# Modus -- und die Vorgabe faellt STILL durch. Kein Fehler, keine Meldung,
+# nur ein Schalter, der nichts tut.
+THEME_MODE="$(config_mit_rueckfall 'display.theme' 'theme')"
+if [ "${THEME_MODE}" = "sun" ]; then
+  THEME_MODE="auto"
+fi
 PHOTON_XMX_MB="$(config_mit_rueckfall 'search.photon_xmx_mb' 'photon_xmx_mb')"
 VALHALLA_MEMORY_MB="$(config_mit_rueckfall 'routing.valhalla_memory_mb' 'valhalla_memory_mb')"
 GPS_SIMULATOR="$(config_mit_rueckfall 'advanced.gps_simulator' 'gps_simulator')"
@@ -270,6 +292,9 @@ export_env "HA_DEVICE_TRACKER" "${HA_DEVICE_TRACKER:-}"
 # das run-Skript laeuft unter `set -u`, und eine ungesetzte Variable braeche es
 # ab, statt einfach selbst zu suchen.
 export_env "GPS_DEVICE" "${GPS_DEVICE:-}"
+# Liest `settings/routes.ts` als VORGABE (nicht als Einstellung) -- die Wahl
+# in Yapaia hat Vorrang. Siehe `GET /settings/defaults`.
+export_env "THEME_MODE" "${THEME_MODE:-}"
 if [ "${GPS_SOURCE}" = "usb" ] || [ "${GPS_SOURCE}" = "network" ]; then
   export_env "GPSD_ENABLED" "true"
   export_env "GPSD_HOST" "127.0.0.1"

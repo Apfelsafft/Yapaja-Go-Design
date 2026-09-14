@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { usePositionStore } from '../position/positionStore.js';
 import { useThemeStore } from './themeStore.js';
 import type { GeoPosition } from './resolveTheme.js';
+import { beiSystemwechsel } from './systemPreference.js';
 
 /** How often to re-check for a sunrise/sunset (or clock) boundary crossing
  *  even with no new position fix arriving in between -- frequent enough
@@ -40,6 +41,14 @@ export default function ThemeController(): null {
     // `geoPosition` is a fresh object each render, so this effect re-runs
     // (and re-arms the interval) on every position update -- exactly the
     // "tick immediately on new position" behaviour described above.
+  }, [tick, geoPosition?.lat, geoPosition?.lon]);
+
+  // ─── DER MODUS „SYSTEM" HAT KEINE UHRZEIT, AN DER ER UMSCHLAEGT ──────────
+  // Er wechselt, wenn der Nutzer sein Geraet umstellt. Ohne diesen Horcher
+  // bliebe die Karte hell, bis zufaellig ein anderer Takt die Aufloesung neu
+  // bildet -- im Fahrzeug also womoeglich minutenlang.
+  useEffect(() => {
+    return beiSystemwechsel(() => tick(new Date(), geoPosition));
   }, [tick, geoPosition?.lat, geoPosition?.lon]);
 
   return null;

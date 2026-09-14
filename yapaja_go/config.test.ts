@@ -979,6 +979,35 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
     expect(runInit({}).ENABLE_SIMULATOR).toBeUndefined();
   });
 
+  // ─── DAS ERSCHEINUNGSBILD: „sun" HEISST IM KERN „auto" ───────────────────
+  // Die Option bietet `sun` an, weil „Nach Sonnenstand" das ist, was sie tut.
+  // Der Kern kennt die Betriebsart seit E07-T3 aber als `auto`. Ohne
+  // Übersetzung reicht das Add-on „sun" durch, die Weboberfläche verwirft den
+  // Wert als ungültigen Modus — und die Vorgabe fällt STILL durch: kein
+  // Fehler, keine Meldung, nur eine Option, die nichts tut.
+  //
+  // Eine Textprüfung wäre grün, sobald das Wort irgendwo im Skript steht.
+  // Deshalb wird hier AUSGEFÜHRT und die Umgebung nachgesehen.
+  it('übersetzt „sun" in den Modus, den der Kern kennt', () => {
+    expect(runInit({ 'display.theme': 'sun' }).THEME_MODE).toBe('auto');
+  });
+
+  it.each(['light', 'dark', 'system'])('reicht „%s" unverändert durch', (wert) => {
+    expect(runInit({ 'display.theme': wert }).THEME_MODE).toBe(wert);
+  });
+
+  it('nimmt einen alten, flach gespeicherten Wert an', () => {
+    // Genau wie bei den anderen Gruppen: erst die neue Stelle, dann die alte.
+    expect(runInit({ theme: 'dark' }).THEME_MODE).toBe('dark');
+  });
+
+  it('macht ohne gesetzte Option keine Vorgabe — statt eine namens „null"', () => {
+    // B-05: `bashio::config` liefert für eine ungesetzte Option den String
+    // "null". Käme der durch, meldete der Kern eine Vorgabe „null", und die
+    // Weboberfläche verwürfe sie — wieder ein stiller Fehlschlag.
+    expect(runInit({}).THEME_MODE).toBe('');
+  });
+
   // ─── DER ALTE OPTIONSWERT DARF NICHT INS LEERE LAUFEN ────────────────────
   // Umbenannt wurde `ha_tracker` zu `companion_app`. Wer vor dem Update
   // `ha_tracker` eingestellt hatte, muss danach dieselbe Quelle haben --
@@ -1277,6 +1306,7 @@ describe('die Add-on-Konfiguration ist gegliedert und beschriftet', () => {
   const GRUPPEN: Record<string, string[]> = {
     search: ['photon_enabled', 'photon_xmx_mb'],
     routing: ['valhalla_memory_mb'],
+    display: ['theme'],
     home_assistant: ['ha_internal', 'mqtt_enabled', 'mqtt_prefix'],
     advanced: ['gps_simulator', 'log_level'],
   };

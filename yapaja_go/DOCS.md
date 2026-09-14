@@ -157,11 +157,46 @@ minimum so the Supervisor says so plainly instead of drawing half a page.
 | `search` | `photon_enabled` | bool | `true` | Full-text search via Photon. `false` = RAM-saver, falls back to the offline lite-search index (W-12). |
 |  | `photon_xmx_mb` | int 256–4096 | `1024` | Photon JVM heap cap (`-Xmx`). See the RAM table above. |
 | `routing` | `valhalla_memory_mb` | int 512–8192 | `2048` | Documented RAM budget for Valhalla; informational (Valhalla's actual runtime cache size is set at graph-build time, not per-start — see `yapaja_go/rootfs/.../valhalla/run`'s comment). |
+| `display` | `theme` | `light` \| `dark` \| `system` \| `sun` | `light` | Light/dark for the interface **and** the map. `system` follows the device's own light/dark setting; `sun` follows sunrise/sunset at the current position — usually the better one in a vehicle. This is a **default**, not a remote control: it applies only to devices that have not picked a mode in the app under "Design". See "How the theme default works" below. |
 | `home_assistant` | `ha_internal` | bool | `true` | Publishes position, ETA, remaining distance and the next instruction as Home Assistant entities **without** a broker. |
 |  | `mqtt_enabled` | bool | `true` | Publishes the same values over MQTT. Both channels may run at once; losing the broker does not stop the direct one. |
 |  | `mqtt_prefix` | string | `yapaia` | MQTT topic prefix (docs/03-api-spec.md §4). |
 | `advanced` | `gps_simulator` | bool | `false` | Unlocks the built-in test driver (see below). **Off by default on purpose** — it can inject arbitrary positions and displaces the real receiver. |
 |  | `log_level` | `debug` \| `info` \| `warn` \| `error` | `info` | Core log verbosity (pino). |
+
+## How the theme default works
+
+`display.theme` is a **default for devices that have not chosen**, not an
+override. The precedence a browser applies on load is:
+
+1. **the choice made in Yapaia** (Design panel) — stored server-side under the
+   `theme` settings key, shared across devices;
+2. **`display.theme`** — this add-on option;
+3. the device's own localStorage cache, so a reload is correct even with the
+   Core unreachable;
+4. the built-in default, `light`.
+
+The add-on default deliberately outranks the device cache. The cache also holds
+mere boot *results*, not only decisions — were it to win, opening Yapaia once
+on a tablet would immunise it against the option forever.
+
+Two consequences worth knowing:
+
+- Changing the option takes effect on the next load of every device that never
+  picked a mode — including ones that have opened Yapaia before.
+- A device that *did* pick keeps its choice. That is how the dashboard tablet
+  can follow the sun while a phone stays light.
+
+The default is **not** written into the settings store. If it were, it would be
+indistinguishable from an operator's choice, and changing the option later
+would silently do nothing. It is served separately by
+`GET /api/v1/settings/defaults`, which reports `{ "theme": null }` when no
+add-on supplies one (standalone operation).
+
+The option offers `sun` because "follow the sun" is what it does; the Core has
+known that mode as `auto` since E07-T3. `init-yapaja-config.sh` translates the
+one into the other at exactly one place — without it the web UI would reject
+`sun` as an unknown mode and the option would fail silently.
 
 ## Test drive (GPS simulator)
 

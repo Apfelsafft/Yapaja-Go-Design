@@ -70,6 +70,16 @@ configuration:
       name: Arbeitsspeicher für Valhalla (MB)
       description: Obergrenze für den Speicher der Routenberechnung. Wächst mit
         der Größe der Region; für ein Land sind 2048 ein guter Ausgangswert.
+  display:
+    name: Erscheinungsbild
+    description: Hell oder dunkel — für die Oberfläche und die Karte gemeinsam.
+    theme:
+      name: Design
+      description: 'Eine VORGABE für Geräte, die in Yapaia noch nichts gewählt haben;
+        wer dort unter „Design" etwas auswählt, überschreibt sie für sein Gerät.
+        „light"/„dark": fest. „system": folgt der Hell/Dunkel-Einstellung des Geräts.
+        „sun": folgt dem Sonnenstand an Ihrer Position — für ein Fahrzeug meist
+        das Bessere, denn dunkel wird es, wenn es draußen dunkel wird.'
   home_assistant:
     name: Home Assistant
     description: Auf welchen Wegen Yapaia seine Werte an Home Assistant meldet.

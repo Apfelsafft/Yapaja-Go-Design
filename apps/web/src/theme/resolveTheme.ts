@@ -17,7 +17,20 @@ import { resolveClockTheme, resolveSunTheme, type ResolvedTheme } from './sunRes
 
 export type { ResolvedTheme } from './sunResolution.js';
 
-export type ThemeMode = 'light' | 'dark' | 'auto';
+/**
+ * ─── VIER MODI, WEIL „AUTOMATISCH" ZWEI DINGE HEISSEN KANN ──────────────────
+ * `auto` folgt dem SONNENSTAND an der eigenen Position (ersatzweise der Uhr).
+ * Das ist für ein Fahrzeug das Richtige: dunkel wird es, wenn es draußen
+ * dunkel wird -- unabhängig davon, wie das Tablet eingestellt ist.
+ *
+ * `system` folgt dem GERÄT (`prefers-color-scheme`). Gewünscht als
+ * „Auto (system)": wer sein Tablet nachts auf Dunkel stellt, erwartet, dass
+ * die Karte mitgeht.
+ *
+ * Beides gleichzeitig „Auto" zu nennen wäre die schlechteste Lösung: zwei
+ * verschiedene Verhalten hinter einem Wort, und niemand weiß, welches gilt.
+ */
+export type ThemeMode = 'light' | 'dark' | 'auto' | 'system';
 
 /** A pending manual choice made while `mode === 'auto'` (docs/06 §3:
  *  "Manueller Override hält bis nächstem Auf-/Untergang"). Only ever
@@ -70,6 +83,16 @@ export interface ResolveThemeInput {
   position: GeoPosition | null;
   /** Only consulted when `mode === 'auto'`. */
   override: ThemeOverride | null;
+  /**
+   * Was das GERÄT gerade möchte (`prefers-color-scheme: dark`). Nur bei
+   * `mode === 'system'` befragt.
+   *
+   * `null` heißt „nicht feststellbar" -- ein Browser ohne `matchMedia`, oder
+   * der Testrenderer. Dann gilt Hell, nicht etwa die Uhr: eine Anzeige, die
+   * je nach Tageszeit anders herauskommt, obwohl der Nutzer „wie das Gerät"
+   * gewählt hat, wäre eine dritte, ungenannte Betriebsart.
+   */
+  systemPrefersDark?: boolean | null;
 }
 
 /**
@@ -82,6 +105,14 @@ export interface ResolveThemeInput {
  *  - `mode === 'auto'`, no active override: fresh sun/clock resolution.
  */
 export function resolveTheme(input: ResolveThemeInput): ThemeResolution {
+  if (input.mode === 'system') {
+    // Kein `nextBoundaryAt`: das Gerät wechselt auf Zuruf, nicht zu einer
+    // vorhersagbaren Uhrzeit. Der Aufrufer horcht stattdessen auf
+    // `matchMedia`-Ereignisse (`ThemeController.tsx`).
+    const theme: ResolvedTheme = input.systemPrefersDark === true ? 'dark' : 'light';
+    return { theme, styleId: mapStyleIdFor(theme), overrideActive: false, nextBoundaryAt: null };
+  }
+
   if (input.mode === 'light' || input.mode === 'dark') {
     return {
       theme: input.mode,
