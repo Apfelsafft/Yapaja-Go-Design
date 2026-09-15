@@ -53,6 +53,14 @@ jobs:
       - name: Test
         run: pnpm test --run
 
+      # Die ESPHome-Anzeige (esphome/) wird sonst erst auf dem Geraet
+      # uebersetzt -- ein Fehler faellt dann nach Minuten auf, oder gar nicht,
+      # weil er uebersetzt und nur falsch zeichnet. Hier laeuft die
+      # Zeichenroutine gegen einen Nachbau der ESPHome-API. Braucht nur g++,
+      # kein ESPHome, und haengt bewusst in diesem Job statt in einem eigenen.
+      - name: ESPHome-Anzeige — Zeichenroutine
+        run: node esphome/test/run.mjs
+
       - name: Build
         run: pnpm build
 
