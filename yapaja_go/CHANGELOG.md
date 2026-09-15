@@ -52,6 +52,21 @@ INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-… (…)
 — **einmal**, nicht im Sekundentakt. Und die Installationsprüfung meldet unter
 **Positionsquelle** „gpsd erreichbar unter 127.0.0.1:2947".
 
+### Läuft Home Assistant in einer VM?
+
+Dann wird der Empfänger **zweimal** durchgereicht, und die beiden Stufen
+scheitern unterschiedlich:
+
+| Stufe | Wer | Wie es aussieht, wenn sie fehlt |
+|---|---|---|
+| 1. Wirt → VM | der Hypervisor (Proxmox: *Hardware → Add → USB Device*) | das Gerät taucht gar nicht auf; die Geräteliste der Prüfung ist leer |
+| 2. VM → Add-on-Container | `uart: true` in diesem Add-on | das Gerät **wird** genannt, gpsd meldet aber `Operation not permitted` |
+
+Der Fehler oben war immer Stufe 2. Wäre Stufe 1 das Problem gewesen, gäbe es
+nichts zu benennen. Auf Proxmox funktionieren „Use USB Vendor/Device ID" und
+„Use USB Port" beide — bei einem GPS-Stick ist die Vendor/Device-ID meist die
+bessere Wahl, weil sie dem Empfänger über Steckplätze hinweg folgt.
+
 ### Der Test, der die ganze Zeit grün war
 
 Es gab eine Zusicherung namens „declares usb + udev for GPS-receiver

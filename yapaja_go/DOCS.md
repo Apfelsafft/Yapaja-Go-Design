@@ -84,6 +84,25 @@ events that make a later-plugged receiver noticed.
 Device permissions are granted when the container starts, so **restart the
 add-on** after changing anything here.
 
+### If Home Assistant runs in a VM (Proxmox, ESXi, …)
+
+Then the receiver has to be handed through **twice**, and the two stages fail
+differently:
+
+| Stage | Who does it | What it looks like when it is missing |
+|---|---|---|
+| 1. Host → VM | the hypervisor (e.g. Proxmox: *Hardware → Add → USB Device*) | the device does not appear at all; the health check's device list is empty |
+| 2. VM → add-on container | this add-on's `uart: true` | the device **is** listed, but gpsd reports `Operation not permitted` |
+
+So the `Operation not permitted` error is always stage 2. If stage 1 were the
+problem, there would be nothing to name.
+
+On Proxmox, **"Use USB Vendor/Device ID"** and **"Use USB Port"** both work.
+For a GPS dongle the vendor/device ID (a u-blox receiver reports `1546:01a7`)
+is usually the better one: it follows the receiver if you move it to another
+socket. The port variant binds to the physical socket instead. USB3 does not
+need to be ticked — these receivers are USB 2 serial devices.
+
 1. Plug in a USB GPS receiver (most USB-CDC-ACM "GPS mice" show up as
    `/dev/ttyACM0`; USB-serial-adapter-based ones as `/dev/ttyUSB0`).
 2. Restart the add-on (device passthrough is evaluated at container start).
