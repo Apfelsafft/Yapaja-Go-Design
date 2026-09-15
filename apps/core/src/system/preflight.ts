@@ -160,6 +160,17 @@ export interface PreflightDeps {
    * dann auf die allgemeinen Hinweise zurueck.
    */
   readGpsStatus?: () => Promise<string | null>;
+  /**
+   * Loest sich der Pfad wirklich auf? FOLGT Symlinks -- das ist der Punkt.
+   *
+   * `/dev/serial/by-id/` besteht aus Symlinks auf `../../ttyACM0`. Wird der
+   * Link durchgereicht, der Knoten dahinter aber nicht, LISTET `readdir` den
+   * Namen weiterhin: die Pruefung meldete „Gefunden wurden: …" fuer ein
+   * Geraet, das gpsd nicht oeffnen kann. `gpsd/run` prueft mit `[ -e ]`, das
+   * dem Link folgt, und sagt „dort liegt nichts". Beide hatten recht, und der
+   * Betreiber stand zwischen zwei Aussagen, die sich widersprachen.
+   */
+  pathResolves?: (pfad: string) => Promise<boolean>;
   totalMem?: () => number;
   /** Freier Plattenplatz im Datenverzeichnis, in Bytes. */
   diskFree?: (path: string) => Promise<number>;
@@ -255,6 +266,33 @@ export async function listSerialDevices(listDir: ListDirFn): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+/** Folgt Symlinks; `false` fuer einen Link, dessen Ziel fehlt. */
+async function defaultPathResolves(pfad: string): Promise<boolean> {
+  try {
+    await stat(pfad);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Die Geraeteliste fuer die Meldung — mit dem Vermerk, welcher Eintrag ins
+ * Leere zeigt. Ohne den Vermerk ist die Liste im schlimmsten Fall irrefuehrend:
+ * sie nennt genau das Geraet, das der Betreiber eintragen soll, und das
+ * Eintragen hilft dann nicht.
+ */
+export async function beschrifteGeraete(
+  geraete: string[],
+  pathResolves: (pfad: string) => Promise<boolean>,
+): Promise<string[]> {
+  return Promise.all(
+    geraete.map(async (pfad) =>
+      (await pathResolves(pfad)) ? pfad : `${pfad} (Verweis zeigt ins Leere)`,
+    ),
+  );
 }
 
 async function defaultFileSize(path: string): Promise<number | null> {
@@ -560,6 +598,7 @@ async function checkPosition(
   listDir: ListDirFn,
   resolveTrackerId: () => string,
   readGpsStatus: () => Promise<string | null>,
+  pathResolves: (pfad: string) => Promise<boolean>,
 ): Promise<PreflightCheck> {
   const base = {
     id: 'position' as const,
@@ -582,10 +621,18 @@ async function checkPosition(
     // und der Betreiber hat ausdruecklich gesagt, dass er alles aus der
     // Oberflaeche heraus erledigen moechte. Der Kern laeuft im selben
     // Container wie gpsd, sieht also dasselbe `/dev`.
-    const geraete = await listSerialDevices(listDir);
+    const geraete = await beschrifteGeraete(await listSerialDevices(listDir), pathResolves);
+    const insLeere = geraete.some((g) => g.includes('ins Leere'));
     const geraeteHinweis =
       geraete.length > 0
-        ? ` Gefunden wurden: ${geraete.join(', ')}.`
+        ? ` Gefunden wurden: ${geraete.join(', ')}.` +
+          (insLeere
+            ? ' Ein Eintrag unter /dev/serial/by-id/ ist nur ein Verweis auf den eigentlichen' +
+              ' Anschluss. Zeigt er ins Leere, ist der Name da und das Gerät nicht — dann hilft' +
+              ' auch das Eintragen dieses Pfades nicht. Ziehen Sie den Empfänger ab und wieder an' +
+              ' und starten Sie das Add-on neu; die Durchreichung wird beim Start des Containers' +
+              ' festgelegt.'
+            : '')
         : ' Im Container ist derzeit gar kein serielles Gerät sichtbar — der Empfänger steckt also nicht, oder die USB-Durchreichung des Supervisors greift nicht.';
 
     // ─── DIE BEGRUENDUNG DES DIENSTES, WENN ES EINE GIBT ──────────────────
@@ -611,6 +658,10 @@ async function checkPosition(
         geraeteHinweis +
         ' Der Pfad muss mit einem Schrägstrich beginnen (/dev/serial/by-id/…) — ' +
         'ohne ihn ist es ein relativer Pfad, der ins Leere zeigt. ' +
+        'Nach jeder Änderung an dieser Option das Add-on NEU STARTEN: die Optionen ' +
+        'werden beim Start des Containers gelesen, Speichern allein ändert nichts. ' +
+        'Was der gpsd-Dienst dann tut, steht im Protokoll des Add-ons in einer Zeile, ' +
+        'die mit „gpsd:" beginnt. ' +
         'Bitte den Pfad unter /dev/serial/by-id/ eintragen und nicht /dev/ttyACM0: ' +
         'die Nummer verschiebt sich, sobald ein anderer USB-Stick dazukommt. ' +
         'Haben Sie gar keinen USB-Empfänger, ist „usb" als Quelle ' +
@@ -928,6 +979,7 @@ export async function runPreflight(deps: PreflightDeps = {}): Promise<PreflightR
   const listHaTrackers = deps.listHaTrackers ?? defaultListHaTrackers(env);
   const resolveTrackerId = deps.resolveTrackerId ?? ((): string => env.HA_DEVICE_TRACKER ?? '');
   const readGpsStatus = deps.readGpsStatus ?? defaultReadGpsStatus(env);
+  const pathResolves = deps.pathResolves ?? defaultPathResolves;
   const totalMem = deps.totalMem ?? totalmem;
   const diskFree = deps.diskFree ?? defaultDiskFree;
   const now = deps.now ?? ((): Date => new Date());
@@ -938,7 +990,15 @@ export async function runPreflight(deps: PreflightDeps = {}): Promise<PreflightR
     checkTiles(tilesDir, listDir),
     checkRouting(env, httpProbe),
     checkSearch(env, httpProbe, fileSize, deps.listSearchIndexes ?? listLiteSearchDbFiles),
-    checkPosition(env, tcpProbe, listHaTrackers, listDir, resolveTrackerId, readGpsStatus),
+    checkPosition(
+      env,
+      tcpProbe,
+      listHaTrackers,
+      listDir,
+      resolveTrackerId,
+      readGpsStatus,
+      pathResolves,
+    ),
     Promise.resolve(checkMemory(env, totalMem)),
     checkDisk(tilesDir, diskFree),
     Promise.resolve(checkMqtt(env)),

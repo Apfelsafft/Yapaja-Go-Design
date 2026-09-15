@@ -1,36 +1,31 @@
-# ─── Yapaia Go auf einem ESP32-S3-Display ───────────────────────────────────
+# ─── Yapaia Go auf dem ESP32-2424S012 ───────────────────────────────────────
 #
 # Ein Navigationsinstrument fuer das Armaturenbrett: naechstes Manoever mit
-# Pfeil und Entfernung, Tempo gegen Tempolimit, Ankunftszeit und Reststrecke.
+# Pfeil und Entfernung, Tempo gegen Tempolimit, Ankunftszeit.
+#
+# Gebaut fuer das **ESP32-2424S012** — das runde 1,28-Zoll-Modul mit 240x240
+# Bildpunkten. Wichtig, weil oft anders angenommen: darauf sitzt ein
+# **ESP32-C3** (RISC-V, 400 KB RAM, KEIN PSRAM), nicht ein S3. Der Anzeige-
+# treiber ist ein GC9A01A an SPI; ESPHome kennt ihn seit Laengerem unter
+# `ili9xxx`/`GC9A01A`, eine externe Komponente braucht es NICHT mehr (viele
+# Forenbeitraege sagen noch etwas anderes).
 #
 # ─── WAS HIER NICHT STEHT, UND WARUM ────────────────────────────────────────
 # Die KARTE. Yapaias Karte ist MapLibre: Vektorkacheln (PMTiles), die ein
-# Browser per WebGL zeichnet. Ein ESP32-S3 hat keinen Browser und ESPHome
-# keinen Kartenrenderer -- es gibt in ESPHome keinen Weg, eine Lovelace-Karte
-# oder eine Web-Ansicht auf ein Display zu spiegeln.
+# Browser per WebGL zeichnet. Ein ESP32 hat keinen Browser und ESPHome keinen
+# Kartenrenderer.
 #
-# Bilder KANN ESPHome anzeigen (`online_image`, PNG/JPEG ueber HTTP). Es fehlt
-# nur die Quelle: der Core hat keinen Endpunkt, der die Karte als Rasterbild
-# ausliefert. Es gibt ihn nicht, weil ihn bisher niemand gebraucht hat -- nicht
-# weil er unmoeglich waere. Siehe README.md daneben, Abschnitt „Und wenn es
-# doch ein Kartenbild sein soll".
+# Bilder KANN ESPHome anzeigen (`online_image`), aber auf diesem Board zweimal
+# nicht: es gibt keinen Endpunkt, der die Karte als Rasterbild ausliefert, und
+# `online_image` braucht PSRAM, das der C3 nicht hat. Siehe README.md daneben.
 #
-# Fuer ein Display dieser Groesse ist das ohnehin die zweite Wahl. Eine Karte
-# auf 320x240 Bildpunkten, aus zwei Metern Entfernung im fahrenden Fahrzeug
-# gesehen, sagt weniger als ein grosser Pfeil und eine grosse Zahl. Genau die
-# stehen hier.
+# Auf 240 runden Bildpunkten, aus zwei Metern im fahrenden Fahrzeug, sagt ein
+# grosser Pfeil ohnehin mehr als eine Karte.
 #
 # ─── WORAUS DIE WERTE KOMMEN ────────────────────────────────────────────────
 # Aus Home Assistant, ueber die native ESPHome-API. Yapaia schreibt dieselben
-# Entity-IDs auf BEIDEN Wegen -- direkt (`ha_internal`) und ueber MQTT --, also
-# funktioniert diese Datei mit jeder der beiden Betriebsarten, ohne Aenderung.
-#
-# ─── EINRICHTEN ─────────────────────────────────────────────────────────────
-#  1. Unten bei `substitutions` die Pins des eigenen Boards eintragen.
-#  2. Den Anzeige-Block (`display:`) auf das eigene Panel anpassen -- der eine
-#     Abschnitt ist boardabhaengig, alles darueber und darunter nicht.
-#  3. `esphome run esphome/yapaja-nav-display.yaml`, oder in Home Assistant
-#     ueber das ESPHome-Add-on.
+# Entity-IDs auf BEIDEN Wegen — direkt (`ha_internal`) und ueber MQTT —, also
+# passt diese Datei zu beiden Betriebsarten ohne Aenderung.
 #
 # WLAN-Zugangsdaten stehen in `secrets.yaml`, nicht hier.
 
@@ -42,37 +37,42 @@ substitutions:
   # Wird gebraucht, nicht nur der Ordnung halber: Yapaia liefert die
   # Ankunftszeit als ISO-8601 in UTC (`…Z`, der Core rechnet durchgaengig in
   # UTC, W-22). Ohne richtige Zeitzone zeigt die Anzeige im Sommer zwei
-  # Stunden zu frueh -- und zwar ohne jede Fehlermeldung, was die schlimmste
-  # Sorte Fehler ist: eine Zahl, die plausibel aussieht und falsch ist.
+  # Stunden zu frueh — ohne jede Fehlermeldung, und das ist die schlimmste
+  # Sorte Fehler.
   zeitzone: Europe/Berlin
 
-  # ─── PINS ─────────────────────────────────────────────────────────────────
-  # Diese hier passen zu einem verbreiteten ST7789-Panel an SPI. Fuer das
-  # eigene Board anpassen; die Tabelle in README.md nennt die gaengigen.
-  pin_sck: GPIO12
-  pin_mosi: GPIO11
+  # ─── RUNDES ODER ECKIGES PANEL ────────────────────────────────────────────
+  # `true` haelt die ganze Zeichnung im eingeschriebenen Kreis. Auf einem
+  # runden Glas sind die Ecken schlicht nicht da; was dort steht, ist weg.
+  # Fuer ein eckiges Panel auf `false` — dann wird die volle Breite genutzt.
+  rund: "true"
+
+  # ─── PINS DES ESP32-2424S012 ──────────────────────────────────────────────
+  # Fuer ein anderes Board anpassen; README.md nennt die gaengigen.
+  pin_sck: GPIO6
+  pin_mosi: GPIO7
   pin_cs: GPIO10
-  pin_dc: GPIO13
-  pin_reset: GPIO14
-  pin_backlight: GPIO15
+  pin_dc: GPIO2
+  pin_backlight: GPIO3
 
 esphome:
   name: ${geraetename}
   friendly_name: ${anzeigename}
 
 esp32:
-  board: esp32-s3-devkitc-1
+  board: esp32-c3-devkitm-1
+  variant: esp32c3
   framework:
     type: esp-idf
 
 logger:
   # `INFO` statt `DEBUG`: auf `DEBUG` protokolliert die API jede eingehende
-  # Zustandsaenderung, und Yapaia schickt im Sekundentakt.
+  # Zustandsaenderung, und Yapaia schickt im Sekundentakt. Auf dem C3 kostet
+  # das ausserdem Arbeitsspeicher, von dem es hier wenig gibt.
   level: INFO
+  # Der C3 hat keinen USB-UART-Bruecke-Chip, sondern USB-Serial-JTAG direkt.
+  hardware_uart: USB_SERIAL_JTAG
 
-# Die native API ist der Weg, ueber den die Werte hereinkommen.
-# Den Schluessel mit `esphome wizard` erzeugen lassen oder in Home Assistant
-# unter ESPHome anlegen; der Platzhalter unten funktioniert NICHT.
 api:
   encryption:
     key: !secret yapaja_display_api_key
@@ -113,9 +113,6 @@ sensor:
   - platform: homeassistant
     id: yapaja_manoever_entfernung
     entity_id: sensor.yapaja_instruction_distance
-  - platform: homeassistant
-    id: yapaja_reststrecke
-    entity_id: sensor.yapaja_distance_remaining
 
 binary_sensor:
   - platform: homeassistant
@@ -127,7 +124,7 @@ text_sensor:
   - platform: homeassistant
     id: yapaja_anweisung
     entity_id: sensor.yapaja_instruction
-  # Die Art des Manoevers -- daraus wird der Pfeil. Steht im Attribut, nicht
+  # Die Art des Manoevers — daraus wird der Pfeil. Steht im Attribut, nicht
   # im Zustand.
   - platform: homeassistant
     id: yapaja_manoever_art
@@ -143,9 +140,8 @@ text_sensor:
     entity_id: sensor.yapaja_eta
 
 # ─── HINTERGRUNDBELEUCHTUNG ─────────────────────────────────────────────────
-# Als Licht ausgefuehrt, damit Home Assistant sie dimmen kann -- nachts im
-# Fahrerhaus ist ein Display auf voller Helligkeit blendend. Laesst sich an
-# Yapaias Hell/Dunkel-Umschaltung haengen (siehe README.md).
+# Als Licht ausgefuehrt, damit Home Assistant sie dimmen kann — nachts im
+# Fahrerhaus ist ein Display auf voller Helligkeit blendend.
 output:
   - platform: ledc
     pin: ${pin_backlight}
@@ -158,10 +154,9 @@ light:
     id: backlight
     restore_mode: ALWAYS_ON
 
-# ─── FARBEN ─────────────────────────────────────────────────────────────────
 color:
   - id: c_hintergrund
-    hex: "101418"
+    hex: "0B0F14"
   - id: c_text
     hex: "F2F5F7"
   - id: c_gedaempft
@@ -178,61 +173,76 @@ color:
 # ─── SCHRIFTEN ──────────────────────────────────────────────────────────────
 # `glyphs` ausdruecklich gesetzt: die Vorgabe von ESPHome kennt kein ä, ö, ü
 # oder ß. Deutsche Strassennamen bestehen zu einem guten Teil daraus, und ein
-# fehlendes Zeichen wird stillschweigend ausgelassen -- aus "Grünstraße" wird
+# fehlendes Zeichen wird stillschweigend ausgelassen — aus "Grünstraße" wird
 # "Grnstrae", ohne Warnung.
+#
+# Kleiner als auf einem eckigen Panel: 240 runde Bildpunkte sind wenig, und
+# jede Schriftgroesse kostet auf dem C3 zusaetzlich Arbeitsspeicher.
 font:
   - file: "gfonts://Roboto@700"
     id: font_xl
-    size: 46
+    size: 40
     glyphs: &zeichen "!\"%()+=,-_.:/°'’ 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöüß"
   - file: "gfonts://Roboto@700"
     id: font_l
-    size: 34
+    size: 26
     glyphs: *zeichen
   - file: "gfonts://Roboto@500"
     id: font_m
-    size: 19
+    size: 18
     glyphs: *zeichen
   - file: "gfonts://Roboto@400"
     id: font_s
-    size: 14
+    size: 13
     glyphs: *zeichen
 
-# ─── PANEL ──────────────────────────────────────────────────────────────────
-# NUR DIESER ABSCHNITT IST BOARDABHAENGIG. Alles andere in dieser Datei gilt
-# unveraendert; die Zeichenroutine unten rechnet in Anteilen von
-# `it.get_width()`/`it.get_height()` und passt sich der Groesse an.
-# README.md nennt die Bloecke fuer die gaengigen S3-Displays.
 spi:
   clk_pin: ${pin_sck}
   mosi_pin: ${pin_mosi}
 
 display:
   - platform: ili9xxx
-    model: ST7789V
+    model: GC9A01A
     id: anzeige
     cs_pin: ${pin_cs}
     dc_pin: ${pin_dc}
-    reset_pin: ${pin_reset}
+    # KEIN `reset_pin`: auf dem ESP32-2424S012 ist RESET des Panels nicht auf
+    # einen GPIO gefuehrt. Einen anzugeben, der nicht verdrahtet ist, laesst
+    # das Display schwarz — der haeufigste Stolperstein bei diesem Board.
     dimensions:
       width: 240
-      height: 320
-    rotation: 90
+      height: 240
+    invert_colors: true
     # Yapaia meldet im Sekundentakt; 500 ms zeichnen ist fluessig genug und
-    # laesst dem Funk Luft.
+    # laesst dem Funk Luft. Auf dem C3 ist beides knapp.
     update_interval: 500ms
     lambda: |-
-      // ══ Hilfsmittel ════════════════════════════════════════════════════
+      // ══ Der Kreis ══════════════════════════════════════════════════════
+      // Auf einem runden Glas sind die Ecken nicht da. Was dort gezeichnet
+      // wird, ist nicht "abgeschnitten" -- es ist weg, ohne dass am Geraet
+      // etwas darauf hindeutet. Deshalb rechnet die ganze Aufteilung unten
+      // mit der HALBBREITE AUF HOEHE y statt mit der Bildbreite.
       const int B = it.get_width();
       const int H = it.get_height();
+      const int cx = B / 2;
+      const int cy = H / 2;
+      const bool rund = ${rund};
+      // 8 Bildpunkte Rand: die Fassung des Moduls verdeckt den aeussersten
+      // Ring, und Buchstaben genau auf der Kante sind schlecht zu lesen.
+      const int r = (rund ? std::min(B, H) / 2 : std::min(B, H) / 2) - 8;
+
+      auto halbbreite = [&](int y) -> int {
+        if (!rund) return B / 2 - 6;
+        const int dy = y - cy;
+        const int q = r * r - dy * dy;
+        return q <= 0 ? 0 : (int) std::sqrt((double) q);
+      };
+
       it.fill(id(c_hintergrund));
 
-      // Trennlinie zwischen Manoever (oben) und Fahrwerten (unten).
-      const int trenn = H * 58 / 100;
-
       // Ist ein Wert ueberhaupt da? Home Assistant schickt fuer "weiss ich
-      // nicht" NaN, und `NaN` ungeprueft zu drucken ergibt "nan" auf dem
-      // Display.
+      // nicht" NaN, und `NaN` ungeprueft zu drucken ergibt nicht "nan",
+      // sondern "-2147483648".
       //
       // Als REFERENZ, nicht als Zeiger: `id(...)` liefert in ESPHome das
       // Objekt selbst -- daher auch die Punktschreibweise `id(x).state`.
@@ -242,143 +252,144 @@ display:
 
       // ══ Fahrzustand ════════════════════════════════════════════════════
       const std::string zustand = id(yapaja_fahrzustand).state;
-      const bool faehrt = (zustand == "navigating");
-
-      // Solange nicht navigiert wird, hat ein Manoeverpfeil nichts zu sagen.
-      // Dann lieber ehrlich melden, was los ist, als einen Pfeil ins Nichts.
-      if (!faehrt) {
+      if (zustand != "navigating") {
         const char *text = "Keine Route";
         if (zustand == "routing")   text = "Route wird berechnet";
         if (zustand == "paused")    text = "Pausiert";
         if (zustand == "arrived")   text = "Angekommen";
         if (zustand == "off_route") text = "Abseits der Route";
         if (zustand.empty() || zustand == "unavailable") text = "Keine Verbindung";
-        it.print(B / 2, H / 2, id(font_m), id(c_gedaempft),
-                 TextAlign::CENTER, text);
+        it.print(cx, cy, id(font_m), id(c_gedaempft), TextAlign::CENTER, text);
         return;
       }
 
-      // ══ Der Manoeverpfeil ══════════════════════════════════════════════
+      // ══ Oben: der Anweisungstext ═══════════════════════════════════════
+      // Gekuerzt nach ZEICHENZAHL, geschaetzt aus der verfuegbaren Breite.
+      // Das ist eine Schaetzung und als solche gemeint: die tatsaechliche
+      // Breite einer Zeichenkette kennt nur die Schrift. Lieber ein Wort zu
+      // frueh abgeschnitten als eines, das im Rund verschwindet.
+      const int ty = cy - (r * 62) / 100;
+      const int platz = (halbbreite(ty) * 2) / 7;   // ~7 Bildpunkte je Zeichen
+      std::string anweisung = id(yapaja_anweisung).state;
+      if (anweisung == "unknown" || anweisung == "unavailable") anweisung.clear();
+      if (platz > 1 && (int) anweisung.size() > platz) {
+        // ─── NICHT MITTEN IN EIN ZEICHEN SCHNEIDEN ──────────────────────
+        // `std::string` zaehlt BYTES. „ß", „ü", „ä" sind in UTF-8 zwei Bytes
+        // lang, und deutsche Strassennamen bestehen zu einem guten Teil
+        // daraus. Faellt der Schnitt zwischen die beiden Bytes, entsteht
+        // kein Zeichen, sondern Bruch -- die Schrift zeigt dann ein
+        // Ersatzkaestchen oder gar nichts, mitten im Strassennamen.
+        //
+        // Also zurueck bis zum Anfang des Zeichens: Folgebytes eines
+        // UTF-8-Zeichens haben immer das Bitmuster 10xxxxxx.
+        size_t schnitt = (size_t) platz - 1;
+        while (schnitt > 0 && ((unsigned char) anweisung[schnitt] & 0xC0) == 0x80) {
+          schnitt--;
+        }
+        anweisung = anweisung.substr(0, schnitt) + "…";
+      }
+      it.print(cx, ty, id(font_s), id(c_gedaempft), TextAlign::CENTER, anweisung.c_str());
+
+      // ══ Mitte: der Manoeverpfeil ═══════════════════════════════════════
       // Gezeichnet, nicht als Symbolschrift geladen: so haengt die Anzeige
       // an keiner Schriftdatei und keinen Zeichen-Nummern, die beim
-      // naechsten Aktualisieren der Schrift verrutschen koennen.
+      // naechsten Aktualisieren der Schrift verrutschen koennen -- und auf
+      // dem C3 spart es den Speicher einer weiteren Schrift.
       //
       // Eingeordnet wird ueber Teilzeichenketten. `ManeuverType` ist in
       // `packages/shared/src/types.ts` ausdruecklich `| string` -- Valhalla
       // liefert auch `slight_left`, `sharp_right`, `ramp_left`, `merge` und
       // anderes. Wer auf genaue Gleichheit prueft, bekommt bei jedem dieser
-      // Werte gar keinen Pfeil.
+      // Werte den Geradeaus-Pfeil, also die falsche Richtung.
       const std::string art = id(yapaja_manoever_art).state;
       auto enthaelt = [&](const char *teil) {
         return art.find(teil) != std::string::npos;
       };
 
-      const int px = B / 5;     // Mittelpunkt des Pfeils, x
-      const int py = trenn / 2; // Mittelpunkt des Pfeils, y
-      // Halbe Kantenlaenge -- begrenzt durch die HOEHE des oberen Bandes UND
-      // durch die Breite. Nur aus der Hoehe gerechnet lief der Pfeil auf
-      // schmalen Hochformat-Panels (170x320) links aus dem Bild: dort ist das
-      // Band hoch und der Platz daneben trotzdem eng. Ein Abbiegepfeil reicht
-      // rund 7/6 seiner Kantenlaenge nach beiden Seiten um `px`.
-      const int s  = std::min(trenn * 30 / 100, B * 15 / 100);
-      const int d  = s / 3;     // Schaftdicke
+      const int py = cy - (r * 20) / 100;
+      // Die Kantenlaenge kommt aus `r`, also aus der KLEINEREN Seite. Damit
+      // passt der Pfeil in jedem Seitenverhaeltnis; eine zusaetzliche
+      // Begrenzung auf die Halbbreite stand hier zunaechst, konnte aber nie
+      // greifen -- der Prueflauf zeigte, dass sie sich entfernen laesst, ohne
+      // dass ein Fall anders ausgeht. Beiwerk, das Sicherheit nur vortaeuscht.
+      const int s = (r * 30) / 100;
+      const int d = s / 3;
       auto C = id(c_pfeil);
 
       if (enthaelt("uturn")) {
-        // Hoch, herum, wieder herunter -- mit Spitze nach UNTEN.
         const int seite = enthaelt("uturn_right") ? 1 : -1;
-        it.filled_rectangle(px - d / 2, py - s / 3, d, s + s / 3, C);
-        it.filled_rectangle(px - d / 2, py - s, d + seite * s, d, C);
-        const int ex = px + seite * s;
+        it.filled_rectangle(cx - d / 2, py - s / 3, d, s + s / 3, C);
+        it.filled_rectangle(cx - d / 2, py - s, d + seite * s, d, C);
+        const int ex = cx + seite * s;
         it.filled_rectangle(ex - d / 2, py - s, d, s / 2, C);
         it.filled_triangle(ex - s / 2, py - s / 2, ex + s / 2, py - s / 2, ex, py + s / 4, C);
       } else if (enthaelt("roundabout")) {
-        // Kreisverkehr: Ring mit Ausfahrtspfeil.
-        it.filled_ring(px, py, s * 2 / 3, s * 2 / 5, C);
-        it.filled_rectangle(px - d / 2, py, d, s, C);
+        it.filled_ring(cx, py, (s * 2) / 3, (s * 2) / 5, C);
+        it.filled_rectangle(cx - d / 2, py, d, s, C);
         const int seite = enthaelt("left") ? -1 : 1;
-        const int ax = px + seite * s * 2 / 3;
-        it.filled_rectangle(px, py - s * 2 / 3 - d / 2, seite * s * 2 / 3, d, C);
-        it.filled_triangle(ax, py - s, ax, py - s / 3, ax + seite * s / 2, py - s * 2 / 3, C);
+        const int ax = cx + (seite * s * 2) / 3;
+        it.filled_rectangle(cx, py - (s * 2) / 3 - d / 2, (seite * s * 2) / 3, d, C);
+        it.filled_triangle(ax, py - s, ax, py - s / 3, ax + seite * s / 2, py - (s * 2) / 3, C);
       } else if (enthaelt("left") || enthaelt("right")) {
-        // Abbiegen: Schaft von unten, Knick, Spitze zur Seite.
         const int seite = enthaelt("right") ? 1 : -1;
-        it.filled_rectangle(px - d / 2, py, d, s, C);
-        it.filled_rectangle(px - d / 2, py, seite * s * 2 / 3, d, C);
-        const int ex = px + seite * s * 2 / 3;
+        it.filled_rectangle(cx - d / 2, py, d, s, C);
+        it.filled_rectangle(cx - d / 2, py, (seite * s * 2) / 3, d, C);
+        const int ex = cx + (seite * s * 2) / 3;
         it.filled_triangle(ex, py - s / 2, ex, py + s / 2 + d, ex + seite * s / 2, py + d / 2, C);
       } else {
-        // Geradeaus -- und alles, was wir nicht einordnen koennen. Ein
-        // Pfeil nach vorn ist bei `merge`, `continue` oder `destination`
-        // nicht falsch; gar nichts zu zeichnen waere schlechter.
-        it.filled_rectangle(px - d / 2, py - s / 3, d, s + s / 3, C);
-        it.filled_triangle(px - s / 2, py - s / 3, px + s / 2, py - s / 3, px, py - s, C);
+        // Geradeaus -- und alles, was wir nicht einordnen koennen. Ein Pfeil
+        // nach vorn ist bei `merge`, `continue` oder `destination` nicht
+        // falsch; gar nichts zu zeichnen waere schlechter.
+        it.filled_rectangle(cx - d / 2, py - s / 3, d, s + s / 3, C);
+        it.filled_triangle(cx - s / 2, py - s / 3, cx + s / 2, py - s / 3, cx, py - s, C);
       }
 
-      // ══ Entfernung zum Manoever ════════════════════════════════════════
+      // ══ Darunter: die Entfernung, gross ════════════════════════════════
       // Unter 1000 m in Metern, darueber in Kilometern. Auf 10 m gerundet:
       // "483 m" taeuscht eine Genauigkeit vor, die GPS nicht hat, und die
-      // letzte Ziffer flackert dann im Sekundentakt.
-      const int tx = B * 2 / 5;
+      // letzte Ziffer flackerte im Sekundentakt.
+      const int dy_ = cy + (r * 28) / 100;
       if (hat(id(yapaja_manoever_entfernung))) {
         const float m = id(yapaja_manoever_entfernung).state;
         if (m >= 1000.0f) {
-          it.printf(tx, py - 6, id(font_xl), id(c_text), TextAlign::CENTER_LEFT,
-                    "%.1f km", m / 1000.0f);
+          it.printf(cx, dy_, id(font_xl), id(c_text), TextAlign::CENTER, "%.1f km", m / 1000.0f);
         } else {
-          it.printf(tx, py - 6, id(font_xl), id(c_text), TextAlign::CENTER_LEFT,
+          it.printf(cx, dy_, id(font_xl), id(c_text), TextAlign::CENTER,
                     "%d m", ((int) (m / 10.0f + 0.5f)) * 10);
         }
       } else {
-        it.print(tx, py - 6, id(font_xl), id(c_gedaempft), TextAlign::CENTER_LEFT, "--");
+        it.print(cx, dy_, id(font_xl), id(c_gedaempft), TextAlign::CENTER, "--");
       }
 
-      // ══ Der Anweisungstext ═════════════════════════════════════════════
-      // Abgeschnitten statt umgebrochen: zwei Zeilen wuerden in das Feld
-      // unter der Zahl nicht passen, und ein halb sichtbarer Strassenname
-      // ist im Fahren nicht lesbar.
-      std::string anweisung = id(yapaja_anweisung).state;
-      if (anweisung == "unknown" || anweisung == "unavailable") anweisung.clear();
-      if (anweisung.size() > 30) anweisung = anweisung.substr(0, 29) + "…";
-      it.print(tx, py + 30, id(font_m), id(c_gedaempft), TextAlign::CENTER_LEFT,
-               anweisung.c_str());
+      // ══ Unten: Tempo · Tempolimit · Ankunft ════════════════════════════
+      const int uy = cy + (r * 68) / 100;
+      const int hb = halbbreite(uy);
 
-      it.horizontal_line(0, trenn, B, id(c_gedaempft));
-
-      // ══ Tempo ══════════════════════════════════════════════════════════
-      const int uy = trenn + (H - trenn) / 2;
       const bool zu_schnell = id(yapaja_zu_schnell).state;
-      auto tempofarbe = zu_schnell ? id(c_warnung) : id(c_text);
       if (hat(id(yapaja_tempo))) {
-        it.printf(B / 12, uy, id(font_l), tempofarbe, TextAlign::CENTER_LEFT,
+        it.printf(cx - hb + 2, uy, id(font_l),
+                  zu_schnell ? id(c_warnung) : id(c_text), TextAlign::CENTER_LEFT,
                   "%d", (int) (id(yapaja_tempo).state + 0.5f));
-        it.print(B / 12 + B / 6, uy + 8, id(font_s), id(c_gedaempft),
-                 TextAlign::CENTER_LEFT, "km/h");
       }
 
-      // ══ Tempolimit als Schild ══════════════════════════════════════════
-      // Weisser Ring mit rotem Rand, wie das Verkehrszeichen. Nur wenn die
-      // Karte eines kennt -- ein leeres Schild waere die Behauptung, hier
-      // gelte kein Limit.
+      // Weisser Ring mit rotem Rand, wie das Verkehrszeichen. NUR wenn die
+      // Karte eines kennt -- ein leeres oder auf 0 stehendes Schild waere die
+      // Behauptung, hier gelte Tempo 0.
       if (hat(id(yapaja_tempolimit))) {
-        const int sx = B / 2;
-        const int r = (H - trenn) * 36 / 100;
-        it.filled_circle(sx, uy, r, id(c_warnung));
-        it.filled_circle(sx, uy, r * 72 / 100, id(c_schild));
-        it.printf(sx, uy, id(font_m), id(c_hintergrund), TextAlign::CENTER,
+        const int sr = std::min(15, r / 7);
+        it.filled_circle(cx, uy, sr, id(c_warnung));
+        it.filled_circle(cx, uy, (sr * 72) / 100, id(c_schild));
+        it.printf(cx, uy, id(font_s), id(c_hintergrund), TextAlign::CENTER,
                   "%d", (int) (id(yapaja_tempolimit).state + 0.5f));
       }
 
-      // ══ Ankunft und Reststrecke ════════════════════════════════════════
       // Yapaia liefert die Ankunft als ISO 8601 in UTC. Hier wird sie
       // GERECHNET, nicht abgeschnitten: `14:32Z` ist in Deutschland 16:32,
       // im Winter 15:32. Ein `substr(11, 5)` waere kuerzer und im Sommer
       // zwei Stunden falsch.
-      const int rx = B - B / 12;
       const std::string iso = id(yapaja_ankunft).state;
       int Y, Mo, D, h, mi, se;
-      if (sscanf(iso.c_str(), "%4d-%2d-%2dT%2d:%2d:%2d",
-                 &Y, &Mo, &D, &h, &mi, &se) == 6) {
+      if (sscanf(iso.c_str(), "%4d-%2d-%2dT%2d:%2d:%2d", &Y, &Mo, &D, &h, &mi, &se) == 6) {
         esphome::ESPTime t{};
         t.year = Y; t.month = Mo; t.day_of_month = D;
         t.hour = h; t.minute = mi; t.second = se;
@@ -386,16 +397,10 @@ display:
         // gerechnet wird aus dem Datum.
         t.recalc_timestamp_utc(false);
         auto lokal = esphome::ESPTime::from_epoch_local(t.timestamp);
-        it.printf(rx, uy - 14, id(font_l), id(c_gut), TextAlign::CENTER_RIGHT,
+        it.printf(cx + hb - 2, uy, id(font_m), id(c_gut), TextAlign::CENTER_RIGHT,
                   "%02d:%02d", lokal.hour, lokal.minute);
       } else {
         // "unknown", "unavailable" oder leer -- dann steht hier nichts
         // Erfundenes.
-        it.print(rx, uy - 14, id(font_l), id(c_gedaempft),
-                 TextAlign::CENTER_RIGHT, "--:--");
-      }
-
-      if (hat(id(yapaja_reststrecke))) {
-        it.printf(rx, uy + 18, id(font_s), id(c_gedaempft), TextAlign::CENTER_RIGHT,
-                  "noch %.1f km", id(yapaja_reststrecke).state);
+        it.print(cx + hb - 2, uy, id(font_m), id(c_gedaempft), TextAlign::CENTER_RIGHT, "--:--");
       }

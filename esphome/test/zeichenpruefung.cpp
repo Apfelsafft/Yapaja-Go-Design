@@ -51,6 +51,7 @@ struct Display {
   int minx=1<<30, miny=1<<30, maxx=-(1<<30), maxy=-(1<<30);
   int aufrufe = 0;
   std::vector<std::string> texte;
+  std::vector<std::pair<int,int>> punkte;
   int pminx=1<<30, pmaxx=-(1<<30);  // nur die Pfeilformen
   std::string formen;  // R=Rechteck T=Dreieck O=Ring C=Kreis L=Linie
   bool zeichne_protokoll = false;
@@ -62,6 +63,7 @@ struct Display {
   void punkt(int x, int y) {
     minx=std::min(minx,x); maxx=std::max(maxx,x);
     miny=std::min(miny,y); maxy=std::max(maxy,y);
+    punkte.emplace_back(x, y);
     aufrufe++;
   }
   // Wie `punkt`, aber zaehlt zusaetzlich in die Pfeil-Box -- solange die
@@ -69,12 +71,20 @@ struct Display {
   // Hintergrund faerbt das ganze Bild, und der Anweisungstext steht rechts
   // vom Pfeil. Beides in die Box zu nehmen machte jede Richtung zu "rechts".
   void spunkt(int x, int y) {
-    if (formen.find('L') == std::string::npos) {
-      pminx=std::min(pminx,x); pmaxx=std::max(pmaxx,x);
-    }
+    if (!pfeil_fertig) { pminx=std::min(pminx,x); pmaxx=std::max(pmaxx,x); }
     punkt(x, y);
   }
-  void fill(Color) { punkt(0,0); punkt(w-1,h-1); }
+  // Der Pfeil ist die erste Formgruppe. Er endet, sobald nach mindestens
+  // einer Form ein Text kommt (die Entfernung darunter). Der Anweisungstext
+  // DARUEBER kommt vor jeder Form und beendet ihn deshalb nicht.
+  bool pfeil_fertig = false;
+  std::string pfeil_formen;
+  void text_gezeichnet() {
+    if (!formen.empty() && !pfeil_fertig) { pfeil_fertig = true; pfeil_formen = formen; }
+  }
+  // Faerbt bewusst das GANZE Rechteck -- auch die Ecken, die auf einem
+  // runden Panel niemand sieht. Zaehlt deshalb nicht als Zeichnung.
+  void fill(Color) { }
   void line(int x1,int y1,int x2,int y2,Color c=COLOR_ON){spunkt(x1,y1);spunkt(x2,y2);}
   void horizontal_line(int x,int y,int width,Color c=COLOR_ON){formen+='L';punkt(x,y);punkt(x+width-1,y);}
   void vertical_line(int x,int y,int height,Color c=COLOR_ON){punkt(x,y);punkt(x,y+height-1);}
@@ -99,12 +109,12 @@ struct Display {
     spunkt(x1,y1);spunkt(x2,y2);spunkt(x3,y3);
   }
   void print(int x,int y,BaseFont*f,Color c,TextAlign a,const char*t){
-    punkt(x,y); texte.push_back(t);
+    text_gezeichnet(); punkt(x,y); texte.push_back(t);
   }
   void printf(int x,int y,BaseFont*f,Color c,TextAlign a,const char*fmt,...){
     char buf[256]; va_list ap; va_start(ap,fmt);
     vsnprintf(buf,sizeof buf,fmt,ap); va_end(ap);
-    punkt(x,y); texte.push_back(buf);
+    text_gezeichnet(); punkt(x,y); texte.push_back(buf);
   }
 };
 
@@ -157,6 +167,8 @@ struct Fall {
 
 static int fehler = 0;
 
+static bool rund_pruefen = true;
+
 static void lauf(const Fall &f, int w, int h, bool zeige) {
   s_zustand.state = f.zustand; s_art.state = f.art;
   s_anweisung.state = f.anweisung; s_ankunft.state = f.ankunft;
@@ -179,11 +191,34 @@ static void lauf(const Fall &f, int w, int h, bool zeige) {
   const int tol = 8;
   bool raus = it.minx < -tol || it.miny < -tol ||
               it.maxx > w + tol || it.maxy > h + tol;
-  if (raus) {
+
+  // ─── DAS RUNDE GLAS ─────────────────────────────────────────────────────
+  // Auf einem runden Panel ist die Ecke nicht "abgeschnitten" -- sie ist gar
+  // nicht da, und am Geraet deutet nichts darauf hin. Die Rechteckpruefung
+  // allein liesse genau das durchgehen. Geprueft wird deshalb JEDER Eckpunkt
+  // gegen den Kreis.
+  if (rund_pruefen && !raus) {
+    const double cx = w / 2.0, cy = h / 2.0;
+    const double rmax = std::min(w, h) / 2.0 - 8 + tol;
+    for (auto &pkt : it.punkte) {
+      const double dx = pkt.first - cx, dy = pkt.second - cy;
+      if (std::sqrt(dx * dx + dy * dy) > rmax) {
+        printf("  FEHL %-22s %dx%d  Punkt (%d,%d) liegt %.0f vom Mittelpunkt,"
+               " der Kreis endet bei %.0f\n",
+               f.name, w, h, pkt.first, pkt.second,
+               std::sqrt(dx * dx + dy * dy), rmax);
+        fehler++;
+        raus = true;
+        break;
+      }
+    }
+  }
+
+  if (raus && !rund_pruefen) {
     printf("  FEHL %-22s %dx%d  Bereich x[%d..%d] y[%d..%d]\n",
            f.name, w, h, it.minx, it.maxx, it.miny, it.maxy);
     fehler++;
-  } else if (zeige) {
+  } else if (!raus && zeige) {
     printf("  OK   %-22s %dx%d  x[%d..%d] y[%d..%d], %d Zeichnungen | ",
            f.name, w, h, it.minx, it.maxx, it.miny, it.maxy, it.aufrufe);
     for (auto &t : it.texte) printf("\"%s\" ", t.c_str());
@@ -303,34 +338,105 @@ int main() {
   Fall sommer{"x","navigating","turn_left","Links abbiegen auf B27",
               "2026-09-15T14:32:00.000Z",87,80,1240,42.5,
               true,true,true,true,false};
-  genau("volle Fahrt, MESZ", sommer, 320,240,
-        {"1.2 km","Links abbiegen auf B27","87","km/h","80","16:32","noch 42.5 km"});
+  // Reihenfolge wie gezeichnet: Anweisung oben, Entfernung unter dem Pfeil,
+  // dann die untere Zeile. Die RESTSTRECKE fehlt bewusst -- auf 240 runden
+  // Bildpunkten ist kein Platz fuer ein fuenftes Feld, und sie ist von den
+  // fuenf das entbehrlichste.
+  genau("volle Fahrt, MESZ", sommer, 240,240,
+        {"Links abbiegen auf B27","1.2 km","87","80","16:32"});
 
   Fall winter = sommer; winter.ankunft = "2026-01-15T14:32:00.000Z";
-  genau("dieselbe Fahrt, MEZ", winter, 320,240,
-        {"1.2 km","Links abbiegen auf B27","87","km/h","80","15:32","noch 42.5 km"});
+  genau("dieselbe Fahrt, MEZ", winter, 240,240,
+        {"Links abbiegen auf B27","1.2 km","87","80","15:32"});
 
   Fall meter = sommer; meter.mdist = 483;
-  genau("Meter, auf 10 gerundet", meter, 320,240,
-        {"480 m","Links abbiegen auf B27","87","km/h","80","16:32","noch 42.5 km"});
+  genau("Meter, auf 10 gerundet", meter, 240,240,
+        {"Links abbiegen auf B27","480 m","87","80","16:32"});
 
   // Der wichtigste Fall: nichts bekannt. Es darf KEINE Zahl erscheinen --
   // kein Tempo, kein Tempolimit-Schild, keine Reststrecke.
   Fall leer{"x","navigating","turn_left","unknown","unknown",
             0,0,0,0,false,false,false,false,false};
-  genau("nichts bekannt: nichts erfinden", leer, 320,240, {"--","","--:--"});
+  genau("nichts bekannt: nichts erfinden", leer, 240,240, {"","--","--:--"});
 
   // Kein Tempolimit in der Karte -> gar kein Schild. Ein Schild mit "0"
   // waere die Behauptung, hier gelte Tempo 0.
   Fall ohneLimit = sommer; ohneLimit.limit_da = false;
-  genau("kein Tempolimit: kein Schild", ohneLimit, 320,240,
-        {"1.2 km","Links abbiegen auf B27","87","km/h","16:32","noch 42.5 km"});
+  genau("kein Tempolimit: kein Schild", ohneLimit, 240,240,
+        {"Links abbiegen auf B27","1.2 km","87","16:32"});
 
   // Wird nicht navigiert, hat ein Manoeverpfeil nichts zu sagen.
+  // ─── LANGE STRASSENNAMEN, UND DAS ß DARIN ───────────────────────────
+  // Auf 240 runden Bildpunkten passen rund 25 Zeichen. Gekuerzt wird nach
+  // BYTES -- und "ß", "ü", "ä" sind in UTF-8 ZWEI Bytes lang. Faellt der
+  // Schnitt zwischen die beiden, entsteht kein Zeichen, sondern Bruch: die
+  // Schrift zeigt dann ein Ersatzzeichen oder gar nichts. Deutsche
+  // Strassennamen bestehen zu einem guten Teil aus solchen Zeichen.
+  //
+  // Geprueft wird die EIGENSCHAFT, nicht eine von Hand ausgerechnete Stelle:
+  // was gezeichnet wird, muss gueltiges UTF-8 sein. Damit faellt jeder
+  // Schnitt auf, egal wo er liegt -- ein Testfall mit einem geratenen Offset
+  // haette genau den einen Fall geprueft, den ich mir ausgedacht habe.
+  auto ist_utf8 = [](const std::string &t) {
+    size_t i = 0;
+    while (i < t.size()) {
+      unsigned char c = t[i];
+      size_t n = c < 0x80 ? 1 : (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3
+               : (c & 0xF8) == 0xF0 ? 4 : 0;
+      if (n == 0 || i + n > t.size()) return false;
+      for (size_t k = 1; k < n; k++)
+        if ((static_cast<unsigned char>(t[i + k]) & 0xC0) != 0x80) return false;
+      i += n;
+    }
+    return true;
+  };
+
+  printf("\n── Kürzen langer Namen: bleibt es gültiges UTF-8? ──\n");
+  // Die Schnittstelle liegt FEST (nach der geschaetzten Zeichenzahl). Es
+  // bringt also nichts, die Laenge der Eingabe zu variieren -- geschoben
+  // werden muss das Mehrbyte-Zeichen ueber die Schnittstelle. Dafuer waechst
+  // hier ein Vorsatz Buchstabe um Buchstabe.
+  int kaputt = 0, geprueft = 0;
+  for (int k = 0; k < 24; k++) {
+    const std::string text =
+        std::string(k, 'A') + " Bundesstraße 27 Richtung Tübingen-Grötzingen über Wüstenrot";
+    s_zustand.state="navigating"; s_art.state="turn_left";
+    s_anweisung.state=text; s_ankunft.state="2026-09-15T14:32:00.000Z";
+    s_tempo.has=s_limit.has=s_mdist.has=true;
+    s_tempo.state=87; s_limit.state=80; s_mdist.state=1240; s_schnell.state=false;
+    Display it(240,240); zeichne(it);
+    geprueft++;
+    bool schlecht = false;
+    for (auto &t : it.texte)
+      if (!ist_utf8(t)) {
+        if (kaputt < 3)
+          printf("  FEHL Vorsatz %2d -> \"%s\" ist kein gültiges UTF-8\n", k, t.c_str());
+        schlecht = true;
+        break;
+      }
+    // Und es muss ueberhaupt gekuerzt werden: die Eingabe ist hier immer
+    // deutlich laenger als der Platz. Ohne diese Zusicherung waere „gar nicht
+    // kuerzen" ein gueltiges Ergebnis -- gueltiges UTF-8 ist es ja auch.
+    const std::string &oben = it.texte.empty() ? text : it.texte[0];
+    if (oben.size() > 28) {
+      if (kaputt < 3)
+        printf("  FEHL Vorsatz %2d -> \"%s\" (%zu Bytes) wurde nicht gekürzt\n",
+               k, oben.c_str(), oben.size());
+      schlecht = true;
+    }
+    if (schlecht) kaputt++;
+  }
+  if (kaputt > 0) {
+    printf("  %d von %d Verschiebungen erzeugen Bruch\n", kaputt, geprueft);
+    fehler++;
+  } else {
+    printf("  OK   alle %d Verschiebungen bleiben gültiges UTF-8\n", geprueft);
+  }
+
   Fall ruhe = sommer; ruhe.zustand = "idle";
-  genau("idle: nur die Lage melden", ruhe, 320,240, {"Keine Route"});
+  genau("idle: nur die Lage melden", ruhe, 240,240, {"Keine Route"});
   Fall weg = sommer; weg.zustand = "off_route";
-  genau("off_route", weg, 320,240, {"Abseits der Route"});
+  genau("off_route", weg, 240,240, {"Abseits der Route"});
 
   printf("\n── Welcher Pfeil bei welcher Manoeverart ──\n");
   // `ManeuverType` ist in types.ts ausdruecklich `| string`: Valhalla liefert
@@ -343,11 +449,11 @@ int main() {
     s_tempo.has=s_limit.has=s_mdist.has=s_rest.has=true;
     s_tempo.state=87; s_limit.state=80; s_mdist.state=1240; s_rest.state=42.5;
     s_schnell.state=false;
-    Display it(320,240); zeichne(it);
-    std::string vorne = it.formen.substr(0, it.formen.find('L'));
+    Display it(240,240); zeichne(it);
+    std::string vorne = it.pfeil_fertig ? it.pfeil_formen : it.formen;
     // Wohin zeigt er? Der Pfeilmittelpunkt ist B/5; ragt die Zeichnung
     // deutlich weiter nach links als nach rechts, zeigt er nach links.
-    const int px = 320 / 5;
+    const int px = 240 / 2;   // der Pfeil sitzt jetzt mittig
     const int nach_links  = px - it.pminx;
     const int nach_rechts = it.pmaxx - px;
     const char *richtung = "gerade";

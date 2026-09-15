@@ -38,6 +38,27 @@ const YAML = join(HIER, '..', 'yapaja-nav-display.yaml');
  * Annahme einmal nicht mehr stimmt, findet sich hier gar kein Rumpf und der
  * Lauf bricht ab, statt stillschweigend nichts zu prüfen.
  */
+/**
+ * Die `substitutions:` der Konfiguration, als einfache Zuordnung.
+ *
+ * Gebraucht, weil der lambda-Block `${rund}` und Ähnliches enthält. ESPHome
+ * ersetzt das VOR dem Übersetzen; ohne dieselbe Ersetzung prüfte dieser Lauf
+ * C++, das es so nie gibt — und `${rund}` übersetzt ohnehin nicht.
+ */
+export function substitutionen(text) {
+  const zeilen = text.split('\n');
+  const start = zeilen.findIndex((z) => /^substitutions:\s*$/.test(z));
+  if (start < 0) return {};
+  const werte = {};
+  for (const zeile of zeilen.slice(start + 1)) {
+    if (zeile.trim() === '' || zeile.trimStart().startsWith('#')) continue;
+    if (!/^\s/.test(zeile)) break;
+    const treffer = zeile.match(/^\s+([A-Za-z0-9_]+):\s*(.*)$/);
+    if (treffer) werte[treffer[1]] = treffer[2].trim().replace(/^"(.*)"$/, '$1');
+  }
+  return werte;
+}
+
 export function lambdaRumpf(text) {
   const zeilen = text.split('\n');
   const start = zeilen.findIndex((z) => /^\s*lambda:\s*\|-?\s*$/.test(z));
@@ -54,7 +75,17 @@ export function lambdaRumpf(text) {
   // Ergebnis zeichengenau NICHT mit dem überein, was ESPHome einliest --
   // belanglos für den Übersetzer, aber dieser Lauf soll genau das prüfen,
   // was ausgeliefert wird, und nicht etwas Ähnliches.
-  return rumpf.join('\n').replace(/\n+$/, '');
+  const roh = rumpf.join('\n').replace(/\n+$/, '');
+
+  // Dieselbe Ersetzung, die ESPHome vornimmt. Bleibt danach ein `${…}` übrig,
+  // ist das ein Tippfehler in der Konfiguration — und der soll hier auffallen
+  // und nicht erst beim Übersetzen auf dem Gerät.
+  const werte = substitutionen(text);
+  const ersetzt = roh.replace(/\$\{([A-Za-z0-9_]+)\}/g, (ganz, name) => {
+    if (!(name in werte)) throw new Error(`\${${name}} hat keine Entsprechung unter substitutions:`);
+    return werte[name];
+  });
+  return ersetzt;
 }
 
 function main() {

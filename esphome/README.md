@@ -1,8 +1,31 @@
-# Yapaia Go auf einem ESP32-S3-Display
+# Yapaia Go auf dem ESP32-2424S012
 
-`yapaja-nav-display.yaml` macht aus einem kleinen ESP32-S3-Display ein
+`yapaja-nav-display.yaml` macht aus dem runden 1,28-Zoll-Modul ein
 Navigationsinstrument fürs Armaturenbrett: nächstes Manöver mit Pfeil und
-Entfernung, Tempo gegen Tempolimit, Ankunftszeit und Reststrecke.
+Entfernung, Tempo gegen Tempolimit, Ankunftszeit.
+
+## Das Board — und warum das wichtig ist
+
+Der **ESP32-2424S012** trägt einen **ESP32-C3**, keinen S3. Das ist kein
+Namensdetail:
+
+| | |
+|---|---|
+| Chip | ESP32-C3 (RISC-V, Einkern) |
+| Arbeitsspeicher | 400 KB SRAM, **kein PSRAM** |
+| Anzeige | 1,28″ **rund**, 240 × 240, GC9A01A an SPI |
+| Touch | CST816 an I²C (hier nicht benutzt) |
+
+Zwei Folgen davon stehen unten: `online_image` scheidet ohne PSRAM ohnehin
+aus, und die Aufteilung muss im **Kreis** bleiben.
+
+GC9A01A ist in ESPHome offiziell enthalten (`ili9xxx`, Modell `GC9A01A`).
+Viele Forenbeiträge behaupten noch, man brauche eine externe Komponente — das
+stimmt seit einigen Versionen nicht mehr.
+
+**Der häufigste Stolperstein bei diesem Board:** kein `reset_pin` angeben. Der
+Reset des Panels ist nicht auf einen GPIO geführt; wer einen einträgt, bekommt
+ein schwarzes Display.
 
 ---
 
@@ -12,7 +35,7 @@ Gefragt war, **unsere Karte** auf dem Display anzuzeigen. Das geht nicht, und
 zwar nicht „mit Aufwand", sondern gar nicht:
 
 - Yapaias Karte ist **MapLibre**: Vektorkacheln (PMTiles), die ein Browser per
-  **WebGL** zeichnet. Ein ESP32-S3 hat keinen Browser.
+  **WebGL** zeichnet. Ein ESP32 hat keinen Browser.
 - ESPHome hat **keinen Kartenrenderer** und keinen Weg, eine Lovelace-Karte
   oder irgendeine Webansicht auf ein Display zu spiegeln. Ein Lovelace-Dashboard
   ist eine Webseite; ESPHome zeichnet Grundformen, Text und Bilder.
@@ -21,8 +44,11 @@ zwar nicht „mit Aufwand", sondern gar nicht:
 über HTTP. Es fehlt nur die Quelle: der Yapaia-Core hat keinen Endpunkt, der
 die Karte als Rasterbild ausliefert. Unten steht, was dafür nötig wäre.
 
+Auf diesem Board scheitert es sogar zweimal: **`online_image` braucht PSRAM**,
+und der ESP32-C3 hat keines.
+
 Für ein Display dieser Größe ist das ohnehin die zweite Wahl. Eine Karte auf
-320 × 240 Bildpunkten, aus zwei Metern Entfernung im fahrenden Fahrzeug
+240 runden Bildpunkten, aus zwei Metern Entfernung im fahrenden Fahrzeug
 gesehen, sagt weniger als ein großer Pfeil und eine große Zahl. Genau die
 zeigt diese Datei.
 
@@ -31,16 +57,24 @@ zeigt diese Datei.
 ## Was auf dem Display steht
 
 ```
-┌──────────────────────────────────────┐
-│       ┌─┐                            │
-│    ┌──┘ │      1,2 km                │   ← Manöver: Pfeil + Entfernung
-│    └────┤                            │
-│         │      Links abbiegen auf B27│   ← der Anweisungstext aus Yapaia
-├──────────────────────────────────────┤
-│   87            ⬤80          16:32   │   ← Tempo · Tempolimit · Ankunft
-│   km/h                  noch 42,5 km │
-└──────────────────────────────────────┘
+        ╭───────────────────╮
+      ╱   Links abbiegen auf  ╲      ← Anweisung, gekürzt
+     │          ┌─┐            │
+     │       ┌──┘ │            │     ← Manöverpfeil
+     │       └────┘            │
+     │        1,2 km           │     ← Entfernung, groß
+      ╲   87    ⬤80    16:32  ╱      ← Tempo · Limit · Ankunft
+        ╰───────────────────╯
 ```
+
+Die Aufteilung rechnet mit der **Halbbreite auf Höhe y**, nicht mit der
+Bildbreite: auf einem runden Glas sind die Ecken nicht da, und was dort
+gezeichnet wird, ist weg, ohne dass am Gerät etwas darauf hindeutet. Für ein
+eckiges Panel `rund: "false"` setzen, dann wird die volle Breite genutzt.
+
+**Die Reststrecke fehlt bewusst.** Auf 240 runden Bildpunkten ist kein Platz
+für ein fünftes Feld, und von den fünf ist sie das entbehrlichste — sie steht
+im Lovelace-Dashboard.
 
 Im Einzelnen:
 
@@ -52,7 +86,6 @@ Im Einzelnen:
 | Tempo | `sensor.yapaja_speed` | rot, wenn `binary_sensor.yapaja_speeding` an ist |
 | Tempolimit | `sensor.yapaja_speed_limit` | als rundes Schild — **nur**, wenn die Karte eines kennt |
 | Ankunftszeit | `sensor.yapaja_eta` | aus UTC in Ihre Zeitzone **gerechnet** |
-| Reststrecke | `sensor.yapaja_distance_remaining` | |
 | Fahrzustand | `sensor.yapaja_nav_state` | ohne Route steht da, warum, statt eines Pfeils ins Nichts |
 
 Zwei Entscheidungen, die man beim Lesen sonst für Zufall hält:
@@ -82,8 +115,8 @@ Platz leer.
    yapaja_display_ota_password: "..."
    ```
 2. **Zeitzone und Pins** oben in `substitutions` eintragen.
-3. **Den `display:`-Block** auf das eigene Panel anpassen — siehe Tabelle unten.
-   Das ist der einzige boardabhängige Abschnitt.
+3. Für dieses Board ist nichts weiter zu tun. Für ein anderes den
+   `display:`-Block und `rund` anpassen — siehe unten.
 4. Übersetzen und flashen: in Home Assistant über das ESPHome-Add-on, oder
    `esphome run esphome/yapaja-nav-display.yaml`.
 
@@ -92,22 +125,36 @@ und erzeugen **dieselben** Entity-IDs — in der Add-on-Konfiguration unter
 **Home Assistant** entweder „Werte direkt melden" (`ha_internal`) oder „Werte
 über MQTT melden". Diese Datei braucht keine Änderung, egal welchen Sie nutzen.
 
-### Panel-Blöcke für gängige Boards
+### Die Pins dieses Boards
 
-Nur der `display:`-Abschnitt (und die Pins) ändert sich. Die Zeichenroutine
-rechnet in Anteilen der Displaygröße und kommt mit allen unten zurecht.
+| Zweck | GPIO |
+|---|---|
+| SPI CLK | 6 |
+| SPI MOSI | 7 |
+| Display CS | 10 |
+| Display DC | 2 |
+| Display RESET | **nicht verdrahtet** — keinen angeben |
+| Hintergrundbeleuchtung | 3 |
+| Touch I²C (SDA / SCL) | 4 / 5 — hier nicht benutzt |
 
-| Board | Auflösung | `platform:` / `model:` | Anmerkung |
+### Für ein anderes Board
+
+Nur der `display:`-Abschnitt, die Pins und `rund` ändern sich. Die
+Zeichenroutine rechnet in Anteilen der Displaygröße.
+
+| Board | Auflösung | `platform:` / `model:` | `rund` |
 |---|---|---|---|
-| Generisches ST7789 an SPI | 240 × 320 | `ili9xxx` / `ST7789V` | so ausgeliefert |
-| Waveshare ESP32-S3 Touch LCD 1.28 | 240 × 240 | `ili9xxx` / `GC9A01A` | rund — der Pfeil sitzt links, planen Sie den Rand ein |
-| LilyGO T-Display-S3 | 170 × 320 | `ili9xxx` / `ST7789V`, 8-bit parallel | `rotation: 90` gibt 320 × 170 |
-| Guition JC3248W535 | 320 × 480 | `qspi_dbi` / `AXS15231` | braucht den QSPI-Bus statt `spi:` |
-| Sunton ESP32-8048S043 | 800 × 480 | `rpi_dpi_rgb` | RGB-Panel, eigener Pin-Block |
+| Generisches ST7789 an SPI | 240 × 320 | `ili9xxx` / `ST7789V` | `false` |
+| LilyGO T-Display-S3 | 170 × 320 | `ili9xxx` / `ST7789V`, 8-bit parallel | `false` |
+| Guition JC3248W535 | 320 × 480 | `qspi_dbi` / `AXS15231` | `false` |
+| Sunton ESP32-8048S043 | 800 × 480 | `rpi_dpi_rgb` | `false` |
 
-Die genauen Pins stehen beim Hersteller; ESPHome hat für die meisten dieser
-Boards fertige Beispiele. Sagen Sie mir, welches es geworden ist, dann trage
-ich den Block passend ein.
+### Wenn der Arbeitsspeicher nicht reicht
+
+Ein voller Bildpuffer ist 240 × 240 × 2 Bytes = **115 KB** von 400 KB. Das
+geht, ist aber neben WLAN und API knapp. Wirft das Gerät beim Start einen
+Speicherfehler, halbiert `color_palette: GRAYSCALE` im `display:`-Block den
+Puffer auf 58 KB — um den Preis, dass die Tempo-Warnung nicht mehr rot ist.
 
 ### Helligkeit bei Nacht
 
@@ -131,7 +178,7 @@ Projekts passt.
 Routengeometrie und die Position; daraus ein PNG mit Streckenlinie,
 Fahrzeugpunkt und Ziel zu rastern ist überschaubar — keine Kachel, kein
 Browser, kein Chromium. Ein neuer Endpunkt, etwa
-`GET /api/v1/map/preview.png?w=320&h=240`, den `online_image` alle paar
+`GET /api/v1/map/preview.png?w=240&h=240`, den `online_image` alle paar
 Sekunden holt. Das bliebe vollständig offline. **Das ist der Weg, den ich
 empfehlen würde**, wenn Sie das Kartenbild wirklich wollen — es ist
 überschaubare Arbeit im Core, und ich würde es auf Zuruf bauen.
@@ -147,10 +194,11 @@ und ähnlichen). Am schnellsten gemacht — und der einzige Weg, der im Funkloch
 nicht mehr funktioniert. In einem Wohnmobil ist das genau dort, wo Navigation
 am wichtigsten ist.
 
-Zu bedenken bleibt in allen drei Fällen: `online_image` **braucht PSRAM** und
-holt das Bild in einem Rutsch. Eine Karte, die bei Tempo 100 flüssig mitläuft,
-wird daraus nicht — eher eine Übersichtsanzeige, die sich alle paar Sekunden
-auffrischt.
+In allen drei Fällen gilt aber: `online_image` **braucht PSRAM**, und der
+ESP32-C3 auf diesem Board hat keines. Für ein Kartenbild bräuchte es also
+zusätzlich ein anderes Gerät — ein S3-Modul mit PSRAM. Und selbst dort wird
+daraus keine Karte, die bei Tempo 100 flüssig mitläuft, sondern eine
+Übersichtsanzeige, die sich alle paar Sekunden auffrischt.
 
 ---
 

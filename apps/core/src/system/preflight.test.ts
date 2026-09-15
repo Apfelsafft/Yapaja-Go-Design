@@ -54,6 +54,9 @@ function healthyDeps(overrides: Partial<PreflightDeps> = {}): PreflightDeps {
     // damit kein Test die echte Datei unter /run liest -- sonst haenge das
     // Ergebnis daran, ob auf dem Rechner zufaellig ein Add-on laeuft.
     readGpsStatus: async () => null,
+    // Vorgabe: jeder Pfad loest sich auf. Die Tests, in denen es um einen
+    // haengenden by-id-Verweis geht, setzen es ausdruecklich auf `false`.
+    pathResolves: async () => true,
     totalMem: () => 16 * GB,
     diskFree: async () => 40 * GB,
     now: () => new Date('2026-09-01T10:00:00.000Z'),
@@ -389,6 +392,52 @@ describe('Positionsprüfung', () => {
     it('nennt den führenden Schrägstrich — der gemeldete Fehler war genau der', async () => {
       const report = await runPreflight(healthyDeps({ tcpProbe: async () => false }));
       expect(byId(report.checks, 'position').remedy).toContain('Schrägstrich');
+    });
+
+    // ─── DER WIDERSPRUCH, DEN DER BETREIBER SAH ──────────────────────────
+    // „Der VK-162 scheint korrekt erkannt zu werden. Gpsd aber nicht?" --
+    // und die Pruefung listete das Geraet tatsaechlich auf. `/dev/serial/
+    // by-id/` besteht aber aus SYMLINKS. `readdir` listet den Namen auch
+    // dann, wenn das Ziel fehlt; `gpsd/run` prueft mit `[ -e ]`, das dem
+    // Link folgt, und sagt „dort liegt nichts". Beide hatten recht.
+    it('vermerkt einen by-id-Verweis, dessen Ziel fehlt', async () => {
+      const report = await runPreflight(
+        healthyDeps({
+          tcpProbe: async () => false,
+          listDir: async () => ['usb-u-blox_AG_-_GPS_GNSS_Receiver-if00'],
+          pathResolves: async () => false,
+        }),
+      );
+      const remedy = byId(report.checks, 'position').remedy ?? '';
+      expect(remedy).toContain('usb-u-blox_AG_-_GPS_GNSS_Receiver-if00 (Verweis zeigt ins Leere)');
+      expect(remedy).toContain('ist der Name da und das Gerät nicht');
+    });
+
+    it('vermerkt nichts, wenn sich alle Pfade auflösen', async () => {
+      // Sonst stuende der Hinweis immer da und saegte an seiner eigenen
+      // Aussagekraft -- eine Warnung, die immer leuchtet, liest niemand.
+      const report = await runPreflight(
+        healthyDeps({
+          tcpProbe: async () => false,
+          listDir: async () => ['usb-u-blox_AG_-_GPS_GNSS_Receiver-if00'],
+          pathResolves: async () => true,
+        }),
+      );
+      expect(byId(report.checks, 'position').remedy).not.toContain('(Verweis zeigt ins Leere)');
+      expect(byId(report.checks, 'position').remedy).not.toContain('ist der Name da und das Gerät nicht');
+    });
+
+    it('sagt, dass Speichern ohne Neustart nichts bewirkt', async () => {
+      // Die Optionen werden beim Start des Containers gelesen. Wer nur
+      // speichert, aendert am laufenden gpsd nichts -- und sucht den Fehler
+      // dann am Pfad, der laengst stimmt.
+      const report = await runPreflight(healthyDeps({ tcpProbe: async () => false }));
+      expect(byId(report.checks, 'position').remedy).toContain('NEU STARTEN');
+    });
+
+    it('nennt das Protokoll als die Stelle mit der Antwort', async () => {
+      const report = await runPreflight(healthyDeps({ tcpProbe: async () => false }));
+      expect(byId(report.checks, 'position').remedy).toContain('Protokoll');
     });
 
     it('nennt nicht mehr den alten Namen „ha_tracker"', async () => {
