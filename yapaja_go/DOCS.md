@@ -129,6 +129,38 @@ possible causes. The file lives under `/run` on purpose: it is runtime state
 that **should** vanish on restart — under `/share` a stale reason would survive
 a reboot and be worse than none.
 
+#### When gpsd starts but dies immediately
+
+This looks like a healthy service and is not one:
+
+```
+[23:51:37] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+[23:51:38] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+[23:51:39] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+```
+
+One line per second means the device **is** being found and gpsd is dying right
+after launch; s6 restarts the service, the device search runs again, and the
+log reports success again. Nothing on that screen says anything failed.
+
+Since 0.8.9 the service handles this itself:
+
+- it does **not** `exec` gpsd any more, so gpsd's exit code reaches the log —
+  with an explicit note that the device selection is *not* the problem;
+- it keeps a start marker under `/run/yapaja/gpsd-letzter-start`; a run less
+  than 8 seconds after the previous one is reported as a restart loop and
+  **throttled** to one message every 30 seconds (`GPSD_MIN_LAUFZEIT_S` /
+  `GPSD_BREMSE_S` override both, for tests);
+- it starts gpsd with `-D 2` so gpsd itself can say what went wrong;
+- it checks `command -v gpsd` first and reports the `PATH` it searched if the
+  binary is missing.
+
+The image build checks this too, since 0.8.9: `yapaja_go/test/gpsd-im-container.sh`
+starts gpsd inside the built image (no device, control socket only) and verifies
+something is listening on 2947. `command -v` alone only proves a file exists —
+`osmium` was once missing from this image entirely and the search-index build
+broke on the device while CI stayed green.
+
 If you don't have (or don't yet have) a GPS receiver connected, leave
 `gps_source` at `none` (the default): the app remains fully usable, and the
 position then comes from the browser — or, if the browser won't hand over its

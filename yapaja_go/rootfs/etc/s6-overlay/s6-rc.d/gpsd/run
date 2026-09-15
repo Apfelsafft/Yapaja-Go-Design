@@ -80,10 +80,72 @@ while true; do
   sleep 15
 done
 
+# ─── GIBT ES gpsd UEBERHAUPT? ───────────────────────────────────────────────
+# `exec` auf ein Programm, das nicht im PATH liegt, beendet dieses Skript mit
+# 127. s6 startet den Dienst daraufhin neu, die Geraetesuche laeuft erneut und
+# meldet wieder „benutze /dev/…" -- im Sekundentakt. Das Protokoll liest sich
+# dann wie Erfolg, obwohl nie ein gpsd lief.
+#
+# Der Fall ist nicht erfunden: `osmium` hat in diesem Image schon einmal
+# gefehlt, und der Suchindex-Bau brach auf dem Geraet ab, waehrend jede CI
+# gruen war. gpsd stand bis 0.8.9 nicht in der Werkzeugpruefung der CI.
+if ! command -v gpsd >/dev/null 2>&1; then
+  GRUND="das Programm gpsd ist im Add-on-Image nicht auffindbar (PATH=${PATH})."
+  bashio::log.error "gpsd: ${GRUND} Ohne gpsd gibt es keine USB-Position; die Position fällt auf die übrigen Quellen zurück."
+  status_schreiben "fehler" "${GRUND}"
+  # Nicht im Sekundentakt weiterversuchen: daran aendert sich bis zum
+  # naechsten Update nichts, und ein Protokoll voller Wiederholungen
+  # verdeckt alles andere.
+  sleep "${GPSD_FEHLT_WARTE_S:-300}"
+  exit 1
+fi
+
+# ─── DIE NEUSTARTSCHLEIFE ERKENNEN ──────────────────────────────────────────
+# Stirbt gpsd sofort, sieht das Protokoll aus wie ein gesunder Dienst: jede
+# Sekunde „benutze <Geraet>", und nirgends steht, dass danach etwas
+# fehlgeschlagen ist. Genau so wurde es gemeldet.
+#
+# Deshalb eine Marke mit dem Zeitpunkt des letzten Starts. Liegt der weniger
+# als ein paar Sekunden zurueck, lief gpsd nicht -- es ist gestorben.
+START_MARKE="$(dirname "${STATUS_DATEI}")/gpsd-letzter-start"
+JETZT="$(date +%s)"
+VORHER="$(cat "${START_MARKE}" 2>/dev/null || echo 0)"
+mkdir -p "$(dirname "${START_MARKE}")" 2>/dev/null || true
+printf '%s' "${JETZT}" > "${START_MARKE}" 2>/dev/null || true
+
+if [ "${VORHER}" != "0" ] && [ "$((JETZT - VORHER))" -lt "${GPSD_MIN_LAUFZEIT_S:-8}" ]; then
+  GRUND="gpsd startet und beendet sich sofort wieder (Neustartschleife). Das Gerät ${DEVICE} wird gefunden, gpsd läuft trotzdem nicht — die Zeilen von gpsd selbst stehen darüber im Protokoll."
+  bashio::log.error "gpsd: ${GRUND}"
+  status_schreiben "fehler" "${GRUND}"
+  # Abbremsen. Aus einer Meldung je Sekunde wird eine je halbe Minute, und
+  # das Protokoll bleibt fuer alles andere brauchbar.
+  sleep "${GPSD_BREMSE_S:-30}"
+fi
+
 # -N: foreground (required under s6 supervision -- no daemonizing/double-fork,
 #     so SIGTERM from s6 on shutdown reaches this process directly).
 # -n: don't wait for a client to connect before polling the device.
+# -D 2: gpsd soll SAGEN, was es tut. Ohne das stirbt es stumm, und der einzige
+#     Hinweis ist, dass dieses Skript eine Sekunde spaeter wieder anlaeuft.
 # -G: listen on all configured addresses is NOT used here on purpose -- gpsd
 #     defaults to localhost-only, which is exactly what we want (only the
 #     Core, in the same container/network-namespace, talks to it).
-exec gpsd -N -n "${DEVICE}"
+#
+# ─── WARUM KEIN `exec` MEHR ─────────────────────────────────────────────────
+# `exec` ersetzt diese Shell durch gpsd. Stirbt gpsd, ist der Exit-Code weg --
+# s6 startet neu, und niemand erfaehrt, WOMIT es gescheitert ist. Hier wird
+# gpsd stattdessen im Hintergrund gestartet und auf ihn gewartet, damit der
+# Code ins Protokoll kann.
+#
+# Die Signalweiterleitung, die `exec` geschenkt hatte, macht der `trap`: ohne
+# ihn liefe gpsd beim Herunterfahren des Add-ons weiter, waehrend s6 nur diese
+# Shell beendet.
+gpsd -N -n -D 2 "${DEVICE}" &
+GPSD_PID=$!
+trap 'kill -TERM "${GPSD_PID}" 2>/dev/null || true' TERM INT
+wait "${GPSD_PID}"
+CODE=$?
+
+bashio::log.error "gpsd: beendet mit Code ${CODE} (Gerät ${DEVICE}). s6 startet den Dienst neu."
+status_schreiben "fehler" "gpsd hat sich mit Code ${CODE} beendet. Das Gerät ${DEVICE} wurde gefunden — es scheitert also nicht an der Gerätewahl, sondern an gpsd selbst."
+exit "${CODE}"

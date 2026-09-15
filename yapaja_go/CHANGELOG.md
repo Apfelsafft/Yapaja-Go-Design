@@ -10,6 +10,61 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.9
+
+**gpsd startete und starb sofort — und das Protokoll las sich wie Erfolg.**
+
+### Gemeldet
+
+Im Add-on-Protokoll stand, im Sekundentakt:
+
+```
+[23:51:37] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+[23:51:38] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+[23:51:39] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+```
+
+Dazu vom Kern: `connect ECONNREFUSED 127.0.0.1:2947`.
+
+Beides zusammen ergibt die Antwort, und sie stand nirgends: der Empfänger
+**wurde** gefunden. gpsd startete, beendete sich sofort, s6 startete den Dienst
+neu, die Gerätesuche lief erneut und meldete wieder Erfolg. Eine Schleife, die
+jede Sekunde nach Erfolg aussieht.
+
+Die vorherige Vermutung — ein fehlender Schrägstrich im Gerätepfad — war
+falsch. Sie erklärte die Meldung, aber nicht den Verlauf.
+
+### Was sich ändert
+
+**Das Protokoll sagt jetzt, dass gpsd gestorben ist.** Mit Exit-Code, und mit
+dem ausdrücklichen Hinweis, dass es *nicht* an der Gerätewahl liegt — genau
+diese Verwechslung hat hier Zeit gekostet.
+
+**Die Neustartschleife wird erkannt.** Läuft gpsd weniger als ein paar Sekunden,
+meldet Yapaia das als Schleife und **bremst auf eine Meldung pro halbe Minute**,
+statt das Protokoll im Sekundentakt zuzuschreiben.
+
+**gpsd wird mit `-D 2` gestartet**, damit es selbst sagen kann, woran es
+scheitert. Vorher starb es stumm.
+
+**Fehlt gpsd im Image ganz**, steht das jetzt da — mitsamt dem `PATH`, in dem
+gesucht wurde. Genau dieser Fall ist in diesem Add-on schon einmal vorgekommen:
+`osmium` fehlte, der Suchindex-Bau brach auf dem Gerät ab, und jede Prüfung war
+grün.
+
+**Die Prüfung beim Bauen.** gpsd stand nicht in der Liste der Werkzeuge, die im
+Image nachgesehen werden. Jetzt steht es dort — und es wird zusätzlich
+**gestartet**: Ein Programm, das sich beim bloßen Start verabschiedet, fällt
+damit beim Bauen auf und nicht erst im Fahrzeug.
+
+### Was das für Sie heißt
+
+Der Grund, warum gpsd bei Ihnen stirbt, steht nach dem Update im Protokoll —
+in einer Zeile, die mit `ERROR: gpsd:` beginnt, und in der Installationsprüfung
+unter **Positionsquelle**.
+
+---
+
 ## 0.8.8
 
 **Zwei Aufräumarbeiten, die bestehende Konfigurationen brechen dürfen.**

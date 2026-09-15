@@ -1317,8 +1317,42 @@ describe('find-gps-device.sh — die Geräteauswahl, ausgeführt', () => {
 
     /** Führt `gpsd/run` so weit aus, bis es entweder gpsd startet oder einmal
      *  erfolglos gesucht hat, und liefert die hinterlegte Statusdatei. */
-    function laufLassen(geraete: string[], gpsDevice = ''): { status: string; grund: string } {
-      const wurzel = mkdtempSync(join(tmpdir(), 'yapaja-gpsd-'));
+    interface Lauf {
+      status: string;
+      grund: string;
+      ausgabe: string;
+    }
+
+    interface Umstaende {
+      /** Liegt ein `gpsd` im PATH? */
+      gpsdVorhanden?: boolean;
+      /** Beendet es sich sofort (und mit welchem Code)? `null` = laeuft. */
+      gpsdCode?: number | null;
+      /** Wie lange der letzte Start her ist, in Sekunden. */
+      letzterStartVorS?: number;
+      /** Nach dieser Zeit abbrechen — für den Fall, dass gpsd am Leben bleibt
+       *  und das Skript wie im Betrieb in `wait` steht. */
+      abbruchNachMs?: number;
+    }
+
+    /**
+     * Führt `gpsd/run` aus und liefert die Statusdatei samt Protokollausgabe.
+     *
+     * `gpsd` selbst gibt es im Testcontainer nicht — und es soll auch nicht.
+     * Untergeschoben wird ein Skript, dessen Verhalten der Test bestimmt:
+     * fehlend, sofort sterbend, oder laufend. Nur so lässt sich der gemeldete
+     * Fall überhaupt nachstellen.
+     */
+    function laufLassen(
+      geraete: string[],
+      gpsDevice = '',
+      umstaende: Umstaende = {},
+      /** Vorhandenes Arbeitsverzeichnis weiterbenutzen — so lässt sich ein
+       *  ZWEITER Lauf mit derselben Startmarke prüfen, wie ihn s6 auslöst. */
+      wurzelVorgabe?: string,
+    ): Lauf & { wurzel: string } {
+      const { gpsdVorhanden = true, gpsdCode = 0, letzterStartVorS, abbruchNachMs = 20_000 } = umstaende;
+      const wurzel = wurzelVorgabe ?? mkdtempSync(join(tmpdir(), 'yapaja-gpsd-'));
       for (const pfad of geraete) {
         const ziel = join(wurzel, pfad);
         mkdirSync(dirname(ziel), { recursive: true });
@@ -1326,41 +1360,85 @@ describe('find-gps-device.sh — die Geräteauswahl, ausgeführt', () => {
       }
       const statusDatei = join(wurzel, 'gps-status');
 
-      // Der Rumpf des echten Skripts ab der Quelle -- ohne die
-      // bashio-Kopfzeile und ohne `exec gpsd` am Ende, das es hier nicht gibt.
+      // Ein PATH, der NUR das enthält, was der Test erlaubt — sonst fände das
+      // Skript womöglich ein echtes gpsd des Build-Rechners.
+      const binDir = join(wurzel, 'bin');
+      mkdirSync(binDir, { recursive: true });
+      if (gpsdVorhanden) {
+        writeFileSync(
+          join(binDir, 'gpsd'),
+          gpsdCode === null
+            ? '#!/usr/bin/env bash\nsleep 30\n'
+            : `#!/usr/bin/env bash\nexit ${gpsdCode}\n`,
+          { mode: 0o755 },
+        );
+      }
+      if (letzterStartVorS !== undefined) {
+        writeFileSync(
+          join(wurzel, 'gpsd-letzter-start'),
+          String(Math.floor(Date.now() / 1000) - letzterStartVorS),
+        );
+      }
+
       const echt = readFileSync(GPSD_RUN, 'utf-8');
       const rumpf = echt
         .slice(echt.indexOf('source /etc/yapaja/find-gps-device.sh'))
         .replace('source /etc/yapaja/find-gps-device.sh', `source ${JSON.stringify(FIND_SCRIPT)}`)
         // Nicht ewig weitersuchen: eine Runde genügt für die Aussage.
-        .replace('sleep 15', 'exit 0')
-        .replace(/^exec gpsd .*$/m, 'exit 0');
+        .replace('sleep 15', 'exit 0');
 
       const stubPath = join(wurzel, 'run.sh');
       writeFileSync(
         stubPath,
-        ['#!/usr/bin/env bash', 'bashio::log.info() { :; }', 'bashio::log.warning() { :; }', rumpf].join(
-          '\n',
-        ),
+        [
+          '#!/usr/bin/env bash',
+          'bashio::log.info() { echo "INFO: $*"; }',
+          'bashio::log.warning() { echo "WARN: $*"; }',
+          'bashio::log.error() { echo "ERROR: $*"; }',
+          rumpf,
+        ].join('\n'),
       );
 
-      execFileSync('bash', [stubPath], {
-        env: {
-          ...process.env,
-          YAPAIA_DEV_ROOT: wurzel,
-          GPS_DEVICE: gpsDevice,
-          GPS_SOURCE: 'usb',
-          GPS_STATUS_DATEI: statusDatei,
-        },
-        encoding: 'utf-8',
-      });
+      let ausgabe = '';
+      try {
+        ausgabe = execFileSync('bash', [stubPath], {
+          env: {
+            // `PATH` bewusst eng: nur der Stub-Ordner und die Systemwerkzeuge,
+            // die das Skript selbst braucht.
+            PATH: `${binDir}:/usr/bin:/bin`,
+            YAPAIA_DEV_ROOT: wurzel,
+            GPS_DEVICE: gpsDevice,
+            GPS_SOURCE: 'usb',
+            GPS_STATUS_DATEI: statusDatei,
+            // Im Test wird nicht gewartet.
+            GPSD_FEHLT_WARTE_S: '0',
+            GPSD_BREMSE_S: '0',
+          },
+          encoding: 'utf-8',
+          timeout: abbruchNachMs,
+        });
+      } catch (fehler) {
+        // Ein Exit ungleich 0 ist hier ein ERGEBNIS, kein Testfehler: genau so
+        // verlässt das Skript den Dienst, wenn gpsd stirbt.
+        const e = fehler as { stdout?: string; stderr?: string };
+        ausgabe = `${e.stdout ?? ''}${e.stderr ?? ''}`;
+      }
 
       const [status, ...rest] = readFileSync(statusDatei, 'utf-8').split('\n');
-      return { status, grund: rest.join('\n').replace(new RegExp(wurzel, 'g'), '').trim() };
+      return {
+        wurzel,
+        status,
+        grund: rest.join('\n').replace(new RegExp(wurzel, 'g'), '').trim(),
+        ausgabe: ausgabe.replace(new RegExp(wurzel, 'g'), ''),
+      };
     }
 
-    it('schreibt bei Erfolg, welches Gerät genommen wurde', () => {
-      const ergebnis = laufLassen([UBLOX]);
+    it('schreibt „bereit", solange gpsd wirklich läuft', () => {
+      // `gpsdCode: null` = das untergeschobene gpsd bleibt am Leben, das
+      // Skript steht also wie im Betrieb in `wait`. Der Abbruch danach ist
+      // kein Fehlschlag, sondern der einzige Weg, den LAUFENDEN Zustand zu
+      // beobachten -- danach stünde dort zu Recht „fehler".
+      const ergebnis = laufLassen([UBLOX], '', { gpsdCode: null, abbruchNachMs: 2500 });
       expect(ergebnis.status).toBe('bereit');
       expect(ergebnis.grund).toContain(UBLOX);
     });
@@ -1376,6 +1454,76 @@ describe('find-gps-device.sh — die Geräteauswahl, ausgeführt', () => {
       const ergebnis = laufLassen([SKYCONNECT, ZWAVE]);
       expect(ergebnis.status).toBe('suchend');
       expect(ergebnis.grund).toContain('SkyConnect');
+    });
+
+    /**
+     * ─── DER GEMELDETE FALL ───────────────────────────────────────────────
+     * Aus dem Protokoll, im Sekundentakt:
+     *
+     *   [23:51:37] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+     *   [23:51:38] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+     *   [23:51:39] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+     *
+     * Das Gerät WURDE gefunden. gpsd startete, starb sofort, s6 startete den
+     * Dienst neu — und das Protokoll las sich wie ein gesunder Dienst. Nirgends
+     * stand, dass etwas fehlschlug; der Core meldete nur ECONNREFUSED auf 2947.
+     *
+     * Diese Tests halten fest, dass so etwas ab jetzt SAGT, was los ist.
+     */
+    describe('wenn gpsd nicht läuft', () => {
+      it('sagt es, wenn gpsd im Image gar nicht auffindbar ist', () => {
+        // `exec` auf ein fehlendes Programm endet mit 127, s6 startet neu, und
+        // im Protokoll steht weiter nur „benutze /dev/…". Dass `osmium` in
+        // diesem Image schon einmal ganz fehlte, macht den Fall real.
+        const ergebnis = laufLassen([UBLOX], '', { gpsdVorhanden: false });
+        expect(ergebnis.status).toBe('fehler');
+        expect(ergebnis.grund).toContain('nicht auffindbar');
+        expect(ergebnis.ausgabe).toContain('ERROR');
+      });
+
+      it('nennt den Exit-Code, wenn gpsd sich beendet', () => {
+        const ergebnis = laufLassen([UBLOX], '', { gpsdCode: 1 });
+        expect(ergebnis.status).toBe('fehler');
+        expect(ergebnis.grund).toContain('Code 1');
+        // Und sagt ausdrücklich, dass es NICHT an der Gerätewahl liegt --
+        // genau die Verwechslung, die hier Zeit gekostet hat.
+        expect(ergebnis.grund).toContain('nicht an der Geräte');
+      });
+
+      it('erkennt die Neustartschleife am Abstand zum letzten Start', () => {
+        const ergebnis = laufLassen([UBLOX], '', { gpsdCode: 1, letzterStartVorS: 1 });
+        expect(ergebnis.ausgabe).toContain('Neustartschleife');
+      });
+
+      it('hält einen normalen Neustart NICHT für eine Schleife', () => {
+        // Lief gpsd stundenlang und stirbt dann, ist das ein Neustart und
+        // keine Schleife. Eine Warnung, die immer leuchtet, liest niemand.
+        const ergebnis = laufLassen([UBLOX], '', { gpsdCode: 1, letzterStartVorS: 3600 });
+        expect(ergebnis.ausgabe).not.toContain('Neustartschleife');
+        // Der Exit-Code steht trotzdem da.
+        expect(ergebnis.grund).toContain('Code 1');
+      });
+
+      it('merkt sich den Start, damit der NÄCHSTE Lauf die Schleife sieht', () => {
+        // Der eigentliche Mechanismus. Die Tests darüber legen die Startmarke
+        // selbst an und prüfen damit nur das Lesen; hier läuft das Skript
+        // ZWEIMAL im selben Verzeichnis — so, wie s6 es neu startet.
+        const erster = laufLassen([UBLOX], '', { gpsdCode: 1 });
+        expect(erster.ausgabe, 'der erste Lauf ist noch keine Schleife').not.toContain(
+          'Neustartschleife',
+        );
+        const zweiter = laufLassen([UBLOX], '', { gpsdCode: 1 }, erster.wurzel);
+        expect(zweiter.ausgabe, 'der zweite Lauf kurz darauf schon').toContain(
+          'Neustartschleife',
+        );
+      });
+
+      it('startet gpsd mit -D 2, damit es überhaupt etwas sagen kann', () => {
+        // Ohne das stirbt gpsd stumm, und der einzige Hinweis ist, dass das
+        // Skript eine Sekunde später wieder anläuft.
+        const quelltext = readFileSync(GPSD_RUN, 'utf-8');
+        expect(quelltext).toMatch(/gpsd -N -n -D 2 /);
+      });
     });
   });
 });
