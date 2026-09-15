@@ -10,6 +10,46 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.8
+
+**Zwei Aufräumarbeiten, die bestehende Konfigurationen brechen dürfen.**
+
+### ⚠️ Bitte vor dem Update lesen
+
+Diese Version **entfernt Rücksichtnahmen auf ältere Konfigurationen**. Das ist
+ausdrücklich abgesprochen — zum jetzigen Zeitpunkt gibt es nur eine
+Testinstallation. Wenn Sie das hier trotzdem lesen und Yapaia anderswo
+betreiben: **prüfen Sie nach dem Update Ihre Einstellungen.**
+
+### Die Positionsquelle heißt nur noch `companion_app`
+
+In der Quellen-Liste standen **zwei Knöpfe, die dasselbe bedeuten**:
+`companion_app` und `ha_tracker`. Der zweite ist der Name bis 0.8.2 und stand
+nur noch da, damit ein Update keine bestehende Installation still ohne
+Positionsquelle lässt. Auf der Konfigurationsseite war davon nichts zu sehen —
+man las zwei Möglichkeiten und musste raten, worin sie sich unterscheiden.
+
+Jetzt gibt es nur noch `companion_app`. **Stand bei Ihnen `ha_tracker`, wählen
+Sie die Quelle einmal neu.**
+
+Nicht betroffen: `Position.source` heißt in der Schnittstelle weiterhin
+`ha_tracker`. Das ist kein Schalter, sondern Übertragungsformat — es steht in
+`nav/state`, in den MQTT-Nutzlasten und in den Home-Assistant-Entitäten. Wer
+darauf eine Automatisierung gebaut hat, behält sie.
+
+### Optionen werden nur noch an ihrer Stelle gelesen
+
+Seit 0.8.4 liegen die selten angefassten Optionen in aufklappbaren Gruppen
+(`search.photon_enabled` statt `photon_enabled`). Bis 0.8.7 las Yapaia
+zusätzlich die alte, flache Stelle, damit ein Update keine Werte verliert.
+
+Auch das entfällt. Die zweite Stelle hatte schon einen Fehler getragen: den
+Wert `"null"` für einen fehlenden Schlüssel gab sie unverändert weiter. Eine
+Rücksichtnahme, die selbst Fehler einschleppt und niemandem mehr nützt, ist
+kein Gewinn.
+
+---
+
 ## 0.8.7
 
 **Wenn gpsd nicht startet, steht jetzt da, warum.**

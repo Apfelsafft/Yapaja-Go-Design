@@ -341,7 +341,7 @@ browser, and it keeps reporting with the screen locked and the phone in your
 pocket.
 
 1. Set `gps_source: companion_app` in the add-on options. (It was called
-   `ha_tracker` up to 0.8.2; that value still works.)
+   `ha_tracker` up to 0.8.2, and that value was removed in 0.8.8.)
 2. Open Yapaia Go → **🩺 Installationsprüfung**.
 3. Below the check list is a drop-down of the `device_tracker` entities your
    Home Assistant actually knows. Pick your phone.

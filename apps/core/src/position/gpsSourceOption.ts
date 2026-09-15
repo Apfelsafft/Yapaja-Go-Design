@@ -1,5 +1,5 @@
 /**
- * Die Add-on-Option `gps_source` — und ihr alter Name.
+ * Die Add-on-Option `gps_source` — der Wert für „Position aus der Companion App".
  *
  * ─── DIE UMBENENNUNG ────────────────────────────────────────────────────────
  * Gewünscht: „Bitte benenne ha_tracker auch in Companion App um."
@@ -10,35 +10,39 @@
  * genau dieses Wort. In der Add-on-Konfiguration steht der rohe Wert — ein
  * schöneres Etikett allein hätte also nichts geändert.
  *
- * ─── WARUM DER ALTE WERT TROTZDEM GILT ──────────────────────────────────────
- * Bestehende Installationen tragen `ha_tracker` in ihrer Konfiguration. Würde
- * der Wert einfach verschwinden, stünde nach dem Update eine Einstellung da,
- * die das Schema nicht mehr kennt — und die Positionsquelle wäre still aus.
- * Ein Update darf nicht die Navigation abschalten. Beide Werte bedeuten
- * deshalb dasselbe, und `init-yapaja-config.sh` schreibt den alten auf den
- * neuen um.
+ * ─── DER ALTE WERT IST SEIT 0.8.8 WEG ───────────────────────────────────────
+ * Bis 0.8.7 galt `ha_tracker` als zweiter, gleichbedeutender Wert weiter,
+ * damit ein Update keine bestehende Installation still ohne Positionsquelle
+ * dastehen lässt. Bezahlt wurde das mit zwei Knöpfen in der
+ * Konfigurationsseite, die dasselbe bedeuten — sichtbar und ohne jeden
+ * Hinweis darauf, dass der eine nur der alte Name des anderen ist.
  *
- * ─── WAS BEWUSST NICHT UMBENANNT WIRD ───────────────────────────────────────
+ * Der Betreiber hat die Lage geklärt: „Bis jetzt teste nur ich Yapaia […] Es
+ * ist also kein Problem bestehende Konfigurationen zu brechen." Damit ist die
+ * Rücksicht auf Installationen gegenstandslos, die es nicht gibt, und der
+ * doppelte Knopf hat keine Rechtfertigung mehr.
+ *
+ * ─── WAS WEITERHIN NICHT UMBENANNT WIRD ─────────────────────────────────────
  * `Position.source` heißt weiterhin `'ha_tracker'`. Das ist kein Etikett,
  * sondern Übertragungsformat: es steht in `nav/state`, in den MQTT-Nutzlasten
- * und in den Home-Assistant-Entitäten. Wer darauf eine Automatisierung gebaut
- * hat, verlöre sie bei einer Umbenennung — ein hoher Preis für ein Wort, das
- * dort ohnehin niemand liest.
+ * und in den Home-Assistant-Entitäten. Es ist auch KEINE Konfiguration —
+ * die Freigabe oben betrifft es deshalb nicht. Wer darauf eine
+ * Automatisierung gebaut hat, verlöre sie bei einer Umbenennung, und
+ * gewonnen wäre nichts: in der Oberfläche steht dort ohnehin „Companion App"
+ * (`onboarding/steps/GpsStep.tsx`).
  */
 
-/** Der Wert, der heute in der Add-on-Konfiguration steht. */
+/** Der Wert in der Add-on-Konfiguration. Der einzige seit 0.8.8. */
 export const COMPANION_APP_OPTION = 'companion_app';
-
-/** Der Wert bis 0.8.2. Gilt unverändert weiter. */
-export const COMPANION_APP_OPTION_ALT = 'ha_tracker';
 
 /**
  * Ist „Position aus der Companion App" gewählt?
  *
- * Eine Funktion und nicht ein Vergleich an jeder Aufrufstelle: es gibt zwei
- * gültige Werte, und ein vergessener zweiter Vergleich wäre ein Schalter, der
- * bei der Hälfte der Installationen stillschweigend nichts tut.
+ * Eine Funktion und nicht ein Vergleich an jeder Aufrufstelle: so steht der
+ * Optionswert an EINER Stelle. Bis 0.8.7 war das zwingend, weil es zwei
+ * gültige Werte gab und ein vergessener zweiter Vergleich ein Schalter
+ * gewesen wäre, der bei der Hälfte der Installationen nichts tut.
  */
 export function istCompanionAppQuelle(gpsSource: string | undefined | null): boolean {
-  return gpsSource === COMPANION_APP_OPTION || gpsSource === COMPANION_APP_OPTION_ALT;
+  return gpsSource === COMPANION_APP_OPTION;
 }

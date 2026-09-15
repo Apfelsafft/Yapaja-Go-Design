@@ -488,13 +488,13 @@ describe('Positionsprüfung', () => {
   it('liest den in der Oberfläche gewählten Tracker, nicht nur die Add-on-Option', async () => {
     const report = await runPreflight(
       healthyDeps({
-        // `GPSD_ENABLED: 'false'`, weil `gps_source: ha_tracker` gpsd
+        // `GPSD_ENABLED: 'false'`, weil `gps_source: companion_app` gpsd
         // ausschaltet (init-yapaja-config.sh) -- sonst gewinnt der
         // gpsd-Zweig, und der Test prüfte gar nicht, was er soll.
         env: {
           ...healthyDeps().env,
           GPSD_ENABLED: 'false',
-          GPS_SOURCE: 'ha_tracker',
+          GPS_SOURCE: 'companion_app',
           HA_DEVICE_TRACKER: '',
         },
         // Zwei Tracker: ohne Wahl würde die Prüfung zu Recht warnen.
@@ -594,10 +594,10 @@ describe('Positionsprüfung', () => {
       ...extra,
     });
 
-    it('nennt bei „gps_source: ha_tracker" mit mehreren Trackern jeden beim Namen', async () => {
+    it('nennt bei „gps_source: companion_app" mit mehreren Trackern jeden beim Namen', async () => {
       const report = await runPreflight(
         healthyDeps({
-          env: haEnv({ GPS_SOURCE: 'ha_tracker' }),
+          env: haEnv({ GPS_SOURCE: 'companion_app' }),
           listHaTrackers: async () => ['device_tracker.ipad', 'device_tracker.telefon'],
         }),
       );
@@ -611,7 +611,7 @@ describe('Positionsprüfung', () => {
     it('ist ok — und nennt die Entität — wenn es genau eine gibt (automatische Wahl)', async () => {
       const report = await runPreflight(
         healthyDeps({
-          env: haEnv({ GPS_SOURCE: 'ha_tracker' }),
+          env: haEnv({ GPS_SOURCE: 'companion_app' }),
           listHaTrackers: async () => ['device_tracker.telefon'],
         }),
       );
@@ -625,7 +625,7 @@ describe('Positionsprüfung', () => {
       const keiner = byId(
         (
           await runPreflight(
-            healthyDeps({ env: haEnv({ GPS_SOURCE: 'ha_tracker' }), listHaTrackers: async () => [] })
+            healthyDeps({ env: haEnv({ GPS_SOURCE: 'companion_app' }), listHaTrackers: async () => [] })
           )
         ).checks,
         'position',
@@ -637,7 +637,7 @@ describe('Positionsprüfung', () => {
         (
           await runPreflight(
             healthyDeps({
-              env: haEnv({ GPS_SOURCE: 'ha_tracker' }),
+              env: haEnv({ GPS_SOURCE: 'companion_app' }),
               listHaTrackers: async () => null,
             }),
           )
@@ -680,9 +680,9 @@ describe('Positionsprüfung', () => {
     // wer schon weiß, dass es sie gibt: der Weg zur Companion App muss in der
     // Voreinstellung („none", Browser) benannt sein.
     it('weist im Browser-Fall auf die Companion-App-Quelle hin', async () => {
-      // Hiess bis 0.8.3 „ha_tracker". Der alte Wert gilt weiter, aber in der
-      // Oberflaeche steht „companion_app" -- ein Hinweis auf einen Namen, den
-      // es dort nicht mehr gibt, schickt den Betreiber ins Leere.
+      // Hiess bis 0.8.2 „ha_tracker". Seit 0.8.8 gibt es den Wert gar nicht
+      // mehr -- ein Hinweis darauf schickt den Betreiber zu einer Einstellung,
+      // die das Schema ablehnt.
       const report = await runPreflight(healthyDeps({ env: haEnv() }));
       expect(byId(report.checks, 'position').remedy).toContain('companion_app');
       expect(byId(report.checks, 'position').remedy).not.toContain('ha_tracker');

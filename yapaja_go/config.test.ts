@@ -221,11 +221,12 @@ describe('yapaja_go/config.yaml is valid YAML with the required HA add-on keys',
     expect(match, `gps_source schema is not a list(): ${schema}`).not.toBeNull();
     const values = (match as RegExpExecArray)[1].split('|');
     expect(values).toContain('companion_app');
-    // Der ALTE Name muss im Schema bleiben. Bestehende Installationen tragen
-    // ihn in ihrer Konfiguration; verschwindet er, kennt der Supervisor den
-    // gespeicherten Wert nicht mehr -- und die Positionsquelle waere nach
-    // einem Update still aus.
-    expect(values).toContain('ha_tracker');
+    // Der ALTE Name ist seit 0.8.8 draussen. Bis 0.8.7 stand er zusaetzlich
+    // im Schema, damit ein Update keine bestehende Installation still ohne
+    // Positionsquelle laesst -- bezahlt mit ZWEI Knoepfen auf der
+    // Konfigurationsseite, die dasselbe bedeuten. Es gibt keine fremden
+    // Installationen, auf die Ruecksicht zu nehmen waere.
+    expect(values).not.toContain('ha_tracker');
     expect(values).toContain('usb');
     expect(values).toContain('network');
     expect(values).toContain('none');
@@ -996,11 +997,6 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
     expect(runInit({ 'display.theme': wert }).THEME_MODE).toBe(wert);
   });
 
-  it('nimmt einen alten, flach gespeicherten Wert an', () => {
-    // Genau wie bei den anderen Gruppen: erst die neue Stelle, dann die alte.
-    expect(runInit({ theme: 'dark' }).THEME_MODE).toBe('dark');
-  });
-
   it('macht ohne gesetzte Option keine Vorgabe — statt eine namens „null"', () => {
     // B-05: `bashio::config` liefert für eine ungesetzte Option den String
     // "null". Käme der durch, meldete der Kern eine Vorgabe „null", und die
@@ -1008,20 +1004,7 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
     expect(runInit({}).THEME_MODE).toBe('');
   });
 
-  // ─── DER ALTE OPTIONSWERT DARF NICHT INS LEERE LAUFEN ────────────────────
-  // Umbenannt wurde `ha_tracker` zu `companion_app`. Wer vor dem Update
-  // `ha_tracker` eingestellt hatte, muss danach dieselbe Quelle haben --
-  // sonst schaltet ein Update die Navigation ab, und es fällt erst im
-  // Fahrzeug auf. Deshalb wird das Skript hier AUSGEFÜHRT und nachgesehen,
-  // was am Ende in der Umgebung steht.
-  it('schreibt den alten Wert „ha_tracker" auf „companion_app" um', () => {
-    const env = runInit({ gps_source: 'ha_tracker' });
-    expect(env.GPS_SOURCE).toBe('companion_app');
-    // Und gpsd bleibt dabei aus -- wie beim neuen Wert auch.
-    expect(env.GPSD_ENABLED).toBe('false');
-  });
-
-  it('lässt den neuen Wert unverändert', () => {
+  it('reicht den Wert der Companion App unverändert durch', () => {
     const env = runInit({ gps_source: 'companion_app' });
     expect(env.GPS_SOURCE).toBe('companion_app');
     expect(env.GPSD_ENABLED).toBe('false');
@@ -1035,38 +1018,38 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
 
   // Der eigentliche Punkt: eine Installation ohne USB-Empfänger soll nicht
   // dauerhaft melden, dass ein Gerät nicht antwortet, das es nie gab.
-  // ─── EIN UPDATE DARF DIE EINSTELLUNGEN NICHT VERLIEREN ───────────────────
+  // ─── DIE GRUPPIERTEN SCHLUESSEL, UND NUR DIESE ───────────────────────────
   // Seit 0.8.4 liegen die selten angefassten Optionen in Gruppen
-  // (`search.photon_enabled`). Bestehende Installationen haben sie noch FLACH
-  // gespeichert. Wer aktualisiert, darf nicht plötzlich mit den Vorgaben
-  // dastehen -- etwa mit wieder eingeschaltetem Photon auf einem Gerät, dem
-  // dafür der Arbeitsspeicher fehlt.
+  // (`search.photon_enabled`). Bis 0.8.7 las das Skript zusaetzlich die alte,
+  // FLACHE Stelle, damit ein Update bestehende Werte nicht verliert. Seit
+  // 0.8.8 nicht mehr -- es gibt keine fremden Installationen, auf die
+  // Ruecksicht zu nehmen waere.
   //
-  // Geprüft wird das AUSGEFÜHRT: der gefälschte `bashio::config` liefert für
-  // den neuen Schlüssel „null" (so verhält sich bashio bei einem fehlenden
-  // Schlüssel) und nur für den alten einen Wert.
-  it('liest eine noch flach gespeicherte Konfiguration weiter', () => {
+  // Geprueft wird das AUSGEFUEHRT: der gefaelschte `bashio::config` liefert
+  // fuer die flache Stelle einen Wert und fuer die gruppierte „null" (so
+  // verhaelt sich bashio bei einem fehlenden Schluessel). Frueher gewann die
+  // flache; jetzt darf sie nicht mehr durchschlagen.
+  it('liest die flache Stelle NICHT mehr', () => {
     const env = runInit({
-      'search.photon_enabled': 'null',
-      photon_enabled: 'true',
       'search.photon_xmx_mb': 'null',
       photon_xmx_mb: '512',
       'routing.valhalla_memory_mb': 'null',
       valhalla_memory_mb: '4096',
-      'advanced.log_level': 'null',
-      log_level: 'debug',
     });
-    expect(env.PHOTON_ENABLED, 'Photon wäre stillschweigend wieder an').toBe('true');
-    expect(env.PHOTON_XMX_MB).toBe('512');
-    expect(env.VALHALLA_MEMORY_MB).toBe('4096');
-    expect(env.YAPAIA_LOG_LEVEL ?? env.LOG_LEVEL).toBe('debug');
+    expect(env.PHOTON_XMX_MB, 'die flache Stelle darf nicht mehr gelten').not.toBe('512');
+    expect(env.VALHALLA_MEMORY_MB).not.toBe('4096');
   });
 
-  it('die neue Form hat Vorrang vor der alten', () => {
-    // Stehen beide da (Supervisor hat den alten Schlüssel liegen lassen), gilt
-    // das, was der Betreiber zuletzt in der neuen Oberfläche gesetzt hat.
-    const env = runInit({ 'search.photon_xmx_mb': '2048', photon_xmx_mb: '512' });
-    expect(env.PHOTON_XMX_MB).toBe('2048');
+  it('macht aus einem fehlenden Schluessel keinen Wert namens „null"', () => {
+    // B-05, eine Ebene hoeher: genau diesen Fehler trug die alte
+    // Rueckfallebene -- den String "null" der flachen Stelle gab sie
+    // unveraendert weiter.
+    const env = runInit({ 'search.photon_xmx_mb': 'null' });
+    expect(env.PHOTON_XMX_MB).toBe('');
+  });
+
+  it('nimmt den gruppierten Wert', () => {
+    expect(runInit({ 'search.photon_xmx_mb': '2048' }).PHOTON_XMX_MB).toBe('2048');
   });
 
   it('schaltet gpsd bei der Companion App AUS und reicht die Quelle an den Core weiter', () => {

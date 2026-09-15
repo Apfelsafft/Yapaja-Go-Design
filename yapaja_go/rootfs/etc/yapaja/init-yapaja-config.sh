@@ -45,7 +45,7 @@ set -euo pipefail
 # steht im Betrieb IMMER auf der Vorgabe -- s6 setzt die Variable nicht. Der
 # Grund fuer die Klammer ist ein Test: `config.test.ts` fuehrt dieses Skript
 # mit einem gefaelschten bashio wirklich AUS und liest nach, was es exportiert
-# hat. Nur so laesst sich pruefen, dass `gps_source: ha_tracker` gpsd
+# hat. Nur so laesst sich pruefen, dass `gps_source: companion_app` gpsd
 # ausschaltet, statt zu pruefen, dass der Quelltext das Wort enthaelt -- was
 # beides zugleich wahr sein kann, ohne dass das eine aus dem anderen folgt.
 export_env() {
@@ -53,30 +53,23 @@ export_env() {
   echo -n "${value}" > "${S6_CONTAINER_ENVIRONMENT_DIR:-/run/s6/container_environment}/${name}"
 }
 
-# ─── EINE OPTION, ZWEI MOEGLICHE STELLEN ────────────────────────────────────
+# ─── EINE OPTION, EINE STELLE ───────────────────────────────────────────────
 # Seit 0.8.4 liegen die selten angefassten Optionen in aufklappbaren Gruppen
 # (`search.photon_enabled` statt `photon_enabled`) -- so, wie es „Terminal &
 # SSH" mit seinem Block „Server" macht.
 #
-# Bestehende Installationen haben die Werte aber noch FLACH gespeichert. Wer
-# aktualisiert, darf deswegen nicht ploetzlich mit den Vorgaben dastehen --
-# etwa mit wieder eingeschaltetem Photon auf einem Geraet, dem dafuer der
-# Arbeitsspeicher fehlt. Also: erst die neue Stelle, dann die alte.
+# Bis 0.8.7 las diese Funktion zusaetzlich die alte, FLACHE Stelle, damit ein
+# Update bestehende Werte nicht verliert. Seit 0.8.8 nicht mehr: es gibt keine
+# fremden Installationen, auf die Ruecksicht zu nehmen waere, und die zweite
+# Stelle hat schon einen Fehler getragen (den String "null" der alten Stelle
+# gab sie unveraendert weiter -- B-05, eine Ebene hoeher).
 #
 # `bashio::config` liefert fuer einen fehlenden Schluessel den String "null";
-# das zaehlt hier wie leer -- an BEIDEN Stellen.
-#
-# Der Rueckfall wurde anfangs nur auf der neuen Stelle geprueft. Steht eine
-# Option an keiner von beiden, kam dann "null" heraus und wanderte als
-# vermeintlicher Wert weiter -- dieselbe Falle, die `gps_device` und
-# `ha_device_tracker` oben schon einzeln abfangen mussten (B-05). Sie gehoert
-# hierher, an die eine Stelle, die beide Wege kennt.
-config_mit_rueckfall() {
-  local neu="$1" alt="$2" wert
-  wert="$(bashio::config "${neu}")"
-  if [ -z "${wert}" ] || [ "${wert}" = "null" ]; then
-    wert="$(bashio::config "${alt}")"
-  fi
+# das zaehlt hier wie leer. Diese Falle bleibt, sie hat mit der Gruppierung
+# nichts zu tun.
+config_wert() {
+  local wert
+  wert="$(bashio::config "$1")"
   if [ "${wert}" = "null" ]; then
     wert=""
   fi
@@ -86,17 +79,15 @@ config_mit_rueckfall() {
 bashio::log.info "init-yapaja-config: reading add-on options..."
 
 REGION="$(bashio::config 'region')"
-MQTT_PREFIX="$(config_mit_rueckfall 'home_assistant.mqtt_prefix' 'mqtt_prefix')"
-PHOTON_ENABLED="$(config_mit_rueckfall 'search.photon_enabled' 'photon_enabled')"
+MQTT_PREFIX="$(config_wert 'home_assistant.mqtt_prefix')"
+PHOTON_ENABLED="$(config_wert 'search.photon_enabled')"
+# `ha_tracker` hiess dieser Wert bis 0.8.2. Bis 0.8.7 wurde er hier auf
+# `companion_app` umgeschrieben, damit ein Update keine bestehende
+# Installation still ohne Positionsquelle laesst. Seit 0.8.8 ist er aus dem
+# Schema entfernt -- es gibt keine fremden Installationen, auf die Ruecksicht
+# zu nehmen waere --, und damit hat auch das Umschreiben keinen Gegenstand
+# mehr. Der Supervisor laesst den alten Wert gar nicht mehr durch.
 GPS_SOURCE="$(bashio::config 'gps_source')"
-# `ha_tracker` hiess bis 0.8.2 so und heisst jetzt `companion_app`. Der alte
-# Wert steht in jeder bestehenden Konfiguration; hier wird er einmal
-# umgeschrieben, damit der Rest des Systems nur noch EINEN Wert kennt. Ein
-# Update darf die Positionsquelle nicht still abschalten.
-if [ "${GPS_SOURCE}" = "ha_tracker" ]; then
-  bashio::log.info "init-yapaja-config: gps_source='ha_tracker' ist der alte Name -- gilt weiter, gelesen als 'companion_app'."
-  GPS_SOURCE="companion_app"
-fi
 # Welcher USB-Anschluss der Empfaenger ist. Leer = Yapaia sucht selbst
 # (/etc/yapaja/find-gps-device.sh). Dieselbe "null"-Falle wie unten bei
 # `ha_device_tracker`: `str?` liefert bei leerer Option den String "null", und
@@ -113,7 +104,7 @@ HA_DEVICE_TRACKER="$(bashio::config 'ha_device_tracker')"
 if [ "${HA_DEVICE_TRACKER}" = "null" ]; then
   HA_DEVICE_TRACKER=""
 fi
-LOG_LEVEL="$(config_mit_rueckfall 'advanced.log_level' 'log_level')"
+LOG_LEVEL="$(config_wert 'advanced.log_level')"
 # ─── DAS ERSCHEINUNGSBILD ───────────────────────────────────────────────────
 # Die Option heisst `sun`, weil „Nach Sonnenstand" das ist, was sie tut. Der
 # Kern kennt diese Betriebsart seit E07-T3 unter dem Namen `auto`, und der
@@ -123,17 +114,17 @@ LOG_LEVEL="$(config_mit_rueckfall 'advanced.log_level' 'log_level')"
 # Add-on „sun" durch, die Weboberflaeche erkennt den Wert nicht als gueltigen
 # Modus -- und die Vorgabe faellt STILL durch. Kein Fehler, keine Meldung,
 # nur ein Schalter, der nichts tut.
-THEME_MODE="$(config_mit_rueckfall 'display.theme' 'theme')"
+THEME_MODE="$(config_wert 'display.theme')"
 if [ "${THEME_MODE}" = "sun" ]; then
   THEME_MODE="auto"
 fi
-PHOTON_XMX_MB="$(config_mit_rueckfall 'search.photon_xmx_mb' 'photon_xmx_mb')"
-VALHALLA_MEMORY_MB="$(config_mit_rueckfall 'routing.valhalla_memory_mb' 'valhalla_memory_mb')"
-GPS_SIMULATOR="$(config_mit_rueckfall 'advanced.gps_simulator' 'gps_simulator')"
+PHOTON_XMX_MB="$(config_wert 'search.photon_xmx_mb')"
+VALHALLA_MEMORY_MB="$(config_wert 'routing.valhalla_memory_mb')"
+GPS_SIMULATOR="$(config_wert 'advanced.gps_simulator')"
 # Die beiden Wege, auf denen Yapaia seine Werte an Home Assistant meldet.
 # Warum es zwei gibt und wie sie sich vertragen, steht in `config.yaml`.
-MQTT_ENABLED="$(config_mit_rueckfall 'home_assistant.mqtt_enabled' 'mqtt_enabled')"
-HA_INTERNAL="$(config_mit_rueckfall 'home_assistant.ha_internal' 'ha_internal')"
+MQTT_ENABLED="$(config_wert 'home_assistant.mqtt_enabled')"
+HA_INTERNAL="$(config_wert 'home_assistant.ha_internal')"
 # Beide sind in `config.yaml` mit Vorgabe `true` deklariert. Kaeme hier
 # trotzdem einmal Leeres oder das beruehmte "null" heraus (genau die Falle,
 # die `ha_device_tracker` oben schon gestellt hat), waere `bashio::var.true`
@@ -279,13 +270,13 @@ export_env "PHOTON_XMX_MB" "${PHOTON_XMX_MB}"
 export_env "PHOTON_DATA_DIR" "${DATA_ROOT}/photon/photon_data"
 
 # ---- GPS source (docs/04 §3 "GPS-Quelle") ----
-# `usb` / `network` -> gpsd; `ha_tracker` -> Companion App; `none` -> Browser.
+# `usb` / `network` -> gpsd; `companion_app` -> Companion App; `none` -> Browser.
 # Der Core liest `GPS_SOURCE` selbst (apps/core/src/index.ts): bei
-# `ha_tracker` darf die HA-Quelle sich ihre Entitaet selbst suchen, statt eine
+# `companion_app` darf die HA-Quelle sich ihre Entitaet selbst suchen, statt eine
 # abgeschriebene Entity-ID zu verlangen.
 export_env "GPS_SOURCE" "${GPS_SOURCE}"
 # B-05: Position aus einer HA-`device_tracker`-Entitaet (Companion App).
-# Leer UND `gps_source != ha_tracker` = aus; der Core startet die Quelle dann
+# Leer UND `gps_source != companion_app` = aus; der Core startet die Quelle dann
 # gar nicht erst.
 export_env "HA_DEVICE_TRACKER" "${HA_DEVICE_TRACKER:-}"
 # Liest `gpsd/run` beim Aussuchen des Geraets. Immer exportieren, auch leer:
@@ -305,13 +296,13 @@ if [ "${GPS_SOURCE}" = "usb" ] || [ "${GPS_SOURCE}" = "network" ]; then
   export_env "GPSD_HOST" "127.0.0.1"
   export_env "GPSD_PORT" "2947"
 else
-  # Auch `ha_tracker` landet hier -- gpsd auf einer Installation ohne
+  # Auch `companion_app` landet hier -- gpsd auf einer Installation ohne
   # USB-Empfaenger zu starten, erzeugt nur eine Warnung ueber ein Geraet, das
   # es nicht gibt.
   export_env "GPSD_ENABLED" "false"
 fi
 if [ "${GPS_SOURCE}" = "companion_app" ] && [ -z "${HA_DEVICE_TRACKER}" ]; then
-  bashio::log.info "init-yapaja-config: gps_source=ha_tracker ohne feste Entity-ID -- der Core waehlt selbst, sofern es genau einen device_tracker mit Koordinaten gibt (sonst sagt die Installationspruefung, welche zur Wahl stehen)."
+  bashio::log.info "init-yapaja-config: gps_source=companion_app ohne feste Entity-ID -- der Core waehlt selbst, sofern es genau einen device_tracker mit Koordinaten gibt (sonst sagt die Installationspruefung, welche zur Wahl stehen)."
 fi
 
 # ---- HA output channel (E08-T3, docs/04 §2) via the Supervisor-proxied API -
