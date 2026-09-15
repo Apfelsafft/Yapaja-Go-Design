@@ -10,6 +10,73 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.10
+
+**Der USB-GPS-Empfänger läuft. Es fehlte ein einziger Schlüssel im Manifest.**
+
+### Die Ursache
+
+0.8.9 hat gpsd zum Reden gebracht, und damit stand es da:
+
+```
+gpsd:ERROR: SER: device open of /dev/serial/by-id/usb-u-blox_AG_-… failed:
+                 Operation not permitted(1) — retrying read-only
+gpsd:ERROR: initial GPS device … open failed
+gpsd:ERROR: can't run with neither control socket nor devices open
+```
+
+**Sichtbar ist nicht geöffnet.** Das Add-on deklarierte `usb: true` und
+`udev: true` — damit *erscheint* der Empfänger unter `/dev/serial/by-id/`. Die
+Installationsprüfung listete ihn, die Gerätewahl wählte ihn aus, das Protokoll
+meldete „benutze /dev/serial/by-id/usb-u-blox_AG_-…". **Öffnen** durfte der
+Container ihn trotzdem nicht.
+
+Dafür gibt es einen eigenen Schlüssel: **`uart`**. Er bildet die seriellen
+Geräte des Wirts in den Container ab, mitsamt den Rechten, sie zu öffnen. Zum
+Vergleich: das ESPHome-Add-on, das über USB-Seriell flasht, deklariert
+`uart: true` und gar kein `usb`.
+
+Der steht jetzt drin.
+
+### Was Sie tun müssen
+
+Nach dem Update das Add-on **neu starten**. Geräterechte werden beim Start des
+Containers vergeben.
+
+Danach sollte im Protokoll stehen:
+
+```
+INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-… (…)
+```
+
+— **einmal**, nicht im Sekundentakt. Und die Installationsprüfung meldet unter
+**Positionsquelle** „gpsd erreichbar unter 127.0.0.1:2947".
+
+### Läuft Home Assistant in einer VM?
+
+Dann wird der Empfänger **zweimal** durchgereicht, und die beiden Stufen
+scheitern unterschiedlich:
+
+| Stufe | Wer | Wie es aussieht, wenn sie fehlt |
+|---|---|---|
+| 1. Wirt → VM | der Hypervisor (Proxmox: *Hardware → Add → USB Device*) | das Gerät taucht gar nicht auf; die Geräteliste der Prüfung ist leer |
+| 2. VM → Add-on-Container | `uart: true` in diesem Add-on | das Gerät **wird** genannt, gpsd meldet aber `Operation not permitted` |
+
+Der Fehler oben war immer Stufe 2. Wäre Stufe 1 das Problem gewesen, gäbe es
+nichts zu benennen. Auf Proxmox funktionieren „Use USB Vendor/Device ID" und
+„Use USB Port" beide — bei einem GPS-Stick ist die Vendor/Device-ID meist die
+bessere Wahl, weil sie dem Empfänger über Steckplätze hinweg folgt.
+
+### Der Test, der die ganze Zeit grün war
+
+Es gab eine Zusicherung namens „declares usb + udev for GPS-receiver
+passthrough". Sie war immer erfüllt — während das Add-on den Empfänger nicht
+öffnen konnte. Sie prüfte das, was dastand, und nicht das, worauf es ankommt.
+
+Jetzt prüft sie `uart`, mit der Begründung daneben.
+
+---
+
 ## 0.8.9
 
 **gpsd startete und starb sofort — und das Protokoll las sich wie Erfolg.**

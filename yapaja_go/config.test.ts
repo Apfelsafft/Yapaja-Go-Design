@@ -186,10 +186,37 @@ describe('yapaja_go/config.yaml is valid YAML with the required HA add-on keys',
     }
   });
 
-  it('declares usb + udev for GPS-receiver passthrough', () => {
+  /**
+   * ─── SICHTBAR IST NICHT GEOEFFNET ────────────────────────────────────────
+   * Dieser Test hiess bis 0.8.9 „declares usb + udev for GPS-receiver
+   * passthrough" und war die ganze Zeit gruen -- waehrend das Add-on den
+   * Empfaenger nicht oeffnen konnte.
+   *
+   * `usb`/`udev` machen das Geraet SICHTBAR: es erschien unter
+   * /dev/serial/by-id/, die Installationspruefung listete es, die
+   * Geraetewahl waehlte es aus, das Protokoll meldete „benutze …". Das
+   * OEFFNEN scheiterte trotzdem:
+   *
+   *   gpsd:ERROR: SER: device open of … failed: Operation not permitted(1)
+   *   gpsd:ERROR: can't run with neither control socket nor devices open
+   *
+   * Dafuer ist `uart` da. Zum Vergleich: das ESPHome-Add-on, das ueber
+   * USB-Seriell flasht, deklariert `uart: true` und gar kein `usb`.
+   *
+   * Der Test prueft jetzt das, worauf es ankommt -- und nicht mehr nur das,
+   * was zufaellig dastand.
+   */
+  it('declares uart, so the container may actually OPEN the serial device', () => {
     const config = loadConfig();
-    expect(config.usb).toBe(true);
-    expect(config.udev).toBe(true);
+    expect(
+      config.uart,
+      'Ohne `uart: true` ist der Empfänger sichtbar, aber nicht zu öffnen: ' +
+        'gpsd bekommt EPERM und beendet sich, s6 startet im Sekundentakt neu.',
+    ).toBe(true);
+  });
+
+  it('declares udev, so a receiver plugged in later is noticed', () => {
+    expect(loadConfig().udev).toBe(true);
   });
 
   it('has the required option/schema keys from docs/04 §3 (region, mqtt_prefix, photon, gps_source, log_level, memory tuning)', () => {

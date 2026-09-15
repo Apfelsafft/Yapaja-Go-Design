@@ -63,10 +63,45 @@ Set `gps_source: usb` in the add-on's Configuration tab (as of 0.3.1 the
 default is `none`, because a USB receiver is an accessory most installs don't
 have — with `usb` set on a machine without one, the preflight warned forever
 about a device that was never there).
-`config.yaml` declares `usb: true` + `udev: true`, which makes the
-Supervisor pass USB device nodes and udev events through into the add-on's
-container — this is what lets our internal `gpsd` service actually see a
-plugged-in GPS receiver.
+`config.yaml` declares **`uart: true`** plus `usb: true` + `udev: true`.
+
+**`uart` is the one that matters**, and it was missing until 0.8.10. `usb` and
+`udev` make the receiver *visible* — it shows up under `/dev/serial/by-id/`,
+the health check lists it, the device selection picks it. But the container may
+not *open* it, and gpsd says so:
+
+```
+gpsd:ERROR: SER: device open of /dev/serial/by-id/… failed: Operation not permitted(1)
+gpsd:ERROR: can't run with neither control socket nor devices open
+```
+
+`uart: true` maps the host's serial devices into the container **with the
+permission to open them**. For comparison: the ESPHome add-on, which flashes
+over USB serial, declares `uart: true` and no `usb` at all — whether `usb` is
+still needed here is an open question, kept for now because `udev` supplies the
+events that make a later-plugged receiver noticed.
+
+Device permissions are granted when the container starts, so **restart the
+add-on** after changing anything here.
+
+### If Home Assistant runs in a VM (Proxmox, ESXi, …)
+
+Then the receiver has to be handed through **twice**, and the two stages fail
+differently:
+
+| Stage | Who does it | What it looks like when it is missing |
+|---|---|---|
+| 1. Host → VM | the hypervisor (e.g. Proxmox: *Hardware → Add → USB Device*) | the device does not appear at all; the health check's device list is empty |
+| 2. VM → add-on container | this add-on's `uart: true` | the device **is** listed, but gpsd reports `Operation not permitted` |
+
+So the `Operation not permitted` error is always stage 2. If stage 1 were the
+problem, there would be nothing to name.
+
+On Proxmox, **"Use USB Vendor/Device ID"** and **"Use USB Port"** both work.
+For a GPS dongle the vendor/device ID (a u-blox receiver reports `1546:01a7`)
+is usually the better one: it follows the receiver if you move it to another
+socket. The port variant binds to the physical socket instead. USB3 does not
+need to be ticked — these receivers are USB 2 serial devices.
 
 1. Plug in a USB GPS receiver (most USB-CDC-ACM "GPS mice" show up as
    `/dev/ttyACM0`; USB-serial-adapter-based ones as `/dev/ttyUSB0`).

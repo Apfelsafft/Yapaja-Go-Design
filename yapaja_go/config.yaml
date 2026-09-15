@@ -10,7 +10,7 @@
 name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.8.9"
+version: "0.8.10"
 # ─── MINDESTVERSION VON HOME ASSISTANT ──────────────────────────────────────
 # Seit 0.8.4 sind die selten angefassten Optionen in aufklappbaren Gruppen
 # zusammengefasst. Verschachtelte Konfiguration gibt es in Home Assistant aber
@@ -104,7 +104,35 @@ services:
   # automatisch (docs/04 §3 „MQTT-Credentials automatisch").
   - mqtt:want
 
-# USB-GPS passthrough (docs/04 §3, DOCS.md "USB-GPS").
+# ─── USB-GPS: SICHTBAR IST NICHT GEOEFFNET ──────────────────────────────────
+# `usb: true` reicht den rohen USB-Bus herein, `udev: true` die udev-Ereignisse.
+# Damit ERSCHEINT der Empfaenger unter /dev/serial/by-id/ -- die
+# Installationspruefung listete ihn, `find-gps-device.sh` waehlte ihn aus, und
+# das Protokoll meldete „benutze /dev/serial/by-id/usb-u-blox_AG_-…".
+#
+# OEFFNEN durfte der Container ihn trotzdem nicht. gpsd sagte es, sobald es
+# gefragt wurde (0.8.9 hat es gefragt):
+#
+#   gpsd:ERROR: SER: device open of /dev/serial/by-id/usb-u-blox_AG_-… failed:
+#                    Operation not permitted(1) - retrying read-only
+#   gpsd:ERROR: initial GPS device … open failed
+#   gpsd:ERROR: can't run with neither control socket nor devices open
+#
+# Danach beendete sich gpsd, s6 startete den Dienst neu, die Geraetesuche lief
+# erneut und meldete wieder Erfolg -- im Sekundentakt, und nirgends stand, dass
+# etwas fehlschlug.
+#
+# Der Schluessel dafuer heisst `uart`. Er bildet die seriellen Geraete des
+# Wirts in den Container ab, MIT den Rechten, sie zu oeffnen. Zum Vergleich:
+# das ESPHome-Add-on, das ueber USB-Seriell flasht, deklariert `uart: true`
+# und gar kein `usb`.
+uart: true
+
+# `usb`/`udev` bleiben vorerst stehen: `udev` liefert die Ereignisse, an denen
+# ein spaeter eingestecktes Geraet ueberhaupt auffaellt. Ob `usb` daneben noch
+# gebraucht wird, ist offen -- ESPHome kommt ohne aus. Es hier zu entfernen,
+# waere eine zweite Aenderung an derselben Stelle im selben Schritt; erst soll
+# der Empfaenger laufen. Siehe DOCS.md, Abschnitt "USB-GPS".
 usb: true
 udev: true
 
