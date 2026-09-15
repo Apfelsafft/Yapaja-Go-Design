@@ -221,11 +221,12 @@ describe('yapaja_go/config.yaml is valid YAML with the required HA add-on keys',
     expect(match, `gps_source schema is not a list(): ${schema}`).not.toBeNull();
     const values = (match as RegExpExecArray)[1].split('|');
     expect(values).toContain('companion_app');
-    // Der ALTE Name muss im Schema bleiben. Bestehende Installationen tragen
-    // ihn in ihrer Konfiguration; verschwindet er, kennt der Supervisor den
-    // gespeicherten Wert nicht mehr -- und die Positionsquelle waere nach
-    // einem Update still aus.
-    expect(values).toContain('ha_tracker');
+    // Der ALTE Name ist seit 0.8.8 draussen. Bis 0.8.7 stand er zusaetzlich
+    // im Schema, damit ein Update keine bestehende Installation still ohne
+    // Positionsquelle laesst -- bezahlt mit ZWEI Knoepfen auf der
+    // Konfigurationsseite, die dasselbe bedeuten. Es gibt keine fremden
+    // Installationen, auf die Ruecksicht zu nehmen waere.
+    expect(values).not.toContain('ha_tracker');
     expect(values).toContain('usb');
     expect(values).toContain('network');
     expect(values).toContain('none');
@@ -996,11 +997,6 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
     expect(runInit({ 'display.theme': wert }).THEME_MODE).toBe(wert);
   });
 
-  it('nimmt einen alten, flach gespeicherten Wert an', () => {
-    // Genau wie bei den anderen Gruppen: erst die neue Stelle, dann die alte.
-    expect(runInit({ theme: 'dark' }).THEME_MODE).toBe('dark');
-  });
-
   it('macht ohne gesetzte Option keine Vorgabe — statt eine namens „null"', () => {
     // B-05: `bashio::config` liefert für eine ungesetzte Option den String
     // "null". Käme der durch, meldete der Kern eine Vorgabe „null", und die
@@ -1008,20 +1004,7 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
     expect(runInit({}).THEME_MODE).toBe('');
   });
 
-  // ─── DER ALTE OPTIONSWERT DARF NICHT INS LEERE LAUFEN ────────────────────
-  // Umbenannt wurde `ha_tracker` zu `companion_app`. Wer vor dem Update
-  // `ha_tracker` eingestellt hatte, muss danach dieselbe Quelle haben --
-  // sonst schaltet ein Update die Navigation ab, und es fällt erst im
-  // Fahrzeug auf. Deshalb wird das Skript hier AUSGEFÜHRT und nachgesehen,
-  // was am Ende in der Umgebung steht.
-  it('schreibt den alten Wert „ha_tracker" auf „companion_app" um', () => {
-    const env = runInit({ gps_source: 'ha_tracker' });
-    expect(env.GPS_SOURCE).toBe('companion_app');
-    // Und gpsd bleibt dabei aus -- wie beim neuen Wert auch.
-    expect(env.GPSD_ENABLED).toBe('false');
-  });
-
-  it('lässt den neuen Wert unverändert', () => {
+  it('reicht den Wert der Companion App unverändert durch', () => {
     const env = runInit({ gps_source: 'companion_app' });
     expect(env.GPS_SOURCE).toBe('companion_app');
     expect(env.GPSD_ENABLED).toBe('false');
@@ -1035,38 +1018,38 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
 
   // Der eigentliche Punkt: eine Installation ohne USB-Empfänger soll nicht
   // dauerhaft melden, dass ein Gerät nicht antwortet, das es nie gab.
-  // ─── EIN UPDATE DARF DIE EINSTELLUNGEN NICHT VERLIEREN ───────────────────
+  // ─── DIE GRUPPIERTEN SCHLUESSEL, UND NUR DIESE ───────────────────────────
   // Seit 0.8.4 liegen die selten angefassten Optionen in Gruppen
-  // (`search.photon_enabled`). Bestehende Installationen haben sie noch FLACH
-  // gespeichert. Wer aktualisiert, darf nicht plötzlich mit den Vorgaben
-  // dastehen -- etwa mit wieder eingeschaltetem Photon auf einem Gerät, dem
-  // dafür der Arbeitsspeicher fehlt.
+  // (`search.photon_enabled`). Bis 0.8.7 las das Skript zusaetzlich die alte,
+  // FLACHE Stelle, damit ein Update bestehende Werte nicht verliert. Seit
+  // 0.8.8 nicht mehr -- es gibt keine fremden Installationen, auf die
+  // Ruecksicht zu nehmen waere.
   //
-  // Geprüft wird das AUSGEFÜHRT: der gefälschte `bashio::config` liefert für
-  // den neuen Schlüssel „null" (so verhält sich bashio bei einem fehlenden
-  // Schlüssel) und nur für den alten einen Wert.
-  it('liest eine noch flach gespeicherte Konfiguration weiter', () => {
+  // Geprueft wird das AUSGEFUEHRT: der gefaelschte `bashio::config` liefert
+  // fuer die flache Stelle einen Wert und fuer die gruppierte „null" (so
+  // verhaelt sich bashio bei einem fehlenden Schluessel). Frueher gewann die
+  // flache; jetzt darf sie nicht mehr durchschlagen.
+  it('liest die flache Stelle NICHT mehr', () => {
     const env = runInit({
-      'search.photon_enabled': 'null',
-      photon_enabled: 'true',
       'search.photon_xmx_mb': 'null',
       photon_xmx_mb: '512',
       'routing.valhalla_memory_mb': 'null',
       valhalla_memory_mb: '4096',
-      'advanced.log_level': 'null',
-      log_level: 'debug',
     });
-    expect(env.PHOTON_ENABLED, 'Photon wäre stillschweigend wieder an').toBe('true');
-    expect(env.PHOTON_XMX_MB).toBe('512');
-    expect(env.VALHALLA_MEMORY_MB).toBe('4096');
-    expect(env.YAPAIA_LOG_LEVEL ?? env.LOG_LEVEL).toBe('debug');
+    expect(env.PHOTON_XMX_MB, 'die flache Stelle darf nicht mehr gelten').not.toBe('512');
+    expect(env.VALHALLA_MEMORY_MB).not.toBe('4096');
   });
 
-  it('die neue Form hat Vorrang vor der alten', () => {
-    // Stehen beide da (Supervisor hat den alten Schlüssel liegen lassen), gilt
-    // das, was der Betreiber zuletzt in der neuen Oberfläche gesetzt hat.
-    const env = runInit({ 'search.photon_xmx_mb': '2048', photon_xmx_mb: '512' });
-    expect(env.PHOTON_XMX_MB).toBe('2048');
+  it('macht aus einem fehlenden Schluessel keinen Wert namens „null"', () => {
+    // B-05, eine Ebene hoeher: genau diesen Fehler trug die alte
+    // Rueckfallebene -- den String "null" der flachen Stelle gab sie
+    // unveraendert weiter.
+    const env = runInit({ 'search.photon_xmx_mb': 'null' });
+    expect(env.PHOTON_XMX_MB).toBe('');
+  });
+
+  it('nimmt den gruppierten Wert', () => {
+    expect(runInit({ 'search.photon_xmx_mb': '2048' }).PHOTON_XMX_MB).toBe('2048');
   });
 
   it('schaltet gpsd bei der Companion App AUS und reicht die Quelle an den Core weiter', () => {
@@ -1283,6 +1266,265 @@ describe('find-gps-device.sh — die Geräteauswahl, ausgeführt', () => {
     expect(ergebnis.code).toBe(1);
     expect(ergebnis.device).toBe('');
     expect(ergebnis.grund).toContain('/dev/ttyUSB9');
+  });
+
+  // ─── DER FEHLENDE FÜHRENDE SCHRÄGSTRICH ───────────────────────────────────
+  // Gemeldet mit genau diesem Inhalt im Feld „USB-Gerät":
+  //   dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_7_-_GPS_GNSS_Receiver-if00
+  // Beim Abtippen aus der Prüfmeldung geht der Schrägstrich leicht verloren,
+  // und er ist im Eingabefeld nicht zu sehen. Ohne Behandlung ist das ein
+  // RELATIVER Pfad: was er bedeutet, hängt am Arbeitsverzeichnis des
+  // s6-Dienstes — mal trifft er zufällig, mal nichts.
+  it('berichtigt einen Pfad ohne führenden Schrägstrich', () => {
+    const ergebnis = waehle([UBLOX], UBLOX.slice(1));
+    expect(ergebnis.code).toBe(0);
+    expect(ergebnis.device).toBe(UBLOX);
+  });
+
+  it('sagt auch, DASS berichtigt wurde — sonst bleibt es in der Konfiguration falsch', () => {
+    const ergebnis = waehle([UBLOX], UBLOX.slice(1));
+    expect(ergebnis.grund).toContain('Schrägstrich');
+    expect(ergebnis.grund).toContain(UBLOX);
+  });
+
+  it('macht aus einem falschen relativen Pfad kein richtiges Gerät', () => {
+    // Die Berichtigung darf nur den Schrägstrich ergänzen, nicht raten.
+    const ergebnis = waehle([UBLOX], 'dev/ttyUSB9');
+    expect(ergebnis.code).toBe(1);
+    expect(ergebnis.device).toBe('');
+  });
+
+  it('lässt einen bereits absoluten Pfad unangetastet', () => {
+    const ergebnis = waehle([UBLOX], UBLOX);
+    expect(ergebnis.code).toBe(0);
+    expect(ergebnis.device).toBe(UBLOX);
+    expect(ergebnis.grund).not.toContain('Schrägstrich');
+  });
+
+  /**
+   * ─── DIE BEGRÜNDUNG MUSS DEN DIENST VERLASSEN ─────────────────────────────
+   * `find-gps-device.sh` bildet einen genauen Klartext. Bis 0.8.6 ging der nur
+   * ins Add-on-Protokoll, und die Installationsprüfung zeigte „gpsd antwortet
+   * nicht" samt einer Liste zum Durchprobieren. Gemeldet wurde genau daran:
+   * „Der VK-162 scheint aber korrekt erkannt zu werden. Gpsd aber nicht?"
+   *
+   * Geprüft wird hier, dass `gpsd/run` die Datei WIRKLICH schreibt — ohne sie
+   * ist der Weg in der Prüfung eine leere Zusicherung. Eine Textprüfung wäre
+   * grün, sobald „status_schreiben" irgendwo im Skript steht.
+   */
+  describe('gpsd/run hinterlegt die Begründung für die Installationsprüfung', () => {
+    const GPSD_RUN = join(ADDON_DIR, 'rootfs', 'etc/s6-overlay/s6-rc.d/gpsd/run');
+
+    /** Führt `gpsd/run` so weit aus, bis es entweder gpsd startet oder einmal
+     *  erfolglos gesucht hat, und liefert die hinterlegte Statusdatei. */
+    interface Lauf {
+      status: string;
+      grund: string;
+      ausgabe: string;
+    }
+
+    interface Umstaende {
+      /** Liegt ein `gpsd` im PATH? */
+      gpsdVorhanden?: boolean;
+      /** Beendet es sich sofort (und mit welchem Code)? `null` = laeuft. */
+      gpsdCode?: number | null;
+      /** Wie lange der letzte Start her ist, in Sekunden. */
+      letzterStartVorS?: number;
+      /** Nach dieser Zeit abbrechen — für den Fall, dass gpsd am Leben bleibt
+       *  und das Skript wie im Betrieb in `wait` steht. */
+      abbruchNachMs?: number;
+    }
+
+    /**
+     * Führt `gpsd/run` aus und liefert die Statusdatei samt Protokollausgabe.
+     *
+     * `gpsd` selbst gibt es im Testcontainer nicht — und es soll auch nicht.
+     * Untergeschoben wird ein Skript, dessen Verhalten der Test bestimmt:
+     * fehlend, sofort sterbend, oder laufend. Nur so lässt sich der gemeldete
+     * Fall überhaupt nachstellen.
+     */
+    function laufLassen(
+      geraete: string[],
+      gpsDevice = '',
+      umstaende: Umstaende = {},
+      /** Vorhandenes Arbeitsverzeichnis weiterbenutzen — so lässt sich ein
+       *  ZWEITER Lauf mit derselben Startmarke prüfen, wie ihn s6 auslöst. */
+      wurzelVorgabe?: string,
+    ): Lauf & { wurzel: string } {
+      const { gpsdVorhanden = true, gpsdCode = 0, letzterStartVorS, abbruchNachMs = 20_000 } = umstaende;
+      const wurzel = wurzelVorgabe ?? mkdtempSync(join(tmpdir(), 'yapaja-gpsd-'));
+      for (const pfad of geraete) {
+        const ziel = join(wurzel, pfad);
+        mkdirSync(dirname(ziel), { recursive: true });
+        writeFileSync(ziel, '');
+      }
+      const statusDatei = join(wurzel, 'gps-status');
+
+      // Ein PATH, der NUR das enthält, was der Test erlaubt — sonst fände das
+      // Skript womöglich ein echtes gpsd des Build-Rechners.
+      const binDir = join(wurzel, 'bin');
+      mkdirSync(binDir, { recursive: true });
+      if (gpsdVorhanden) {
+        writeFileSync(
+          join(binDir, 'gpsd'),
+          gpsdCode === null
+            ? '#!/usr/bin/env bash\nsleep 30\n'
+            : `#!/usr/bin/env bash\nexit ${gpsdCode}\n`,
+          { mode: 0o755 },
+        );
+      }
+      if (letzterStartVorS !== undefined) {
+        writeFileSync(
+          join(wurzel, 'gpsd-letzter-start'),
+          String(Math.floor(Date.now() / 1000) - letzterStartVorS),
+        );
+      }
+
+      const echt = readFileSync(GPSD_RUN, 'utf-8');
+      const rumpf = echt
+        .slice(echt.indexOf('source /etc/yapaja/find-gps-device.sh'))
+        .replace('source /etc/yapaja/find-gps-device.sh', `source ${JSON.stringify(FIND_SCRIPT)}`)
+        // Nicht ewig weitersuchen: eine Runde genügt für die Aussage.
+        .replace('sleep 15', 'exit 0');
+
+      const stubPath = join(wurzel, 'run.sh');
+      writeFileSync(
+        stubPath,
+        [
+          '#!/usr/bin/env bash',
+          'bashio::log.info() { echo "INFO: $*"; }',
+          'bashio::log.warning() { echo "WARN: $*"; }',
+          'bashio::log.error() { echo "ERROR: $*"; }',
+          rumpf,
+        ].join('\n'),
+      );
+
+      let ausgabe = '';
+      try {
+        ausgabe = execFileSync('bash', [stubPath], {
+          env: {
+            // `PATH` bewusst eng: nur der Stub-Ordner und die Systemwerkzeuge,
+            // die das Skript selbst braucht.
+            PATH: `${binDir}:/usr/bin:/bin`,
+            YAPAIA_DEV_ROOT: wurzel,
+            GPS_DEVICE: gpsDevice,
+            GPS_SOURCE: 'usb',
+            GPS_STATUS_DATEI: statusDatei,
+            // Im Test wird nicht gewartet.
+            GPSD_FEHLT_WARTE_S: '0',
+            GPSD_BREMSE_S: '0',
+          },
+          encoding: 'utf-8',
+          timeout: abbruchNachMs,
+        });
+      } catch (fehler) {
+        // Ein Exit ungleich 0 ist hier ein ERGEBNIS, kein Testfehler: genau so
+        // verlässt das Skript den Dienst, wenn gpsd stirbt.
+        const e = fehler as { stdout?: string; stderr?: string };
+        ausgabe = `${e.stdout ?? ''}${e.stderr ?? ''}`;
+      }
+
+      const [status, ...rest] = readFileSync(statusDatei, 'utf-8').split('\n');
+      return {
+        wurzel,
+        status,
+        grund: rest.join('\n').replace(new RegExp(wurzel, 'g'), '').trim(),
+        ausgabe: ausgabe.replace(new RegExp(wurzel, 'g'), ''),
+      };
+    }
+
+    it('schreibt „bereit", solange gpsd wirklich läuft', () => {
+      // `gpsdCode: null` = das untergeschobene gpsd bleibt am Leben, das
+      // Skript steht also wie im Betrieb in `wait`. Der Abbruch danach ist
+      // kein Fehlschlag, sondern der einzige Weg, den LAUFENDEN Zustand zu
+      // beobachten -- danach stünde dort zu Recht „fehler".
+      const ergebnis = laufLassen([UBLOX], '', { gpsdCode: null, abbruchNachMs: 2500 });
+      expect(ergebnis.status).toBe('bereit');
+      expect(ergebnis.grund).toContain(UBLOX);
+    });
+
+    it('schreibt bei Misserfolg den GRUND — das ist der gemeldete Fall', () => {
+      const ergebnis = laufLassen([UBLOX], '/dev/ttyUSB9');
+      expect(ergebnis.status).toBe('suchend');
+      expect(ergebnis.grund).toContain('/dev/ttyUSB9');
+      expect(ergebnis.grund).toContain('dort liegt nichts');
+    });
+
+    it('meldet auch die Mehrdeutigkeit, statt sie zu verschweigen', () => {
+      const ergebnis = laufLassen([SKYCONNECT, ZWAVE]);
+      expect(ergebnis.status).toBe('suchend');
+      expect(ergebnis.grund).toContain('SkyConnect');
+    });
+
+    /**
+     * ─── DER GEMELDETE FALL ───────────────────────────────────────────────
+     * Aus dem Protokoll, im Sekundentakt:
+     *
+     *   [23:51:37] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+     *   [23:51:38] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+     *   [23:51:39] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+     *
+     * Das Gerät WURDE gefunden. gpsd startete, starb sofort, s6 startete den
+     * Dienst neu — und das Protokoll las sich wie ein gesunder Dienst. Nirgends
+     * stand, dass etwas fehlschlug; der Core meldete nur ECONNREFUSED auf 2947.
+     *
+     * Diese Tests halten fest, dass so etwas ab jetzt SAGT, was los ist.
+     */
+    describe('wenn gpsd nicht läuft', () => {
+      it('sagt es, wenn gpsd im Image gar nicht auffindbar ist', () => {
+        // `exec` auf ein fehlendes Programm endet mit 127, s6 startet neu, und
+        // im Protokoll steht weiter nur „benutze /dev/…". Dass `osmium` in
+        // diesem Image schon einmal ganz fehlte, macht den Fall real.
+        const ergebnis = laufLassen([UBLOX], '', { gpsdVorhanden: false });
+        expect(ergebnis.status).toBe('fehler');
+        expect(ergebnis.grund).toContain('nicht auffindbar');
+        expect(ergebnis.ausgabe).toContain('ERROR');
+      });
+
+      it('nennt den Exit-Code, wenn gpsd sich beendet', () => {
+        const ergebnis = laufLassen([UBLOX], '', { gpsdCode: 1 });
+        expect(ergebnis.status).toBe('fehler');
+        expect(ergebnis.grund).toContain('Code 1');
+        // Und sagt ausdrücklich, dass es NICHT an der Gerätewahl liegt --
+        // genau die Verwechslung, die hier Zeit gekostet hat.
+        expect(ergebnis.grund).toContain('nicht an der Geräte');
+      });
+
+      it('erkennt die Neustartschleife am Abstand zum letzten Start', () => {
+        const ergebnis = laufLassen([UBLOX], '', { gpsdCode: 1, letzterStartVorS: 1 });
+        expect(ergebnis.ausgabe).toContain('Neustartschleife');
+      });
+
+      it('hält einen normalen Neustart NICHT für eine Schleife', () => {
+        // Lief gpsd stundenlang und stirbt dann, ist das ein Neustart und
+        // keine Schleife. Eine Warnung, die immer leuchtet, liest niemand.
+        const ergebnis = laufLassen([UBLOX], '', { gpsdCode: 1, letzterStartVorS: 3600 });
+        expect(ergebnis.ausgabe).not.toContain('Neustartschleife');
+        // Der Exit-Code steht trotzdem da.
+        expect(ergebnis.grund).toContain('Code 1');
+      });
+
+      it('merkt sich den Start, damit der NÄCHSTE Lauf die Schleife sieht', () => {
+        // Der eigentliche Mechanismus. Die Tests darüber legen die Startmarke
+        // selbst an und prüfen damit nur das Lesen; hier läuft das Skript
+        // ZWEIMAL im selben Verzeichnis — so, wie s6 es neu startet.
+        const erster = laufLassen([UBLOX], '', { gpsdCode: 1 });
+        expect(erster.ausgabe, 'der erste Lauf ist noch keine Schleife').not.toContain(
+          'Neustartschleife',
+        );
+        const zweiter = laufLassen([UBLOX], '', { gpsdCode: 1 }, erster.wurzel);
+        expect(zweiter.ausgabe, 'der zweite Lauf kurz darauf schon').toContain(
+          'Neustartschleife',
+        );
+      });
+
+      it('startet gpsd mit -D 2, damit es überhaupt etwas sagen kann', () => {
+        // Ohne das stirbt gpsd stumm, und der einzige Hinweis ist, dass das
+        // Skript eine Sekunde später wieder anläuft.
+        const quelltext = readFileSync(GPSD_RUN, 'utf-8');
+        expect(quelltext).toMatch(/gpsd -N -n -D 2 /);
+      });
+    });
   });
 });
 

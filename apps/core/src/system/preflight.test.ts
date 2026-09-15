@@ -50,6 +50,13 @@ function healthyDeps(overrides: Partial<PreflightDeps> = {}): PreflightDeps {
     // Test, damit kein Test versehentlich echte Zustände holt; die Tests, in
     // denen es um Tracker geht, setzen es ausdrücklich.
     listHaTrackers: async () => null,
+    // `null` = „der gpsd-Dienst hat nichts hinterlegt". Ausdruecklich gesetzt,
+    // damit kein Test die echte Datei unter /run liest -- sonst haenge das
+    // Ergebnis daran, ob auf dem Rechner zufaellig ein Add-on laeuft.
+    readGpsStatus: async () => null,
+    // Vorgabe: jeder Pfad loest sich auf. Die Tests, in denen es um einen
+    // haengenden by-id-Verweis geht, setzen es ausdruecklich auf `false`.
+    pathResolves: async () => true,
     totalMem: () => 16 * GB,
     diskFree: async () => 40 * GB,
     now: () => new Date('2026-09-01T10:00:00.000Z'),
@@ -339,6 +346,109 @@ describe('Positionsprüfung', () => {
     expect(pos.remedy).toContain('Browser');
   });
 
+  // ─── DIE BEGRUENDUNG DES DIENSTES MUSS HIER ANKOMMEN ──────────────────────
+  // Gemeldet: „Der VK-162 scheint aber korrekt erkannt zu werden. Gpsd aber
+  // nicht?" -- und genau das war aus dieser Meldung nicht zu beantworten. Der
+  // gpsd-Dienst WEISS, warum er nichts in Betrieb genommen hat; bis 0.8.6
+  // stand das nur im Add-on-Protokoll, und hier eine Liste zum Durchprobieren.
+  describe('die Begründung des gpsd-Dienstes', () => {
+    const NICHT_DA =
+      "gps_device ist auf '/dev/ttyUSB9' gesetzt, aber dort liegt nichts.";
+
+    it('steht in der Handlungsanweisung, wenn der Dienst eine hinterlegt hat', async () => {
+      const report = await runPreflight(
+        healthyDeps({ tcpProbe: async () => false, readGpsStatus: async () => NICHT_DA }),
+      );
+      expect(byId(report.checks, 'position').remedy).toContain(NICHT_DA);
+    });
+
+    it('steht VORN — nicht hinter der Liste möglicher Ursachen', async () => {
+      // Wer die Antwort erst nach vier Sätzen Rätselraten findet, hat sie
+      // praktisch nicht. Die Meldung ist im Add-on-Fenster schmal und lang.
+      const report = await runPreflight(
+        healthyDeps({ tcpProbe: async () => false, readGpsStatus: async () => NICHT_DA }),
+      );
+      const remedy = byId(report.checks, 'position').remedy ?? '';
+      expect(remedy.indexOf(NICHT_DA)).toBeLessThan(remedy.indexOf('Prüfen Sie'));
+    });
+
+    it('fehlt sie, bleiben die allgemeinen Hinweise — ohne leeren Vorspann', async () => {
+      // Standalone-Betrieb, oder die Prüfung kommt dem Dienst zuvor.
+      const report = await runPreflight(
+        healthyDeps({ tcpProbe: async () => false, readGpsStatus: async () => null }),
+      );
+      const remedy = byId(report.checks, 'position').remedy ?? '';
+      expect(remedy).not.toContain('Der gpsd-Dienst meldet');
+      expect(remedy).toContain('Prüfen Sie');
+    });
+
+    it('behandelt eine leere Datei wie gar keine', async () => {
+      const report = await runPreflight(
+        healthyDeps({ tcpProbe: async () => false, readGpsStatus: async () => '   ' }),
+      );
+      expect(byId(report.checks, 'position').remedy).not.toContain('Der gpsd-Dienst meldet');
+    });
+
+    it('nennt den führenden Schrägstrich — der gemeldete Fehler war genau der', async () => {
+      const report = await runPreflight(healthyDeps({ tcpProbe: async () => false }));
+      expect(byId(report.checks, 'position').remedy).toContain('Schrägstrich');
+    });
+
+    // ─── DER WIDERSPRUCH, DEN DER BETREIBER SAH ──────────────────────────
+    // „Der VK-162 scheint korrekt erkannt zu werden. Gpsd aber nicht?" --
+    // und die Pruefung listete das Geraet tatsaechlich auf. `/dev/serial/
+    // by-id/` besteht aber aus SYMLINKS. `readdir` listet den Namen auch
+    // dann, wenn das Ziel fehlt; `gpsd/run` prueft mit `[ -e ]`, das dem
+    // Link folgt, und sagt „dort liegt nichts". Beide hatten recht.
+    it('vermerkt einen by-id-Verweis, dessen Ziel fehlt', async () => {
+      const report = await runPreflight(
+        healthyDeps({
+          tcpProbe: async () => false,
+          listDir: async () => ['usb-u-blox_AG_-_GPS_GNSS_Receiver-if00'],
+          pathResolves: async () => false,
+        }),
+      );
+      const remedy = byId(report.checks, 'position').remedy ?? '';
+      expect(remedy).toContain('usb-u-blox_AG_-_GPS_GNSS_Receiver-if00 (Verweis zeigt ins Leere)');
+      expect(remedy).toContain('ist der Name da und das Gerät nicht');
+    });
+
+    it('vermerkt nichts, wenn sich alle Pfade auflösen', async () => {
+      // Sonst stuende der Hinweis immer da und saegte an seiner eigenen
+      // Aussagekraft -- eine Warnung, die immer leuchtet, liest niemand.
+      const report = await runPreflight(
+        healthyDeps({
+          tcpProbe: async () => false,
+          listDir: async () => ['usb-u-blox_AG_-_GPS_GNSS_Receiver-if00'],
+          pathResolves: async () => true,
+        }),
+      );
+      expect(byId(report.checks, 'position').remedy).not.toContain('(Verweis zeigt ins Leere)');
+      expect(byId(report.checks, 'position').remedy).not.toContain('ist der Name da und das Gerät nicht');
+    });
+
+    it('sagt, dass Speichern ohne Neustart nichts bewirkt', async () => {
+      // Die Optionen werden beim Start des Containers gelesen. Wer nur
+      // speichert, aendert am laufenden gpsd nichts -- und sucht den Fehler
+      // dann am Pfad, der laengst stimmt.
+      const report = await runPreflight(healthyDeps({ tcpProbe: async () => false }));
+      expect(byId(report.checks, 'position').remedy).toContain('NEU STARTEN');
+    });
+
+    it('nennt das Protokoll als die Stelle mit der Antwort', async () => {
+      const report = await runPreflight(healthyDeps({ tcpProbe: async () => false }));
+      expect(byId(report.checks, 'position').remedy).toContain('Protokoll');
+    });
+
+    it('nennt nicht mehr den alten Namen „ha_tracker"', async () => {
+      // Umbenannt in 0.8.3. Dieser Text blieb stehen und schickte den
+      // Betreiber zu einer Einstellung, die in der Oberfläche anders heisst.
+      const report = await runPreflight(healthyDeps({ tcpProbe: async () => false }));
+      expect(byId(report.checks, 'position').remedy).not.toContain('ha_tracker');
+      expect(byId(report.checks, 'position').remedy).toContain('companion_app');
+    });
+  });
+
   // ─── DEN PFAD MUSS MAN IRGENDWO ABLESEN KOENNEN ───────────────────────────
   // Der Hilfetext sagt seit 0.3.1 „tragen Sie das Gerät unter `gps_device`
   // ein". Die Option gab es bis 0.8.2 gar nicht -- und wo man den Pfad
@@ -378,13 +488,13 @@ describe('Positionsprüfung', () => {
   it('liest den in der Oberfläche gewählten Tracker, nicht nur die Add-on-Option', async () => {
     const report = await runPreflight(
       healthyDeps({
-        // `GPSD_ENABLED: 'false'`, weil `gps_source: ha_tracker` gpsd
+        // `GPSD_ENABLED: 'false'`, weil `gps_source: companion_app` gpsd
         // ausschaltet (init-yapaja-config.sh) -- sonst gewinnt der
         // gpsd-Zweig, und der Test prüfte gar nicht, was er soll.
         env: {
           ...healthyDeps().env,
           GPSD_ENABLED: 'false',
-          GPS_SOURCE: 'ha_tracker',
+          GPS_SOURCE: 'companion_app',
           HA_DEVICE_TRACKER: '',
         },
         // Zwei Tracker: ohne Wahl würde die Prüfung zu Recht warnen.
@@ -484,10 +594,10 @@ describe('Positionsprüfung', () => {
       ...extra,
     });
 
-    it('nennt bei „gps_source: ha_tracker" mit mehreren Trackern jeden beim Namen', async () => {
+    it('nennt bei „gps_source: companion_app" mit mehreren Trackern jeden beim Namen', async () => {
       const report = await runPreflight(
         healthyDeps({
-          env: haEnv({ GPS_SOURCE: 'ha_tracker' }),
+          env: haEnv({ GPS_SOURCE: 'companion_app' }),
           listHaTrackers: async () => ['device_tracker.ipad', 'device_tracker.telefon'],
         }),
       );
@@ -501,7 +611,7 @@ describe('Positionsprüfung', () => {
     it('ist ok — und nennt die Entität — wenn es genau eine gibt (automatische Wahl)', async () => {
       const report = await runPreflight(
         healthyDeps({
-          env: haEnv({ GPS_SOURCE: 'ha_tracker' }),
+          env: haEnv({ GPS_SOURCE: 'companion_app' }),
           listHaTrackers: async () => ['device_tracker.telefon'],
         }),
       );
@@ -515,7 +625,7 @@ describe('Positionsprüfung', () => {
       const keiner = byId(
         (
           await runPreflight(
-            healthyDeps({ env: haEnv({ GPS_SOURCE: 'ha_tracker' }), listHaTrackers: async () => [] })
+            healthyDeps({ env: haEnv({ GPS_SOURCE: 'companion_app' }), listHaTrackers: async () => [] })
           )
         ).checks,
         'position',
@@ -527,7 +637,7 @@ describe('Positionsprüfung', () => {
         (
           await runPreflight(
             healthyDeps({
-              env: haEnv({ GPS_SOURCE: 'ha_tracker' }),
+              env: haEnv({ GPS_SOURCE: 'companion_app' }),
               listHaTrackers: async () => null,
             }),
           )
@@ -569,16 +679,20 @@ describe('Positionsprüfung', () => {
     // Ohne diesen Zweig wäre die Auflistung eine Funktion, die nur findet,
     // wer schon weiß, dass es sie gibt: der Weg zur Companion App muss in der
     // Voreinstellung („none", Browser) benannt sein.
-    it('weist im Browser-Fall auf „gps_source: ha_tracker" hin', async () => {
+    it('weist im Browser-Fall auf die Companion-App-Quelle hin', async () => {
+      // Hiess bis 0.8.2 „ha_tracker". Seit 0.8.8 gibt es den Wert gar nicht
+      // mehr -- ein Hinweis darauf schickt den Betreiber zu einer Einstellung,
+      // die das Schema ablehnt.
       const report = await runPreflight(healthyDeps({ env: haEnv() }));
-      expect(byId(report.checks, 'position').remedy).toContain('ha_tracker');
+      expect(byId(report.checks, 'position').remedy).toContain('companion_app');
+      expect(byId(report.checks, 'position').remedy).not.toContain('ha_tracker');
     });
 
     // Der konkrete Ausgangspunkt: gps_source stand auf „usb", ein Empfänger
     // war nie da, und die Prüfung riet nur zu einem Gerät, das es nicht gibt.
     it('nennt bei totem gpsd auch die Möglichkeit, dass „usb" schlicht falsch eingestellt ist', async () => {
       const report = await runPreflight(healthyDeps({ tcpProbe: async () => false }));
-      expect(byId(report.checks, 'position').remedy).toContain('ha_tracker');
+      expect(byId(report.checks, 'position').remedy).toContain('companion_app');
     });
   });
 });

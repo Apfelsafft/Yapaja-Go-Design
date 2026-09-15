@@ -93,11 +93,21 @@ jobs:
           # auf dem Geraet ab, waehrend jede CI gruen war.
           docker run --rm --entrypoint sh yapaja-go:ci -c '
             set -e
-            for tool in osmium node java python3 curl; do
+            for tool in osmium node java python3 curl gpsd; do
               command -v "$tool" >/dev/null 2>&1 || { echo "FEHLT im Image: $tool"; exit 1; }
               echo "vorhanden: $tool ($($tool --version 2>&1 | head -1))"
             done
           '
+
+      - name: gpsd startet und lauscht wirklich
+        run: |
+          # `command -v` oben beweist nur, dass eine Datei da ist. Gemeldet
+          # wurde aber ein gpsd, das GEFUNDEN wurde, startete und sofort
+          # starb -- s6 startete im Sekundentakt neu, und das Protokoll sah
+          # aus wie Erfolg. Deshalb wird es hier ausgefuehrt und nachgesehen,
+          # ob jemand auf 2947 lauscht.
+          docker run --rm -v "$PWD/yapaja_go/test:/pruefung:ro" \
+            --entrypoint sh yapaja-go:ci /pruefung/gpsd-im-container.sh
 
       - name: Bau-Skripte liegen da, wo die Oberflaeche sie aufruft
         run: |

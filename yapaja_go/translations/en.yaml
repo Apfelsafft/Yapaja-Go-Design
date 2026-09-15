@@ -18,8 +18,7 @@ configuration:
       Companion App on a phone, tablet or car radio — the right choice when Home
       Assistant runs over http://, because no browser will release its location
       sensor then. "none": the position comes from the browser. A browser position
-      is accepted at every setting. ("ha_tracker" is the old name of "companion_app"
-      and still works.)'
+      is accepted at every setting.'
   gps_device:
     name: USB device
     description: 'Which port the GPS receiver is on. Normally leave empty — Yapaia

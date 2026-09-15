@@ -10,6 +10,159 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.9
+
+**gpsd startete und starb sofort — und das Protokoll las sich wie Erfolg.**
+
+### Gemeldet
+
+Im Add-on-Protokoll stand, im Sekundentakt:
+
+```
+[23:51:37] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+[23:51:38] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+[23:51:39] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+```
+
+Dazu vom Kern: `connect ECONNREFUSED 127.0.0.1:2947`.
+
+Beides zusammen ergibt die Antwort, und sie stand nirgends: der Empfänger
+**wurde** gefunden. gpsd startete, beendete sich sofort, s6 startete den Dienst
+neu, die Gerätesuche lief erneut und meldete wieder Erfolg. Eine Schleife, die
+jede Sekunde nach Erfolg aussieht.
+
+Die vorherige Vermutung — ein fehlender Schrägstrich im Gerätepfad — war
+falsch. Sie erklärte die Meldung, aber nicht den Verlauf.
+
+### Was sich ändert
+
+**Das Protokoll sagt jetzt, dass gpsd gestorben ist.** Mit Exit-Code, und mit
+dem ausdrücklichen Hinweis, dass es *nicht* an der Gerätewahl liegt — genau
+diese Verwechslung hat hier Zeit gekostet.
+
+**Die Neustartschleife wird erkannt.** Läuft gpsd weniger als ein paar Sekunden,
+meldet Yapaia das als Schleife und **bremst auf eine Meldung pro halbe Minute**,
+statt das Protokoll im Sekundentakt zuzuschreiben.
+
+**gpsd wird mit `-D 2` gestartet**, damit es selbst sagen kann, woran es
+scheitert. Vorher starb es stumm.
+
+**Fehlt gpsd im Image ganz**, steht das jetzt da — mitsamt dem `PATH`, in dem
+gesucht wurde. Genau dieser Fall ist in diesem Add-on schon einmal vorgekommen:
+`osmium` fehlte, der Suchindex-Bau brach auf dem Gerät ab, und jede Prüfung war
+grün.
+
+**Die Prüfung beim Bauen.** gpsd stand nicht in der Liste der Werkzeuge, die im
+Image nachgesehen werden. Jetzt steht es dort — und es wird zusätzlich
+**gestartet**: Ein Programm, das sich beim bloßen Start verabschiedet, fällt
+damit beim Bauen auf und nicht erst im Fahrzeug.
+
+### Was das für Sie heißt
+
+Der Grund, warum gpsd bei Ihnen stirbt, steht nach dem Update im Protokoll —
+in einer Zeile, die mit `ERROR: gpsd:` beginnt, und in der Installationsprüfung
+unter **Positionsquelle**.
+
+---
+
+## 0.8.8
+
+**Zwei Aufräumarbeiten, die bestehende Konfigurationen brechen dürfen.**
+
+### ⚠️ Bitte vor dem Update lesen
+
+Diese Version **entfernt Rücksichtnahmen auf ältere Konfigurationen**. Das ist
+ausdrücklich abgesprochen — zum jetzigen Zeitpunkt gibt es nur eine
+Testinstallation. Wenn Sie das hier trotzdem lesen und Yapaia anderswo
+betreiben: **prüfen Sie nach dem Update Ihre Einstellungen.**
+
+### Die Positionsquelle heißt nur noch `companion_app`
+
+In der Quellen-Liste standen **zwei Knöpfe, die dasselbe bedeuten**:
+`companion_app` und `ha_tracker`. Der zweite ist der Name bis 0.8.2 und stand
+nur noch da, damit ein Update keine bestehende Installation still ohne
+Positionsquelle lässt. Auf der Konfigurationsseite war davon nichts zu sehen —
+man las zwei Möglichkeiten und musste raten, worin sie sich unterscheiden.
+
+Jetzt gibt es nur noch `companion_app`. **Stand bei Ihnen `ha_tracker`, wählen
+Sie die Quelle einmal neu.**
+
+Nicht betroffen: `Position.source` heißt in der Schnittstelle weiterhin
+`ha_tracker`. Das ist kein Schalter, sondern Übertragungsformat — es steht in
+`nav/state`, in den MQTT-Nutzlasten und in den Home-Assistant-Entitäten. Wer
+darauf eine Automatisierung gebaut hat, behält sie.
+
+### Optionen werden nur noch an ihrer Stelle gelesen
+
+Seit 0.8.4 liegen die selten angefassten Optionen in aufklappbaren Gruppen
+(`search.photon_enabled` statt `photon_enabled`). Bis 0.8.7 las Yapaia
+zusätzlich die alte, flache Stelle, damit ein Update keine Werte verliert.
+
+Auch das entfällt. Die zweite Stelle hatte schon einen Fehler getragen: den
+Wert `"null"` für einen fehlenden Schlüssel gab sie unverändert weiter. Eine
+Rücksichtnahme, die selbst Fehler einschleppt und niemandem mehr nützt, ist
+kein Gewinn.
+
+---
+
+## 0.8.7
+
+**Wenn gpsd nicht startet, steht jetzt da, warum.**
+
+### Gemeldet
+
+> „Heute habe ich den VK-162 GPS Empfänger angeschlossen. Yapaia meldet mir
+> einen Fehler. Der VK-162 scheint aber korrekt erkannt zu werden. Gpsd aber
+> nicht?"
+
+Beides stimmte. Der Empfänger war da — die Prüfung listete ihn sogar auf. Und
+gpsd lief trotzdem nicht. Warum, war aus der Meldung nicht zu erkennen: dort
+stand „gpsd ist eingeschaltet, antwortet aber nicht unter 127.0.0.1:2947" und
+darunter eine Liste möglicher Ursachen zum Durchprobieren.
+
+### Die Ursache: ein fehlender Schrägstrich
+
+Im Feld **USB-Gerät** stand
+
+```
+dev/serial/by-id/usb-u-blox_AG_-_…
+```
+
+statt `/dev/serial/by-id/…`. Beim Abtippen aus der Prüfmeldung geht der
+führende Schrägstrich leicht verloren, und im Eingabefeld ist er nicht zu
+sehen. Ohne ihn ist das ein *relativer* Pfad — was er bedeutet, hängt am
+Arbeitsverzeichnis des Dienstes, und er zeigt ins Leere.
+
+**Yapaia berichtigt das jetzt selbst** und sagt dabei, dass es berichtigt hat,
+damit es in der Konfiguration auch dauerhaft stimmt. Nach dem Update läuft Ihr
+VK-162, ohne dass Sie etwas ändern müssen — den Schrägstrich sollten Sie
+trotzdem bei Gelegenheit ergänzen.
+
+### Der eigentliche Fehler war ein anderer
+
+Die genaue Begründung **gab es die ganze Zeit**. Der gpsd-Dienst schreibt seit
+0.8.2 in Klartext, welches Gerät er genommen hat oder warum keines — nur
+landete das ausschließlich im Add-on-Protokoll. In der Installationsprüfung,
+wo man hinsieht, stand die allgemeine Meldung.
+
+Der Dienst hinterlegt seine Begründung jetzt so, dass die Prüfung sie lesen
+kann. Bei einem toten gpsd steht sie **ganz oben** in der Handlungsanweisung:
+
+> Der gpsd-Dienst meldet: gps_device ist auf '/dev/ttyUSB9' gesetzt, aber dort
+> liegt nichts. Es wird kein anderes Gerät genommen …
+
+Statt einer Liste zum Durchprobieren also die Antwort.
+
+### Nebenbei: zwei veraltete Namen
+
+Die Prüfung riet weiterhin, die Quelle auf **`ha_tracker`** zu stellen. So hieß
+sie bis 0.8.2; seit 0.8.3 heißt sie **`companion_app`**. Der Hinweis schickte
+Sie zu einer Einstellung, die in der Oberfläche anders heißt. Ebenso hieß es
+„unter `gps_device` eintragen", während das Feld inzwischen **USB-Gerät**
+heißt.
+
+---
+
 ## 0.8.6
 
 **Die Karte kann dunkel — und die Add-on-Konfiguration bestimmt, womit ein

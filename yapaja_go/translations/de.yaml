@@ -33,8 +33,7 @@ configuration:
       Home-Assistant-Companion-App auf Telefon, Tablet oder Autoradio — der richtige
       Weg, wenn Home Assistant über http:// läuft, denn dann gibt kein Browser seinen
       Standort frei. „none": die Position kommt aus dem Browser. Ein Browser-Standort
-      wird übrigens bei JEDER Einstellung angenommen. („ha_tracker" ist der alte
-      Name von „companion_app" und gilt unverändert weiter.)'
+      wird übrigens bei JEDER Einstellung angenommen.'
   gps_device:
     name: USB-Gerät
     description: 'Welcher Anschluss der GPS-Empfänger ist. Normalerweise leer lassen

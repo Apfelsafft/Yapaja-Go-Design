@@ -118,9 +118,30 @@ gps_device_waehlen() {
 
   # ─── 1. AUSDRÜCKLICH ANGEGEBEN ──────────────────────────────────────────
   if [ -n "${gewuenscht}" ]; then
+    local nachtrag=""
+
+    # ─── DER FEHLENDE SCHRÄGSTRICH ────────────────────────────────────────
+    # Gemeldet mit `dev/serial/by-id/usb-u-blox_AG_…` im Feld -- ohne den
+    # führenden Schrägstrich. Beim Abtippen aus der Prüfmeldung geht er
+    # leicht verloren, und er ist an dieser Stelle nicht zu sehen.
+    #
+    # Ohne Behandlung ist das ein RELATIVER Pfad, und was er bedeutet, hängt
+    # dann am Arbeitsverzeichnis des s6-Dienstes: mal trifft er zufällig das
+    # Richtige, mal nichts. Genau die Sorte „geht bei mir" gehört hier nicht
+    # hin. Ein Gerätepfad ist absolut; die Absicht ist unmissverständlich,
+    # also wird er berichtigt -- und gesagt, dass berichtigt wurde, damit es
+    # in der Konfiguration auch dauerhaft stimmt.
+    case "${gewuenscht}" in
+      /*) ;;
+      *)
+        gewuenscht="/${gewuenscht}"
+        nachtrag=" Hinweis: In der Konfiguration fehlt der führende Schrägstrich; gelesen wurde '${gewuenscht}'. Bitte dort ergänzen."
+        ;;
+    esac
+
     if [ -e "${YAPAIA_DEV_ROOT:-}${gewuenscht}" ]; then
       GPS_DEVICE_PFAD="${YAPAIA_DEV_ROOT:-}${gewuenscht}"
-      GPS_DEVICE_GRUND="ausdrücklich in der Add-on-Konfiguration angegeben (gps_device)"
+      GPS_DEVICE_GRUND="ausdrücklich in der Add-on-Konfiguration angegeben (gps_device).${nachtrag}"
       return 0
     fi
     # KEIN Rückfall auf die Suche: wer ein Gerät benennt, bekommt kein

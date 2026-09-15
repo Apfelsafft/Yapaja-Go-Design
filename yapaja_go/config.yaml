@@ -10,7 +10,7 @@
 name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.8.6"
+version: "0.8.9"
 # ─── MINDESTVERSION VON HOME ASSISTANT ──────────────────────────────────────
 # Seit 0.8.4 sind die selten angefassten Optionen in aufklappbaren Gruppen
 # zusammengefasst. Verschachtelte Konfiguration gibt es in Home Assistant aber
@@ -133,13 +133,21 @@ homeassistant_api: true
 #   companion_app Home-Assistant-Companion-App auf Telefon/Tablet/Autoradio
 #   none          kein eigener Empfaenger -- die Position kommt aus dem Browser
 #
-# `ha_tracker` ist der alte Name von `companion_app` und gilt unveraendert
-# weiter -- bestehende Installationen tragen ihn in ihrer Konfiguration, und
-# ein Update darf die Positionsquelle nicht still abschalten. Umbenannt wurde
-# er, weil er den WEG beschrieb (eine device_tracker-Entitaet) und nicht die
-# Sache: wer die Option einstellt, sucht das Wort „Companion App".
+# `ha_tracker` hiess dieser Wert bis 0.8.2. Umbenannt wurde er, weil er den
+# WEG beschrieb (eine device_tracker-Entitaet) und nicht die Sache: wer die
+# Option einstellt, sucht das Wort „Companion App". Bis 0.8.7 stand der alte
+# Wert zusaetzlich in dieser Liste, damit ein Update keine bestehende
+# Installation still ohne Positionsquelle laesst -- bezahlt mit ZWEI Knoepfen
+# in der Konfigurationsseite, die dasselbe bedeuten.
 #
-# `ha_tracker` fehlte bis 0.3.0 in dieser Liste. Die Quelle GAB es (0.3.0 hat
+# Seit 0.8.8 ist er weg. Der Betreiber hat geklaert, dass es keine fremden
+# Installationen gibt, auf die Ruecksicht zu nehmen waere. Wer den alten Wert
+# gespeichert hat, waehlt einmal `companion_app`.
+#
+# NICHT betroffen: `Position.source` heisst weiterhin `ha_tracker`. Das ist
+# Uebertragungsformat (nav/state, MQTT, HA-Entitaeten), keine Konfiguration.
+#
+# Der Wert fehlte bis 0.3.0 in dieser Liste. Die Quelle GAB es (0.3.0 hat
 # sie gebaut), aber einschalten liess sie sich nur ueber das freie Textfeld
 # `ha_device_tracker` darunter -- und dafuer musste man erst wissen, dass es
 # eine Entity-ID gibt, und sie dann in Home Assistant unter
@@ -147,7 +155,7 @@ homeassistant_api: true
 # der Stelle, an der man nachsieht, nur „usb". Eine Funktion, die man nicht
 # findet, ist keine.
 #
-# `ha_tracker` genuegt jetzt fuer sich allein: gibt es genau EINEN
+# `companion_app` genuegt fuer sich allein: gibt es genau EINEN
 # `device_tracker` mit Koordinaten -- der Normalfall --, waehlt Yapaia ihn
 # selbst. Gibt es mehrere, wird bewusst KEINER geraten (der zweite koennte
 # das Telefon einer anderen Person sein); dann nennt die Installationspruefung
@@ -295,7 +303,7 @@ options:
 # Formen -- erst die neue, dann die alte (siehe `config_mit_rueckfall` dort).
 schema:
   region: "str?"
-  gps_source: "list(usb|network|companion_app|ha_tracker|none)"
+  gps_source: "list(usb|network|companion_app|none)"
   gps_device: "str?"
   ha_device_tracker: "str?"
   search:

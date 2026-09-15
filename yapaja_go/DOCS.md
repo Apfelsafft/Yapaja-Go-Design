@@ -106,6 +106,61 @@ You do not need a terminal to find it: with `gps_source: usb` set and gpsd not
 answering, the health check inside Yapaia lists every serial device it can see,
 with the full path to copy.
 
+**Start the path with a slash.** Copying it out of the health-check message
+drops the leading `/` easily, and the input field does not show it. Without it
+the path is *relative* — what it resolves to then depends on the service's
+working directory, and it points at nothing. Since 0.8.7 Yapaia adds the slash
+back and says that it did, so a missing one is no longer a dead receiver; fix
+it in the configuration anyway.
+
+### When gpsd does not come up
+
+The health check reports the reason, not just the symptom. `find-gps-device.sh`
+writes what it chose — or why it chose nothing — to `/run/yapaja/gps-status`
+(first line `suchend`/`bereit`, then the plain-text reason), and the position
+check puts that text at the **top** of its remedy:
+
+> Der gpsd-Dienst meldet: gps_device ist auf '/dev/ttyUSB9' gesetzt, aber dort
+> liegt nichts. …
+
+Up to 0.8.6 that reason existed but only reached the add-on log, while the
+health check showed a generic "gpsd is on but does not answer" plus a list of
+possible causes. The file lives under `/run` on purpose: it is runtime state
+that **should** vanish on restart — under `/share` a stale reason would survive
+a reboot and be worse than none.
+
+#### When gpsd starts but dies immediately
+
+This looks like a healthy service and is not one:
+
+```
+[23:51:37] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+[23:51:38] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+[23:51:39] INFO: gpsd: benutze /dev/serial/by-id/usb-u-blox_AG_-…
+```
+
+One line per second means the device **is** being found and gpsd is dying right
+after launch; s6 restarts the service, the device search runs again, and the
+log reports success again. Nothing on that screen says anything failed.
+
+Since 0.8.9 the service handles this itself:
+
+- it does **not** `exec` gpsd any more, so gpsd's exit code reaches the log —
+  with an explicit note that the device selection is *not* the problem;
+- it keeps a start marker under `/run/yapaja/gpsd-letzter-start`; a run less
+  than 8 seconds after the previous one is reported as a restart loop and
+  **throttled** to one message every 30 seconds (`GPSD_MIN_LAUFZEIT_S` /
+  `GPSD_BREMSE_S` override both, for tests);
+- it starts gpsd with `-D 2` so gpsd itself can say what went wrong;
+- it checks `command -v gpsd` first and reports the `PATH` it searched if the
+  binary is missing.
+
+The image build checks this too, since 0.8.9: `yapaja_go/test/gpsd-im-container.sh`
+starts gpsd inside the built image (no device, control socket only) and verifies
+something is listening on 2947. `command -v` alone only proves a file exists —
+`osmium` was once missing from this image entirely and the search-index build
+broke on the device while CI stayed green.
+
 If you don't have (or don't yet have) a GPS receiver connected, leave
 `gps_source` at `none` (the default): the app remains fully usable, and the
 position then comes from the browser — or, if the browser won't hand over its
@@ -151,8 +206,8 @@ minimum so the Supervisor says so plainly instead of drawing half a page.
 | Group | Option | Type | Default | Meaning |
 |---|---|---|---|---|
 | (open) | `region` | string (optional) | *(empty)* | Which map region to use. Empty = onboarding/no-data state (E08-T5 builds the full setup wizard; this add-on version simply doesn't crash without one). |
-|  | `gps_source` | `usb` \| `network` \| `companion_app` \| `none` | `none` | Where the Core's position service gets a GPS fix from. `usb`/`network` start gpsd; `companion_app` reads a Home Assistant `device_tracker` fed by the Companion App; `none` leaves the browser as the source. Browser positions are accepted at **every** value. The old name `ha_tracker` still works and is read as `companion_app`. |
-|  | `gps_device` | string (optional) | *(empty)* | Which serial device is the GPS receiver, e.g. `/dev/serial/by-id/usb-u-blox_AG_…-if00`. Only needed when several serial devices are present and none identifies itself as a GNSS receiver — see "Which device gets used" above. |
+|  | `gps_source` | `usb` \| `network` \| `companion_app` \| `none` | `none` | Where the Core's position service gets a GPS fix from. `usb`/`network` start gpsd; `companion_app` reads a Home Assistant `device_tracker` fed by the Companion App; `none` leaves the browser as the source. Browser positions are accepted at **every** value. The old value `ha_tracker` was removed in 0.8.8 — pick `companion_app` once if you had it. (`Position.source` in the API still says `ha_tracker`; that is the wire format, not a setting.) |
+|  | `gps_device` | string (optional) | *(empty)* | Which serial device is the GPS receiver, e.g. `/dev/serial/by-id/usb-u-blox_AG_…-if00` — **with** the leading slash. Only needed when several serial devices are present and none identifies itself as a GNSS receiver — see "Which device gets used" above. |
 |  | `ha_device_tracker` | string (optional) | *(empty)* | Which `device_tracker` entity to read, e.g. `device_tracker.my_phone`. Only needed with `gps_source: companion_app` **and** more than one candidate. With exactly one, Yapaia picks it itself; with several you can also choose in the app's health check, which takes effect immediately. |
 | `search` | `photon_enabled` | bool | `true` | Full-text search via Photon. `false` = RAM-saver, falls back to the offline lite-search index (W-12). |
 |  | `photon_xmx_mb` | int 256–4096 | `1024` | Photon JVM heap cap (`-Xmx`). See the RAM table above. |
