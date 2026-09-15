@@ -40,6 +40,74 @@ export function speak(text: string, lang = 'de-DE'): void {
   }
 }
 
+/**
+ * ─── DIE FREIGABE DURCH EINE NUTZERAKTION ───────────────────────────────────
+ * Gemeldet: „keine Ansagen mehr über Audio".
+ *
+ * iOS (und mit anderer Strenge auch Chrome) gibt Ton erst frei, nachdem der
+ * Mensch etwas angetippt hat. Das trifft BEIDE Wege hier: `speechSynthesis`
+ * schluckt einen Aufruf ausserhalb einer Nutzeraktion stillschweigend, und ein
+ * frischer `AudioContext` startet im Zustand `suspended`.
+ *
+ * Für eine Navigation ist das genau verkehrt herum: die Ansage kommt, wenn
+ * 200 m bis zur Abbiegung übrig sind — nicht, wenn jemand tippt. Wer beim
+ * Laden nichts anfasst, fährt stumm.
+ *
+ * Deshalb wird die Freigabe beim ERSTEN Antippen irgendwo in der App geholt,
+ * einmalig, mit einer leeren Äusserung und einem stummen Ton. Danach darf die
+ * App von sich aus sprechen.
+ *
+ * Kein Ersatz für Nachdenken, sondern die dokumentierte Voraussetzung der
+ * Browser — ohne sie ist die Sprachausgabe auf einem Tablet Glückssache.
+ */
+let freigegeben = false;
+
+/** Nur für Tests: den Freigabezustand zurücksetzen. */
+export function _freigabeZuruecksetzen(): void {
+  freigegeben = false;
+  entsperrterKontext = null;
+}
+
+/**
+ * Holt die Tonfreigabe. MUSS aus einem Ereignis heraus gerufen werden, das
+ * der Mensch ausgelöst hat — sonst tut sie nichts, und zwar unbemerkt.
+ * Mehrfachaufrufe sind harmlos; nur der erste tut etwas.
+ */
+export function unlockAudio(): void {
+  if (freigegeben) return;
+  freigegeben = true;
+
+  if (isSpeechAvailable()) {
+    try {
+      // Eine leere Äusserung ist hörbar nichts und gilt dem Browser trotzdem
+      // als „der Mensch wollte Sprachausgabe".
+      const stumm = new SpeechSynthesisUtterance('');
+      stumm.volume = 0;
+      window.speechSynthesis.speak(stumm);
+    } catch {
+      // Best-effort -- siehe Modulkommentar.
+    }
+  }
+
+  const Ctx = getAudioContextCtor();
+  if (Ctx) {
+    try {
+      // EINEN Kontext anlegen und behalten: ein in einer Nutzeraktion
+      // freigegebener Kontext bleibt freigegeben, ein später frisch
+      // erzeugter nicht. Genau daran scheitert der Gong sonst.
+      entsperrterKontext = new Ctx();
+      void entsperrterKontext.resume().catch(() => undefined);
+    } catch {
+      entsperrterKontext = null;
+    }
+  }
+}
+
+/** Ob die Tonfreigabe schon geholt wurde. */
+export function istAudioFreigegeben(): boolean {
+  return freigegeben;
+}
+
 /** Cancels the current utterance, if any (used when TTS is toggled off mid-speech). */
 export function cancelSpeech(): void {
   if (!isSpeechAvailable()) return;
@@ -51,6 +119,9 @@ export function cancelSpeech(): void {
 }
 
 type AudioContextCtor = typeof AudioContext;
+
+/** Der in einer Nutzeraktion freigegebene Kontext -- siehe `unlockAudio`. */
+let entsperrterKontext: AudioContext | null = null;
 
 function getAudioContextCtor(): AudioContextCtor | null {
   if (typeof window === 'undefined') return null;
@@ -74,7 +145,12 @@ export function playGong(): void {
   const Ctx = getAudioContextCtor();
   if (!Ctx) return;
   try {
-    const ctx = new Ctx();
+    // Den in einer Nutzeraktion freigegebenen Kontext bevorzugen. Ein frisch
+    // erzeugter startet auf iOS `suspended` und bleibt stumm -- der Gong
+    // spielte dann „erfolgreich" und war nicht zu hoeren.
+    const eigener = entsperrterKontext === null;
+    const ctx = entsperrterKontext ?? new Ctx();
+    void ctx.resume?.().catch(() => undefined);
     const now = ctx.currentTime;
     [880, 660].forEach((freq, i) => {
       const osc = ctx.createOscillator();
@@ -91,10 +167,13 @@ export function playGong(): void {
       osc.start(start);
       osc.stop(end + 0.02);
     });
-    // Best-effort cleanup once the tail has played out.
-    window.setTimeout(() => {
-      void ctx.close().catch(() => undefined);
-    }, 1000);
+    // Aufraeumen nur, was uns gehoert: den freigegebenen Kontext zu
+    // schliessen hiesse, die Freigabe wegzuwerfen.
+    if (eigener) {
+      window.setTimeout(() => {
+        void ctx.close().catch(() => undefined);
+      }, 1000);
+    }
   } catch (err) {
     console.warn('[tts] playGong() failed:', err);
   }
