@@ -264,6 +264,26 @@ Tunnels and multi-storey car parks cut the signal. Yapaia keeps estimating your
 position from your last known speed and heading, so the display keeps moving
 instead of freezing. When the signal comes back it snaps to the real position.
 
+### Spoken announcements
+
+Yapaia speaks the next manoeuvre at 2000 m, 500 m, 200 m and at the turn
+itself. The **🔊 Ansagen an** button in drive mode switches them on and off.
+
+**They only happen while you are moving.** The announcement is triggered by the
+distance to the next turn falling below a threshold — standing still, nothing
+falls below anything, and there is nothing to announce. That is not a fault.
+
+**To check the sound without driving**, switch announcements off and on again:
+Yapaia confirms out loud. If you hear it, the audio path is fine. If you do
+not, look at the device — silent switch, volume, or a browser without speech
+synthesis (then Yapaia plays a gong instead).
+
+Browsers only release audio after you have tapped something, and phones and
+tablets are strict about it. Yapaia takes that permission at your first tap
+anywhere in the app, so it may speak on its own afterwards. Load the page and
+touch nothing, and the first announcement would otherwise be swallowed
+silently.
+
 ### Standing still: the map does not spin
 
 A GPS receiver does not measure a compass direction. It measures positions and

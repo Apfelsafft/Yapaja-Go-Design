@@ -10,6 +10,50 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.12
+
+**Sprachansagen: die Tonfreigabe wird jetzt geholt, und der Schalter antwortet.**
+
+### Gemeldet
+
+> „Was mir auch auffällt, dass keine Ansagen mehr über Audio ausgegeben werden."
+
+### Was Browser tun, und warum das hier stört
+
+Ton wird erst freigegeben, **nachdem** der Mensch etwas angetippt hat. Auf
+einem iPad besonders streng: eine Sprachausgabe ausserhalb einer Nutzeraktion
+wird stillschweigend geschluckt, und ein frisch angelegter Klangkontext startet
+gesperrt.
+
+Für eine Navigation ist das genau verkehrt herum. Die Ansage kommt, wenn 200 m
+bis zur Abbiegung übrig sind — nicht, wenn jemand tippt. Wer die Seite lädt,
+das Ziel per Favorit startet und danach die Hände ans Lenkrad legt, fährt
+stumm, und nichts auf dem Bildschirm sagt, warum.
+
+Yapaia holt die Freigabe jetzt beim **ersten Antippen irgendwo in der App** —
+einmalig, mit einer stummen Äusserung. Danach darf die App von sich aus reden.
+
+### Der Ansagen-Schalter bestätigt hörbar
+
+Schalten Sie **🔊 Ansagen an** ein, sagt Yapaia „Ansagen sind an." Damit ist
+die Frage sofort beantwortet, die vorher offen blieb: sind die Ansagen aus, ist
+der Ton gesperrt, oder war nur gerade nichts anzusagen? Der Klick ist zugleich
+eine Nutzeraktion, holt also auch die Freigabe.
+
+### ⚠️ Was das NICHT behebt
+
+**Ansagen entstehen nur beim Fahren.** Sie kommen, wenn die Entfernung zur
+nächsten Abbiegung 2000 m, 500 m, 200 m oder 0 m unterschreitet. Steht das
+Fahrzeug — oder liegt der Empfänger auf der Fensterbank —, wird nichts
+unterschritten und es gibt nichts anzusagen. Das ist kein Fehler.
+
+Zum Ausprobieren ohne Fahrt: **Ansagen aus- und wieder einschalten.** Kommt die
+Bestätigung hörbar, ist der Tonweg in Ordnung, und es fehlte schlicht die
+Fahrt. Kommt sie nicht, liegt es am Gerät (Stummschalter, Lautstärke, oder eine
+Sprachausgabe, die dieser Browser nicht hat).
+
+---
+
 ## 0.8.11
 
 **Die Karte dreht sich nicht mehr, wenn das Fahrzeug steht.**
