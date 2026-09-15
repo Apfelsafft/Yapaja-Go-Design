@@ -1284,6 +1284,117 @@ describe('find-gps-device.sh — die Geräteauswahl, ausgeführt', () => {
     expect(ergebnis.device).toBe('');
     expect(ergebnis.grund).toContain('/dev/ttyUSB9');
   });
+
+  // ─── DER FEHLENDE FÜHRENDE SCHRÄGSTRICH ───────────────────────────────────
+  // Gemeldet mit genau diesem Inhalt im Feld „USB-Gerät":
+  //   dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_7_-_GPS_GNSS_Receiver-if00
+  // Beim Abtippen aus der Prüfmeldung geht der Schrägstrich leicht verloren,
+  // und er ist im Eingabefeld nicht zu sehen. Ohne Behandlung ist das ein
+  // RELATIVER Pfad: was er bedeutet, hängt am Arbeitsverzeichnis des
+  // s6-Dienstes — mal trifft er zufällig, mal nichts.
+  it('berichtigt einen Pfad ohne führenden Schrägstrich', () => {
+    const ergebnis = waehle([UBLOX], UBLOX.slice(1));
+    expect(ergebnis.code).toBe(0);
+    expect(ergebnis.device).toBe(UBLOX);
+  });
+
+  it('sagt auch, DASS berichtigt wurde — sonst bleibt es in der Konfiguration falsch', () => {
+    const ergebnis = waehle([UBLOX], UBLOX.slice(1));
+    expect(ergebnis.grund).toContain('Schrägstrich');
+    expect(ergebnis.grund).toContain(UBLOX);
+  });
+
+  it('macht aus einem falschen relativen Pfad kein richtiges Gerät', () => {
+    // Die Berichtigung darf nur den Schrägstrich ergänzen, nicht raten.
+    const ergebnis = waehle([UBLOX], 'dev/ttyUSB9');
+    expect(ergebnis.code).toBe(1);
+    expect(ergebnis.device).toBe('');
+  });
+
+  it('lässt einen bereits absoluten Pfad unangetastet', () => {
+    const ergebnis = waehle([UBLOX], UBLOX);
+    expect(ergebnis.code).toBe(0);
+    expect(ergebnis.device).toBe(UBLOX);
+    expect(ergebnis.grund).not.toContain('Schrägstrich');
+  });
+
+  /**
+   * ─── DIE BEGRÜNDUNG MUSS DEN DIENST VERLASSEN ─────────────────────────────
+   * `find-gps-device.sh` bildet einen genauen Klartext. Bis 0.8.6 ging der nur
+   * ins Add-on-Protokoll, und die Installationsprüfung zeigte „gpsd antwortet
+   * nicht" samt einer Liste zum Durchprobieren. Gemeldet wurde genau daran:
+   * „Der VK-162 scheint aber korrekt erkannt zu werden. Gpsd aber nicht?"
+   *
+   * Geprüft wird hier, dass `gpsd/run` die Datei WIRKLICH schreibt — ohne sie
+   * ist der Weg in der Prüfung eine leere Zusicherung. Eine Textprüfung wäre
+   * grün, sobald „status_schreiben" irgendwo im Skript steht.
+   */
+  describe('gpsd/run hinterlegt die Begründung für die Installationsprüfung', () => {
+    const GPSD_RUN = join(ADDON_DIR, 'rootfs', 'etc/s6-overlay/s6-rc.d/gpsd/run');
+
+    /** Führt `gpsd/run` so weit aus, bis es entweder gpsd startet oder einmal
+     *  erfolglos gesucht hat, und liefert die hinterlegte Statusdatei. */
+    function laufLassen(geraete: string[], gpsDevice = ''): { status: string; grund: string } {
+      const wurzel = mkdtempSync(join(tmpdir(), 'yapaja-gpsd-'));
+      for (const pfad of geraete) {
+        const ziel = join(wurzel, pfad);
+        mkdirSync(dirname(ziel), { recursive: true });
+        writeFileSync(ziel, '');
+      }
+      const statusDatei = join(wurzel, 'gps-status');
+
+      // Der Rumpf des echten Skripts ab der Quelle -- ohne die
+      // bashio-Kopfzeile und ohne `exec gpsd` am Ende, das es hier nicht gibt.
+      const echt = readFileSync(GPSD_RUN, 'utf-8');
+      const rumpf = echt
+        .slice(echt.indexOf('source /etc/yapaja/find-gps-device.sh'))
+        .replace('source /etc/yapaja/find-gps-device.sh', `source ${JSON.stringify(FIND_SCRIPT)}`)
+        // Nicht ewig weitersuchen: eine Runde genügt für die Aussage.
+        .replace('sleep 15', 'exit 0')
+        .replace(/^exec gpsd .*$/m, 'exit 0');
+
+      const stubPath = join(wurzel, 'run.sh');
+      writeFileSync(
+        stubPath,
+        ['#!/usr/bin/env bash', 'bashio::log.info() { :; }', 'bashio::log.warning() { :; }', rumpf].join(
+          '\n',
+        ),
+      );
+
+      execFileSync('bash', [stubPath], {
+        env: {
+          ...process.env,
+          YAPAIA_DEV_ROOT: wurzel,
+          GPS_DEVICE: gpsDevice,
+          GPS_SOURCE: 'usb',
+          GPS_STATUS_DATEI: statusDatei,
+        },
+        encoding: 'utf-8',
+      });
+
+      const [status, ...rest] = readFileSync(statusDatei, 'utf-8').split('\n');
+      return { status, grund: rest.join('\n').replace(new RegExp(wurzel, 'g'), '').trim() };
+    }
+
+    it('schreibt bei Erfolg, welches Gerät genommen wurde', () => {
+      const ergebnis = laufLassen([UBLOX]);
+      expect(ergebnis.status).toBe('bereit');
+      expect(ergebnis.grund).toContain(UBLOX);
+    });
+
+    it('schreibt bei Misserfolg den GRUND — das ist der gemeldete Fall', () => {
+      const ergebnis = laufLassen([UBLOX], '/dev/ttyUSB9');
+      expect(ergebnis.status).toBe('suchend');
+      expect(ergebnis.grund).toContain('/dev/ttyUSB9');
+      expect(ergebnis.grund).toContain('dort liegt nichts');
+    });
+
+    it('meldet auch die Mehrdeutigkeit, statt sie zu verschweigen', () => {
+      const ergebnis = laufLassen([SKYCONNECT, ZWAVE]);
+      expect(ergebnis.status).toBe('suchend');
+      expect(ergebnis.grund).toContain('SkyConnect');
+    });
+  });
 });
 
 /**

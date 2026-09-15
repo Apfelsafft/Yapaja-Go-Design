@@ -295,6 +295,11 @@ export_env "GPS_DEVICE" "${GPS_DEVICE:-}"
 # Liest `settings/routes.ts` als VORGABE (nicht als Einstellung) -- die Wahl
 # in Yapaia hat Vorrang. Siehe `GET /settings/defaults`.
 export_env "THEME_MODE" "${THEME_MODE:-}"
+# Wo der gpsd-Dienst hinterlegt, WARUM er laeuft oder nicht. Hier definiert,
+# damit Dienst und Kern denselben Pfad meinen -- zwei Stellen mit derselben
+# Vorgabe laufen frueher oder spaeter auseinander, und das faellt dann als
+# „die Pruefung zeigt nichts" auf.
+export_env "GPS_STATUS_DATEI" "${GPS_STATUS_DATEI:-/run/yapaja/gps-status}"
 if [ "${GPS_SOURCE}" = "usb" ] || [ "${GPS_SOURCE}" = "network" ]; then
   export_env "GPSD_ENABLED" "true"
   export_env "GPSD_HOST" "127.0.0.1"

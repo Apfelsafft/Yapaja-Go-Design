@@ -10,6 +10,64 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.7
+
+**Wenn gpsd nicht startet, steht jetzt da, warum.**
+
+### Gemeldet
+
+> „Heute habe ich den VK-162 GPS Empfänger angeschlossen. Yapaia meldet mir
+> einen Fehler. Der VK-162 scheint aber korrekt erkannt zu werden. Gpsd aber
+> nicht?"
+
+Beides stimmte. Der Empfänger war da — die Prüfung listete ihn sogar auf. Und
+gpsd lief trotzdem nicht. Warum, war aus der Meldung nicht zu erkennen: dort
+stand „gpsd ist eingeschaltet, antwortet aber nicht unter 127.0.0.1:2947" und
+darunter eine Liste möglicher Ursachen zum Durchprobieren.
+
+### Die Ursache: ein fehlender Schrägstrich
+
+Im Feld **USB-Gerät** stand
+
+```
+dev/serial/by-id/usb-u-blox_AG_-_…
+```
+
+statt `/dev/serial/by-id/…`. Beim Abtippen aus der Prüfmeldung geht der
+führende Schrägstrich leicht verloren, und im Eingabefeld ist er nicht zu
+sehen. Ohne ihn ist das ein *relativer* Pfad — was er bedeutet, hängt am
+Arbeitsverzeichnis des Dienstes, und er zeigt ins Leere.
+
+**Yapaia berichtigt das jetzt selbst** und sagt dabei, dass es berichtigt hat,
+damit es in der Konfiguration auch dauerhaft stimmt. Nach dem Update läuft Ihr
+VK-162, ohne dass Sie etwas ändern müssen — den Schrägstrich sollten Sie
+trotzdem bei Gelegenheit ergänzen.
+
+### Der eigentliche Fehler war ein anderer
+
+Die genaue Begründung **gab es die ganze Zeit**. Der gpsd-Dienst schreibt seit
+0.8.2 in Klartext, welches Gerät er genommen hat oder warum keines — nur
+landete das ausschließlich im Add-on-Protokoll. In der Installationsprüfung,
+wo man hinsieht, stand die allgemeine Meldung.
+
+Der Dienst hinterlegt seine Begründung jetzt so, dass die Prüfung sie lesen
+kann. Bei einem toten gpsd steht sie **ganz oben** in der Handlungsanweisung:
+
+> Der gpsd-Dienst meldet: gps_device ist auf '/dev/ttyUSB9' gesetzt, aber dort
+> liegt nichts. Es wird kein anderes Gerät genommen …
+
+Statt einer Liste zum Durchprobieren also die Antwort.
+
+### Nebenbei: zwei veraltete Namen
+
+Die Prüfung riet weiterhin, die Quelle auf **`ha_tracker`** zu stellen. So hieß
+sie bis 0.8.2; seit 0.8.3 heißt sie **`companion_app`**. Der Hinweis schickte
+Sie zu einer Einstellung, die in der Oberfläche anders heißt. Ebenso hieß es
+„unter `gps_device` eintragen", während das Feld inzwischen **USB-Gerät**
+heißt.
+
+---
+
 ## 0.8.6
 
 **Die Karte kann dunkel — und die Add-on-Konfiguration bestimmt, womit ein

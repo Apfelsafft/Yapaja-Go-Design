@@ -50,6 +50,10 @@ function healthyDeps(overrides: Partial<PreflightDeps> = {}): PreflightDeps {
     // Test, damit kein Test versehentlich echte Zustände holt; die Tests, in
     // denen es um Tracker geht, setzen es ausdrücklich.
     listHaTrackers: async () => null,
+    // `null` = „der gpsd-Dienst hat nichts hinterlegt". Ausdruecklich gesetzt,
+    // damit kein Test die echte Datei unter /run liest -- sonst haenge das
+    // Ergebnis daran, ob auf dem Rechner zufaellig ein Add-on laeuft.
+    readGpsStatus: async () => null,
     totalMem: () => 16 * GB,
     diskFree: async () => 40 * GB,
     now: () => new Date('2026-09-01T10:00:00.000Z'),
@@ -339,6 +343,63 @@ describe('Positionsprüfung', () => {
     expect(pos.remedy).toContain('Browser');
   });
 
+  // ─── DIE BEGRUENDUNG DES DIENSTES MUSS HIER ANKOMMEN ──────────────────────
+  // Gemeldet: „Der VK-162 scheint aber korrekt erkannt zu werden. Gpsd aber
+  // nicht?" -- und genau das war aus dieser Meldung nicht zu beantworten. Der
+  // gpsd-Dienst WEISS, warum er nichts in Betrieb genommen hat; bis 0.8.6
+  // stand das nur im Add-on-Protokoll, und hier eine Liste zum Durchprobieren.
+  describe('die Begründung des gpsd-Dienstes', () => {
+    const NICHT_DA =
+      "gps_device ist auf '/dev/ttyUSB9' gesetzt, aber dort liegt nichts.";
+
+    it('steht in der Handlungsanweisung, wenn der Dienst eine hinterlegt hat', async () => {
+      const report = await runPreflight(
+        healthyDeps({ tcpProbe: async () => false, readGpsStatus: async () => NICHT_DA }),
+      );
+      expect(byId(report.checks, 'position').remedy).toContain(NICHT_DA);
+    });
+
+    it('steht VORN — nicht hinter der Liste möglicher Ursachen', async () => {
+      // Wer die Antwort erst nach vier Sätzen Rätselraten findet, hat sie
+      // praktisch nicht. Die Meldung ist im Add-on-Fenster schmal und lang.
+      const report = await runPreflight(
+        healthyDeps({ tcpProbe: async () => false, readGpsStatus: async () => NICHT_DA }),
+      );
+      const remedy = byId(report.checks, 'position').remedy ?? '';
+      expect(remedy.indexOf(NICHT_DA)).toBeLessThan(remedy.indexOf('Prüfen Sie'));
+    });
+
+    it('fehlt sie, bleiben die allgemeinen Hinweise — ohne leeren Vorspann', async () => {
+      // Standalone-Betrieb, oder die Prüfung kommt dem Dienst zuvor.
+      const report = await runPreflight(
+        healthyDeps({ tcpProbe: async () => false, readGpsStatus: async () => null }),
+      );
+      const remedy = byId(report.checks, 'position').remedy ?? '';
+      expect(remedy).not.toContain('Der gpsd-Dienst meldet');
+      expect(remedy).toContain('Prüfen Sie');
+    });
+
+    it('behandelt eine leere Datei wie gar keine', async () => {
+      const report = await runPreflight(
+        healthyDeps({ tcpProbe: async () => false, readGpsStatus: async () => '   ' }),
+      );
+      expect(byId(report.checks, 'position').remedy).not.toContain('Der gpsd-Dienst meldet');
+    });
+
+    it('nennt den führenden Schrägstrich — der gemeldete Fehler war genau der', async () => {
+      const report = await runPreflight(healthyDeps({ tcpProbe: async () => false }));
+      expect(byId(report.checks, 'position').remedy).toContain('Schrägstrich');
+    });
+
+    it('nennt nicht mehr den alten Namen „ha_tracker"', async () => {
+      // Umbenannt in 0.8.3. Dieser Text blieb stehen und schickte den
+      // Betreiber zu einer Einstellung, die in der Oberfläche anders heisst.
+      const report = await runPreflight(healthyDeps({ tcpProbe: async () => false }));
+      expect(byId(report.checks, 'position').remedy).not.toContain('ha_tracker');
+      expect(byId(report.checks, 'position').remedy).toContain('companion_app');
+    });
+  });
+
   // ─── DEN PFAD MUSS MAN IRGENDWO ABLESEN KOENNEN ───────────────────────────
   // Der Hilfetext sagt seit 0.3.1 „tragen Sie das Gerät unter `gps_device`
   // ein". Die Option gab es bis 0.8.2 gar nicht -- und wo man den Pfad
@@ -569,16 +630,20 @@ describe('Positionsprüfung', () => {
     // Ohne diesen Zweig wäre die Auflistung eine Funktion, die nur findet,
     // wer schon weiß, dass es sie gibt: der Weg zur Companion App muss in der
     // Voreinstellung („none", Browser) benannt sein.
-    it('weist im Browser-Fall auf „gps_source: ha_tracker" hin', async () => {
+    it('weist im Browser-Fall auf die Companion-App-Quelle hin', async () => {
+      // Hiess bis 0.8.3 „ha_tracker". Der alte Wert gilt weiter, aber in der
+      // Oberflaeche steht „companion_app" -- ein Hinweis auf einen Namen, den
+      // es dort nicht mehr gibt, schickt den Betreiber ins Leere.
       const report = await runPreflight(healthyDeps({ env: haEnv() }));
-      expect(byId(report.checks, 'position').remedy).toContain('ha_tracker');
+      expect(byId(report.checks, 'position').remedy).toContain('companion_app');
+      expect(byId(report.checks, 'position').remedy).not.toContain('ha_tracker');
     });
 
     // Der konkrete Ausgangspunkt: gps_source stand auf „usb", ein Empfänger
     // war nie da, und die Prüfung riet nur zu einem Gerät, das es nicht gibt.
     it('nennt bei totem gpsd auch die Möglichkeit, dass „usb" schlicht falsch eingestellt ist', async () => {
       const report = await runPreflight(healthyDeps({ tcpProbe: async () => false }));
-      expect(byId(report.checks, 'position').remedy).toContain('ha_tracker');
+      expect(byId(report.checks, 'position').remedy).toContain('companion_app');
     });
   });
 });

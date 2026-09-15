@@ -59,7 +59,7 @@
  * Sonden stammen.
  */
 
-import { readdir, stat } from 'fs/promises';
+import { readdir, readFile, stat } from 'fs/promises';
 import { istCompanionAppQuelle } from '../position/gpsSourceOption.js';
 import { totalmem } from 'os';
 import { createConnection } from 'net';
@@ -152,6 +152,14 @@ export interface PreflightDeps {
    * Aufrufer, der keine Einstellungen hat.
    */
   resolveTrackerId?: () => string;
+  /**
+   * Was der gpsd-Dienst zuletzt ueber die Geraetewahl hinterlegt hat.
+   *
+   * `null`, wenn es nichts gibt -- im Standalone-Betrieb ohne Add-on, oder
+   * bevor der Dienst das erste Mal durchgelaufen ist. Die Pruefung faellt
+   * dann auf die allgemeinen Hinweise zurueck.
+   */
+  readGpsStatus?: () => Promise<string | null>;
   totalMem?: () => number;
   /** Freier Plattenplatz im Datenverzeichnis, in Bytes. */
   diskFree?: (path: string) => Promise<number>;
@@ -182,6 +190,37 @@ async function defaultListDir(path: string): Promise<string[]> {
 /** Wo die stabilen Gerätenamen liegen. Im Container dasselbe `/dev` wie für
  *  gpsd — der Kern läuft daneben, nicht woanders. */
 export const SERIAL_BY_ID_DIR = '/dev/serial/by-id';
+
+/** Wo der gpsd-Dienst hinterlegt, warum er läuft oder nicht.
+ *  Denselben Pfad exportiert `init-yapaja-config.sh` als `GPS_STATUS_DATEI`. */
+export const GPS_STATUS_DATEI = '/run/yapaja/gps-status';
+
+/**
+ * Die Begründung des gpsd-Dienstes, oder `null`.
+ *
+ * Die Datei hat zwei Teile: erste Zeile der Zustand (`suchend`/`bereit`),
+ * danach der Klartext. Zurückgegeben wird nur der Klartext — der Zustand ist
+ * für den Aufrufer bereits dadurch beantwortet, dass gpsd nicht antwortet.
+ *
+ * Fehlt die Datei, ist das KEIN Fehler: im Standalone-Betrieb gibt es keinen
+ * Add-on-Dienst, der etwas hinterlegen könnte, und beim allerersten Start
+ * kommt die Prüfung dem Dienst womöglich zuvor.
+ */
+export function parseGpsStatus(inhalt: string): string | null {
+  const zeilen = inhalt.split('\n');
+  const text = zeilen.slice(1).join('\n').trim();
+  return text.length > 0 ? text : null;
+}
+
+function defaultReadGpsStatus(env: Record<string, string | undefined>) {
+  return async (): Promise<string | null> => {
+    try {
+      return parseGpsStatus(await readFile(env.GPS_STATUS_DATEI || GPS_STATUS_DATEI, 'utf-8'));
+    } catch {
+      return null;
+    }
+  };
+}
 
 /**
  * Welche seriellen Geräte im Container sichtbar sind.
@@ -520,6 +559,7 @@ async function checkPosition(
   listHaTrackers: ListHaTrackersFn,
   listDir: ListDirFn,
   resolveTrackerId: () => string,
+  readGpsStatus: () => Promise<string | null>,
 ): Promise<PreflightCheck> {
   const base = {
     id: 'position' as const,
@@ -547,18 +587,34 @@ async function checkPosition(
       geraete.length > 0
         ? ` Gefunden wurden: ${geraete.join(', ')}.`
         : ' Im Container ist derzeit gar kein serielles Gerät sichtbar — der Empfänger steckt also nicht, oder die USB-Durchreichung des Supervisors greift nicht.';
+
+    // ─── DIE BEGRUENDUNG DES DIENSTES, WENN ES EINE GIBT ──────────────────
+    // Der gpsd-Dienst weiss genau, warum er nichts in Betrieb genommen hat
+    // (`find-gps-device.sh`). Bis 0.8.6 stand das nur im Add-on-Protokoll,
+    // und hier eine Liste zum Durchprobieren. Gemeldet wurde genau daran:
+    // „Der VK-162 scheint aber korrekt erkannt zu werden. Gpsd aber nicht?"
+    //
+    // Gibt es die Begruendung, steht sie VORN. Die allgemeinen Hinweise
+    // bleiben darunter -- fuer den Fall, dass der Dienst noch gar nicht dazu
+    // gekommen ist, etwas zu hinterlegen.
+    const gpsGrund = (await readGpsStatus())?.trim() ?? '';
+    const grundVorn = gpsGrund.length > 0 ? `Der gpsd-Dienst meldet: ${gpsGrund} ` : '';
+
     return {
       ...base,
       status: 'warn',
       detail: `gpsd ist eingeschaltet, antwortet aber nicht unter ${host}:${port}.`,
       remedy:
+        grundVorn +
         'Prüfen Sie, ob der USB-GPS-Empfänger gesteckt ist und ob das Gerät in der ' +
-        'Add-on-Konfiguration unter „gps_device" eingetragen ist.' +
+        'Add-on-Konfiguration unter „USB-Gerät" eingetragen ist.' +
         geraeteHinweis +
-        ' Bitte den Pfad unter /dev/serial/by-id/ eintragen und nicht /dev/ttyACM0: ' +
+        ' Der Pfad muss mit einem Schrägstrich beginnen (/dev/serial/by-id/…) — ' +
+        'ohne ihn ist es ein relativer Pfad, der ins Leere zeigt. ' +
+        'Bitte den Pfad unter /dev/serial/by-id/ eintragen und nicht /dev/ttyACM0: ' +
         'die Nummer verschiebt sich, sobald ein anderer USB-Stick dazukommt. ' +
-        'Haben Sie gar keinen USB-Empfänger, ist „gps_source: usb" ' +
-        'schlicht die falsche Einstellung — stellen Sie sie auf „ha_tracker" ' +
+        'Haben Sie gar keinen USB-Empfänger, ist „usb" als Quelle ' +
+        'schlicht die falsche Einstellung — stellen Sie sie auf „companion_app" ' +
         '(Position aus der Home-Assistant-Companion-App) oder auf „none" ' +
         '(Position aus dem Browser). Solange gpsd fehlt, kann Yapaia die Position ' +
         'weiterhin aus dem Browser beziehen — Telefon, Tablet oder Autoradio liefern ' +
@@ -610,7 +666,7 @@ async function checkPosition(
   }
 
   if (haTrackerSelected) {
-    // „gps_source: ha_tracker" ohne Entity-ID heisst: Yapaia sucht selbst.
+    // Die Companion-App-Quelle ohne Entity-ID heisst: Yapaia sucht selbst.
     // Was dabei herauskommt, haengt allein an dem, was Home Assistant hat --
     // also steht es hier, mit Namen.
     if (trackers === null) {
@@ -683,7 +739,7 @@ async function checkPosition(
       'sofern Home Assistant selbst über HTTPS läuft — läuft es über http://, gibt ' +
       'der Browser den Sensor NICHT frei, und daran kann Yapaia nichts ändern). ' +
       'Ohne HTTPS ist der Weg über die Home-Assistant-Companion-App der richtige: ' +
-      'in der Add-on-Konfiguration „gps_source" auf „ha_tracker" stellen. Gibt es ' +
+      'in der Add-on-Konfiguration die Quelle auf „companion_app" stellen. Gibt es ' +
       'genau eine `device_tracker`-Entität mit Koordinaten, sucht Yapaia sie selbst; ' +
       'gibt es mehrere, nennt diese Prüfung sie danach beim Namen, und Sie tragen die ' +
       'gewünschte unter „ha_device_tracker" ein. Für einen fest eingebauten ' +
@@ -871,6 +927,7 @@ export async function runPreflight(deps: PreflightDeps = {}): Promise<PreflightR
   const httpProbe = deps.httpProbe ?? defaultHttpProbe;
   const listHaTrackers = deps.listHaTrackers ?? defaultListHaTrackers(env);
   const resolveTrackerId = deps.resolveTrackerId ?? ((): string => env.HA_DEVICE_TRACKER ?? '');
+  const readGpsStatus = deps.readGpsStatus ?? defaultReadGpsStatus(env);
   const totalMem = deps.totalMem ?? totalmem;
   const diskFree = deps.diskFree ?? defaultDiskFree;
   const now = deps.now ?? ((): Date => new Date());
@@ -881,7 +938,7 @@ export async function runPreflight(deps: PreflightDeps = {}): Promise<PreflightR
     checkTiles(tilesDir, listDir),
     checkRouting(env, httpProbe),
     checkSearch(env, httpProbe, fileSize, deps.listSearchIndexes ?? listLiteSearchDbFiles),
-    checkPosition(env, tcpProbe, listHaTrackers, listDir, resolveTrackerId),
+    checkPosition(env, tcpProbe, listHaTrackers, listDir, resolveTrackerId, readGpsStatus),
     Promise.resolve(checkMemory(env, totalMem)),
     checkDisk(tilesDir, diskFree),
     Promise.resolve(checkMqtt(env)),

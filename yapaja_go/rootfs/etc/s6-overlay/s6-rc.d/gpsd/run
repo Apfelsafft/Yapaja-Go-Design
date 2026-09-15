@@ -26,6 +26,29 @@ fi
 # shellcheck source=/dev/null
 source /etc/yapaja/find-gps-device.sh
 
+# ─── DIE BEGRUENDUNG MUSS DORTHIN, WO HINGESEHEN WIRD ────────────────────────
+# `find-gps-device.sh` bildet einen genauen Klartext: welches Geraet genommen
+# wurde, oder warum keines. Der landete bisher nur im Add-on-Protokoll.
+#
+# In der Installationspruefung stand derweil bloss „gpsd ist eingeschaltet,
+# antwortet aber nicht unter 127.0.0.1:2947" -- eine Beschreibung des
+# Symptoms, gefolgt von einer Liste moeglicher Ursachen zum Durchprobieren.
+# Gemeldet wurde genau daran: „Der VK-162 scheint aber korrekt erkannt zu
+# werden. Gpsd aber nicht?" Die Antwort lag die ganze Zeit vor, eine Ebene
+# tiefer, und war aus der Oberflaeche nicht zu erreichen.
+#
+# Deshalb hier eine Datei, die der Kern im selben Container liest. Sie liegt
+# unter /run: ein Laufzeitzustand, der beim Neustart verschwinden SOLL --
+# unter /share ueberlebte eine veraltete Begruendung den Neustart und waere
+# schlimmer als gar keine.
+#
+# Erste Zeile: `suchend` oder `bereit`. Danach der Klartext.
+STATUS_DATEI="${GPS_STATUS_DATEI:-/run/yapaja/gps-status}"
+status_schreiben() {
+  mkdir -p "$(dirname "${STATUS_DATEI}")" 2>/dev/null || return 0
+  printf '%s\n%s\n' "$1" "$2" > "${STATUS_DATEI}" 2>/dev/null || true
+}
+
 # Alle 15 s neu sehen, statt abzustürzen: ein fehlender oder mehrdeutiger
 # Empfänger ist kein Fehler des Add-ons. Der Fahrer soll Yapaia benutzen
 # können, während der Dongle noch in der Post ist -- die Position fällt im
@@ -41,8 +64,14 @@ while true; do
   if gps_device_waehlen; then
     DEVICE="${GPS_DEVICE_PFAD}"
     bashio::log.info "gpsd: benutze ${DEVICE} (${GPS_DEVICE_GRUND})."
+    status_schreiben "bereit" "Empfänger ${DEVICE} — ${GPS_DEVICE_GRUND}"
     break
   fi
+
+  # Geschrieben wird bei JEDEM Durchlauf, protokolliert nur beim Wechsel.
+  # Die Datei ist ein Zustand, kein Ereignis: sie muss auch dann stimmen,
+  # wenn die Prüfung erst eine Stunde später nachsieht.
+  status_schreiben "suchend" "${GPS_DEVICE_GRUND}"
 
   if [ "${GPS_DEVICE_GRUND}" != "${LETZTER_GRUND}" ]; then
     bashio::log.warning "gpsd: kein Empfänger in Betrieb genommen -- ${GPS_DEVICE_GRUND} (siehe DOCS.md, Abschnitt 'USB-GPS'). Wird alle 15 s erneut geprüft; die Position fällt solange auf die übrigen Quellen zurück."
