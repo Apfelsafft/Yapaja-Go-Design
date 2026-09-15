@@ -264,6 +264,19 @@ Tunnels and multi-storey car parks cut the signal. Yapaia keeps estimating your
 position from your last known speed and heading, so the display keeps moving
 instead of freezing. When the signal comes back it snaps to the real position.
 
+### Standing still: the map does not spin
+
+A GPS receiver does not measure a compass direction. It measures positions and
+works out which way you are heading from the *movement* between them. Stand
+still and that movement is pure noise, so the derived direction is a random
+number — a receiver lying motionless on a windowsill reported 170°, then 40°,
+then 187°, while "moving" at three centimetres per second.
+
+Below **3.6 km/h** Yapaia therefore reports no direction at all, and the map
+simply keeps its current orientation. It starts turning again when you actually
+drive. This is not a receiver fault and no setting fixes it; every GNSS
+receiver behaves this way.
+
 ### The screen stays on
 
 Yapaia keeps the display awake while you navigate. Where the browser supports

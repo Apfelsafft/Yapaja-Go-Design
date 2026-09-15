@@ -9,6 +9,7 @@
  */
 
 import { checkPosition, validatePosition, type Position } from '@yapaia/shared';
+import { richtungImStandVerwerfen } from './heading.js';
 import type { EventBus } from '../bus/index.js';
 
 /* eslint-disable no-undef -- setTimeout/setInterval/clear* are standard Node
@@ -149,10 +150,18 @@ export class PositionService {
       return;
     }
 
+    // ─── DIE RICHTUNG IM STAND ────────────────────────────────────────────
+    // Hier und nicht in der gpsd-Quelle: jede Quelle leitet die Richtung aus
+    // der Bewegung ab -- der Empfaenger, die Companion App, der Browser --,
+    // und jede liefert im Stand Rauschen. Eine Regel an EINER Stelle, statt
+    // dreimal dieselbe, von der eine irgendwann vergessen wird. Die
+    // Begruendung samt Messwerten steht in `heading.ts`.
+    const bereinigt = richtungImStandVerwerfen(position);
+
     const state = this.sourceStates.get(source);
     /* istanbul ignore next -- sourceStates is pre-seeded for every PositionSourceName in the constructor */
     if (!state) return;
-    state.lastFix = position;
+    state.lastFix = bereinigt;
     state.lastFixTs = Date.now();
 
     const newActive = this.recomputeActiveSource();
@@ -160,8 +169,8 @@ export class PositionService {
     // currently active source -- avoids re-publishing an unchanged position
     // from a lower-priority source or on every periodic staleness check.
     if (newActive === source) {
-      this.lastPosition = position;
-      this.publishThrottled(position);
+      this.lastPosition = bereinigt;
+      this.publishThrottled(bereinigt);
     }
   }
 

@@ -10,6 +10,63 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.11
+
+**Die Karte dreht sich nicht mehr, wenn das Fahrzeug steht.**
+
+### Gemeldet
+
+> „Der Sensor liegt ruhig auf der Fensterbank aber die Anzeige der Karte dreht
+> sich andauernd."
+
+### Warum das passiert ist
+
+Drei aufeinanderfolgende Messungen desselben, unbewegten Empfängers:
+
+| Zeit | Richtung | Tempo |
+|---|---|---|
+| 22:58:24 | 170,5° | 0,025 m/s |
+| 23:00:33 | 39,6° | 0,016 m/s |
+| 23:00:38 | 187,0° | 0,036 m/s |
+
+Die Richtung springt über 150°, während sich das Gerät mit zwei bis vier
+**Zentimetern je Sekunde** „bewegt".
+
+**Das ist kein Fehler Ihres Empfängers.** GPS misst keine Himmelsrichtung — es
+misst Positionen und leitet die Richtung aus der *Bewegung* zwischen zweien ab.
+Steht das Gerät, ist die gemessene Bewegung reines Rauschen, und die Richtung
+daraus ist eine Zufallszahl. Jeder GPS-Empfänger tut das; ein Kompass wäre
+etwas anderes, den hat der VK-162 nicht.
+
+Yapaia hat diese Zahl genommen und die Karte danach gedreht.
+
+### Was sich ändert
+
+Unter **3,6 km/h** meldet Yapaia „Richtung unbekannt" statt einer erfundenen.
+Die Karte behält dann einfach ihre Ausrichtung — sie dreht sich erst wieder,
+wenn Sie wirklich fahren.
+
+Gewählt wurde „unbekannt" und nicht „die letzte weiterreichen": eine Richtung,
+die niemand gemessen hat, gehört nicht in Werte, die auch nach MQTT und in
+Home-Assistant-Entitäten gehen.
+
+Die Regel sitzt an der einen Stelle, durch die **alle** Positionsquellen
+laufen — USB-Empfänger, Companion App, Browser und Testfahrer. Alle vier leiten
+die Richtung aus Bewegung ab, alle vier rauschen im Stand.
+
+### Die Warnungen im Protokoll
+
+Die sind alle harmlos, der Vollständigkeit halber:
+
+| Meldung | Bedeutung |
+|---|---|
+| `PPS: o=priority setting failed` | gpsd darf im Container keine Echtzeit-Priorität setzen. Betrifft nur die Zeitgenauigkeit über einen PPS-Anschluss, den der VK-162 gar nicht hat. |
+| `KPPS: … kernel PPS unavailable` | dasselbe, andere Stelle. |
+| `NMEA0183: TXT: Warning: PASH/PGRM/PSRF/… inv format` | gpsd tastet beim Start verschiedene Herstellerprotokolle ab. Es hat danach richtig entschieden — im Protokoll steht `"driver":"u-blox"`. |
+| `UBX-ACK-NAK, class: 06, id: 01` | gpsd wollte Meldungsraten setzen, der u-blox 7 lehnt einige ab. gpsd nimmt dann die vorhandenen. |
+
+---
+
 ## 0.8.10
 
 **Der USB-GPS-Empfänger läuft. Es fehlte ein einziger Schlüssel im Manifest.**
