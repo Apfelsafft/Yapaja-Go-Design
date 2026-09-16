@@ -34,6 +34,7 @@
 
 import { REGION_SOURCE_ID } from './constants.js';
 import { FONT_BOLD, FONT_REGULAR } from './fonts.js';
+import { SHIELD_ICONS, SHIELD_TEXT_COLORS } from './sprites.js';
 import type { MapPalette } from './palette.js';
 import type { StyleLayer } from './types.js';
 
@@ -85,6 +86,44 @@ function fill(
     paint: { 'fill-color': color, ...(opts.opacity !== undefined ? { 'fill-opacity': opts.opacity } : {}) },
   };
 }
+
+/**
+ * Welche Straßenklasse welches Schild bekommt.
+ *
+ * `motorway` ist die Autobahn (blau). `trunk` (Kraftfahrstraße) und
+ * `primary` (in Deutschland die Bundesstraße) teilen sich das gelbe Schild.
+ * `secondary` — Landes- und Kreisstraßen — bekommt das weiße.
+ *
+ * Als EINE Tabelle, aus der beide Ausdrücke unten entstehen: sonst könnte
+ * eine Klasse das blaue Schild und die schwarze Schrift bekommen, und das
+ * fiele erst auf der Karte auf.
+ */
+const SCHILD_KLASSEN: ReadonlyArray<readonly [string, keyof typeof SHIELD_ICONS]> = [
+  ['motorway', 'motorway'],
+  ['trunk', 'trunk'],
+  ['primary', 'trunk'],
+  ['secondary', 'minor'],
+];
+
+/** Die Klassen, für die es überhaupt ein Schild gibt. */
+export const SCHILD_KLASSENWERTE = SCHILD_KLASSEN.map(([omt]) => omt);
+
+/** `['match', ['get','class'], 'motorway', 'shield-motorway', …, <Rückfall>]` */
+const SCHILD_NACH_KLASSE: unknown[] = [
+  'match',
+  ['get', 'class'],
+  ...SCHILD_KLASSEN.flatMap(([omt, form]) => [omt, SHIELD_ICONS[form]]),
+  // Rückfall: das unauffälligste Schild. MapLibre BRAUCHT einen -- ohne ihn
+  // ist der Ausdruck ungültig und die ganze Ebene fällt aus.
+  SHIELD_ICONS.minor,
+];
+
+const TEXTFARBE_NACH_KLASSE: unknown[] = [
+  'match',
+  ['get', 'class'],
+  ...SCHILD_KLASSEN.flatMap(([omt, form]) => [omt, SHIELD_TEXT_COLORS[form]]),
+  SHIELD_TEXT_COLORS.minor,
+];
 
 /** Klassenwerte aus dem OMT-Schema. Als Konstanten, damit ein Tippfehler beim
  *  Wiederverwenden auffällt statt eine Ebene still leer zu lassen. */
@@ -283,10 +322,20 @@ export function buildBaseLayers(p: MapPalette): StyleLayer[] {
       // A61" in der Übersicht, nicht bei Zoomstufe 13, wo man ohnehin schon
       // darauf steht.
       //
-      // Echte Schilder mit Rahmen (Blau für Autobahn, Gelb für Bundesstraße)
-      // bräuchten Bilddateien — der Stil hat keine `sprite`-Quelle, und eine
-      // zu erfinden wäre ein eigener Schritt. Bis dahin: Fettschrift mit
-      // kräftigem Rand, damit die Nummer sich vom Straßennamen abhebt.
+      // ─── SEIT 0.8.15: ECHTE SCHILDER MIT RAHMEN ───────────────────────────
+      // Blau mit weißem Rand für die Autobahn, Gelb mit schwarzem für die
+      // Bundesstraße, Weiß für Landes- und Kreisstraßen. Die Bilder liegen im
+      // Repo (`scripts/generate-shield-sprites.mjs`).
+      //
+      // Wie ein Bild zu „A 5" UND zu „A 61" passt: `icon-text-fit` zieht das
+      // Symbol auf die Textbreite. Dehnen darf sich dabei nur ein schmaler
+      // Streifen in der Mitte (`stretchX` im Sprite) — sonst würden die runden
+      // Ecken bei längeren Nummern zu Ellipsen.
+      //
+      // Die Farbe richtet sich nach der Straßenklasse und NICHT nach dem
+      // Buchstaben in der Nummer: „A" heißt nicht überall Autobahn, und die
+      // Klasse ist in ganz Europa dieselbe Angabe. Die Begründung steht
+      // ausführlich im Erzeuger.
       id: 'road-shields',
       type: 'symbol',
       source: REGION_SOURCE_ID,
@@ -301,21 +350,40 @@ export function buildBaseLayers(p: MapPalette): StyleLayer[] {
         'all',
         ['has', 'ref'],
         ['!=', ['get', 'ref'], ''],
-        ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary', 'secondary']]],
+        ['in', ['get', 'class'], ['literal', SCHILD_KLASSENWERTE]],
       ],
       layout: {
         visibility: 'visible',
         'text-field': ['get', 'ref'],
-        'text-size': 12,
+        'text-size': 11,
         'text-font': [FONT_BOLD],
         'symbol-placement': 'line',
+        // Schild UND Nummer bleiben aufrecht, auch wenn die Straße quer
+        // verläuft. Ein mitgedrehtes Schild wäre auf einer Kurve unlesbar.
         'text-rotation-alignment': 'viewport',
+        'icon-rotation-alignment': 'viewport',
+        'icon-image': SCHILD_NACH_KLASSE,
+        'icon-text-fit': 'both',
+        // Links/rechts mehr Luft als oben/unten: so wirkt das Schild wie ein
+        // Schild und nicht wie ein Kasten, der am Text klebt.
+        'icon-text-fit-padding': [1, 4, 1, 4],
+        'text-anchor': 'center',
+        'icon-anchor': 'center',
         // Damit die Nummer auf einer langen Autobahn mehrfach auftaucht und
         // nicht nur einmal je Kachelabschnitt.
         'symbol-spacing': 220,
         'text-padding': 4,
+        // Das Schild darf andere Beschriftung verdrängen, aber nicht sich
+        // selbst überlagern.
+        'icon-allow-overlap': false,
+        'text-allow-overlap': false,
       },
-      paint: { 'text-color': p.roadText, 'text-halo-color': p.roadHalo, 'text-halo-width': 2.2 },
+      paint: {
+        // Der Rahmen ist jetzt gemalt, nicht mehr aus einem Textrand
+        // gebastelt -- der Halo faellt darum weg. Bliebe er stehen, saesse ein
+        // weisser Schimmer auf dem Autobahnblau.
+        'text-color': TEXTFARBE_NACH_KLASSE,
+      },
     },
     {
       id: 'place-labels-major',

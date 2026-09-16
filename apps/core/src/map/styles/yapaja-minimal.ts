@@ -20,6 +20,7 @@ import { buildBaseLayers } from './baseLayers.js';
 import { LIGHT_PALETTE } from './palette.js';
 import { PLACEHOLDER_TILE_URL, REGION_SOURCE_ID } from './constants.js';
 import { GLYPHS_URL } from './fonts.js';
+import { SPRITE_URL } from './sprites.js';
 import type { MapStyleDocument } from './types.js';
 
 export const YAPAIA_MINIMAL_STYLE_ID = 'yapaja-minimal';
@@ -49,6 +50,7 @@ export function buildYapaiaMinimalStyle(): MapStyleDocument {
     version: 8,
     name: YAPAIA_MINIMAL_STYLE_NAME,
     glyphs: GLYPHS_URL,
+    sprite: SPRITE_URL,
     sources: { [REGION_SOURCE_ID]: { type: 'vector', url: PLACEHOLDER_TILE_URL } },
     layers: buildBaseLayers(LIGHT_PALETTE).filter((layer) => !OMITTED_LAYER_IDS.has(layer.id)),
   };

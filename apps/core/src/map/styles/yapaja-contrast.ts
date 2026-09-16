@@ -11,6 +11,7 @@ import { buildBaseLayers } from './baseLayers.js';
 import { CONTRAST_PALETTE } from './palette.js';
 import { PLACEHOLDER_TILE_URL, REDUCED_POI_CLASSES, REGION_SOURCE_ID } from './constants.js';
 import { GLYPHS_URL } from './fonts.js';
+import { SPRITE_URL } from './sprites.js';
 import type { MapStyleDocument, SymbolLayer } from './types.js';
 
 export const YAPAIA_CONTRAST_STYLE_ID = 'yapaja-contrast';
@@ -30,6 +31,7 @@ export function buildYapaiaContrastStyle(): MapStyleDocument {
     version: 8,
     name: YAPAIA_CONTRAST_STYLE_NAME,
     glyphs: GLYPHS_URL,
+    sprite: SPRITE_URL,
     sources: { [REGION_SOURCE_ID]: { type: 'vector', url: PLACEHOLDER_TILE_URL } },
     layers,
   };

@@ -10,7 +10,7 @@
 name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.8.14"
+version: "0.8.15"
 # ─── MINDESTVERSION VON HOME ASSISTANT ──────────────────────────────────────
 # Seit 0.8.4 sind die selten angefassten Optionen in aufklappbaren Gruppen
 # zusammengefasst. Verschachtelte Konfiguration gibt es in Home Assistant aber
@@ -128,11 +128,37 @@ services:
 # und gar kein `usb`.
 uart: true
 
-# `usb`/`udev` bleiben vorerst stehen: `udev` liefert die Ereignisse, an denen
-# ein spaeter eingestecktes Geraet ueberhaupt auffaellt. Ob `usb` daneben noch
-# gebraucht wird, ist offen -- ESPHome kommt ohne aus. Es hier zu entfernen,
-# waere eine zweite Aenderung an derselben Stelle im selben Schritt; erst soll
-# der Empfaenger laufen. Siehe DOCS.md, Abschnitt "USB-GPS".
+# ─── „USB" UND `usb` SIND ZWEI VERSCHIEDENE DINGE ───────────────────────────
+# Vorgeschlagen wurde: „Du kannst usb: true vielleicht umlabeln. In der Konfig
+# steht ‚GPS über usb' und intern verwendest du dann die Uart. Dem User ist es
+# egal ob das usb oder uart heisst. Aber er steckt seinen gps Empfaenger ueber
+# den usb Port ein."
+#
+# Genau so ist es schon -- die drei Schluessel hier sind KEINE Beschriftung.
+# Niemand bekommt sie zu sehen:
+#
+#   * Was der Betreiber liest, ist die Option `gps_source` mit dem Wert
+#     `usb`, beschrieben als „ein GPS-Empfaenger am USB-Anschluss"
+#     (translations/de.yaml). Das bleibt so, und es ist richtig: er steckt das
+#     Geraet in den USB-Anschluss.
+#   * `uart`, `usb` und `udev` sind Faehigkeiten, die der Supervisor dem
+#     Container gibt. Sie stehen in keiner Oberflaeche.
+#
+# Sie umzubenennen ginge also nicht -- die Namen gehoeren Home Assistant, nicht
+# uns. Und es waere auch nicht noetig: die Beschriftung sagt bereits USB.
+#
+# Was sie einzeln tun (0.8.10 hat das auf die harte Tour geklaert):
+#   `uart`  erlaubt, das serielle Geraet zu OEFFNEN. Ohne ihn scheiterte gpsd
+#           mit „Operation not permitted", obwohl das Geraet sichtbar war.
+#   `udev`  liefert die Ereignisse, an denen ein SPAETER eingestecktes Geraet
+#           ueberhaupt auffaellt.
+#   `usb`   bildet den rohen USB-Bus ab.
+#
+# `usb` bleibt stehen. ESPHome kommt ohne aus, es waere hier vermutlich
+# entbehrlich -- aber „vermutlich" ist der falsche Grund, einem laufenden
+# Empfaenger eine Berechtigung wegzunehmen. Der Gewinn waere null (der
+# Schluessel kostet nichts und ist nicht zu sehen), das Risiko ein GPS, das
+# nach einem Update nicht mehr geht. Siehe DOCS.md, Abschnitt "USB-GPS".
 usb: true
 udev: true
 
