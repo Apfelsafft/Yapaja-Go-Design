@@ -1799,6 +1799,52 @@
         }
       }
     },
+    "/api/v1/online/status": {
+      "get": {
+        "summary": "GET /api/v1/online/status",
+        "tags": [
+          "Sonstige"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/online/diagnose": {
+      "post": {
+        "summary": "POST /api/v1/online/diagnose",
+        "tags": [
+          "Sonstige"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/settings": {
       "get": {
         "summary": "Alle App-Einstellungen",

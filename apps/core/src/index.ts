@@ -19,6 +19,7 @@ import { istCompanionAppQuelle } from './position/gpsSourceOption.js';
 import { resolveHaConnection, resolveTrackerEntityId } from './ha/config.js';
 import { mapPlugin } from './map/routes.js';
 import { routingPlugin, buildRoutingService } from './routing/routes.js';
+import { onlinePlugin } from './online/routes.js';
 import { navigationPlugin } from './navigation/routes.js';
 import { NavigationService } from './navigation/service.js';
 import { RouteAwareDeadReckoningProvider, MAX_DEAD_RECKONING_WINDOW_MS } from './navigation/deadreckoning.js';
@@ -422,6 +423,13 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // Favorites & history plugin (E05-T3, docs/03 §2): additive, does not
   // touch other plugins.
   await fastify.register(favoritesPlugin, { prefix: '/api/v1' });
+
+  // ─── ONLINE-DIENSTE ───────────────────────────────────────────────────────
+  // Der einzige Teil von Yapaia, der nach draussen ruft. Immer registriert,
+  // damit `GET /online/status` auch dann antworten kann, wenn die Dienste AUS
+  // sind -- die Oberflaeche soll sagen koennen „ausgeschaltet, hier ist der
+  // Schalter" statt gar nichts anzuzeigen. Gerufen wird nur bei `enabled`.
+  await fastify.register(onlinePlugin, {});
 
   // General-purpose settings plugin (E07-T1): additive, does not touch other
   // plugins. The widget-shell's `layouts` key is its first consumer (see

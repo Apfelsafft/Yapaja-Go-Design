@@ -64,6 +64,12 @@ configuration:
         fixed. "system": follows the device''s light/dark setting. "sun": follows
         the sun at your position — usually the better one in a vehicle, because
         it goes dark when it gets dark outside.'
+  online:
+    name: Online services
+    description: Extras that need an internet connection. Yapaia navigates fully without them.
+    enabled:
+      name: Allow online services
+      description: 'Off by default. When on, Yapaia may fetch roadworks, closures and warnings from the German motorway authority while a connection exists. Only the request leaves the house — no position, no route, no device identifier. Without a connection only this feature is lost; navigation keeps working offline.'
   home_assistant:
     name: Home Assistant
     description: How Yapaia reports its values to Home Assistant.
