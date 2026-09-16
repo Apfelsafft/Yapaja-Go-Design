@@ -19,7 +19,7 @@
  * keine Zeichenketten an der Verwendungsstelle.
  *
  * ─── DIE DATEIEN LIEGEN IM REPO ─────────────────────────────────────────────
- * Erzeugt von `scripts/generate-shield-sprites.mjs`, eingecheckt unter
+ * Erzeugt von `scripts/generate-sprites.mjs`, eingecheckt unter
  * `apps/web/public/sprites/`. Nicht beim Bauen erzeugt: das Add-on baut auf
  * dem Geraet des Betreibers, und jeder Schritt dort ist eine Stelle mehr, an
  * der die Installation scheitern kann. Dieselbe Begruendung wie bei den
@@ -34,7 +34,7 @@ export const SPRITE_URL = './sprites/yapaja';
 
 /**
  * Die Schildformen im Blatt. Muss zu `SHIELDS` in
- * `scripts/generate-shield-sprites.mjs` passen; `shieldSprites.test.ts` haelt
+ * `scripts/generate-sprites.mjs` passen; `shieldSprites.test.ts` haelt
  * beides gegeneinander.
  */
 export const SHIELD_ICONS = {

@@ -25,7 +25,7 @@
     ]
   },
   "shield-trunk": {
-    "x": 46,
+    "x": 48,
     "y": 0,
     "width": 44,
     "height": 30,
@@ -50,7 +50,7 @@
     ]
   },
   "shield-minor": {
-    "x": 92,
+    "x": 96,
     "y": 0,
     "width": 44,
     "height": 30,
@@ -73,5 +73,68 @@
       37,
       24
     ]
+  },
+  "poi-wohnmobil": {
+    "x": 0,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
+  },
+  "poi-camping": {
+    "x": 40,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
+  },
+  "poi-tanken": {
+    "x": 80,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
+  },
+  "poi-laden": {
+    "x": 120,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
+  },
+  "poi-parken": {
+    "x": 160,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
+  },
+  "poi-einkaufen": {
+    "x": 200,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
+  },
+  "poi-essen": {
+    "x": 240,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
+  },
+  "poi-sehenswert": {
+    "x": 280,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
+  },
+  "poi-versorgung": {
+    "x": 320,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
   }
 }
