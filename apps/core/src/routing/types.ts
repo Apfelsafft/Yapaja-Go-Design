@@ -48,8 +48,21 @@ export interface ValhallaTruckCostingOptions {
   weight: number;
   /** carrying hazardous materials. */
   hazmat: boolean;
-  /** km/h -- upper speed cap for ETA. */
-  top_speed: number;
+  /**
+   * km/h -- die HOECHSTGESCHWINDIGKEIT DES FAHRZEUGS.
+   *
+   * Hier stand „upper speed cap for ETA". Das war falsch, und es war die
+   * Ursache eines echten Fehlers: `top_speed` wirkt in Valhalla NICHT auf die
+   * Ankunftszeit, sondern auf die WAHL DER STRASSE -- es deckelt das Tempo
+   * jeder Kante und bestraft ausserdem jede Strasse, die schneller ist
+   * (`truckcost.cc`, `SpeedPenalty`). Wer hier die Reisegeschwindigkeit
+   * einsetzt, laesst „schnellste" die Autobahn meiden.
+   *
+   * OPTIONAL, und Yapaia setzt es bewusst nicht: fehlt der Schluessel, nimmt
+   * Valhalla seine eigene Vorgabe fuer `truck`. Die Begruendung im Ganzen
+   * steht in `profileMapping.ts#buildTruckCostingOptions`.
+   */
+  top_speed?: number;
   /** present & 0 only when the profile avoids motorways. */
   use_highways?: number;
   /** present & 0 only when the profile avoids tolls. */

@@ -10,6 +10,88 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.14
+
+**Die schnellste Route nimmt wieder die Autobahn. Und A 61 / B 9 stehen auf der Karte.**
+
+### Gemeldet
+
+> „Kannst du prüfen warum die schnellste Route nicht über die Autobahn A61
+> geht. Die kürzeste aber schon. Ich hätte angenommen eine Autobahn ist
+> schneller und nicht nur kürzer"
+
+Die Annahme war richtig. Der Fehler saß in einer einzigen Zeile.
+
+### Was passiert ist
+
+Yapaia hat die **Reisegeschwindigkeit** aus dem Fahrzeugprofil (Vorgabe
+85 km/h) als Valhallas `top_speed` verschickt. Die Einheit stimmte — beides
+km/h. Die Bedeutung nicht.
+
+`top_speed` ist für Valhalla die **Höchstgeschwindigkeit des Fahrzeugs**, und
+sie wirkt an zwei Stellen auf die Wahl der Straße:
+
+1. Jede Kante wird auf diesen Wert gedeckelt. Die A 61 wurde also mit 85 km/h
+   gerechnet — ihr Zeitvorteil war damit schon weg.
+2. Jede Straße, die **schneller** ist als dieser Wert, bekommt zusätzlich
+   einen Aufschlag von `(Tempo − top_speed) × 0,05`.
+
+Zusammen ergab das für die Betriebsart „schnellste" (Kosten je Meter, je
+niedriger desto lieber):
+
+| | mit 85 | ohne |
+|---|---|---|
+| Landstraße 80 | **1,00×** | 1,00× |
+| Bundesstraße 100 | 1,77× | **0,80×** |
+| Autobahn 130 | 3,43× | 1,06× |
+
+Die Reihenfolge war exakt umgekehrt: je schneller die Straße, desto teurer.
+„Schnellste" hat deshalb zuverlässig die langsamste Straße gesucht.
+
+**Warum „kürzeste" die A 61 trotzdem nahm:** Valhalla steigt in dieser
+Betriebsart aus der Rechnung aus, *bevor* die Aufschläge angewendet werden.
+Die Strafe kam dort nie an. Die Ungereimtheit, die aufgefallen ist, war also
+kein Zufall — sie war die Naht zwischen den beiden Zweigen, und sie hat den
+Fehler sichtbar gemacht.
+
+Die **Ankunftszeit** verliert dadurch nichts: sie wird ohnehin getrennt aus
+der Reisegeschwindigkeit gerechnet. Die wirkt weiter auf die Zeitangabe — nur
+nicht mehr auf die Wahl der Straße.
+
+### Ehrlich dazu
+
+Getestet ist die Rechnung, nicht die Fahrt: in dieser Umgebung läuft kein
+Valhalla. Die Zahlen oben stammen aus Valhallas Quelltext, nachgerechnet und
+festgehalten. **Die Probe ist die echte Route.** Sollte die A 61 weiterhin
+nicht genommen werden, ist der nächste Hebel schon benannt und liegt bereit.
+
+### „Ausgewogen" hat bisher gar nichts getan
+
+Dabei herausgekommen: die Betriebsart setzte `use_highways` auf 0,5 — und das
+ist Valhallas **Vorgabe**. „Ausgewogen" und „Schnellste" haben dieselbe Route
+geliefert. Jetzt steht dort 0,25, also spürbar weniger Lust auf Umwege zur
+Autobahn, aber weit entfernt von „meiden".
+
+### Straßennummern auf der Karte
+
+> „Ich habe eben gesehen dass es keine Straßenbeleuchtungen gibt. Also die
+> Straßennamen sind sichtbar. Aber sowas wie A61 für Autobahnen um B9 für
+> Bundesstraßen sehe ich nicht."
+
+Die Nummer steht in den Kacheln in einem eigenen Feld (`ref`), nicht im
+Namen. Die Beschriftung las nur den Namen — und eine Autobahn hat in
+OpenStreetMap meist gar keinen. Für sie gab es also nichts zu zeichnen.
+
+Neu ist eine eigene Ebene für die Nummern. Sie erscheint **früher** als die
+Straßennamen (ab Zoomstufe 7 statt 13): „wo ist die A 61" ist eine Frage der
+Übersicht, nicht eine der Zoomstufe, auf der man ohnehin schon darauf steht.
+
+Echte Schilder mit Rahmen — blau für Autobahn, gelb für Bundesstraße —
+bräuchten Bilddateien, die der Kartenstil bisher nicht mitbringt. Bis dahin:
+Fettschrift mit kräftigem Rand.
+
+---
+
 ## 0.8.13
 
 **Yapaia bietet sich nicht mehr selbst als Positionsquelle an.**

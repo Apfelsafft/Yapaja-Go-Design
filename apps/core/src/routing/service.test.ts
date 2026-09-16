@@ -199,9 +199,13 @@ describe('RoutingService profile-mapping intercept', () => {
       width: 2.2,
       length: 6.5,
       weight: 3.5,
-      top_speed: 85,
       hazmat: false,
     });
+    // `toMatchObject` prueft nur, was dasteht -- ein wieder eingebautes
+    // `top_speed` fiele ihm nicht auf. Die Abwesenheit muss also eigens
+    // zugesichert werden, und zwar hier am ECHTEN Anfragekoerper, nicht nur
+    // an der reinen Funktion.
+    expect('top_speed' in truck).toBe(false);
     expect('use_highways' in truck).toBe(false);
     expect('use_tolls' in truck).toBe(false);
     expect('use_ferry' in truck).toBe(false);

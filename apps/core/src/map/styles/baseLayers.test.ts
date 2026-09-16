@@ -26,6 +26,7 @@ import { describe, it, expect } from 'vitest';
 import { buildBaseLayers } from './baseLayers';
 import { LIGHT_PALETTE, DARK_PALETTE, CONTRAST_PALETTE, OUTDOOR_PALETTE } from './palette';
 import { REGION_SOURCE_ID } from './constants';
+import { SHIPPED_FONTS } from './fonts';
 import { POI_LAYER_ID_PREFIX } from './constants';
 import { OMITTED_LAYER_IDS, buildYapaiaMinimalStyle } from './yapaja-minimal';
 import { buildYapaiaContrastStyle } from './yapaja-contrast';
@@ -195,5 +196,70 @@ describe('buildBaseLayers — Ebenen gegen das echte Kachelschema', () => {
       const ids = buildBaseLayers(palette).map((l) => l.id);
       expect(new Set(ids).size, `Stil "${name}" hat doppelte Ebenen-IDs`).toBe(ids.length);
     }
+  });
+});
+
+/**
+ * ─── STRASSENNUMMERN (A 61, B 9) ────────────────────────────────────────────
+ * Gemeldet: „Die Straßennamen sind sichtbar. Aber sowas wie A61 für
+ * Autobahnen um B9 für Bundesstraßen sehe ich nicht."
+ *
+ * Die Nummer steht im OMT-Schema in `ref`, nicht in `name`. Eine Autobahn hat
+ * in OpenStreetMap meist gar keinen Namen — für sie gab es auf der
+ * Namensebene also nichts zu zeichnen, und sie blieb stumm, ohne dass
+ * irgendetwas fehlschlug.
+ */
+describe('road-shields — die Straßennummern', () => {
+  const schilder = (): Record<string, unknown> => {
+    const l = buildBaseLayers(LIGHT_PALETTE).find((e) => e.id === 'road-shields');
+    if (!l) throw new Error('Ebene "road-shields" fehlt');
+    return l as unknown as Record<string, unknown>;
+  };
+  const layout = (): Record<string, unknown> =>
+    schilder().layout as Record<string, unknown>;
+
+  it('liest aus `ref` und nicht aus `name`', () => {
+    expect(layout()['text-field']).toEqual(['get', 'ref']);
+  });
+
+  it('liegt auf `transportation_name` — dort führt planetiler das Feld', () => {
+    expect(schilder()['source-layer']).toBe('transportation_name');
+  });
+
+  it('erscheint FRÜHER als die Straßennamen', () => {
+    // Der eigentliche Grund für eine eigene Ebene. „Wo ist die A61" ist eine
+    // Frage der Übersicht, nicht der Zoomstufe 13, auf der man ohnehin schon
+    // darauf steht.
+    const namen = buildBaseLayers(LIGHT_PALETTE).find((e) => e.id === 'road-labels');
+    expect((schilder().minzoom as number)).toBeLessThan(
+      (namen as unknown as { minzoom: number }).minzoom,
+    );
+  });
+
+  it('beschränkt sich auf Straßen, die überhaupt Nummern tragen', () => {
+    // Ohne den Klassenfilter bekäme jeder Feldweg mit einer Wanderwegnummer
+    // ein Schild, und die Karte wäre auf kleinem Bildschirm unlesbar.
+    const f = JSON.stringify(schilder().filter);
+    expect(f).toContain('motorway');
+    expect(f).toContain('trunk');
+    expect(f).not.toContain('path');
+    expect(f).not.toContain('service');
+  });
+
+  it('gibt es in JEDEM ausgelieferten Stil', () => {
+    // Sonst wäre die Nummer je nach gewähltem Stil da oder nicht — und
+    // niemand käme darauf, dass es am Stil liegt.
+    for (const p of [LIGHT_PALETTE, DARK_PALETTE, CONTRAST_PALETTE, OUTDOOR_PALETTE]) {
+      expect(
+        buildBaseLayers(p).some((e) => e.id === 'road-shields'),
+        'road-shields fehlt in einer Palette',
+      ).toBe(true);
+    }
+  });
+
+  it('nutzt einen Schriftschnitt, für den Glyphen ausgeliefert werden', () => {
+    // Ohne das bliebe die Ebene leer, gemeldet nur in der Browserkonsole --
+    // siehe Kopf von `fonts.ts`.
+    expect(SHIPPED_FONTS).toContain((layout()['text-font'] as string[])[0]);
   });
 });
