@@ -144,3 +144,54 @@ describe('applyDegradationCaps', () => {
     expect(applyDegradationCaps(user, { poi: 'off', labelScale: '1.0' }).lang).toBe('name_en');
   });
 });
+
+/**
+ * ─── OHNE FESTE WAHL KEIN `region` ──────────────────────────────────────────
+ * Der Kern zeichnet seit 0.9.1 ALLE installierten Regionen, wenn die Anfrage
+ * keine nennt. `?region=` heißt dagegen „NUR diese".
+ *
+ * Bis 0.10.0 schickte die Oberfläche immer eine — auch im Modus „Automatisch",
+ * wo sie die Region der aktuellen Position einsetzte. Damit lief die
+ * Mehrregionen-Karte vollständig ins Leere, und zwar lautlos: gemeldet wurde
+ * „Ich habe Deutschland, Liechtenstein und Schweiz Kacheln gebaut. Sehe aber
+ * nur Deutschland."
+ *
+ * Diese Zusicherungen halten die eine Zeile fest, an der das hängt.
+ */
+describe('die Regionswahl in der Stil-Anfrage', () => {
+  function abgefragteUrl(region?: string): string {
+    let url = '';
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (eingabe: unknown) => {
+      url = String(eingabe);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ version: 8, name: 'x', sources: {}, layers: [] }),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    try {
+      void fetchStyle('yapaja-light', {}, region);
+    } finally {
+      globalThis.fetch = original;
+    }
+    return url;
+  }
+
+  it('lässt `region` WEG, wenn keine gewählt ist', () => {
+    // Das ist die ganze Aussage: keine Nennung = alle Regionen.
+    expect(abgefragteUrl(undefined)).not.toContain('region=');
+  });
+
+  it('nennt `region`, wenn eine fest gewählt ist', () => {
+    // Die Gegenrichtung -- sonst liesse sich die Regel oben dadurch
+    // „erfuellen", dass die feste Wahl auch nicht mehr ankommt.
+    expect(abgefragteUrl('switzerland')).toContain('region=switzerland');
+  });
+
+  it('behandelt die leere Zeichenkette wie „keine Wahl"', () => {
+    // Ein leerer Wert waere sonst ein `?region=`, und der Kern faende keine
+    // Region dieses Namens -- eine leere Karte ohne Fehlermeldung.
+    expect(abgefragteUrl('')).not.toContain('region=');
+  });
+});

@@ -413,3 +413,51 @@ test.describe('offline / same-origin', () => {
     expect(allUrls.some((u) => u.includes('/api/v1/map/styles'))).toBe(true);
   });
 });
+
+/**
+ * ─── DIE KLAPPE MUSS IN DEN BILDSCHIRM PASSEN ───────────────────────────────
+ * Gemeldet: „Das options Menü ist überfrachtet. Man kann die oberen Einträge
+ * nicht mehr lesen."
+ *
+ * Der Grund war eine fehlende Grenze, nicht die Menge: die Klappe sitzt unten
+ * links und wächst nach OBEN. Ohne `max-h` wuchs sie aus dem Bildschirm
+ * heraus — alles über der Oberkante war weder lesbar noch erreichbar.
+ *
+ * Das ist eine Frage der echten Darstellung, nicht des Quelltextes. Eine
+ * Zusicherung auf die CSS-Klasse wäre nur eine Spiegelung dessen, was
+ * dasteht; gemessen wird deshalb im laufenden Browser.
+ */
+test.describe('das Kartenmenü bleibt bedienbar', () => {
+  test('passt auch auf einem niedrigen Fenster in den Bildschirm', async ({ page }) => {
+    // Ein 13-Zoll-Tablet quer -- dort ist es zuerst aufgefallen.
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto(CORE_BASE_URL + '/');
+    await openStylePanel(page);
+
+    const panel = page.locator('[data-testid="style-panel"]');
+    const box = await panel.boundingBox();
+    expect(box, 'die Klappe hat keine Ausdehnung').not.toBeNull();
+    // Die Oberkante muss IM Bild liegen. Genau das war der Fehler.
+    expect(box!.y, 'die Klappe ragt oben aus dem Bildschirm').toBeGreaterThanOrEqual(0);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(768);
+  });
+
+  test('macht überzählige Einträge durch Blättern erreichbar', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 600 });
+    await page.goto(CORE_BASE_URL + '/');
+    await openStylePanel(page);
+
+    const panel = page.locator('[data-testid="style-panel"]');
+    const { scrollHeight, clientHeight, scrollbar } = await panel.evaluate((el) => ({
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+      scrollbar: getComputedStyle(el).overflowY,
+    }));
+    // Passt der Inhalt nicht, MUSS er blätterbar sein -- sonst ist er weg.
+    if (scrollHeight > clientHeight) {
+      expect(scrollbar, 'die Klappe ist zu hoch, lässt sich aber nicht blättern').toMatch(
+        /auto|scroll/,
+      );
+    }
+  });
+});

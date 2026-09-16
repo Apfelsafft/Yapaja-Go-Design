@@ -17,7 +17,20 @@ import { existsSync } from 'fs';
 import { unlink } from 'fs/promises';
 import type { FastifyPluginAsync } from 'fastify';
 import type { ApiError } from '@yapaia/shared';
-import { REGION_NAME_PATTERN, resolveRegionFilePath, resolveTilesDir } from '../paths.js';
+import {
+  REGION_NAME_PATTERN,
+  resolveGraphDir,
+  resolveRegionFilePath,
+  resolveTilesDir,
+} from '../paths.js';
+import {
+  abdeckungNachBau,
+  abdeckungSatz,
+  graphRegionenJetzt,
+  type GraphAbdeckung,
+  pbfLagerPfad,
+  regionenMitExtrakt,
+} from './graphAbdeckung.js';
 import { listRegions } from '../regions.js';
 import { loadCatalog, type CatalogEntry } from './catalog.js';
 import { checkDiskSpace, type StatfsFn } from './disk.js';
@@ -56,6 +69,16 @@ interface PostRegionsBody {
 
 interface PostRegionsReply {
   job_id: string;
+  /** Nur beim Routingbau: was danach im Graphen liegt (siehe
+   *  `graphAbdeckung.ts`). Optional, damit die anderen Bauwege unveraendert
+   *  bleiben. */
+  abdeckung?: GraphAbdeckung;
+}
+
+/** Der Koerper des Routingbaus -- der einzige mit einem Feld. */
+interface BuildGraphBody {
+  /** „Ja, ich weiss, dass Abdeckung verloren geht." */
+  abdeckung_bestaetigt?: boolean;
 }
 
 interface JobReply {
@@ -300,7 +323,7 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
   // JAR-Modus von planetiler: der Weg war da, das Skript fand ihn nicht --
   // und die Oberflaeche schickte den Betreiber an einen zweiten Rechner,
   // den es nicht braucht.
-  fastify.post<{ Params: IdParams; Reply: PostRegionsReply | ApiError }>(
+  fastify.post<{ Params: IdParams; Body: BuildGraphBody; Reply: PostRegionsReply | ApiError }>(
     '/api/v1/map/regions/:id/build-graph',
     async (request, reply) => {
       const regionId = request.params.id;
@@ -368,7 +391,36 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
         );
       }
 
+      // ─── WAS DIESER BAU KOSTET, BEVOR ER LAEUFT ───────────────────────
+      // Es gibt EINEN Graphen, nicht einen je Region -- die Knoepfe stehen
+      // aber pro Region und legen das Gegenteil nahe. Gemeldet: „Das routing
+      // funktioniert nicht mehr ... Liegt das daran dass nur das routing fuer
+      // Liechtenstein angezeigt wird?" Ja.
+      //
+      // Der Bau sammelt jede `.osm.pbf` im Zwischenlager ein -- und dort
+      // liegt eine Region nur, wenn fuer SIE schon einmal „Routing bauen"
+      // gedrueckt wurde. Der Kachelbau hinterlaesst keine (siehe
+      // `graphAbdeckung.ts`). Wer drei Laender installiert und beim kleinsten
+      // drueckt, verliert die anderen beiden -- lautlos.
+      //
+      // Statt hinterher zu ueberraschen wird vorher gerechnet und gefragt.
+      const abdeckung = abdeckungNachBau({
+        installiert: (await listRegions(tilesDir, fastify.log)).map((r) => r.region),
+        mitExtrakt: regionenMitExtrakt(pbfLagerPfad(resolveGraphDir())),
+        bauRegion: regionId,
+        jetzt: graphRegionenJetzt(resolveGraphDir()),
+      });
+      const verlust = abdeckung.verliert.length > 0 || abdeckung.ohneRouting.length > 0;
+      if (verlust && request.body?.abdeckung_bestaetigt !== true) {
+        return reply.code(409).send(
+          createErrorResponse('COVERAGE_LOSS', abdeckungSatz(abdeckung), {
+            abdeckung,
+          }),
+        );
+      }
+
       const jobId = jobs.create(BUILD_JOB_KIND);
+      fastify.log.info({ abdeckung }, `Routingbau: ${abdeckungSatz(abdeckung)}`);
       runBuildJob(
         jobId,
         jobs,
@@ -377,7 +429,7 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
         { ...opts.buildDeps, logger: opts.buildDeps?.logger ?? ((line) => fastify.log.info(line)) },
         GRAPH_BUILD,
       );
-      return reply.code(202).send({ job_id: jobId });
+      return reply.code(202).send({ job_id: jobId, abdeckung });
     },
   );
 
