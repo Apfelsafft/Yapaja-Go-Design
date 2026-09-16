@@ -49,6 +49,7 @@
 import type { NavState, Position } from '@yapaia/shared';
 import type { EventBus } from '../bus/index.js';
 import type { HaConnection } from './config.js';
+import { EIGENER_FAHRZEUG_TRACKER } from './eigeneEntitaeten.js';
 import { buildSpeedPayload, maneuverIcon } from '../mqtt/mapping.js';
 
 /** Ein Zustand, wie ihn Home Assistant entgegennimmt. */
@@ -195,7 +196,7 @@ export function buildHaStates(zustand: YapaiaZustand): HaStateWrite[] {
     // einer Zone steht, entscheidet Home Assistant selbst nicht fuer
     // fremdgeschriebene Tracker, und „home" zu behaupten waere geraten.
     schreibt.push({
-      entityId: 'device_tracker.yapaja_vehicle',
+      entityId: EIGENER_FAHRZEUG_TRACKER,
       state: 'not_home',
       attributes: {
         friendly_name: `${GERAET} Vehicle`,

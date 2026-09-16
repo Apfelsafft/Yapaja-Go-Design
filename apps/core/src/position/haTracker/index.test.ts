@@ -13,7 +13,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { EventBus } from '../../bus/index.js';
 import { PositionService } from '../service.js';
-import type { HaEntityState } from '../../ha/client.js';
+import type { HaClientLogger, HaEntityState } from '../../ha/client.js';
+import { EIGENER_FAHRZEUG_TRACKER } from '../../ha/eigeneEntitaeten.js';
 import {
   HaTrackerSource,
   listGpsTrackers,
@@ -24,7 +25,11 @@ import {
 
 const CONNECTION = { apiBase: 'http://supervisor/core/api', token: 'geheim' };
 
-const silentLogger = { info: () => undefined, warn: () => undefined, error: () => undefined };
+const silentLogger: HaClientLogger = {
+  info: () => undefined,
+  warn: () => undefined,
+  error: () => undefined,
+};
 
 function trackerState(overrides: Partial<HaEntityState> = {}): HaEntityState {
   return {
@@ -295,5 +300,119 @@ describe('HaTrackerSource', () => {
     expect(() => source.stop()).not.toThrow();
     // Ein zweites stop() darf ebenfalls nicht stoeren.
     expect(() => source.stop()).not.toThrow();
+  });
+});
+
+/**
+ * ─── DER KREIS: YAPAIA ALS SEINE EIGENE POSITIONSQUELLE ─────────────────────
+ * Aus dem Protokoll einer echten Installation:
+ *
+ *     ha_tracker: konfigurierte Entitaet nicht gefunden -- Quelle bleibt inaktiv
+ *     { entityId: "device_tracker.yapaja_vehicle",
+ *       verfuegbar: ["device_tracker.ipad_2"] }
+ *
+ * Yapaias eigener Fahrzeug-Tracker stand in der Auswahlliste, weil er
+ * Koordinaten trägt — und klang von allen Einträgen am meisten nach „das
+ * Fahrzeug, um das es geht".
+ */
+describe('der eigene Fahrzeug-Tracker ist keine Quelle', () => {
+  function eigener(): HaEntityState {
+    return trackerState({
+      entity_id: EIGENER_FAHRZEUG_TRACKER,
+      attributes: { latitude: 47.2, longitude: 9.6, gps_accuracy: 5 },
+    });
+  }
+
+  it('steht nicht in der Auswahlliste, obwohl er Koordinaten trägt', () => {
+    // Die formale Bedingung erfüllt er: `device_tracker.*` mit lat/lon. Er ist
+    // trotzdem die AUSGABE dieser Navigation.
+    const states = [eigener(), trackerState({ entity_id: 'device_tracker.ipad_2' })];
+    expect(listGpsTrackers(states)).toEqual(['device_tracker.ipad_2']);
+  });
+
+  it('nimmt der automatischen Wahl nicht die Eindeutigkeit', async () => {
+    // Ohne den Ausschluss wären es ZWEI Kandidaten, und dann wird bewusst
+    // keiner geraten — der eigene Tracker hätte die automatische Einrichtung
+    // in jeder Installation stillgelegt, sobald Yapaia einmal gesendet hat.
+    const states = [eigener(), trackerState({ entity_id: 'device_tracker.ipad_2' })];
+    const { source, service } = makeSource(states, { entityId: '', autoSelect: true });
+    await source.poll();
+    expect(service.getLast()?.lat).toBe(47.141);
+  });
+
+  it('wird als GESPEICHERTE Wahl nicht gelesen', async () => {
+    // Der Ausschluss aus der Liste räumt nur die Liste. Wer den Eintrag vorher
+    // gewählt hat, behält ihn — genau der Fall aus dem Protokoll.
+    const { source, service } = makeSource([eigener()], {
+      entityId: EIGENER_FAHRZEUG_TRACKER,
+    });
+    await source.poll();
+    expect(service.getLast()).toBeNull();
+  });
+
+  it('sagt „Kreis" und nicht „nicht gefunden"', async () => {
+    // Die alte Meldung zeigte in die falsche Richtung: man sucht nach einer
+    // fehlenden Entität statt nach einer falschen Wahl.
+    const warnungen: string[] = [];
+    const { source } = makeSource([eigener(), trackerState({ entity_id: 'device_tracker.ipad_2' })], {
+      entityId: EIGENER_FAHRZEUG_TRACKER,
+      logger: { ...silentLogger, warn: (msg: string) => warnungen.push(msg) },
+    });
+    await source.poll();
+    expect(warnungen).toHaveLength(1);
+    expect(warnungen[0]).toContain('Kreis');
+    expect(warnungen[0]).not.toContain('nicht gefunden');
+  });
+
+  it('nennt in der Warnung, was stattdessen wählbar ist', async () => {
+    const meta: unknown[] = [];
+    const { source } = makeSource([eigener(), trackerState({ entity_id: 'device_tracker.ipad_2' })], {
+      entityId: EIGENER_FAHRZEUG_TRACKER,
+      logger: { ...silentLogger, warn: (_msg: string, m?: unknown) => meta.push(m) },
+    });
+    await source.poll();
+    // Die eigene Entität darf in dieser Liste NICHT auftauchen — sonst stünde
+    // im Protokoll als Vorschlag genau das, was gerade beanstandet wird.
+    expect(meta[0]).toEqual({
+      eingetragen: EIGENER_FAHRZEUG_TRACKER,
+      waehlbar: ['device_tracker.ipad_2'],
+    });
+  });
+
+  it('warnt einmal, nicht bei jeder Abfrage', async () => {
+    const warnungen: string[] = [];
+    const { source } = makeSource([eigener()], {
+      entityId: EIGENER_FAHRZEUG_TRACKER,
+      logger: { ...silentLogger, warn: (msg: string) => warnungen.push(msg) },
+    });
+    await source.poll();
+    await source.poll();
+    await source.poll();
+    expect(warnungen).toHaveLength(1);
+  });
+
+  it('sucht sich selbst einen Tracker, wenn das erlaubt ist', async () => {
+    // Die Eintragung ist nachweislich unbrauchbar. An ihr festzuhalten hieße,
+    // eine Installation wegen einer Wahl stillzulegen, die die Liste heute gar
+    // nicht mehr anbietet.
+    const states = [eigener(), trackerState({ entity_id: 'device_tracker.ipad_2' })];
+    const { source, service } = makeSource(states, {
+      entityId: EIGENER_FAHRZEUG_TRACKER,
+      autoSelect: true,
+    });
+    await source.poll();
+    expect(service.getLast()?.lat).toBe(47.141);
+  });
+
+  it('lässt jeden ANDEREN eingetragenen Tracker unangetastet', async () => {
+    // Die Regel darf nicht mehr treffen als die eine Entität.
+    const warnungen: string[] = [];
+    const { source, service } = makeSource([trackerState({ entity_id: 'device_tracker.ipad_2' })], {
+      entityId: 'device_tracker.ipad_2',
+      logger: { ...silentLogger, warn: (msg: string) => warnungen.push(msg) },
+    });
+    await source.poll();
+    expect(service.getLast()?.lat).toBe(47.141);
+    expect(warnungen).toEqual([]);
   });
 });

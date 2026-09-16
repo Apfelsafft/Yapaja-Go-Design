@@ -12,6 +12,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { EIGENER_FAHRZEUG_TRACKER } from '../ha/eigeneEntitaeten.js';
 import {
   runPreflight,
   PHOTON_COMFORTABLE_RAM_BYTES,
@@ -663,6 +664,26 @@ describe('Positionsprüfung', () => {
       const pos = byId(report.checks, 'position');
       expect(pos.status).toBe('warn');
       expect(pos.detail).toContain('device_tracker.vertippt');
+      expect(pos.remedy).toContain('device_tracker.telefon');
+    });
+
+    // Der Fall aus einem echten Protokoll: eingetragen war Yapaias eigener
+    // Fahrzeug-Tracker. Er stand in der Auswahlliste, weil er Koordinaten
+    // trägt, und klang von allen Einträgen am meisten nach „das Fahrzeug".
+    it('nennt den eigenen Fahrzeug-Tracker einen Kreis — und nicht „keine Koordinaten"', async () => {
+      const report = await runPreflight(
+        healthyDeps({
+          env: haEnv({ HA_DEVICE_TRACKER: EIGENER_FAHRZEUG_TRACKER }),
+          listHaTrackers: async () => ['device_tracker.telefon'],
+        }),
+      );
+      const pos = byId(report.checks, 'position');
+      expect(pos.status).toBe('warn');
+      expect(pos.detail).toContain('Kreis');
+      // Die Begründung des Nachbarzweigs wäre hier schlicht falsch: der
+      // eigene Tracker TRÄGT Koordinaten. Wer danach sucht, sucht am
+      // falschen Ende.
+      expect(pos.detail).not.toContain('keine Koordinaten');
       expect(pos.remedy).toContain('device_tracker.telefon');
     });
 

@@ -32,6 +32,7 @@
 import { checkPosition, type Position } from '@yapaia/shared';
 import { fetchHaStates, type HaClientLogger, type HaEntityState } from '../../ha/client.js';
 import type { HaConnection } from '../../ha/config.js';
+import { istEigeneEntitaet } from '../../ha/eigeneEntitaeten.js';
 import { PlausibilityGuard } from '../guard.js';
 import type { PositionService, PositionSource } from '../service.js';
 
@@ -100,12 +101,18 @@ export interface HaTrackerSourceOptions {
 /** Alle `device_tracker.*`-Zustaende, die tatsaechlich Koordinaten tragen.
  *  Ein Tracker ohne `latitude`/`longitude` (etwa einer, der nur „home"/„not
  *  home" per WLAN meldet) ist als Positionsquelle wertlos -- ihn anzubieten
- *  waere ein Knopf, der sicher nichts tut. */
+ *  waere ein Knopf, der sicher nichts tut.
+ *
+ *  AUSGENOMMEN ist Yapaias eigener Fahrzeug-Tracker. Er traegt Koordinaten und
+ *  erfuellt die Bedingung damit formal -- aber er ist die AUSGABE dieser
+ *  Navigation, nicht eine Quelle. Ihn anzubieten waere ein Kreis; die
+ *  Begruendung steht in `ha/eigeneEntitaeten.ts`. */
 export function listGpsTrackers(states: HaEntityState[]): string[] {
   return states
     .filter(
       (entry) =>
         entry.entity_id.startsWith('device_tracker.') &&
+        !istEigeneEntitaet(entry.entity_id) &&
         typeof entry.attributes.latitude === 'number' &&
         typeof entry.attributes.longitude === 'number',
     )
@@ -172,6 +179,8 @@ export class HaTrackerSource implements PositionSource {
   /** Die zuletzt automatisch gewaehlte Entitaet -- nur fuers Protokoll, damit
    *  ein Wechsel (Tracker verschwindet, anderer kommt) wieder auftaucht. */
   private autoPicked: string | null = null;
+  /** Dasselbe fuer den Kreis: einmal erklaeren, nicht bei jeder Abfrage. */
+  private kreisLogged = false;
 
   constructor(opts: HaTrackerSourceOptions) {
     this.opts = opts;
@@ -195,7 +204,34 @@ export class HaTrackerSource implements PositionSource {
   private resolveEntityId(states: HaEntityState[]): string | null {
     const configured = this.opts.entityId().trim();
     if (configured.length > 0) {
-      return configured;
+      // ─── DER KREIS ────────────────────────────────────────────────────────
+      // Eine GESPEICHERTE Wahl laeuft nicht durch `listGpsTrackers`. Der
+      // Ausschluss dort raeumt den Eintrag also nur aus der Liste -- wer ihn
+      // vorher gewaehlt hat, behaelt ihn. Genau dieser Fall stand im
+      // Protokoll, und er meldete sich als „nicht gefunden", was in die
+      // falsche Richtung zeigt: man sucht dann nach einer fehlenden
+      // Entitaet statt nach einer falschen Wahl.
+      if (istEigeneEntitaet(configured)) {
+        if (!this.kreisLogged) {
+          this.kreisLogged = true;
+          this.opts.logger.warn(
+            'ha_tracker: als Positionsquelle ist Yapaias EIGENER Fahrzeug-Tracker ' +
+              'eingetragen -- das waere ein Kreis (Yapaia liest zurueck, was Yapaia ' +
+              'schreibt) und liefert keine Position. Bitte in Yapaia unter ' +
+              'Einstellungen -> Positionsquelle den Tracker der Companion App ' +
+              'waehlen (meist das eigene Telefon).',
+            { eingetragen: configured, waehlbar: listGpsTrackers(states) },
+          );
+        }
+        // KEIN `return null`: es wird weiter unten selbst gesucht, wenn das
+        // erlaubt ist. Die Eintragung ist nachweislich unbrauchbar -- daran
+        // festzuhalten hiesse, eine Installation wegen einer Wahl stillzulegen,
+        // die die Liste heute gar nicht mehr anbietet. Ist Suchen NICHT
+        // erlaubt, kommt gleich `null` heraus, und die Warnung oben steht.
+      } else {
+        this.kreisLogged = false;
+        return configured;
+      }
     }
     if (this.opts.autoSelect !== true) {
       return null;
