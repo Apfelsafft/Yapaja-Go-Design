@@ -4,11 +4,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { LatLng, VehicleProfile } from '@yapaia/shared';
+import type { LatLng, RouteMode, VehicleProfile } from '@yapaia/shared';
 import {
   buildTruckCostingOptions,
   buildValhallaRouteBody,
   valhallaSprache,
+  VALHALLA_VORGABE_USE_HIGHWAYS,
 } from './profileMapping.js';
 
 function camper(overrides: Partial<VehicleProfile> = {}): VehicleProfile {
@@ -35,8 +36,25 @@ describe('buildTruckCostingOptions (W-08 mapping)', () => {
     expect(truck.width).toBe(2.35); // metres
     expect(truck.length).toBe(7.4); // metres
     expect(truck.weight).toBe(7.5); // metric tonnes
-    expect(truck.top_speed).toBe(95); // km/h
     expect(truck.hazmat).toBe(true);
+  });
+
+  // ─── DIE ZUSICHERUNG, DIE DEN FEHLER FESTGESCHRIEBEN HAT ─────────────────
+  // Hier stand `expect(truck.top_speed).toBe(95)`. Sie war die ganze Zeit
+  // gruen, waehrend „schnellste" die Autobahn mied: die EINHEIT stimmte
+  // (beides km/h), also sah die Zusicherung richtig aus. Geprueft wurde
+  // damit aber nur, dass eine Zahl ankommt -- nicht, ob sie dort etwas
+  // bedeutet. Die Begruendung steht in `profileMapping.ts`.
+  it('schickt KEIN top_speed — die Reisegeschwindigkeit ist keine Hoechstgeschwindigkeit', () => {
+    const truck = buildTruckCostingOptions(camper());
+    expect('top_speed' in truck).toBe(false);
+  });
+
+  it('schickt auch dann keins, wenn die Reisegeschwindigkeit hoch ist', () => {
+    // Sonst liesse sich der Fehler dadurch „beheben", dass er nur bei
+    // kleinen Werten auftritt. Er haengt nicht am Wert, sondern am Feld.
+    const truck = buildTruckCostingOptions(camper({ avg_speed_kmh: 130 }));
+    expect('top_speed' in truck).toBe(false);
   });
 
   it('sets ALL four use_* flags to 0 when every avoid flag is true', () => {
@@ -325,10 +343,41 @@ describe('wonach gesucht wird (schnellste / kuerzeste / ausgewogen)', () => {
     expect(buildTruckCostingOptions(camper(), undefined, 'shortest').shortest).toBe(true);
   });
 
-  it('ausgewogen halbiert die Vorliebe fuer Autobahnen', () => {
+  // ─── DIE ZWEITE ZUSICHERUNG, DIE NICHTS GEPRUEFT HAT ────────────────────
+  // Hier stand `toBe(0.5)`. Auch sie war gruen -- und wirkungslos, denn 0.5
+  // ist Valhallas VORGABE (`kDefaultUseHighways` in `truckcost.cc`).
+  // „Ausgewogen" und „Schnellste" lieferten dieselbe Route. Die Zusicherung
+  // hat den eingetragenen Wert bestaetigt, statt eine Wirkung zu pruefen.
+  it('ausgewogen nimmt Autobahnen weniger gern als „schnellste"', () => {
     const o = buildTruckCostingOptions(camper(), undefined, 'balanced');
-    expect(o.use_highways).toBe(0.5);
+    expect(o.use_highways).toBe(0.25);
     expect(o.shortest).toBeUndefined();
+  });
+
+  it('ausgewogen liegt UNTER Valhallas Vorgabe, sonst waere es wirkungslos', () => {
+    // Die eigentliche Aussage. Sie haelt auch dann noch, wenn der Wert
+    // spaeter feiner eingestellt wird -- und sie faellt sofort um, wenn
+    // jemand wieder auf die Vorgabe zurueckdreht.
+    const o = buildTruckCostingOptions(camper(), undefined, 'balanced');
+    expect(o.use_highways).toBeLessThan(VALHALLA_VORGABE_USE_HIGHWAYS);
+  });
+
+  it('schnellste ueberlaesst Valhalla die Wahl und setzt use_highways gar nicht', () => {
+    const o = buildTruckCostingOptions(camper(), undefined, 'fastest');
+    expect('use_highways' in o).toBe(false);
+    expect(o.shortest).toBeUndefined();
+  });
+
+  it('die drei Betriebsarten sind unterscheidbar', () => {
+    // Der Fehler war NICHT, dass eine Betriebsart falsch rechnete, sondern
+    // dass zwei davon dasselbe taten. Genau das prueft diese Zusicherung.
+    const abdruck = (m: RouteMode): string =>
+      JSON.stringify([
+        buildTruckCostingOptions(camper(), undefined, m).use_highways ?? null,
+        buildTruckCostingOptions(camper(), undefined, m).shortest ?? null,
+      ]);
+    const alle = [abdruck('fastest'), abdruck('balanced'), abdruck('shortest')];
+    expect(new Set(alle).size).toBe(3);
   });
 
   // ─── DIE FALLE ──────────────────────────────────────────────────────────

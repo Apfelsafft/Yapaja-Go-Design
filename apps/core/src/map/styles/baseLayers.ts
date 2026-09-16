@@ -268,6 +268,56 @@ export function buildBaseLayers(p: MapPalette): StyleLayer[] {
       paint: { 'text-color': p.roadText, 'text-halo-color': p.roadHalo, 'text-halo-width': 1.4 },
     },
     {
+      // ─── STRASSENNUMMERN: A 61, B 9 ───────────────────────────────────────
+      // Gemeldet: „Die Straßennamen sind sichtbar. Aber sowas wie A61 für
+      // Autobahnen um B9 für Bundesstraßen sehe ich nicht."
+      //
+      // Der Grund: die Nummer steht im OMT-Schema NICHT in `name`, sondern in
+      // einem eigenen Feld `ref`. Die Ebene darüber liest nur `name` — und
+      // eine Autobahn hat in OpenStreetMap meist gar keinen Namen, nur eine
+      // Nummer. Für sie stand dort also nichts zu beschriften, und sie blieb
+      // stumm, ohne dass irgendetwas fehlschlug.
+      //
+      // Eine EIGENE Ebene und kein zweites Feld in der darüber: die Nummer
+      // soll viel früher sichtbar sein. Beim Navigieren sucht man „wo ist die
+      // A61" in der Übersicht, nicht bei Zoomstufe 13, wo man ohnehin schon
+      // darauf steht.
+      //
+      // Echte Schilder mit Rahmen (Blau für Autobahn, Gelb für Bundesstraße)
+      // bräuchten Bilddateien — der Stil hat keine `sprite`-Quelle, und eine
+      // zu erfinden wäre ein eigener Schritt. Bis dahin: Fettschrift mit
+      // kräftigem Rand, damit die Nummer sich vom Straßennamen abhebt.
+      id: 'road-shields',
+      type: 'symbol',
+      source: REGION_SOURCE_ID,
+      'source-layer': 'transportation_name',
+      minzoom: 7,
+      // `['has', 'ref']` genügt: planetiler schreibt `ref` durch
+      // `nullIfEmpty(...)`, ein leerer Wert landet also gar nicht erst in der
+      // Kachel (`TransportationName.java`). Der zweite Test darunter steht
+      // trotzdem da — er kostet nichts und deckt Kacheln ab, die jemand mit
+      // einem anderen Werkzeug gebaut hat.
+      filter: [
+        'all',
+        ['has', 'ref'],
+        ['!=', ['get', 'ref'], ''],
+        ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary', 'secondary']]],
+      ],
+      layout: {
+        visibility: 'visible',
+        'text-field': ['get', 'ref'],
+        'text-size': 12,
+        'text-font': [FONT_BOLD],
+        'symbol-placement': 'line',
+        'text-rotation-alignment': 'viewport',
+        // Damit die Nummer auf einer langen Autobahn mehrfach auftaucht und
+        // nicht nur einmal je Kachelabschnitt.
+        'symbol-spacing': 220,
+        'text-padding': 4,
+      },
+      paint: { 'text-color': p.roadText, 'text-halo-color': p.roadHalo, 'text-halo-width': 2.2 },
+    },
+    {
       id: 'place-labels-major',
       type: 'symbol',
       source: REGION_SOURCE_ID,

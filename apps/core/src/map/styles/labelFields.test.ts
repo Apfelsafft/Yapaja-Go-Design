@@ -41,6 +41,21 @@ const TILE_NAME_FIELDS: ReadonlySet<string> = new Set([
   'name_int',
 ]);
 
+/**
+ * Felder, die KEIN Name sind und die Sprachwahl darum nichts angehen.
+ *
+ * `ref` ist die Straßennummer (A 61, B 9). Sie steht in
+ * `transportation_name` — `TransportationName.java` setzt sie mit
+ * `.setAttr(Fields.REF, ref)`, und eine Kante kommt schon dann in die Ebene,
+ * wenn sie NUR eine Nummer hat (`name == null && ref == null` ist die einzige
+ * Abbruchbedingung). Genau deshalb braucht es die eigene Ebene: eine Autobahn
+ * hat in OpenStreetMap meist gar keinen Namen.
+ *
+ * Eine Nummer hat keine Sprache. `applyLang` lässt sie darum in Ruhe — die
+ * Regel dazu steht in `options.ts#beschriftetEinenNamen`.
+ */
+const TILE_NON_NAME_FIELDS: ReadonlySet<string> = new Set(['ref']);
+
 /** Die Werte, die die Oberfläche anbietet (`StylePanel.tsx`, LANG_OPTIONS). */
 const OFFERED_LANGS = ['name', 'name_de', 'name_en'] as const;
 
@@ -58,12 +73,41 @@ describe('Sprachwahl der Beschriftung', () => {
         const [op, key] = field as [string, string];
         expect(op).toBe('get');
         expect(
-          TILE_NAME_FIELDS.has(key),
+          TILE_NAME_FIELDS.has(key) || TILE_NON_NAME_FIELDS.has(key),
           `?lang=${lang} beschriftet "${layer.id}" aus dem Feld "${key}" — das führen ` +
             'unsere Kacheln nicht. Die Ebene bliebe ohne jeden Text, ohne Fehlermeldung.',
         ).toBe(true);
       }
     }
+  });
+
+  // ─── DIE FALLE, IN DIE DIE NUMMERN BEINAHE GEFALLEN WÄREN ────────────────
+  // `applyLang` hat `text-field` auf JEDER Symbol-Ebene ersetzt. Für
+  // `road-shields` (`['get', 'ref']`) hätte das die Nummer durch den Namen
+  // ersetzt, den eine Autobahn meist nicht hat -- die Ebene wäre still leer
+  // geblieben, und zwar nur bei gewählter Sprache. Genau der Fehler, vor dem
+  // der Kopf dieser Datei warnt, ein zweites Mal.
+  it('lässt die Straßennummern in Ruhe, in jeder angebotenen Sprache', () => {
+    for (const lang of OFFERED_LANGS) {
+      const styled = applyStyleOptions(buildYapaiaLightStyle(), { lang });
+      const schilder = styled.layers.find((l) => l.id === 'road-shields');
+      expect(schilder, 'Ebene "road-shields" fehlt — Test prüft nichts').toBeDefined();
+      expect(
+        (schilder as { layout: Record<string, unknown> }).layout['text-field'],
+        `?lang=${lang} hat die Straßennummer durch einen Namen ersetzt`,
+      ).toEqual(['get', 'ref']);
+    }
+  });
+
+  // Die Gegenprobe. Ohne sie liesse sich die Regel oben dadurch „erfüllen",
+  // dass die Sprachwahl gar nichts mehr tut.
+  it('wechselt die Sprache auf den Namensebenen weiterhin', () => {
+    const styled = applyStyleOptions(buildYapaiaLightStyle(), { lang: 'name_de' });
+    const orte = styled.layers.find((l) => l.id === 'place-labels-major');
+    expect((orte as { layout: Record<string, unknown> }).layout['text-field']).toEqual([
+      'get',
+      'name_de',
+    ]);
   });
 
   it('übernimmt jede angebotene Sprache tatsächlich (keine still verworfene Wahl)', () => {

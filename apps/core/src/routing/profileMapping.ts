@@ -10,7 +10,8 @@
  * Unit alignment (all verified against the Valhalla truck-costing reference):
  *  - Valhalla `height`/`width`/`length` are in METRES; profile is in metres.  ✓
  *  - Valhalla `weight` is in metric TONNES; profile `weight_t` is in tonnes.   ✓
- *  - Valhalla `top_speed` is in km/h; profile `avg_speed_kmh` is in km/h.       ✓
+ *  - `top_speed` wird BEWUSST NICHT gesetzt. Die Einheit haette gepasst, die
+ *    Bedeutung nicht — die Begruendung steht bei `buildTruckCostingOptions`.
  *
  * avoid -> Valhalla `use_*` mapping. Valhalla `use_*` default to `1`; setting a
  * flag to `0` makes the router avoid that class. We ONLY emit a `use_*` key
@@ -61,6 +62,18 @@ import type {
 export const VALHALLA_COSTING = 'truck';
 
 /**
+ * Valhallas eigene Vorgabe fuer `use_highways` -- `kDefaultUseHighways` in
+ * `src/sif/truckcost.cc` (und gleichlautend in `autocost.cc`).
+ *
+ * Steht hier als benannte Zahl, weil ein eingetragener Wert, der zufaellig
+ * GENAU die Vorgabe ist, nichts bewirkt und trotzdem nach einer Einstellung
+ * aussieht. Bis 0.8.13 war das bei „Ausgewogen" der Fall. An dieser
+ * Konstante laesst sich die Frage „wirkt das ueberhaupt?" pruefen, statt sie
+ * jedes Mal neu nachzuschlagen.
+ */
+export const VALHALLA_VORGABE_USE_HIGHWAYS = 0.5;
+
+/**
  * Map a profile to `costing_options.truck`. Pure + exhaustively tested.
  *
  * `avoidOverrides` (E03-T4) is the optional per-REQUEST override coming from
@@ -79,8 +92,48 @@ export function buildTruckCostingOptions(
     length: profile.length_m,
     weight: profile.weight_t,
     hazmat: profile.hazmat,
-    top_speed: profile.avg_speed_kmh,
   };
+  // ─── KEIN `top_speed` AUS `avg_speed_kmh` ─────────────────────────────────
+  // Bis 0.8.13 stand hier `top_speed: profile.avg_speed_kmh`. Die Einheit
+  // stimmte (beides km/h) -- die BEDEUTUNG nicht, und genau daran ist es
+  // vorbeigegangen.
+  //
+  // Gemeldet: „Kannst du prüfen warum die schnellste Route nicht über die
+  // Autobahn A61 geht. Die kürzeste aber schon."
+  //
+  // `avg_speed_kmh` ist die REISEGESCHWINDIGKEIT (Vorgabe 85) und laut
+  // `types.ts` ausdruecklich „used for ETA calculation". Valhallas
+  // `top_speed` ist etwas anderes: die Hoechstgeschwindigkeit des Fahrzeugs,
+  // und sie wirkt im Kostenmodell an ZWEI Stellen (nachgelesen in
+  // `src/sif/truckcost.cc`, nicht vermutet):
+  //
+  //  1. `final_speed = min(edge_speed, truck_speed, top_speed_)`
+  //     -- die Autobahn wurde also mit 85 km/h gerechnet statt mit ihrem
+  //     echten Tempo. Damit war ihr Zeitvorteil weg.
+  //
+  //  2. `factor += ... + SpeedPenalty(...)` mit
+  //     `SpeedPenalty = (edge_speed - top_speed) * 0.05`
+  //     (`dynamiccost.h`, Vorgabe `kDefaultSpeedPenaltyFactor = 0.05f`)
+  //     -- jede Strasse, die SCHNELLER als 85 ist, wurde zusaetzlich
+  //     verteuert. Eine Autobahn mit 130 km/h bekam damit 2,25 auf einen
+  //     Grundfaktor von etwa 1 aufgeschlagen, eine Landstrasse mit 80 nichts.
+  //     In der Betriebsart „schnellste" waren die langsamen Strassen die
+  //     billigsten. Das ist genau verkehrt herum.
+  //
+  // Warum „kuerzeste" trotzdem ueber die A61 ging: `truckcost.cc` steigt bei
+  // `shortest` VOR diesem Faktorblock aus
+  // (`if (shortest_) { return Cost(edge->length(), sec); }`). Die Strafe kam
+  // dort also nie an. Die Ungereimtheit, die aufgefallen ist, war kein
+  // Zufall -- sie war die Naht zwischen den beiden Zweigen.
+  //
+  // Ohne den Schluessel nimmt Valhalla seine eigene Vorgabe fuer `truck`
+  // (`kMaxAssumedTruckSpeed = 120`), und die Strafe greift erst oberhalb von
+  // 120 km/h -- also da, wofuer sie gedacht ist.
+  //
+  // Die ANKUNFTSZEIT verliert dadurch nichts: sie wird ohnehin getrennt
+  // gerechnet (`navigation/eta.ts#computeEtaDuration` nimmt `avg_speed_kmh`
+  // als Untergrenze). Die Reisegeschwindigkeit wirkt also weiter auf die
+  // Zeitangabe -- nur nicht mehr auf die Wahl der Strasse.
 
   // Effective avoid = per-request override (if present) else the profile's
   // own flag. Only lower a `use_*` flag when the EFFECTIVE flag is true;
@@ -103,16 +156,31 @@ export function buildTruckCostingOptions(
     truck.shortest = true;
   } else if (mode === 'balanced' && !effectiveMotorway) {
     // „Ausgewogen" ist KEINE eingebaute Betriebsart von Valhalla, sondern
-    // diese eine Zeile: die Vorliebe fuer Autobahnen wird halbiert (Vorgabe
-    // ist 1). Die Zeit bleibt das Mass -- die Autobahn wird also weiter
+    // diese eine Zeile: Autobahnen werden etwas weniger gern genommen als in
+    // „schnellste". Die Zeit bleibt das Mass -- die Autobahn wird also weiter
     // genommen, wenn sie deutlich schneller ist, aber ein langer Umweg
     // dorthin lohnt sich nicht mehr.
     //
+    // ─── HIER STAND 0.5, UND DAS WAR WIRKUNGSLOS ────────────────────────────
+    // Der Kommentar dazu behauptete „Vorgabe ist 1". Das stimmt fuer keines
+    // der beiden Kostenmodelle: `kDefaultUseHighways = 0.5f` steht sowohl in
+    // `src/sif/autocost.cc` als auch in `src/sif/truckcost.cc`. Der
+    // eingetragene Wert war also GENAU die Vorgabe -- „Ausgewogen" und
+    // „Schnellste" haben bis 0.8.13 dieselbe Route geliefert, und niemand
+    // konnte den Unterschied sehen, weil es keinen gab.
+    //
+    // Valhalla rechnet daraus (`truckcost.cc`):
+    //     use_highways >= 0.5 -> highway_factor_ = (0.5 - u)^3
+    //     use_highways <  0.5 -> highway_factor_ = kMaxHighwayBiasFactor * (1 - 2u)^2
+    // Bei 0.5 kommt 0 heraus: keine Vorliebe, in keine Richtung. Erst
+    // UNTERHALB von 0.5 entsteht ein Abschlag. 0.25 ergibt den halben Weg
+    // dorthin -- spuerbar, aber weit entfernt von „meiden" (das waere 0).
+    //
     // Nur, wenn Autobahnen nicht ohnehin gemieden werden: sonst ueber-
-    // schriebe diese Zeile die 0 von oben mit 0.5 und machte aus einem
-    // „meiden" ein „ein bisschen meiden". Genau die Sorte stiller
-    // Aufweichung, die man spaeter nicht wiederfindet.
-    truck.use_highways = 0.5;
+    // schriebe diese Zeile die 0 von oben und machte aus einem „meiden" ein
+    // „ein bisschen meiden". Genau die Sorte stiller Aufweichung, die man
+    // spaeter nicht wiederfindet.
+    truck.use_highways = 0.25;
   }
 
   return truck;

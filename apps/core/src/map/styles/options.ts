@@ -113,8 +113,37 @@ function isPoiLayer(layer: StyleLayer): layer is SymbolLayer {
   return isSymbolLayer(layer) && layer.id.startsWith(POI_LAYER_ID_PREFIX);
 }
 
+/**
+ * Ob eine Ebene einen NAMEN beschriftet — und die Sprachwahl sie deshalb
+ * angeht.
+ *
+ * ─── WOFUER ─────────────────────────────────────────────────────────────────
+ * `applyLang` hat bis 0.8.14 `text-field` auf JEDER Symbol-Ebene ersetzt. Das
+ * war richtig, solange jede Symbol-Ebene einen Namen zeigte. Mit den
+ * Strassennummern (`road-shields`, `['get', 'ref']`) stimmt das nicht mehr:
+ * die Nummer einer Autobahn hat keine Sprache, und ein `?lang=name_de` haette
+ * sie durch den Namen ersetzt, den eine Autobahn meist gar nicht hat. Die
+ * Ebene waere still leer geblieben — genau die Sorte Fehler, die im Kopf von
+ * `labelFields.test.ts` steht.
+ *
+ * ─── WARUM NICHT EINFACH DIE ID AUSNEHMEN ───────────────────────────────────
+ * Weil dann jede kuenftige Ebene, die etwas anderes als einen Namen zeigt
+ * (Hausnummern, Hoehenangaben, Streckennummern), denselben Fehler neu macht
+ * und niemand daran denkt. Die Frage „ist das ein Name?" laesst sich am Feld
+ * selbst beantworten, und damit gilt die Regel fuer alles, was noch kommt.
+ */
+function beschriftetEinenNamen(layer: SymbolLayer): boolean {
+  const feld = layer.layout['text-field'];
+  if (!Array.isArray(feld) || feld.length !== 2 || feld[0] !== 'get') {
+    // Etwas anderes als ein schlichtes `['get', X]` — zusammengesetzte
+    // Ausdruecke fasst die Sprachwahl nicht an, statt sie plattzumachen.
+    return false;
+  }
+  return typeof feld[1] === 'string' && feld[1].startsWith('name');
+}
+
 function applyLang(layer: StyleLayer, lang: StyleLang): StyleLayer {
-  if (!isSymbolLayer(layer)) {
+  if (!isSymbolLayer(layer) || !beschriftetEinenNamen(layer)) {
     return layer;
   }
   return { ...layer, layout: { ...layer.layout, 'text-field': ['get', lang] } };
