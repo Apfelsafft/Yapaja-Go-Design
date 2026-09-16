@@ -36,7 +36,8 @@ import {
   getStyleDocument,
   listStyleSummaries,
   parseStyleOptions,
-  rewriteSourceUrls,
+  rewriteToRegions,
+  sichtbareRegionen,
   type MapStyleDocument,
   type RawStyleQuery,
   type StyleSummary,
@@ -229,12 +230,25 @@ export const mapPlugin: FastifyPluginAsync = async (fastify) => {
 
       const regions = await listRegions(tilesDir, fastify.log);
       const requestedRegion = request.query.region;
-      const activeRegion =
-        requestedRegion && regions.some((r) => r.region === requestedRegion)
-          ? requestedRegion
-          : regions[0]?.region;
 
-      const style = activeRegion ? rewriteSourceUrls(baseStyle, activeRegion) : baseStyle;
+      // ─── ALLE REGIONEN, NICHT NUR EINE ────────────────────────────────────
+      // Bis 0.9.0 wurde hier GENAU EINE Region gewaehlt -- und weil die
+      // Oberflaeche nie eine mitschickte, war es immer `regions[0]`, also die
+      // alphabetisch erste. Gemeldet: „Ich habe Deutschland, Liechtenstein
+      // und Schweiz Kacheln gebaut. Sehe aber nur Deutschland."
+      //
+      // `?region=` bleibt und bedeutet weiterhin „NUR diese": als Rueckfall,
+      // wenn mehrere Quellen einem schwachen Geraet zu viel sind, und weil
+      // bestehende Lesezeichen weiter funktionieren sollen.
+      //
+      // Ohne `?region=` werden alle gezeichnet, die einander nicht ohnehin
+      // enthalten -- siehe `mehrRegionen.ts`.
+      const aktive =
+        requestedRegion && regions.some((r) => r.region === requestedRegion)
+          ? [requestedRegion]
+          : sichtbareRegionen(regions).map((r) => r.region);
+
+      const style = aktive.length > 0 ? rewriteToRegions(baseStyle, aktive) : baseStyle;
       const options = parseStyleOptions(request.query);
       return reply.code(200).send(applyStyleOptions(style, options));
     },

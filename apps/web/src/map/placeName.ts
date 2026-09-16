@@ -167,6 +167,26 @@ export interface ResolvePlaceNameInput {
  * nicht gibt, und ein Ziel muss sich auch dann setzen lassen. Ein Name ist
  * ein Komfort, kein Teil der Navigation.
  */
+/**
+ * Alle Kachelquellen dieses Stils, Hauptregion zuerst.
+ *
+ * Die Hauptquelle steht IMMER vorn, auch wenn `getStyle()` noch nichts
+ * liefert: dann ist sie die einzige, und das Verhalten entspricht dem vor
+ * 0.9.1.
+ */
+export function regionsQuellen(map: MapLibreMap, sourceId: string): string[] {
+  let weitere: string[] = [];
+  try {
+    const sources = map.getStyle?.()?.sources ?? {};
+    weitere = Object.keys(sources)
+      .filter((id) => id !== sourceId && id.startsWith(`${sourceId}-`))
+      .sort();
+  } catch {
+    // Der Stil ist noch nicht geladen. Die Hauptquelle genuegt.
+  }
+  return [sourceId, ...weitere];
+}
+
 export function resolvePlaceName({
   map,
   point,
@@ -192,16 +212,31 @@ export function resolvePlaceName({
     return null;
   }
 
+  // ─── SEIT 0.9.1 GIBT ES MEHRERE KACHELQUELLEN ────────────────────────────
+  // Wer Deutschland und die Schweiz installiert hat, bekommt je Region eine
+  // eigene Quelle (`rewrite.ts#rewriteToRegions`). Nur die Hauptregion heisst
+  // weiter `yapaja-region`; die uebrigen tragen ein Suffix.
+  //
+  // Wuerde hier nur die Hauptquelle gefragt, haette jedes Ziel jenseits ihrer
+  // Grenze keinen Namen mehr -- und zwar ohne Fehlermeldung, weil eine
+  // Abfrage auf eine Quelle ohne passende Merkmale einfach leer ist. Genau
+  // dieselbe Bauart von Fehler wie der Tippfehler `'region'` in 0.3.2, nur
+  // eine Ebene weiter.
+  const quellen = regionsQuellen(map, sourceId);
+
   for (const sourceLayer of LOOKUP_LAYERS) {
     const limit =
       sourceLayer === 'place' ? MAX_PLACE_DISTANCE_DEG : MAX_NAME_DISTANCE_DEG;
     const limitSquared = limit * limit;
 
-    let features: GeoJSONFeature[];
-    try {
-      features = map.querySourceFeatures(sourceId, { sourceLayer });
-    } catch {
-      continue;
+    const features: GeoJSONFeature[] = [];
+    for (const quelle of quellen) {
+      try {
+        features.push(...map.querySourceFeatures(quelle, { sourceLayer }));
+      } catch {
+        // Diese eine Quelle fuehrt die Ebene nicht -- die naechste vielleicht.
+        continue;
+      }
     }
 
     let bestName: string | null = null;

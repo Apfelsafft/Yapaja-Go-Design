@@ -10,6 +10,61 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.9.1
+
+**Alle installierten Kartenregionen werden gleichzeitig gezeichnet.**
+
+> „Ich habe Deutschland, Liechtenstein und Schweiz Kacheln gebaut. Sehe aber
+> nur Deutschland. Wie kann ich alle Kacheln gleichzeitig sehen? Bzw auch
+> länderübergreifend fahren kann?"
+
+Die Karte hatte bisher **genau eine** Kachelquelle. Welche Region darin
+landete, entschied ein Parameter in der Adresszeile — und weil die Oberfläche
+nie einen mitschickte, war es immer die **alphabetisch erste**. Wer
+Deutschland und die Schweiz gebaut hatte, sah Deutschland, und es gab nicht
+einmal einen Umschalter.
+
+Jetzt werden alle installierten Regionen gezeichnet. Für ein Wohnmobil ist
+eine Grenze der Normalfall, nicht der Sonderfall.
+
+### Regionen, die ineinander liegen
+
+„Einfach alle zeichnen" geht nicht: Wer `germany` **und** `rheinland-pfalz`
+installiert hat, hätte jede Straße doppelt und jeden Ortsnamen zweimal —
+doppelte Beschriftung verdrängt sich gegenseitig, das Ergebnis flackert.
+
+Yapaia lässt deshalb eine Region weg, die **vollständig** in einer anderen
+liegt. Rheinland-Pfalz wird also nicht zusätzlich gezeichnet, solange
+Deutschland installiert ist. Die Kacheln bleiben liegen und gelten sofort
+wieder, wenn Sie Deutschland entfernen.
+
+Nicht gelöst: zwei Regionen, die sich nur **teilweise** überschneiden. Dort
+wird im gemeinsamen Bereich weiterhin doppelt gezeichnet.
+
+### Was Sie tun sollten
+
+- **Löschen Sie `rheinland-pfalz`**, wenn Sie `germany` haben. Die Daten sind
+  doppelt vorhanden, und der Routinggraph verarbeitet sie sonst auch doppelt —
+  das kostet Bauzeit und Speicher ohne jeden Gewinn.
+- **Bauen Sie den Routinggraphen einmal neu**, nachdem Sie ein Land ergänzt
+  haben. Ein Klick auf „Routing bauen" bei *irgendeiner* Region genügt: es
+  werden immer alle vorhandenen Extrakte eingesammelt.
+
+### Zur Einordnung: Routing und Suche konnten das längst
+
+| | seit | Verhalten |
+|---|---|---|
+| **Routing** | 0.4.0 | **ein** Graph über alle Extrakte — Grenzübertritte inbegriffen |
+| **Suche** | 0.5.0 | **ein Index je Region**, gesucht wird in allen gleichzeitig |
+| **Karte** | 0.9.1 | alle Regionen gleichzeitig |
+
+Die Karte war der letzte Teil, der noch einspurig dachte.
+
+Ein Klick auf „Suche bauen" bei einer weiteren Region **löscht die bereits
+gebauten nicht** — jede Region bekommt ihre eigene Indexdatei.
+
+---
+
 ## 0.9.0
 
 **Orte mit Symbol: Stellplätze, Campingplätze, Tankstellen, Parkplätze, Supermärkte, Essen, Sehenswürdigkeiten.**

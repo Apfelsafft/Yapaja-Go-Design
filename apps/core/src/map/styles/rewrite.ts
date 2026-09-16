@@ -3,7 +3,8 @@
  * region's actual tile archive before it's served.
  */
 
-import type { MapStyleDocument } from './types.js';
+import { REGION_SOURCE_ID } from './constants.js';
+import type { MapStyleDocument, StyleSource } from './types.js';
 
 /**
  * Builds the relative `pmtiles://` tile URL for a region.
@@ -33,4 +34,70 @@ export function rewriteSourceUrls(style: MapStyleDocument, region: string): MapS
     ),
   );
   return { ...style, sources };
+}
+
+/**
+ * Die Quellen-ID einer Region.
+ *
+ * Die HAUPTREGION behält die unveränderte ID `yapaja-region`. Das ist kein
+ * Schönheitsfehler, sondern Absicht: `apps/web/src/map/placeName.ts` fragt
+ * Merkmale genau unter diesem Namen ab, um den Ortsnamen unter dem Fahrzeug
+ * zu bestimmen. Würde hier alles umbenannt, fände es nichts mehr — und zwar
+ * lautlos, denn eine Abfrage auf eine unbekannte Quelle liefert einfach eine
+ * leere Liste.
+ */
+export function regionSourceId(region: string, istHaupt: boolean): string {
+  return istHaupt ? REGION_SOURCE_ID : `${REGION_SOURCE_ID}-${region}`;
+}
+
+/**
+ * Schreibt den Stil auf MEHRERE Regionen um — eine Quelle je Region, und
+ * jede Ebene einmal je Quelle.
+ *
+ * ─── DIE REIHENFOLGE IST DAS GANZE ──────────────────────────────────────────
+ * Vervielfacht wird JE EBENE, nicht je Region. Also erst alle Hintergründe,
+ * dann alle Landflächen, dann alle Straßen, dann alle Beschriftungen.
+ *
+ * Andersherum — erst ganz Deutschland, dann ganz die Schweiz — läge der
+ * Hintergrund der Schweiz ÜBER Deutschlands Beschriftung, und die deutschen
+ * Ortsnamen verschwänden hinter einer grauen Fläche. MapLibre zeichnet
+ * strikt von oben nach unten; die Reihenfolge ist hier kein Stil, sondern
+ * Bedeutung (siehe Kopf von `baseLayers.ts`).
+ *
+ * Der Hintergrund kommt GENAU EINMAL: er hängt an keiner Quelle, und
+ * mehrfach gezeichnet verdeckte er alles unter sich.
+ */
+export function rewriteToRegions(style: MapStyleDocument, regionen: readonly string[]): MapStyleDocument {
+  if (regionen.length === 0) return style;
+  if (regionen.length === 1) return rewriteSourceUrls(style, regionen[0]);
+
+  const sources: Record<string, StyleSource> = {};
+  for (const [i, region] of regionen.entries()) {
+    sources[regionSourceId(region, i === 0)] = {
+      type: 'vector',
+      url: tileUrlForRegion(region),
+    };
+  }
+  // Nicht-Vektorquellen (falls je welche dazukommen) unverändert übernehmen.
+  for (const [id, source] of Object.entries(style.sources)) {
+    if (source.type !== 'vector') sources[id] = source;
+  }
+
+  const layers = style.layers.flatMap((layer) => {
+    if (!('source' in layer) || layer.source === undefined) {
+      return [layer];
+    }
+    return regionen.map((region, i) => {
+      const quelle = regionSourceId(region, i === 0);
+      return {
+        ...layer,
+        // Die ID der Hauptregion bleibt unverändert -- Tests, Doku und alles,
+        // was Ebenen beim Namen nennt, sprechen weiter dieselbe Sprache.
+        id: i === 0 ? layer.id : `${layer.id}__${region}`,
+        source: quelle,
+      };
+    });
+  });
+
+  return { ...style, sources, layers };
 }
