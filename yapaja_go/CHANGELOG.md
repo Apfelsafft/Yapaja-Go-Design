@@ -10,6 +10,107 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.12
+
+**Sprachansagen: die Tonfreigabe wird jetzt geholt, und der Schalter antwortet.**
+
+### Gemeldet
+
+> „Was mir auch auffällt, dass keine Ansagen mehr über Audio ausgegeben werden."
+
+### Was Browser tun, und warum das hier stört
+
+Ton wird erst freigegeben, **nachdem** der Mensch etwas angetippt hat. Auf
+einem iPad besonders streng: eine Sprachausgabe ausserhalb einer Nutzeraktion
+wird stillschweigend geschluckt, und ein frisch angelegter Klangkontext startet
+gesperrt.
+
+Für eine Navigation ist das genau verkehrt herum. Die Ansage kommt, wenn 200 m
+bis zur Abbiegung übrig sind — nicht, wenn jemand tippt. Wer die Seite lädt,
+das Ziel per Favorit startet und danach die Hände ans Lenkrad legt, fährt
+stumm, und nichts auf dem Bildschirm sagt, warum.
+
+Yapaia holt die Freigabe jetzt beim **ersten Antippen irgendwo in der App** —
+einmalig, mit einer stummen Äusserung. Danach darf die App von sich aus reden.
+
+### Der Ansagen-Schalter bestätigt hörbar
+
+Schalten Sie **🔊 Ansagen an** ein, sagt Yapaia „Ansagen sind an." Damit ist
+die Frage sofort beantwortet, die vorher offen blieb: sind die Ansagen aus, ist
+der Ton gesperrt, oder war nur gerade nichts anzusagen? Der Klick ist zugleich
+eine Nutzeraktion, holt also auch die Freigabe.
+
+### ⚠️ Was das NICHT behebt
+
+**Ansagen entstehen nur beim Fahren.** Sie kommen, wenn die Entfernung zur
+nächsten Abbiegung 2000 m, 500 m, 200 m oder 0 m unterschreitet. Steht das
+Fahrzeug — oder liegt der Empfänger auf der Fensterbank —, wird nichts
+unterschritten und es gibt nichts anzusagen. Das ist kein Fehler.
+
+Zum Ausprobieren ohne Fahrt: **Ansagen aus- und wieder einschalten.** Kommt die
+Bestätigung hörbar, ist der Tonweg in Ordnung, und es fehlte schlicht die
+Fahrt. Kommt sie nicht, liegt es am Gerät (Stummschalter, Lautstärke, oder eine
+Sprachausgabe, die dieser Browser nicht hat).
+
+---
+
+## 0.8.11
+
+**Die Karte dreht sich nicht mehr, wenn das Fahrzeug steht.**
+
+### Gemeldet
+
+> „Der Sensor liegt ruhig auf der Fensterbank aber die Anzeige der Karte dreht
+> sich andauernd."
+
+### Warum das passiert ist
+
+Drei aufeinanderfolgende Messungen desselben, unbewegten Empfängers:
+
+| Zeit | Richtung | Tempo |
+|---|---|---|
+| 22:58:24 | 170,5° | 0,025 m/s |
+| 23:00:33 | 39,6° | 0,016 m/s |
+| 23:00:38 | 187,0° | 0,036 m/s |
+
+Die Richtung springt über 150°, während sich das Gerät mit zwei bis vier
+**Zentimetern je Sekunde** „bewegt".
+
+**Das ist kein Fehler Ihres Empfängers.** GPS misst keine Himmelsrichtung — es
+misst Positionen und leitet die Richtung aus der *Bewegung* zwischen zweien ab.
+Steht das Gerät, ist die gemessene Bewegung reines Rauschen, und die Richtung
+daraus ist eine Zufallszahl. Jeder GPS-Empfänger tut das; ein Kompass wäre
+etwas anderes, den hat der VK-162 nicht.
+
+Yapaia hat diese Zahl genommen und die Karte danach gedreht.
+
+### Was sich ändert
+
+Unter **3,6 km/h** meldet Yapaia „Richtung unbekannt" statt einer erfundenen.
+Die Karte behält dann einfach ihre Ausrichtung — sie dreht sich erst wieder,
+wenn Sie wirklich fahren.
+
+Gewählt wurde „unbekannt" und nicht „die letzte weiterreichen": eine Richtung,
+die niemand gemessen hat, gehört nicht in Werte, die auch nach MQTT und in
+Home-Assistant-Entitäten gehen.
+
+Die Regel sitzt an der einen Stelle, durch die **alle** Positionsquellen
+laufen — USB-Empfänger, Companion App, Browser und Testfahrer. Alle vier leiten
+die Richtung aus Bewegung ab, alle vier rauschen im Stand.
+
+### Die Warnungen im Protokoll
+
+Die sind alle harmlos, der Vollständigkeit halber:
+
+| Meldung | Bedeutung |
+|---|---|
+| `PPS: o=priority setting failed` | gpsd darf im Container keine Echtzeit-Priorität setzen. Betrifft nur die Zeitgenauigkeit über einen PPS-Anschluss, den der VK-162 gar nicht hat. |
+| `KPPS: … kernel PPS unavailable` | dasselbe, andere Stelle. |
+| `NMEA0183: TXT: Warning: PASH/PGRM/PSRF/… inv format` | gpsd tastet beim Start verschiedene Herstellerprotokolle ab. Es hat danach richtig entschieden — im Protokoll steht `"driver":"u-blox"`. |
+| `UBX-ACK-NAK, class: 06, id: 01` | gpsd wollte Meldungsraten setzen, der u-blox 7 lehnt einige ab. gpsd nimmt dann die vorhandenen. |
+
+---
+
 ## 0.8.10
 
 **Der USB-GPS-Empfänger läuft. Es fehlte ein einziger Schlüssel im Manifest.**

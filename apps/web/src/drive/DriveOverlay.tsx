@@ -13,6 +13,7 @@
 import React, { useEffect, useRef } from 'react';
 import { navWSManager, useNavStore } from './navStore.js';
 import { useTtsStore } from './ttsStore.js';
+import AudioUnlock from './AudioUnlock.js';
 import { ManeuverArrowSprite } from './arrows.js';
 import ManeuverPanel, { isDriveActive } from './ManeuverPanel.js';
 import SpeedLimitSign from './SpeedLimitSign.js';
@@ -20,7 +21,7 @@ import DriveControls from './DriveControls.js';
 import DriveModeController from './DriveModeController.js';
 import ResumePrompt from './ResumePrompt.js';
 import ProfileChangeBanner from '../profiles/ProfileChangeBanner.js';
-import { announce, cancelSpeech, isSpeechAvailable } from './tts.js';
+import { announce, cancelSpeech, isSpeechAvailable, unlockAudio } from './tts.js';
 import { useHandednessStore } from '../shell/handednessStore.js';
 import { sideClassFor } from '../shell/handedness.js';
 import { rightStackBottomPx } from '../shell/mapControlLayout.js';
@@ -41,8 +42,21 @@ function TtsToggle(): React.ReactElement {
       aria-pressed={enabled}
       aria-label={enabled ? 'Sprachansagen ausschalten' : 'Sprachansagen einschalten'}
       onClick={() => {
+        // Dieser Klick IST eine Nutzeraktion -- also hier die Tonfreigabe
+        // holen, falls sie noch fehlt (siehe `tts.ts#unlockAudio`).
+        unlockAudio();
         toggle();
-        if (enabled) cancelSpeech(); // was on, is being turned off -> stop mid-utterance
+        if (enabled) {
+          cancelSpeech(); // was on, is being turned off -> stop mid-utterance
+        } else {
+          // ─── HÖRBARE BESTÄTIGUNG ────────────────────────────────────────
+          // Einschalten und nichts hören ist genau die Lage, aus der die
+          // Meldung kam: man weiss nicht, ob die Ansagen aus sind, der Ton
+          // gesperrt ist oder schlicht nichts anzusagen war. Eine kurze
+          // Bestätigung beantwortet das sofort -- und sie kommt aus einer
+          // Nutzeraktion, taugt also zugleich als Freigabe.
+          announce('Ansagen sind an.');
+        }
       }}
       // Touch-target audit (E07-T4, docs/06 §4): drive-mode-only control
       // (only rendered while `active`, see this file's own gate below) --
@@ -106,6 +120,9 @@ export default function DriveOverlay(): React.ReactElement {
 
   return (
     <>
+      {/* Holt die Tonfreigabe beim ersten Antippen -- irgendwo in der App,
+          nicht erst im Fahrmodus. Rendert nichts. */}
+      <AudioUnlock />
       <ManeuverArrowSprite />
       <DriveModeController />
       <ResumePrompt />

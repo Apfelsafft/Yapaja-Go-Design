@@ -23,6 +23,67 @@ function makePosition(overrides: Partial<Position> = {}): Position {
   };
 }
 
+/**
+ * ─── DIE RICHTUNG IM STAND, DURCH DEN DIENST ────────────────────────────────
+ * `heading.test.ts` prueft die Regel als Funktion. Hier wird geprueft, dass
+ * sie im WEG liegt: eine Regel, die es gibt und die niemand aufruft, ist genau
+ * die Sorte Fehler, die dieses Projekt schon mehrfach gekostet hat.
+ *
+ * Geprueft wird am veroeffentlichten Wert -- also an dem, was Karte, MQTT und
+ * die Home-Assistant-Entitaeten tatsaechlich zu sehen bekommen.
+ */
+describe('PositionService: Richtung im Stand', () => {
+  let bus: EventBus;
+  let service: PositionService;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    bus = new EventBus({ isProduction: false });
+    service = new PositionService({ bus });
+  });
+
+  afterEach(() => {
+    service.dispose();
+    vi.useRealTimers();
+  });
+
+  it('veroeffentlicht KEINE Richtung, wenn der Empfaenger steht', () => {
+    const gesehen: Position[] = [];
+    bus.subscribe('pos/update', (p) => gesehen.push(p as Position));
+
+    // Der gemeldete Fall: Geraet liegt still, track springt.
+    service.pushFix('gpsd', makePosition({ heading: 170.5026, speed: 0.025 }));
+    vi.advanceTimersByTime(2000);
+
+    expect(gesehen.length).toBeGreaterThan(0);
+    expect(gesehen[gesehen.length - 1].heading).toBeNull();
+  });
+
+  it('veroeffentlicht die Richtung bei echter Fahrt', () => {
+    const gesehen: Position[] = [];
+    bus.subscribe('pos/update', (p) => gesehen.push(p as Position));
+
+    service.pushFix('gpsd', makePosition({ heading: 170.5, speed: 13.9 }));
+    vi.advanceTimersByTime(2000);
+
+    expect(gesehen[gesehen.length - 1].heading).toBe(170.5);
+  });
+
+  it('gibt auch ueber getLast() keine erfundene Richtung heraus', () => {
+    // `getLast()` speist `GET /api/v1/position` und den Kartenstart.
+    service.pushFix('gpsd', makePosition({ heading: 39.597, speed: 0.016 }));
+    expect(service.getLast()?.heading).toBeNull();
+  });
+
+  it('laesst die Position im Uebrigen unveraendert', () => {
+    service.pushFix('gpsd', makePosition({ lat: 49.2392, lon: 8.3203, heading: 187, speed: 0.036 }));
+    const zuletzt = service.getLast();
+    expect(zuletzt?.lat).toBe(49.2392);
+    expect(zuletzt?.lon).toBe(8.3203);
+    expect(zuletzt?.speed).toBe(0.036);
+  });
+});
+
 describe('PositionService', () => {
   let bus: EventBus;
   let service: PositionService;
