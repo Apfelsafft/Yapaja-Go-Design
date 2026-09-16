@@ -4,7 +4,18 @@
  */
 
 export { listStyleSummaries, getStyleDocument, type StyleSummary } from './registry.js';
-export { rewriteSourceUrls, tileUrlForRegion } from './rewrite.js';
+export {
+  rewriteSourceUrls,
+  rewriteToRegions,
+  regionSourceId,
+  tileUrlForRegion,
+} from './rewrite.js';
+export {
+  sichtbareRegionen,
+  verdeckteRegionen,
+  enthaelt,
+  flaeche,
+} from './mehrRegionen.js';
 export {
   parseStyleOptions,
   applyStyleOptions,

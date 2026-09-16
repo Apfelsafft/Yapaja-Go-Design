@@ -15,6 +15,7 @@ import {
   nearestVertexDistanceSquared,
   resolvePlaceName,
   MAX_NAME_DISTANCE_DEG,
+  regionsQuellen,
 } from './placeName';
 
 interface FakeFeature {
@@ -164,5 +165,65 @@ describe('resolvePlaceName', () => {
       ],
     });
     expect(resolvePlaceName({ map, point: TAP })).toBe('Bergstrasse');
+  });
+});
+
+/**
+ * ─── MEHRERE KACHELQUELLEN (seit 0.9.1) ─────────────────────────────────────
+ * Wer Deutschland und die Schweiz installiert hat, bekommt je Region eine
+ * eigene Quelle. Würde hier nur die Hauptquelle gefragt, hätte jedes Ziel
+ * jenseits ihrer Grenze keinen Namen — ohne Fehlermeldung.
+ */
+describe('regionsQuellen', () => {
+  function karte(sources: Record<string, unknown>): MapLibreMap {
+    return {
+      getStyle: () => ({ sources }),
+    } as unknown as MapLibreMap;
+  }
+
+  it('nennt die Hauptquelle zuerst', () => {
+    const q = regionsQuellen(
+      karte({ 'yapaja-region': {}, 'yapaja-region-switzerland': {} }),
+      'yapaja-region',
+    );
+    expect(q[0]).toBe('yapaja-region');
+  });
+
+  it('findet die zusätzlichen Regionen', () => {
+    const q = regionsQuellen(
+      karte({
+        'yapaja-region': {},
+        'yapaja-region-switzerland': {},
+        'yapaja-region-france': {},
+      }),
+      'yapaja-region',
+    );
+    expect(q).toEqual(['yapaja-region', 'yapaja-region-france', 'yapaja-region-switzerland']);
+  });
+
+  it('nimmt keine fremden Quellen mit', () => {
+    // Eine GeoJSON-Quelle für die Route hat hier nichts zu suchen — eine
+    // Abfrage darauf kostet nur Zeit und liefert Unsinn.
+    const q = regionsQuellen(
+      karte({ 'yapaja-region': {}, route: {}, 'yapaja-marker': {} }),
+      'yapaja-region',
+    );
+    expect(q).toEqual(['yapaja-region']);
+  });
+
+  it('kommt ohne geladenen Stil zurecht', () => {
+    // Vor dem ersten `load` gibt es noch keinen Stil. Dann ist die
+    // Hauptquelle die einzige, und das ist das Verhalten von vor 0.9.1.
+    const ohne = { getStyle: () => undefined } as unknown as MapLibreMap;
+    expect(regionsQuellen(ohne, 'yapaja-region')).toEqual(['yapaja-region']);
+  });
+
+  it('fängt einen werfenden Stilzugriff ab', () => {
+    const wirft = {
+      getStyle: () => {
+        throw new Error('style not done');
+      },
+    } as unknown as MapLibreMap;
+    expect(regionsQuellen(wirft, 'yapaja-region')).toEqual(['yapaja-region']);
   });
 });
