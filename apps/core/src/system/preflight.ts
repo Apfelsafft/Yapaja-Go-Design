@@ -68,6 +68,7 @@ import { listLiteSearchDbFiles, resolveLiteSearchDir } from '../search/lite/path
 import { resolveHaConnection } from '../ha/config.js';
 import { fetchHaStates } from '../ha/client.js';
 import { listGpsTrackers } from '../position/haTracker/index.js';
+import { istEigeneEntitaet } from '../ha/eigeneEntitaeten.js';
 
 /** Kennung einer Prüfung. Stabil — die GUI und die Doku verweisen darauf. */
 export type PreflightCheckId =
@@ -687,6 +688,31 @@ async function checkPosition(
   const found = trackerListSentence(trackers);
 
   if (haTracker.length > 0) {
+    // ─── YAPAIA ALS SEINE EIGENE QUELLE ───────────────────────────────────
+    // Dieser Fall MUSS vor dem naechsten stehen. Sonst faellt er dort mit
+    // hinein und bekommt die Begruendung „liefert keine Koordinaten" -- die
+    // hier schlicht falsch waere: der eigene Fahrzeug-Tracker traegt
+    // Koordinaten, er ist nur die AUSGABE dieser Navigation. Wer danach
+    // sucht, sucht am falschen Ende.
+    if (istEigeneEntitaet(haTracker)) {
+      return {
+        ...base,
+        status: 'warn',
+        detail:
+          `Eingetragen ist „${haTracker}" — das ist Yapaias EIGENER Fahrzeug-Tracker, ` +
+          'also die Position, die diese Navigation selbst nach Home Assistant ' +
+          'schreibt. Sie von dort als Eingabe zurückzulesen ergibt einen Kreis: ' +
+          'es entsteht nirgends eine neue Position.',
+        remedy:
+          (found ??
+            'Home Assistant kennt derzeit keinen anderen `device_tracker` mit ' +
+              'Koordinaten. ' + HA_TRACKER_SETUP_HINT) +
+          ' Wählen Sie hier in dieser Prüfung das Gerät der Companion App aus ' +
+          '(meist das eigene Telefon) — die Wahl gilt sofort. Seit 0.8.13 steht ' +
+          'der eigene Fahrzeug-Tracker nicht mehr in dieser Auswahl.',
+      };
+    }
+
     // Eine eingetragene Entitaet, die es nicht gibt, ist der teuerste Fall:
     // alles sieht eingerichtet aus, und es kommt trotzdem nie eine Position.
     if (trackers !== null && !trackers.includes(haTracker)) {

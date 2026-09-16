@@ -10,6 +10,63 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.13
+
+**Yapaia bietet sich nicht mehr selbst als Positionsquelle an.**
+
+### Gesehen
+
+Im Protokoll einer laufenden Installation:
+
+```
+ha_tracker: konfigurierte Entitaet nicht gefunden -- Quelle bleibt inaktiv
+  entityId: "device_tracker.yapaja_vehicle"
+  verfuegbar: ["device_tracker.ipad_2"]
+```
+
+Eingetragen war Yapaias **eigener** Fahrzeug-Tracker.
+
+### Warum das keine Fehlbedienung war
+
+Die Auswahlliste unter „Gerät der Companion App" wird aus Home Assistant
+gefüllt — aus allen `device_tracker.*`, die Koordinaten tragen. Yapaias
+Fahrzeug-Tracker trägt Koordinaten, also stand er mit drin, unter dem Namen
+„Yapaia Go Vehicle". Von allen Einträgen klang er am meisten nach „das
+Fahrzeug, um das es geht".
+
+Gewählt ergibt das einen Kreis: Yapaia schreibt seine Position nach Home
+Assistant und liest sie von dort als Eingabe zurück. Eine neue Position
+entsteht dabei nirgends.
+
+### Was sich ändert
+
+- **Der eigene Fahrzeug-Tracker steht nicht mehr in der Auswahl.** Er ist die
+  Ausgabe der Navigation, keine Quelle.
+- **Eine bereits gespeicherte Wahl wird erkannt.** Das Aufräumen der Liste
+  allein hätte nichts genützt: eine gespeicherte Entity-ID läuft gar nicht
+  durch diese Liste. Wer den Eintrag vorher gewählt hat, behält ihn.
+- **Die Meldung stimmt jetzt.** Bisher hieß es „nicht gefunden" beziehungsweise
+  „liefert keine Koordinaten" — beides zeigt in die falsche Richtung, man sucht
+  dann nach einer fehlenden Entität statt nach einer falschen Wahl. Die
+  Gesundheitsprüfung sagt jetzt „Kreis" und nennt, was stattdessen wählbar ist.
+- **Darf Yapaia selbst suchen** (`gps_source: companion_app` ohne
+  Entity-ID), räumt es die unbrauchbare Eintragung von allein aus dem Weg und
+  nimmt den richtigen Tracker. Eine Installation bleibt nicht wegen einer Wahl
+  stehen, die es heute gar nicht mehr zu treffen gibt.
+
+Nebenbei behoben: sobald Yapaia einmal gesendet hatte, gab es **zwei**
+Tracker mit Koordinaten — und bei mehreren wird bewusst keiner geraten. Die
+automatische Einrichtung hätte sich damit in jeder Installation selbst
+stillgelegt.
+
+### Wenn Sie betroffen sind
+
+Nichts weiter tun. Nach dem Update steht die Warnung mit dem richtigen Grund
+in der Gesundheitsprüfung, und das Auswahlfeld dort zeigt nur noch echte
+Geräte.
+
+---
+
 ## 0.8.12
 
 **Sprachansagen: die Tonfreigabe wird jetzt geholt, und der Schalter antwortet.**
