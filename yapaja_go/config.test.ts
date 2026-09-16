@@ -1576,6 +1576,10 @@ describe('die Add-on-Konfiguration ist gegliedert und beschriftet', () => {
     search: ['photon_enabled', 'photon_xmx_mb'],
     routing: ['valhalla_memory_mb'],
     display: ['theme'],
+    // Seit 0.10.0. Eigene Gruppe und nicht unter `advanced`: es ist keine
+    // Feineinstellung, sondern die Entscheidung, ob dieses Add-on ueberhaupt
+    // nach draussen ruft.
+    online: ['enabled'],
     home_assistant: ['ha_internal', 'mqtt_enabled', 'mqtt_prefix'],
     advanced: ['gps_simulator', 'log_level'],
   };

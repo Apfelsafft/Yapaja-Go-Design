@@ -79,6 +79,12 @@ configuration:
         „light"/„dark": fest. „system": folgt der Hell/Dunkel-Einstellung des Geräts.
         „sun": folgt dem Sonnenstand an Ihrer Position — für ein Fahrzeug meist
         das Bessere, denn dunkel wird es, wenn es draußen dunkel wird.'
+  online:
+    name: Online-Dienste
+    description: Ergänzungen, die eine Internetverbindung brauchen. Yapaia navigiert auch ohne sie vollständig.
+    enabled:
+      name: Online-Dienste erlauben
+      description: 'Aus als Vorgabe. Eingeschaltet darf Yapaia bei bestehender Verbindung Baustellen, Sperrungen und Warnungen der Autobahn GmbH abrufen. Es geht dabei nur die Anfrage hinaus — keine Position, keine Route, keine Gerätekennung. Ohne Netz fällt nur das weg; die Navigation arbeitet unverändert offline.'
   home_assistant:
     name: Home Assistant
     description: Auf welchen Wegen Yapaia seine Werte an Home Assistant meldet.

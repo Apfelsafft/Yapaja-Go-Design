@@ -81,6 +81,16 @@ bashio::log.info "init-yapaja-config: reading add-on options..."
 REGION="$(bashio::config 'region')"
 MQTT_PREFIX="$(config_wert 'home_assistant.mqtt_prefix')"
 PHOTON_ENABLED="$(config_wert 'search.photon_enabled')"
+# ─── ONLINE-DIENSTE ─────────────────────────────────────────────────────────
+# Der einzige Schalter, der Yapaia erlaubt, fremde Server anzufragen. AUS als
+# Vorgabe -- die ausfuehrliche Begruendung steht in config.yaml.
+#
+# `config_wert` liefert bei fehlendem Schluessel eine LEERE Zeichenkette, und
+# der Core vergleicht auf genau „true". Eine Konfiguration von vor 0.10.0
+# kennt den Schluessel nicht -- daraus wird hier also „aus". Das ist die
+# richtige Richtung: ein Update darf eine Installation nicht stillschweigend
+# ins Netz schicken.
+ONLINE_ENABLED="$(config_wert 'online.enabled')"
 # `ha_tracker` hiess dieser Wert bis 0.8.2. Bis 0.8.7 wurde er hier auf
 # `companion_app` umgeschrieben, damit ein Update keine bestehende
 # Installation still ohne Positionsquelle laesst. Seit 0.8.8 ist er aus dem
@@ -249,6 +259,7 @@ export_env "LITE_SEARCH_DB_PATH" "${DATA_ROOT}/lite-search/lite_search.db"
 export_env "VALHALLA_URL" "http://127.0.0.1:8002"
 export_env "VALHALLA_MEMORY_MB" "${VALHALLA_MEMORY_MB}"
 export_env "PHOTON_ENABLED" "${PHOTON_ENABLED}"
+export_env "ONLINE_ENABLED" "${ONLINE_ENABLED}"
 
 # ─── DEN TESTFAHRER FREISCHALTEN ───────────────────────────────────────────
 # Der Core laeuft hier mit NODE_ENV=production; dort antworten alle

@@ -10,6 +10,68 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.10.0
+
+**Online-Dienste: der Anfang, und zwar von der ehrlichen Seite.**
+
+> „Neben Kartendaten denke ich auch an sowas wie Verkehrsinfos, Staus,
+> Blitzer, Baustellen, Umleitungen oder Tankstellen und ihre Preise, usw."
+
+Yapaia kann jetzt bei bestehender Verbindung die offene Schnittstelle der
+**Autobahn GmbH des Bundes** abfragen: Baustellen, Sperrungen, Warnungen,
+Rastanlagen und LKW-Parkplätze. Ohne Schlüssel, ohne Anmeldung, ohne Konto.
+
+### Ausgeschaltet als Vorgabe
+
+Yapaia ist eine **Offline**-Navigation. Karten, Routing, Suche und Ansagen
+funktionieren ohne jede Internetverbindung, und das ist der Sinn der Sache:
+auf einem Stellplatz im Funkloch nützt die schönste Online-Karte nichts.
+
+Dass dieses Add-on plötzlich fremde Server anfragt, soll deshalb eine
+**Entscheidung** sein und nicht die Folge eines Updates. Der Schalter steht in
+der Add-on-Konfiguration unter **„Online-Dienste" → „Online-Dienste
+erlauben"**.
+
+Was dabei hinausgeht: die Anfrage selbst. **Keine Position, keine Route, keine
+Gerätekennung.** Fällt die Verbindung aus, fällt nur das weg — die Navigation
+merkt es nicht.
+
+### Warum in dieser Version noch keine Baustelle auf der Karte steht
+
+Weil ich die Schnittstelle nicht selbst aufrufen kann. Die
+Entwicklungsumgebung, in der Yapaia gebaut wird, lässt keine dieser Adressen
+durch; ich habe sieben Kandidaten geprüft, keiner antwortete.
+
+Genau in dieser Lage ist der gpsd-Fehler aus 0.8.9 entstanden: drei plausible
+Diagnosen, alle falsch, weil geraten statt gemessen wurde. Was am Ende geholfen
+hat, war nicht die vierte Vermutung, sondern das System dazu zu bringen,
+selbst zu antworten.
+
+Deshalb kommt dieses Mittel **vorweg** statt hinterher. In Yapaia gibt es eine
+Prüfung, die jeden Dienst wirklich aufruft und berichtet:
+
+- die aufgerufene Adresse — zum Selbstnachsehen im Browser
+- Statuscode und Dauer
+- ob überhaupt eine Antwort in Maschinenform kam
+- wie viele Einträge kamen und wie viele davon unbrauchbar waren
+- **einen Beispieleintrag, so wie Yapaia ihn verstanden hat**
+
+Der letzte Punkt ist der wichtige: daran sieht man in einer Minute, ob die
+Annahme stimmte — statt in einer Version.
+
+Yapaia rät dabei bewusst nicht. Findet es in einer Antwort mehrere mögliche
+Listen, sagt es das und nennt die Namen zur Auswahl, statt sich eine
+auszusuchen.
+
+### Was als Nächstes kommt
+
+Sobald die Prüfung auf einer echten Installation gelaufen ist und zeigt, wie
+die Antworten wirklich aussehen: die Meldungen auf der Karte und entlang der
+Route. Danach Spritpreise und — mit deutlichem Hinweis auf § 23 Abs. 1c StVO
+und ausgeschaltet als Vorgabe — ortsfeste Messanlagen.
+
+---
+
 ## 0.9.1
 
 **Alle installierten Kartenregionen werden gleichzeitig gezeichnet.**

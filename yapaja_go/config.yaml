@@ -10,7 +10,7 @@
 name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.9.1"
+version: "0.10.0"
 # ─── MINDESTVERSION VON HOME ASSISTANT ──────────────────────────────────────
 # Seit 0.8.4 sind die selten angefassten Optionen in aufklappbaren Gruppen
 # zusammengefasst. Verschachtelte Konfiguration gibt es in Home Assistant aber
@@ -314,6 +314,27 @@ options:
   #           dunkel wird, unabhaengig davon, wie das Tablet eingestellt ist.
   display:
     theme: "light"
+  # ─── ONLINE-DIENSTE ─────────────────────────────────────────────────────
+  # Yapaia ist eine OFFLINE-Navigation. Alles Bisherige -- Karten, Routing,
+  # Suche, Ansagen -- funktioniert ohne jede Internetverbindung, und das ist
+  # der Sinn der Sache: auf einem Stellplatz im Funkloch nuetzt die schoenste
+  # Online-Karte nichts.
+  #
+  # Die Dienste hier sind eine ERGAENZUNG und darum AUS als Vorgabe. Wer sie
+  # einschaltet, entscheidet damit, dass Yapaia bei bestehender Verbindung
+  # fremde Server anfragen darf:
+  #
+  #   * Autobahn GmbH des Bundes -- Baustellen, Sperrungen, Warnungen,
+  #     Rastanlagen und LKW-Parkplaetze. Ohne Schluessel, ohne Anmeldung.
+  #
+  # Was dabei hinausgeht: die Anfrage selbst. KEINE Position, KEINE Route,
+  # KEINE Kennung des Geraets. Was hereinkommt, wird nur angezeigt -- es
+  # aendert keine Route, solange nichts anderes hier steht.
+  #
+  # Faellt die Verbindung aus, faellt nur das weg. Die Navigation merkt es
+  # nicht.
+  online:
+    enabled: false
   home_assistant:
     ha_internal: true
     mqtt_enabled: true
@@ -367,6 +388,8 @@ schema:
     valhalla_memory_mb: "int(512,8192)"
   display:
     theme: "list(light|dark|system|sun)"
+  online:
+    enabled: "bool"
   home_assistant:
     ha_internal: "bool"
     mqtt_enabled: "bool"
