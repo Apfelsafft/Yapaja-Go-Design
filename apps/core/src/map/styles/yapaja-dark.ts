@@ -10,6 +10,7 @@ import { buildBaseLayers } from './baseLayers.js';
 import { DARK_PALETTE } from './palette.js';
 import { PLACEHOLDER_TILE_URL, REGION_SOURCE_ID } from './constants.js';
 import { GLYPHS_URL } from './fonts.js';
+import { SPRITE_URL } from './sprites.js';
 import type { MapStyleDocument } from './types.js';
 
 export const YAPAIA_DARK_STYLE_ID = 'yapaja-dark';
@@ -20,6 +21,7 @@ export function buildYapaiaDarkStyle(): MapStyleDocument {
     version: 8,
     name: YAPAIA_DARK_STYLE_NAME,
     glyphs: GLYPHS_URL,
+    sprite: SPRITE_URL,
     sources: { [REGION_SOURCE_ID]: { type: 'vector', url: PLACEHOLDER_TILE_URL } },
     layers: buildBaseLayers(DARK_PALETTE),
   };

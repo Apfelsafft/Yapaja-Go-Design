@@ -1,0 +1,77 @@
+{
+  "shield-motorway": {
+    "x": 0,
+    "y": 0,
+    "width": 44,
+    "height": 30,
+    "pixelRatio": 2,
+    "stretchX": [
+      [
+        20,
+        24
+      ]
+    ],
+    "stretchY": [
+      [
+        13,
+        17
+      ]
+    ],
+    "content": [
+      7,
+      6,
+      37,
+      24
+    ]
+  },
+  "shield-trunk": {
+    "x": 46,
+    "y": 0,
+    "width": 44,
+    "height": 30,
+    "pixelRatio": 2,
+    "stretchX": [
+      [
+        20,
+        24
+      ]
+    ],
+    "stretchY": [
+      [
+        13,
+        17
+      ]
+    ],
+    "content": [
+      7,
+      6,
+      37,
+      24
+    ]
+  },
+  "shield-minor": {
+    "x": 92,
+    "y": 0,
+    "width": 44,
+    "height": 30,
+    "pixelRatio": 2,
+    "stretchX": [
+      [
+        20,
+        24
+      ]
+    ],
+    "stretchY": [
+      [
+        13,
+        17
+      ]
+    ],
+    "content": [
+      7,
+      6,
+      37,
+      24
+    ]
+  }
+}

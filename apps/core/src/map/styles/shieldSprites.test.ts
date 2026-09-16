@@ -1,0 +1,173 @@
+/**
+ * Hält die Straßenschilder gegen die Bilddateien, die wir wirklich ausliefern.
+ *
+ * ─── DIESELBE FALLE WIE BEI DEN SCHRIFTEN, EINE STUFE TIEFER ────────────────
+ * `baseLayers.fonts.test.ts` gibt es, weil ein fehlendes `glyphs` die ganze
+ * Karte stumm gemacht hat — ohne Fehlermeldung. Bei Bildsymbolen ist es
+ * genauso, nur gibt es hier DREI Arten, still zu scheitern:
+ *
+ *   1. `sprite` fehlt im Stildokument            → gar kein Symbol.
+ *   2. `icon-image` nennt einen Namen, den das   → diese eine Ebene bleibt
+ *      Blatt nicht führt                            leer, gemeldet nur in der
+ *                                                    Browserkonsole.
+ *   3. Dem Eintrag fehlen `stretchX`/`content`   → `icon-text-fit` tut
+ *                                                    nichts, das Schild bleibt
+ *                                                    starr und schneidet die
+ *                                                    Nummer ab.
+ *
+ * Keine davon erzeugt einen Fehler, den jemand sieht. Gegen alle drei hilft
+ * nur: im Dateisystem nachsehen und die Namen gegeneinanderhalten.
+ *
+ * ─── UND EINE VIERTE: ABDRIFT ───────────────────────────────────────────────
+ * Die Bilder liegen im Repo und werden von Hand erzeugt
+ * (`scripts/generate-shield-sprites.mjs`, aus demselben Grund wie die
+ * Glyphen). Wer eine Farbe ändert und das Erzeugen vergisst, bekommt es
+ * hier gesagt — sonst zeigte die Karte monatelang die alte Farbe, und der
+ * Quelltext behauptete die neue.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { buildBaseLayers } from './baseLayers';
+import { LIGHT_PALETTE, DARK_PALETTE, CONTRAST_PALETTE, OUTDOOR_PALETTE } from './palette';
+import { SPRITE_URL, SHIELD_ICONS, SHIPPED_ICONS, SHIELD_TEXT_COLORS } from './sprites';
+import { listStyleSummaries, getStyleDocument } from './registry';
+
+/** Muss zu `SPRITE_NAME` in `scripts/generate-shield-sprites.mjs` passen.
+ *  Der Abgleich gegen den Erzeuger steht in `scripts/shield-sprites.test.ts`
+ *  -- dort, wo `.mjs` importiert werden darf. */
+const SPRITE_NAME = 'yapaja';
+
+/** `apps/web/public/sprites` — von hier aus fünf Ebenen hoch. */
+const SPRITES_DIR = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../../../../apps/web/public/sprites',
+);
+
+interface SpriteEintrag {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pixelRatio: number;
+  stretchX?: number[][];
+  stretchY?: number[][];
+  content?: number[];
+}
+
+function spriteJson(endung = ''): Record<string, SpriteEintrag> {
+  return JSON.parse(readFileSync(join(SPRITES_DIR, `${SPRITE_NAME}${endung}.json`), 'utf8'));
+}
+
+const ALL_PALETTES = [
+  ['hell', LIGHT_PALETTE],
+  ['dunkel', DARK_PALETTE],
+  ['kontrast', CONTRAST_PALETTE],
+  ['outdoor', OUTDOOR_PALETTE],
+] as const;
+
+describe('Straßenschilder — Stil gegen die ausgelieferten Bilder', () => {
+  // ─── (1) Das Stildokument nennt überhaupt ein Blatt ───────────────────────
+  it('JEDER ausgelieferte Stil hat eine `sprite`-Quelle', () => {
+    const stile = listStyleSummaries();
+    expect(stile.length, 'kein Stil registriert — Test prüft nichts').toBeGreaterThan(0);
+    for (const s of stile) {
+      const doc = getStyleDocument(s.id);
+      expect(doc?.sprite, `Stil "${s.id}" hat kein sprite — er zeigt KEIN Symbol`).toBe(SPRITE_URL);
+    }
+  });
+
+  // ─── Die Dateien sind wirklich da ────────────────────────────────────────
+  it.each(['', '@2x'])('liefert Blatt und Beschreibung aus (%s)', (endung) => {
+    for (const art of ['png', 'json']) {
+      const pfad = join(SPRITES_DIR, `${SPRITE_NAME}${endung}.${art}`);
+      expect(existsSync(pfad), `${pfad} fehlt — MapLibre bekommt kein Bild`).toBe(true);
+    }
+  });
+
+  it('die URL im Stil zeigt auf genau diese Dateien', () => {
+    // Sonst stimmen Dateien und Verweis unabhängig voneinander, und die
+    // Prüfung oben wäre ein Selbstgespräch.
+    expect(SPRITE_URL.endsWith(`/${SPRITE_NAME}`)).toBe(true);
+  });
+
+  // ─── (2) Jedes benutzte Symbol gibt es auch ───────────────────────────────
+  it('jedes `icon-image` im Stil kommt im Blatt vor', () => {
+    const vorhanden = new Set(Object.keys(spriteJson()));
+    for (const [name, palette] of ALL_PALETTES) {
+      for (const ebene of buildBaseLayers(palette)) {
+        const layout = (ebene as { layout?: Record<string, unknown> }).layout;
+        const icon = layout?.['icon-image'];
+        if (icon === undefined) continue;
+        // `['match', …]` — die Bildnamen sind die Zeichenketten darin.
+        const namen = JSON.stringify(icon).match(/"shield-[a-z-]+"/g) ?? [];
+        expect(namen.length, `Ebene "${ebene.id}" nennt kein Schild`).toBeGreaterThan(0);
+        for (const roh of namen) {
+          const n = roh.slice(1, -1);
+          expect(vorhanden.has(n), `Stil "${name}": Symbol "${n}" fehlt im Blatt`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('jedes ausgelieferte Symbol wird auch benutzt', () => {
+    // Die Gegenrichtung. Ein Bild, das niemand nennt, ist totes Gewicht in
+    // einem Add-on, das offline auf einem Fahrzeugrechner liegt.
+    const benutzt = new Set<string>();
+    for (const ebene of buildBaseLayers(LIGHT_PALETTE)) {
+      const icon = (ebene as { layout?: Record<string, unknown> }).layout?.['icon-image'];
+      for (const roh of JSON.stringify(icon ?? '').match(/"shield-[a-z-]+"/g) ?? []) {
+        benutzt.add(roh.slice(1, -1));
+      }
+    }
+    for (const n of SHIPPED_ICONS) {
+      expect(benutzt.has(n), `Symbol "${n}" liegt im Blatt, wird aber nirgends genannt`).toBe(true);
+    }
+  });
+
+  // ─── (3) Ohne Dehnbereiche tut `icon-text-fit` nichts ─────────────────────
+  it.each(['', '@2x'])('jeder Eintrag darf sich dehnen und weiß, wo der Text hingehört (%s)', (e) => {
+    for (const [name, eintrag] of Object.entries(spriteJson(e))) {
+      expect(eintrag.stretchX?.length, `"${name}" ohne stretchX — das Schild bliebe starr`)
+        .toBeGreaterThan(0);
+      expect(eintrag.stretchY?.length, `"${name}" ohne stretchY`).toBeGreaterThan(0);
+      expect(eintrag.content?.length, `"${name}" ohne content — der Text säße irgendwo`).toBe(4);
+    }
+  });
+
+  it('der Textbereich liegt INNERHALB des Schilds', () => {
+    // Ein content-Rechteck über den Bildrand hinaus schiebt die Nummer aus
+    // dem Rahmen heraus -- und sieht aus wie ein Zufall, nicht wie ein Fehler.
+    for (const [name, e] of Object.entries(spriteJson())) {
+      const [x0, y0, x1, y1] = e.content as number[];
+      expect(x0, `${name}: content beginnt links vom Bild`).toBeGreaterThanOrEqual(0);
+      expect(y0, `${name}: content beginnt über dem Bild`).toBeGreaterThanOrEqual(0);
+      expect(x1, `${name}: content endet rechts vom Bild`).toBeLessThanOrEqual(e.width);
+      expect(y1, `${name}: content endet unter dem Bild`).toBeLessThanOrEqual(e.height);
+      expect(x1).toBeGreaterThan(x0);
+      expect(y1).toBeGreaterThan(y0);
+    }
+  });
+
+  it('die Symbole überlappen sich im Blatt nicht', () => {
+    // Überlappende Kästen zeigen Teile des Nachbarschilds -- auf einem
+    // 44 px breiten Bild sofort sichtbar, aber leicht zu übersehen, solange
+    // man nur den Quelltext liest.
+    const alle = Object.entries(spriteJson());
+    for (const [n1, a] of alle) {
+      for (const [n2, b] of alle) {
+        if (n1 >= n2) continue;
+        const getrennt = a.x + a.width <= b.x || b.x + b.width <= a.x;
+        expect(getrennt, `"${n1}" und "${n2}" überlappen sich im Blatt`).toBe(true);
+      }
+    }
+  });
+
+  // ─── Die Farben hängen zusammen ───────────────────────────────────────────
+  it('zu jedem Schild gibt es eine Textfarbe und umgekehrt', () => {
+    expect(Object.keys(SHIELD_TEXT_COLORS).sort()).toEqual(Object.keys(SHIELD_ICONS).sort());
+  });
+
+});

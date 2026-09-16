@@ -81,6 +81,12 @@ export interface MapStyleDocument {
    *  MapLibre KEINEN Buchstaben -- die Symbol-Ebenen bleiben stumm, ohne
    *  Fehlermeldung. Bis 0.3.6 fehlte es; siehe `fonts.ts`. */
   glyphs: string;
+  /** Woher MapLibre die Bildsymbole holt (gerahmte Straßenschilder).
+   *  Dieselbe Falle wie bei `glyphs`: OHNE dieses Feld zeichnet MapLibre
+   *  KEIN Symbol, und es meldet das nicht -- die Ebene bleibt leer. Darum
+   *  PFLICHT und nicht optional: ein Stil ohne Sprite soll sich gar nicht
+   *  erst bauen lassen. Siehe `sprites.ts`. */
+  sprite: string;
   sources: Record<string, StyleSource>;
   layers: StyleLayer[];
 }

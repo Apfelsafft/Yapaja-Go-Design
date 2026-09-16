@@ -257,6 +257,43 @@ describe('road-shields — die Straßennummern', () => {
     }
   });
 
+  // ─── OHNE DIESE DREI ZEILEN SIEHT DAS SCHILD FALSCH AUS ──────────────────
+  // Und zwar ohne jede Fehlermeldung: MapLibre zeichnet dann ein starres
+  // Kästchen in Grundgröße, und „A 61" ragt links und rechts heraus.
+  it('zieht das Schild auf die Breite der Nummer', () => {
+    expect(layout()['icon-text-fit']).toBe('both');
+  });
+
+  it('lässt Luft zwischen Nummer und Rahmen', () => {
+    // Ohne Polsterung klebt die Zahl am Rand. Links/rechts mehr als
+    // oben/unten -- sonst wirkt es wie ein Kasten, nicht wie ein Schild.
+    const pad = layout()['icon-text-fit-padding'] as number[];
+    expect(pad).toHaveLength(4);
+    expect(pad[1], 'rechts keine Luft').toBeGreaterThan(0);
+    expect(pad[3], 'links keine Luft').toBeGreaterThan(0);
+  });
+
+  it('hält Schild UND Nummer aufrecht', () => {
+    // `symbol-placement: 'line'` würde beides mit der Straße mitdrehen. Ein
+    // kopfstehendes Autobahnschild in einer Linkskurve ist unlesbar.
+    expect(layout()['icon-rotation-alignment']).toBe('viewport');
+    expect(layout()['text-rotation-alignment']).toBe('viewport');
+  });
+
+  it('färbt die Nummer je Schild und nicht einheitlich', () => {
+    // Eine feste Farbe wäre auf mindestens einem der drei Schilder unlesbar.
+    const farbe = JSON.stringify((schilder().paint as Record<string, unknown>)['text-color']);
+    expect(farbe).toContain('match');
+    expect(farbe).toContain('#FFFFFF');
+    expect(farbe).toContain('#1A1A1A');
+  });
+
+  it('trägt keinen Textrand mehr — der Rahmen ist jetzt gemalt', () => {
+    // Bliebe der Halo stehen, säße ein weißer Schimmer auf dem Autobahnblau.
+    const paint = (schilder().paint ?? {}) as Record<string, unknown>;
+    expect('text-halo-width' in paint).toBe(false);
+  });
+
   it('nutzt einen Schriftschnitt, für den Glyphen ausgeliefert werden', () => {
     // Ohne das bliebe die Ebene leer, gemeldet nur in der Browserkonsole --
     // siehe Kopf von `fonts.ts`.

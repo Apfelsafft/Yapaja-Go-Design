@@ -10,6 +10,55 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.8.15
+
+**Gerahmte Straßenschilder: blau, gelb, weiß.**
+
+> „Du kannst auch gerne die gerahmten Schilder mit den Bezeichnungen der
+> Straßen einbauen. Blau und gelb. Das sieht toll aus."
+
+Seit 0.8.14 standen die Nummern als Fettschrift auf der Karte. Jetzt stehen
+sie auf einem Schild:
+
+| Straße | Schild |
+|---|---|
+| Autobahn | blau, weißer Rand, weiße Schrift |
+| Bundes- und Kraftfahrstraße | gelb, schwarzer Rand, schwarze Schrift |
+| Landes- und Kreisstraße | weiß, schwarzer Rand, schwarze Schrift |
+
+Das Schild **wächst mit der Nummer**: „A 5" und „A 61" sind verschieden
+breit, und ein Schild je Nummer wäre aussichtslos. Dehnen darf sich dabei nur
+ein schmaler Streifen in der Mitte — sonst würden die runden Ecken bei
+längeren Nummern zu Ellipsen. Schild und Nummer bleiben immer aufrecht, auch
+wenn die Straße quer verläuft.
+
+Die Farbe richtet sich nach der Straßenklasse, nicht nach dem Buchstaben in
+der Nummer: „A" heißt nicht in jedem Land Autobahn, die Klasse ist dagegen
+europaweit dieselbe Angabe.
+
+### Für Neugierige
+
+Die Bilder entstehen ohne Bildbearbeitung und ohne zusätzliche Abhängigkeit —
+aus demselben Grund, aus dem auch die Schriftzeichen im Repo liegen: das
+Add-on baut auf Ihrem Gerät, und jeder Schritt dort ist eine Stelle mehr, an
+der eine Installation scheitern kann.
+
+### Zu „GPS über USB"
+
+> „Du kannst usb: true vielleicht umlabeln … Dem User ist es egal ob das usb
+> oder uart heisst. Aber er steckt seinen gps Empfänger über den usb Port
+> ein."
+
+Genau so ist es bereits, und deshalb ändert sich hier nichts: Was Sie in der
+Konfiguration lesen, heißt **„usb — ein GPS-Empfänger am USB-Anschluss"** und
+bleibt so. `uart` und `usb` sind dagegen Berechtigungen, die Home Assistant
+dem Add-on gibt; sie stehen in keiner Oberfläche und tragen Namen, die Home
+Assistant vergibt. Beide bleiben gesetzt — die Berechtigung eines laufenden
+Empfängers wegzunehmen bringt nichts ein und könnte ihn nach einem Update
+stumm machen.
+
+---
+
 ## 0.8.14
 
 **Die schnellste Route nimmt wieder die Autobahn. Und A 61 / B 9 stehen auf der Karte.**
