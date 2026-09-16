@@ -193,16 +193,3 @@ test('die Stil-Anfrage nennt ohne feste Wahl KEINE Region', async ({ page }) => 
     ).toBeNull();
   }
 });
-
-  const styleRequests = tracker.getAllUrls().filter((url) => url.includes('/api/v1/map/styles/'));
-  expect(styleRequests.length, 'es wurde gar kein Stil geladen').toBeGreaterThan(0);
-
-  for (const url of styleRequests) {
-    const region = new URL(url).searchParams.get('region');
-    expect(
-      region,
-      `Die Stil-Anfrage ${url} nennt keine Region — dann entscheidet wieder der Core, ` +
-        'und bei mehreren installierten Regionen gewinnt die alphabetisch erste.',
-    ).toBe(FIXTURE_REGION);
-  }
-});

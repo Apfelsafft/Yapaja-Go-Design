@@ -510,7 +510,7 @@ function main() {
       `${JSON.stringify(beschreibung, null, 2)}\n`,
     );
   }
-  // eslint-disable-next-line no-console -- ein Werkzeug, kein Dienst.
+  // Ein Werkzeug, kein Dienst -- Ausgabe auf der Konsole ist hier der Zweck.
   console.log(`Schilder geschrieben nach ${OUT_DIR}`);
 }
 
