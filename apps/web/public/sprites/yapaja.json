@@ -73,5 +73,68 @@
       19,
       12
     ]
+  },
+  "poi-wohnmobil": {
+    "x": 0,
+    "y": 17,
+    "width": 18,
+    "height": 18,
+    "pixelRatio": 1
+  },
+  "poi-camping": {
+    "x": 20,
+    "y": 17,
+    "width": 18,
+    "height": 18,
+    "pixelRatio": 1
+  },
+  "poi-tanken": {
+    "x": 40,
+    "y": 17,
+    "width": 18,
+    "height": 18,
+    "pixelRatio": 1
+  },
+  "poi-laden": {
+    "x": 60,
+    "y": 17,
+    "width": 18,
+    "height": 18,
+    "pixelRatio": 1
+  },
+  "poi-parken": {
+    "x": 80,
+    "y": 17,
+    "width": 18,
+    "height": 18,
+    "pixelRatio": 1
+  },
+  "poi-einkaufen": {
+    "x": 100,
+    "y": 17,
+    "width": 18,
+    "height": 18,
+    "pixelRatio": 1
+  },
+  "poi-essen": {
+    "x": 120,
+    "y": 17,
+    "width": 18,
+    "height": 18,
+    "pixelRatio": 1
+  },
+  "poi-sehenswert": {
+    "x": 140,
+    "y": 17,
+    "width": 18,
+    "height": 18,
+    "pixelRatio": 1
+  },
+  "poi-versorgung": {
+    "x": 160,
+    "y": 17,
+    "width": 18,
+    "height": 18,
+    "pixelRatio": 1
   }
 }

@@ -20,7 +20,7 @@
  *
  * ─── UND EINE VIERTE: ABDRIFT ───────────────────────────────────────────────
  * Die Bilder liegen im Repo und werden von Hand erzeugt
- * (`scripts/generate-shield-sprites.mjs`, aus demselben Grund wie die
+ * (`scripts/generate-sprites.mjs`, aus demselben Grund wie die
  * Glyphen). Wer eine Farbe ändert und das Erzeugen vergisst, bekommt es
  * hier gesagt — sonst zeigte die Karte monatelang die alte Farbe, und der
  * Quelltext behauptete die neue.
@@ -33,9 +33,17 @@ import { fileURLToPath } from 'node:url';
 import { buildBaseLayers } from './baseLayers';
 import { LIGHT_PALETTE, DARK_PALETTE, CONTRAST_PALETTE, OUTDOOR_PALETTE } from './palette';
 import { SPRITE_URL, SHIELD_ICONS, SHIPPED_ICONS, SHIELD_TEXT_COLORS } from './sprites';
-import { listStyleSummaries, getStyleDocument } from './registry';
 
-/** Muss zu `SPRITE_NAME` in `scripts/generate-shield-sprites.mjs` passen.
+/** Alle Bildnamen, die in einem Ausdruck vorkommen. */
+function bildnamen(ausdruck: unknown): string[] {
+  return (JSON.stringify(ausdruck ?? '').match(/"(?:shield|poi)-[a-z-]+"/g) ?? []).map((r) =>
+    r.slice(1, -1),
+  );
+}
+import { listStyleSummaries, getStyleDocument } from './registry';
+import { POI_KATEGORIEN } from './poiKategorien';
+
+/** Muss zu `SPRITE_NAME` in `scripts/generate-sprites.mjs` passen.
  *  Der Abgleich gegen den Erzeuger steht in `scripts/shield-sprites.test.ts`
  *  -- dort, wo `.mjs` importiert werden darf. */
 const SPRITE_NAME = 'yapaja';
@@ -101,11 +109,9 @@ describe('Straßenschilder — Stil gegen die ausgelieferten Bilder', () => {
         const layout = (ebene as { layout?: Record<string, unknown> }).layout;
         const icon = layout?.['icon-image'];
         if (icon === undefined) continue;
-        // `['match', …]` — die Bildnamen sind die Zeichenketten darin.
-        const namen = JSON.stringify(icon).match(/"shield-[a-z-]+"/g) ?? [];
-        expect(namen.length, `Ebene "${ebene.id}" nennt kein Schild`).toBeGreaterThan(0);
-        for (const roh of namen) {
-          const n = roh.slice(1, -1);
+        const namen = bildnamen(icon);
+        expect(namen.length, `Ebene "${ebene.id}" nennt kein Bild`).toBeGreaterThan(0);
+        for (const n of namen) {
           expect(vorhanden.has(n), `Stil "${name}": Symbol "${n}" fehlt im Blatt`).toBe(true);
         }
       }
@@ -118,18 +124,38 @@ describe('Straßenschilder — Stil gegen die ausgelieferten Bilder', () => {
     const benutzt = new Set<string>();
     for (const ebene of buildBaseLayers(LIGHT_PALETTE)) {
       const icon = (ebene as { layout?: Record<string, unknown> }).layout?.['icon-image'];
-      for (const roh of JSON.stringify(icon ?? '').match(/"shield-[a-z-]+"/g) ?? []) {
-        benutzt.add(roh.slice(1, -1));
-      }
+      for (const n of bildnamen(icon)) benutzt.add(n);
     }
     for (const n of SHIPPED_ICONS) {
       expect(benutzt.has(n), `Symbol "${n}" liegt im Blatt, wird aber nirgends genannt`).toBe(true);
     }
   });
 
+  it('zu jeder POI-Kategorie gibt es ein Bild im Blatt', () => {
+    const vorhanden = new Set(Object.keys(spriteJson()));
+    for (const k of POI_KATEGORIEN) {
+      expect(
+        vorhanden.has(k.symbol),
+        `Kategorie "${k.name}" nennt "${k.symbol}" — das Blatt führt es nicht. ` +
+          'Die Marke bliebe leer, ohne Fehlermeldung.',
+      ).toBe(true);
+    }
+  });
+
+  it('jedes POI-Bild im Blatt gehört auch zu einer Kategorie', () => {
+    // Die Gegenrichtung: ein Bild, das niemand nennt, ist totes Gewicht in
+    // einem Add-on, das offline auf einem Fahrzeugrechner liegt.
+    const genannt = new Set(POI_KATEGORIEN.map((k) => k.symbol));
+    for (const name of Object.keys(spriteJson())) {
+      if (!name.startsWith('poi-')) continue;
+      expect(genannt.has(name), `"${name}" liegt im Blatt, keine Kategorie nennt es`).toBe(true);
+    }
+  });
+
   // ─── (3) Ohne Dehnbereiche tut `icon-text-fit` nichts ─────────────────────
-  it.each(['', '@2x'])('jeder Eintrag darf sich dehnen und weiß, wo der Text hingehört (%s)', (e) => {
+  it.each(['', '@2x'])('jedes SCHILD darf sich dehnen und weiß, wo der Text hingehört (%s)', (e) => {
     for (const [name, eintrag] of Object.entries(spriteJson(e))) {
+      if (!name.startsWith('shield-')) continue;
       expect(eintrag.stretchX?.length, `"${name}" ohne stretchX — das Schild bliebe starr`)
         .toBeGreaterThan(0);
       expect(eintrag.stretchY?.length, `"${name}" ohne stretchY`).toBeGreaterThan(0);
@@ -137,10 +163,29 @@ describe('Straßenschilder — Stil gegen die ausgelieferten Bilder', () => {
     }
   });
 
+  it('eine POI-Marke hat KEINE Dehnbereiche', () => {
+    // Sonst zöge `icon-text-fit` sie zu einer Ellipse -- die Marke trägt
+    // keinen Text, sie soll rund bleiben.
+    for (const [name, e] of Object.entries(spriteJson())) {
+      if (!name.startsWith('poi-')) continue;
+      expect(e.stretchX, `"${name}" ist dehnbar, obwohl sie rund bleiben soll`).toBeUndefined();
+      expect(e.content, `"${name}" hat einen Textbereich, trägt aber keinen Text`).toBeUndefined();
+    }
+  });
+
+  it('eine POI-Marke ist quadratisch', () => {
+    // Eine Scheibe mit ungleichen Seiten wäre ein Ei.
+    for (const [name, e] of Object.entries(spriteJson())) {
+      if (!name.startsWith('poi-')) continue;
+      expect(e.width, `"${name}" ist nicht quadratisch`).toBe(e.height);
+    }
+  });
+
   it('der Textbereich liegt INNERHALB des Schilds', () => {
     // Ein content-Rechteck über den Bildrand hinaus schiebt die Nummer aus
     // dem Rahmen heraus -- und sieht aus wie ein Zufall, nicht wie ein Fehler.
     for (const [name, e] of Object.entries(spriteJson())) {
+      if (!name.startsWith('shield-')) continue;
       const [x0, y0, x1, y1] = e.content as number[];
       expect(x0, `${name}: content beginnt links vom Bild`).toBeGreaterThanOrEqual(0);
       expect(y0, `${name}: content beginnt über dem Bild`).toBeGreaterThanOrEqual(0);
@@ -152,14 +197,23 @@ describe('Straßenschilder — Stil gegen die ausgelieferten Bilder', () => {
   });
 
   it('die Symbole überlappen sich im Blatt nicht', () => {
-    // Überlappende Kästen zeigen Teile des Nachbarschilds -- auf einem
-    // 44 px breiten Bild sofort sichtbar, aber leicht zu übersehen, solange
-    // man nur den Quelltext liest.
+    // Überlappende Kästen zeigen Teile des Nachbarsymbols -- sofort sichtbar
+    // auf der Karte, aber leicht zu übersehen, solange man nur den Quelltext
+    // liest.
+    //
+    // Diese Prüfung verglich bis 0.9.0 nur WAAGERECHT. Das genügte, solange
+    // alles in einer Zeile lag -- mit der zweiten Zeile für die POI-Marken
+    // hätte sie eine echte Überlappung durchgelassen. Jetzt vergleicht sie
+    // beide Achsen.
     const alle = Object.entries(spriteJson());
     for (const [n1, a] of alle) {
       for (const [n2, b] of alle) {
         if (n1 >= n2) continue;
-        const getrennt = a.x + a.width <= b.x || b.x + b.width <= a.x;
+        const getrennt =
+          a.x + a.width <= b.x ||
+          b.x + b.width <= a.x ||
+          a.y + a.height <= b.y ||
+          b.y + b.height <= a.y;
         expect(getrennt, `"${n1}" und "${n2}" überlappen sich im Blatt`).toBe(true);
       }
     }

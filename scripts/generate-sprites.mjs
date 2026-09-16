@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Erzeugt die gerahmten Straßenschilder (Autobahn blau, Bundesstraße gelb).
+ * Erzeugt die Bildsymbole der Karte: Straßenschilder und POI-Marken.
  *
  * ─── WOFÜR ──────────────────────────────────────────────────────────────────
  * Gewünscht: „Du kannst auch gerne die gerahmten Schilder mit den
@@ -25,7 +25,7 @@
  * Node mit.
  *
  * Aufruf:
- *   node scripts/generate-shield-sprites.mjs
+ *   node scripts/generate-sprites.mjs
  *
  * Das Ergebnis gehört eingecheckt. `shieldSprites.test.ts` prüft, dass die
  * Dateien im Repo zu diesem Skript passen — wer eine Farbe ändert und das
@@ -243,34 +243,260 @@ export function alsPng(rgba, breite, hoehe) {
   ]);
 }
 
+
+// ─────────────────────────── POI-Marken ─────────────────────────────────────
+
+/**
+ * Die Kategorien, die auf der Karte ein Symbol bekommen — ausgesucht fuer ein
+ * Wohnmobil, nicht fuer eine Stadtkarte.
+ *
+ * Gewuenscht: „Koennen wir auch poi's wie bei Google Maps einfuegen?
+ * Restaurants, Womo Stellplaetze, Parkplaetze, Campingplaetze, Superm[a]erkte,
+ * Sehenswuerdigkeiten usw?"
+ *
+ * Jede Form ist WEISS auf einer farbigen Scheibe -- dieselbe Bauart wie bei
+ * Google Maps, und der Grund dafuer ist praktisch: auf einer Karte mit Wald,
+ * Feldern und Wasser ist die Farbe das Einzige, was aus dem Augenwinkel
+ * funktioniert, und Weiss ist die einzige Fuellung, die auf JEDER dieser
+ * Farben steht.
+ *
+ * Die Koordinaten liegen in einem 12x12-Feld. Es sitzt mittig auf der
+ * Scheibe; (6,6) ist also die Mitte.
+ */
+export const POI_MARKEN = [
+  {
+    id: 'poi-wohnmobil',
+    farbe: [0xd9, 0x53, 0x2c, 0xff], // Rotorange -- die wichtigste Kategorie
+    formen: [
+      { typ: 'rechteck', x: 0.8, y: 3.2, b: 9.2, h: 4.6, r: 1.1 },
+      { typ: 'kreis', x: 3.1, y: 8.4, r: 1.3 },
+      { typ: 'kreis', x: 7.7, y: 8.4, r: 1.3 },
+    ],
+  },
+  {
+    id: 'poi-camping',
+    farbe: [0x2e, 0x7d, 0x32, 0xff], // Gruen
+    formen: [
+      { typ: 'polygon', punkte: [[6, 1.6], [10.8, 10], [1.2, 10]] },
+      // Der Eingang -- ohne ihn ist es nur ein Dreieck.
+      { typ: 'polygon', punkte: [[6, 6.2], [7.3, 10], [4.7, 10]], loch: true },
+    ],
+  },
+  {
+    id: 'poi-tanken',
+    farbe: [0x1e, 0x6f, 0xb8, 0xff], // Blau
+    formen: [
+      { typ: 'rechteck', x: 1.6, y: 1.6, b: 5.4, h: 8.8, r: 0.9 },
+      { typ: 'rechteck', x: 2.9, y: 2.9, b: 2.8, h: 2.2, r: 0.4, loch: true },
+      { typ: 'rechteck', x: 7.0, y: 4.0, b: 2.0, h: 0.9, r: 0.3 },
+      { typ: 'rechteck', x: 8.3, y: 4.0, b: 0.9, h: 5.0, r: 0.4 },
+    ],
+  },
+  {
+    id: 'poi-laden',
+    farbe: [0x00, 0x87, 0x7a, 0xff], // Tuerkis
+    formen: [
+      { typ: 'polygon', punkte: [[7.4, 1.2], [2.6, 6.9], [5.3, 6.9], [4.6, 10.8], [9.4, 4.8], [6.6, 4.8]] },
+    ],
+  },
+  {
+    id: 'poi-parken',
+    farbe: [0x3f, 0x51, 0xb5, 0xff], // Indigo -- wie das Verkehrszeichen
+    formen: [
+      { typ: 'rechteck', x: 3.0, y: 1.4, b: 2.2, h: 9.2, r: 0.3 },
+      // Beginnt links BEIM STIEL, nicht daneben: sonst rundet der Bauch auch
+      // links ab und haengt frei in der Luft -- er las sich dann als Fahne.
+      { typ: 'rechteck', x: 3.0, y: 1.4, b: 6.0, h: 5.0, r: 2.4 },
+      // Die Punze. Sie muss vollstaendig INNERHALB des Bauchs liegen und
+      // links am Stiel anschliessen, sonst laeuft sie aus.
+      { typ: 'rechteck', x: 5.2, y: 3.2, b: 1.9, h: 1.6, r: 0.7, loch: true },
+    ],
+  },
+  {
+    id: 'poi-einkaufen',
+    farbe: [0xef, 0x6c, 0x00, 0xff], // Orange
+    formen: [
+      { typ: 'polygon', punkte: [[1.6, 4.4], [10.4, 4.4], [9.2, 10.6], [2.8, 10.6]] },
+      // Henkel, als Buegel aus zwei Zuegen.
+      { typ: 'polygon', punkte: [[4.0, 4.4], [4.0, 3.0], [8.0, 3.0], [8.0, 4.4], [7.0, 4.4], [7.0, 4.0], [5.0, 4.0], [5.0, 4.4]] },
+    ],
+  },
+  {
+    id: 'poi-essen',
+    farbe: [0xc2, 0x18, 0x5b, 0xff], // Himbeere
+    formen: [
+      // Gabel: Stiel und drei Zinken.
+      { typ: 'rechteck', x: 2.6, y: 5.0, b: 1.4, h: 5.6, r: 0.4 },
+      { typ: 'rechteck', x: 1.5, y: 1.4, b: 0.9, h: 4.0, r: 0.3 },
+      { typ: 'rechteck', x: 2.85, y: 1.4, b: 0.9, h: 4.0, r: 0.3 },
+      { typ: 'rechteck', x: 4.2, y: 1.4, b: 0.9, h: 4.0, r: 0.3 },
+      { typ: 'rechteck', x: 1.5, y: 4.3, b: 3.6, h: 1.1, r: 0.4 },
+      // Messer.
+      { typ: 'polygon', punkte: [[8.0, 1.4], [9.6, 2.6], [9.6, 6.0], [8.0, 6.0]] },
+      { typ: 'rechteck', x: 8.0, y: 5.4, b: 1.4, h: 5.2, r: 0.4 },
+    ],
+  },
+  {
+    id: 'poi-sehenswert',
+    farbe: [0x8e, 0x24, 0xaa, 0xff], // Violett
+    formen: [{ typ: 'stern', x: 6, y: 6.1, aussen: 5.2, innen: 2.1, zacken: 5 }],
+  },
+  {
+    id: 'poi-versorgung',
+    farbe: [0x02, 0x77, 0xbd, 0xff], // Wasserblau
+    formen: [
+      { typ: 'polygon', punkte: [[6, 1.1], [9.4, 6.6], [2.6, 6.6]] },
+      { typ: 'kreis', x: 6, y: 7.0, r: 3.4 },
+    ],
+  },
+];
+
+/** Groesse einer POI-Marke in logischen Punkten. */
+export const MARKE = { durchmesser: 18, ring: 1, feld: 12 };
+
+/** Ein Stern als Polygon -- damit „Sehenswuerdigkeit" ohne Schriftzeichen
+ *  auskommt. */
+function sternPunkte(f) {
+  const p = [];
+  for (let i = 0; i < f.zacken * 2; i++) {
+    const r = i % 2 === 0 ? f.aussen : f.innen;
+    // Bei -90 Grad beginnen, damit die Spitze nach oben zeigt.
+    const w = (Math.PI * i) / f.zacken - Math.PI / 2;
+    p.push([f.x + r * Math.cos(w), f.y + r * Math.sin(w)]);
+  }
+  return p;
+}
+
+/** Punkt in Polygon, Kreuzungszahlregel. */
+function imPolygon(x, y, punkte) {
+  let drin = false;
+  for (let i = 0, j = punkte.length - 1; i < punkte.length; j = i++) {
+    const [xi, yi] = punkte[i];
+    const [xj, yj] = punkte[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) drin = !drin;
+  }
+  return drin;
+}
+
+/** Deckt eine einzelne Form einen Punkt ab? */
+function inForm(x, y, f) {
+  if (f.typ === 'kreis') {
+    const dx = x - f.x;
+    const dy = y - f.y;
+    return dx * dx + dy * dy <= f.r * f.r;
+  }
+  if (f.typ === 'rechteck') {
+    return deckung(x, y, f.x, f.y, f.x + f.b, f.y + f.h, f.r ?? 0) > 0.5;
+  }
+  if (f.typ === 'stern') return imPolygon(x, y, sternPunkte(f));
+  return imPolygon(x, y, f.punkte);
+}
+
+/**
+ * Deckung eines Pixels durch eine Formenliste, 4x4 ueberabgetastet.
+ *
+ * `loch: true` SCHNEIDET aus, statt hinzuzufuegen -- so entstehen das Fenster
+ * der Zapfsaeule, der Eingang des Zelts und der Bauch des „P", ohne dass es
+ * dafuer eine zweite Farbe braeuchte.
+ */
+function formenDeckung(px, py, formen, ox, oy, skala) {
+  const PROBEN = 4;
+  let treffer = 0;
+  for (let sy = 0; sy < PROBEN; sy++) {
+    for (let sx = 0; sx < PROBEN; sx++) {
+      // Zurueck ins 12x12-Feld rechnen.
+      const x = (px + (sx + 0.5) / PROBEN - ox) / skala;
+      const y = (py + (sy + 0.5) / PROBEN - oy) / skala;
+      let drin = false;
+      for (const f of formen) {
+        if (inForm(x, y, f)) drin = f.loch ? false : true;
+      }
+      if (drin) treffer++;
+    }
+  }
+  return treffer / (PROBEN * PROBEN);
+}
+
+/** Zeichnet eine POI-Marke: weisse Scheibe, farbiger Kern, weisses Symbol. */
+export function zeichneMarke(puffer, blattBreite, ox, oy, marke, skala) {
+  const d = MARKE.durchmesser * skala;
+  const mitte = d / 2;
+  const aussenR = d / 2;
+  const kernR = aussenR - MARKE.ring * skala;
+  // Das 12x12-Feld sitzt mittig auf der Scheibe.
+  const feldSkala = (MARKE.feld / MARKE.durchmesser) * skala * 1.05;
+  const feldOx = mitte - (MARKE.feld / 2) * feldSkala;
+  const feldOy = mitte - (MARKE.feld / 2) * feldSkala;
+
+  for (let y = 0; y < d; y++) {
+    for (let x = 0; x < d; x++) {
+      const scheibe = deckung(x, y, 0, 0, d, d, aussenR);
+      if (scheibe <= 0) continue;
+      const kern = deckung(x, y, MARKE.ring * skala, MARKE.ring * skala, d - MARKE.ring * skala, d - MARKE.ring * skala, kernR);
+      const symbol = formenDeckung(x, y, marke.formen, feldOx, feldOy, feldSkala);
+
+      const i = ((oy + y) * blattBreite + (ox + x)) * 4;
+      // Weisse Scheibe, farbiger Kern darauf, weisses Symbol obendrauf.
+      for (let k = 0; k < 3; k++) puffer[i + k] = mischen(puffer[i + k], 0xff, scheibe);
+      puffer[i + 3] = mischen(puffer[i + 3], 255, scheibe);
+      for (let k = 0; k < 3; k++) puffer[i + k] = mischen(puffer[i + k], marke.farbe[k], kern);
+      for (let k = 0; k < 3; k++) puffer[i + k] = mischen(puffer[i + k], 0xff, symbol);
+    }
+  }
+}
+
 // ────────────────────────────── Das Blatt ───────────────────────────────────
 
-/** Abstand zwischen den Symbolen, damit beim Skalieren nichts überläuft. */
+/**
+ * Abstand zwischen den Symbolen, damit beim Skalieren nichts überläuft.
+ *
+ * Wird MITSKALIERT. Zuerst war er eine feste Zahl — dann ist das @2x-Blatt
+ * aber nicht mehr dieselbe Form in fein, sondern eine minimal andere. Die
+ * Prüfung „bei doppelter Auflösung verdoppeln sich auch die Maße" hat genau
+ * das gefunden.
+ */
 const LUECKE = 2;
+
+/** Der Abstand in Bildpunkten für ein Pixelverhältnis. */
+function luecke(skala) {
+  return Math.round(LUECKE * skala);
+}
 
 /** Erzeugt Blatt und Beschreibung für ein Pixelverhältnis. */
 export function baueBlatt(skala) {
   const b = Math.round(MASSE.breite * skala);
   const h = Math.round(MASSE.hoehe * skala);
-  const blattBreite = SHIELDS.length * b + (SHIELDS.length - 1) * LUECKE;
-  const puffer = Buffer.alloc(blattBreite * h * 4, 0);
+  const d = Math.round(MARKE.durchmesser * skala);
+
+  // Eine Zeile Schilder, darunter eine Zeile Marken. Zwei Zeilen statt einer
+  // langen, damit das Blatt nicht unnoetig breit wird -- manche Grafikkarten
+  // begrenzen die Texturbreite.
+  const l = luecke(skala);
+  const schilderBreite = SHIELDS.length * b + (SHIELDS.length - 1) * l;
+  const markenBreite = POI_MARKEN.length * d + (POI_MARKEN.length - 1) * l;
+  const blattBreite = Math.max(schilderBreite, markenBreite);
+  const hoehe = h + l + d;
+  const puffer = Buffer.alloc(blattBreite * hoehe * 4, 0);
 
   const bereiche = dehnbereiche(skala);
   const beschreibung = {};
+
   SHIELDS.forEach((schild, n) => {
-    const ox = n * (b + LUECKE);
+    const ox = n * (b + l);
     zeichneSchild(puffer, blattBreite, ox, 0, schild, skala);
-    beschreibung[schild.id] = {
-      x: ox,
-      y: 0,
-      width: b,
-      height: h,
-      pixelRatio: skala,
-      ...bereiche,
-    };
+    beschreibung[schild.id] = { x: ox, y: 0, width: b, height: h, pixelRatio: skala, ...bereiche };
   });
 
-  return { png: alsPng(puffer, blattBreite, h), beschreibung, blattBreite, hoehe: h };
+  POI_MARKEN.forEach((marke, n) => {
+    const ox = n * (d + l);
+    const oy = h + l;
+    zeichneMarke(puffer, blattBreite, ox, oy, marke, skala);
+    // KEINE Dehnbereiche: eine Marke traegt keinen Text, sie soll rund
+    // bleiben. `icon-text-fit` fasst sie damit gar nicht erst an.
+    beschreibung[marke.id] = { x: ox, y: oy, width: d, height: d, pixelRatio: skala };
+  });
+
+  return { png: alsPng(puffer, blattBreite, hoehe), beschreibung, blattBreite, hoehe };
 }
 
 function main() {
@@ -288,6 +514,6 @@ function main() {
   console.log(`Schilder geschrieben nach ${OUT_DIR}`);
 }
 
-if (process.argv[1] && process.argv[1].endsWith('generate-shield-sprites.mjs')) {
+if (process.argv[1] && process.argv[1].endsWith('generate-sprites.mjs')) {
   main();
 }

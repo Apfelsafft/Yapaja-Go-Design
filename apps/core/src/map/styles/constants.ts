@@ -26,10 +26,23 @@ export const PLACEHOLDER_TILE_URL = 'pmtiles://__YAPAIA_REGION_TILES__';
 export const POI_LAYER_ID_PREFIX = 'poi';
 
 /**
- * A conservative "most relevant for an RV/motorhome trip" POI class
- * allowlist used by the `poi=reduced` density option (and baked into the
- * `yapaja-contrast` style's own default). Kept here (not in options.ts) so
- * both a style's own baseline and the query-option transform can share the
- * same list without importing across "which module owns the default" lines.
+ * Die POI-Klassen für „reduzierte Dichte" — dieselbe Liste, die auch die
+ * Symbole bestimmt.
+ *
+ * ─── HIER STAND EIN STILLER FEHLER ──────────────────────────────────────────
+ * Bis 0.9.0 war das eine eigene Liste:
+ *
+ *     ['fuel', 'parking', 'campsite', 'supermarket', 'restaurant']
+ *
+ * `supermarket` gibt es als Klasse NICHT. Das Kachelprofil bildet
+ * `supermarket`, `deli`, `department_store`, `greengrocer` und `marketplace`
+ * alle auf `grocery` ab (`Poi.java`, `FieldMappings.Class`). Wer „reduzierte
+ * POIs" gewählt hatte — und im Stil „Kontrast" ist das die Vorgabe —, bekam
+ * also KEINEN einzigen Supermarkt zu sehen, obwohl die Einstellung genau das
+ * versprach. Nichts schlug fehl, nichts stand im Protokoll.
+ *
+ * Eine zweite, von Hand gepflegte Liste kann immer von der ersten abweichen.
+ * Deshalb ist es jetzt DIESELBE: was ein Symbol hat, ist auch das, was
+ * „reduziert" übrig lässt.
  */
-export const REDUCED_POI_CLASSES = ['fuel', 'parking', 'campsite', 'supermarket', 'restaurant'];
+export { POI_KLASSEN_MIT_SYMBOL as REDUCED_POI_CLASSES } from './poiKategorien.js';

@@ -8,7 +8,7 @@
  * kann).
  *
  * Genau das erzeugt eine eigene Art von stillem Fehler: wer eine Farbe im
- * Quelltext ändert und `node scripts/generate-shield-sprites.mjs` vergisst,
+ * Quelltext ändert und `node scripts/generate-sprites.mjs` vergisst,
  * bekommt nichts gesagt. Die Karte zeigt monatelang die alte Farbe, und der
  * Quelltext behauptet die neue — bis jemand beides nebeneinanderlegt.
  *
@@ -30,7 +30,7 @@ import {
   OUT_DIR,
   SHIELDS,
   SPRITE_NAME,
-} from './generate-shield-sprites.mjs';
+} from './generate-sprites.mjs';
 
 interface Schild {
   id: string;
@@ -52,7 +52,7 @@ describe('Straßenschilder — die Dateien im Repo stammen aus dem Erzeuger', ()
     );
     expect(
       eingecheckt,
-      'weicht ab — läuft `node scripts/generate-shield-sprites.mjs` noch aus?',
+      'weicht ab — läuft `node scripts/generate-sprites.mjs` noch aus?',
     ).toEqual(beschreibung);
   });
 
@@ -64,7 +64,7 @@ describe('Straßenschilder — die Dateien im Repo stammen aus dem Erzeuger', ()
     const eingecheckt = readFileSync(join(OUT_DIR, `${SPRITE_NAME}${endung as string}.png`));
     expect(
       eingecheckt.equals(png),
-      'weicht ab — läuft `node scripts/generate-shield-sprites.mjs` noch aus?',
+      'weicht ab — läuft `node scripts/generate-sprites.mjs` noch aus?',
     ).toBe(true);
   });
 

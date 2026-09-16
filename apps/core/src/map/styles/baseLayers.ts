@@ -35,6 +35,7 @@
 import { REGION_SOURCE_ID } from './constants.js';
 import { FONT_BOLD, FONT_REGULAR } from './fonts.js';
 import { SHIELD_ICONS, SHIELD_TEXT_COLORS } from './sprites.js';
+import { rangNachKategorie, symbolNachKategorie } from './poiKategorien.js';
 import type { MapPalette } from './palette.js';
 import type { StyleLayer } from './types.js';
 
@@ -325,7 +326,7 @@ export function buildBaseLayers(p: MapPalette): StyleLayer[] {
       // ─── SEIT 0.8.15: ECHTE SCHILDER MIT RAHMEN ───────────────────────────
       // Blau mit weißem Rand für die Autobahn, Gelb mit schwarzem für die
       // Bundesstraße, Weiß für Landes- und Kreisstraßen. Die Bilder liegen im
-      // Repo (`scripts/generate-shield-sprites.mjs`).
+      // Repo (`scripts/generate-sprites.mjs`).
       //
       // Wie ein Bild zu „A 5" UND zu „A 61" passt: `icon-text-fit` zieht das
       // Symbol auf die Textbreite. Dehnen darf sich dabei nur ein schmaler
@@ -438,18 +439,48 @@ export function buildBaseLayers(p: MapPalette): StyleLayer[] {
     },
     {
       // Muss mit `poi` beginnen -- daran erkennt options.ts die POI-Dichte.
+      // ─── ORTE MIT SYMBOL ──────────────────────────────────────────────────
+      // Gewuenscht: „Koennen wir auch poi's wie bei Google Maps einfuegen?
+      // Restaurants, Womo Stellplaetze, Parkplaetze, Campingplaetze,
+      // Supermaerkte, Sehenswuerdigkeiten usw?"
+      //
+      // Bis 0.8.15 stand hier nur der Name. Auf einer Karte, auf der ein
+      // Baecker genauso aussieht wie ein Stellplatz, ist „wo kann ich heute
+      // stehen" nicht zu beantworten.
+      //
+      // EINE Ebene und nicht neun: die POI-Dichte in `options.ts` erkennt
+      // Ebenen am Praefix `poi`, und neun Ebenen waeren neun Stellen, an
+      // denen dieselbe Einstellung wirken muesste. Welches Bild ein Ort
+      // bekommt, entscheidet stattdessen ein Ausdruck -- die Zuordnung steht
+      // in `poiKategorien.ts`, samt der Belege aus dem Kachelprofil.
       id: 'poi-labels',
       type: 'symbol',
       source: REGION_SOURCE_ID,
       'source-layer': 'poi',
+      // Tiefer waere wirkungslos: die Kacheln fuehren POIs erst ab 14
+      // (`Poi.java#minzoom`).
       minzoom: 14,
       layout: {
         visibility: 'visible',
+        'icon-image': symbolNachKategorie(),
+        'icon-size': 0.85,
+        'icon-anchor': 'center',
+        // Wird es eng, gewinnt die Kategorie mit dem kleineren Rang. Fuer ein
+        // Wohnmobil heisst das: Stellplatz vor Eisdiele.
+        'symbol-sort-key': rangNachKategorie(),
         'text-field': ['get', 'name'],
         'text-size': 10,
         'text-font': [FONT_REGULAR],
+        // Der Name steht UNTER der Marke, nicht darauf.
+        'text-anchor': 'top',
+        'text-offset': [0, 1.1],
+        // Beides optional: ein Ort ohne Kategorie hat kein Bild und soll
+        // trotzdem seinen Namen zeigen -- und wird es eng, faellt lieber der
+        // Name weg als die Marke.
+        'icon-optional': true,
+        'text-optional': true,
       },
-      paint: { 'text-color': p.poiText, 'text-halo-color': p.poiHalo, 'text-halo-width': 1 },
+      paint: { 'text-color': p.poiText, 'text-halo-color': p.poiHalo, 'text-halo-width': 1.2 },
     },
   ];
 }

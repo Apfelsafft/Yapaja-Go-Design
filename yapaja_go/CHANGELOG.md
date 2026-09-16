@@ -10,6 +10,58 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.9.0
+
+**Orte mit Symbol: Stellplätze, Campingplätze, Tankstellen, Parkplätze, Supermärkte, Essen, Sehenswürdigkeiten.**
+
+> „Können wir auch poi's wie bei Google Maps einfügen? Restaurants, Womo
+> Stellplätze, Parkplätze, Campingplätze, Supermärkte, Sehenswürdigkeiten
+> usw?"
+
+Bisher zeigte die Karte zu jedem Ort nur den Namen — ein Bäcker sah aus wie
+ein Stellplatz. Jetzt gibt es neun Kategorien mit eigenem Zeichen:
+
+| | |
+|---|---|
+| 🟥 Wohnmobilstellplatz | 🟩 Campingplatz |
+| 🟦 Tankstelle | 🟩 Ladesäule |
+| 🟪 Parkplatz | 🟧 Einkaufen |
+| 🟥 Essen und Trinken | 🟪 Sehenswürdigkeit |
+| 🟦 Wasser und Sanitär | |
+
+**Stellplatz und Campingplatz sind getrennt.** In den Kartendaten liegen
+beide unter demselben Oberbegriff; für ein Wohnmobil sind es zwei
+verschiedene Dinge, und Yapaia unterscheidet sie jetzt.
+
+**Wird es eng, gewinnt das Wichtigere.** Auf einer vollen Innenstadtkarte
+passt nicht jedes Zeichen nebeneinander. Yapaia lässt dann den Stellplatz
+stehen und die Eisdiele weg — nicht umgekehrt, und nicht zufällig.
+
+Orte ohne eigene Kategorie (Apotheke, Bank, Bäcker) zeigen weiterhin ihren
+Namen. Es geht nichts verloren, es kommt nur etwas dazu.
+
+### Ein stiller Fehler, dabei gefunden
+
+Die Einstellung **„POI-Dichte: reduziert"** — im Kartenstil „Kontrast" die
+Vorgabe — filterte auf eine Liste, in der `supermarket` stand. Diesen Wert
+gibt es in den Kartendaten nicht; Supermärkte liegen dort unter einem anderen
+Namen. Wer „reduziert" gewählt hatte, bekam also **keinen einzigen
+Supermarkt** zu sehen, obwohl die Einstellung genau das versprach. Nichts
+schlug fehl, nichts stand im Protokoll.
+
+Die Liste ist jetzt dieselbe, die auch die Symbole bestimmt, und kann
+deshalb nicht mehr davon abweichen.
+
+### Was Yapaia nicht zeigen kann, und warum
+
+Eine **Entsorgungsstation** für Grau- und Schwarzwasser führen die
+Kartendaten nicht — sie kommt in keiner Quelltabelle des Kachelbaus vor. Für
+ein Wohnmobil ist das die schmerzlichste Lücke dieser Liste. Sie lässt sich
+nicht in der Karte schließen, sondern nur beim Erzeugen der Kacheln. Das
+steht hier, damit niemand es für ein Versehen hält.
+
+---
+
 ## 0.8.15
 
 **Gerahmte Straßenschilder: blau, gelb, weiß.**

@@ -300,3 +300,68 @@ describe('road-shields — die Straßennummern', () => {
     expect(SHIPPED_FONTS).toContain((layout()['text-font'] as string[])[0]);
   });
 });
+
+/**
+ * ─── ORTE MIT SYMBOL ────────────────────────────────────────────────────────
+ * Gewünscht: „Können wir auch poi's wie bei Google Maps einfügen? Restaurants,
+ * Womo Stellplätze, Parkplätze, Campingplätze, Supermärkte,
+ * Sehenswürdigkeiten usw?"
+ */
+describe('poi-labels — Orte mit Symbol', () => {
+  const ebene = (): Record<string, unknown> => {
+    const l = buildBaseLayers(LIGHT_PALETTE).find((e) => e.id === 'poi-labels');
+    if (!l) throw new Error('Ebene "poi-labels" fehlt');
+    return l as unknown as Record<string, unknown>;
+  };
+  const layout = (): Record<string, unknown> => ebene().layout as Record<string, unknown>;
+
+  it('zeigt überhaupt ein Bild und nicht nur den Namen', () => {
+    expect(layout()['icon-image']).toBeDefined();
+  });
+
+  it('sortiert nach Wichtigkeit — sonst verdrängt die Eisdiele den Stellplatz', () => {
+    // Ohne `symbol-sort-key` entscheidet bei MapLibre die Reihenfolge in der
+    // Kachel, also der Zufall. In einer Innenstadt ist das genau der Fall, in
+    // dem es darauf ankommt.
+    const key = layout()['symbol-sort-key'];
+    expect(key, 'keine Rangfolge — bei Gedränge gewinnt der Zufall').toBeDefined();
+    const text = JSON.stringify(key);
+    expect(text).toContain('case');
+    expect(text).toContain('caravan_site');
+  });
+
+  it('stellt den Stellplatz im Rang vor „Essen und Trinken"', () => {
+    // Die Aussage selbst, nicht nur „ein Schlüssel ist gesetzt".
+    const text = JSON.stringify(layout()['symbol-sort-key']);
+    const womo = text.indexOf('caravan_site');
+    const essen = text.indexOf('restaurant');
+    expect(womo).toBeGreaterThan(-1);
+    expect(essen).toBeGreaterThan(-1);
+    expect(womo).toBeLessThan(essen);
+  });
+
+  it('setzt den Namen UNTER die Marke', () => {
+    // Ohne Anker und Versatz liegt der Name mitten auf dem Symbol und beide
+    // sind unlesbar.
+    expect(layout()['text-anchor']).toBe('top');
+    const versatz = layout()['text-offset'] as number[];
+    expect(versatz[1], 'Name sitzt nicht unterhalb').toBeGreaterThan(0);
+  });
+
+  it('zeigt einen Ort ohne Kategorie weiterhin mit Namen', () => {
+    // `icon-optional` — sonst verschwänden Bäcker, Apotheke und Bank ganz,
+    // weil sie kein Bild haben. Das wäre eine Verschlechterung gegenüber
+    // vorher, getarnt als neue Funktion.
+    expect(layout()['icon-optional']).toBe(true);
+  });
+
+  it('lässt lieber den Namen weg als die Marke', () => {
+    expect(layout()['text-optional']).toBe(true);
+  });
+
+  it('heißt so, dass die POI-Dichte sie erfasst', () => {
+    // `options.ts` erkennt POI-Ebenen am Präfix. Ein anderer Name machte die
+    // Einstellung „POI-Dichte" für diese Ebene still wirkungslos.
+    expect(ebene().id as string).toMatch(/^poi/);
+  });
+});
