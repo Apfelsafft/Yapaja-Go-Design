@@ -17,6 +17,7 @@ import {
   applyDegradationCaps,
   type StyleOptions,
 } from './styleClient';
+import { stilRegion } from './stilRegion.js';
 import { applyStyle, trackCoreStyle } from './styleSwitch';
 import { ensureMaplibreWorkerUrl } from './maplibreWorker';
 import { useStyleStore } from '../state/styleStore';
@@ -189,13 +190,24 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
         poi: initialPoiCap,
         labelScale: initialLabelScaleCap,
       });
-      const fetched = await fetchStyle(initialStyleId, initialOptions, initialRegion.region);
+      // ─── OHNE FESTE WAHL: ALLE REGIONEN ───────────────────────────────
+      // Bis 0.10.0 stand hier `initialRegion.region`, also IMMER eine. Der
+      // Kern kann seit 0.9.1 mehrere Regionen gleichzeitig zeichnen -- diese
+      // Zeile hat das verhindert, und zwar lautlos: gemeldet wurde „Ich habe
+      // Deutschland, Liechtenstein und Schweiz Kacheln gebaut. Sehe aber nur
+      // Deutschland."
+      //
+      // `initialRegion` bleibt fuer alles ANDERE noetig (leerer Zustand,
+      // Kartenmitte beim ersten Start). Nur der Stil bekommt keine mehr,
+      // solange niemand ausdruecklich eine gewaehlt hat.
+      const manuelleWahl = stilRegion({ manuell: useRegionStore.getState().manual });
+      const fetched = await fetchStyle(initialStyleId, initialOptions, manuelleWahl);
       if (cancelled) {
         return;
       }
       setInitialStyle({
         style: fetched ?? buildFallbackStyle(),
-        key: styleKey(initialStyleId, initialOptions, initialRegion.region),
+        key: styleKey(initialStyleId, initialOptions, manuelleWahl ?? null),
       });
       setStatus('ready');
     })();
@@ -278,12 +290,17 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
     if (!map) {
       return;
     }
-    const key = styleKey(styleId, styleOptions, activeRegionName);
+    // `manualRegion` und NICHT `activeRegionName`: ohne feste Wahl zeichnet
+    // der Kern alle installierten Regionen (siehe oben). `activeRegionName`
+    // wird weiterhin gebraucht -- aber fuer die Frage „in welcher Region
+    // stehe ich", nicht fuer „was wird gezeichnet".
+    const stilWahl = stilRegion({ manuell: manualRegion, aktiv: activeRegionName });
+    const key = styleKey(styleId, styleOptions, stilWahl ?? null);
     if (appliedStyleKeyRef.current === key) {
       return;
     }
     let cancelled = false;
-    void fetchStyle(styleId, styleOptions, activeRegionName ?? undefined).then((style) => {
+    void fetchStyle(styleId, styleOptions, stilWahl).then((style) => {
       if (cancelled) {
         return;
       }

@@ -30,6 +30,7 @@ import {
 } from './client';
 
 import { TOP_RIGHT_INSET_PX, topRightSlotPx } from '../../shell/mapControlLayout.js';
+import OnlineDiagnose from '../online/OnlineDiagnose.js';
 const STATUS_ICON: Record<string, string> = {
   ok: '✓',
   warn: '!',
@@ -231,6 +232,11 @@ export default function PreflightPanel(): React.ReactElement {
                 ))}
               </ul>
               <TrackerAuswahlFeld />
+              {/* Die Online-Prüfung steht hier und nicht im Kartenmenü: wer
+                  wissen will, ob etwas funktioniert, schaut an EINER Stelle
+                  nach. Gefragt: „wie führe ich nun deine Prüfung aus? Ich
+                  sehe den Knopf nicht." */}
+              <OnlineDiagnose />
               <p className="text-xs text-slate-400 dark:text-slate-500" data-testid="preflight-checked-at">
                 Geprüft: {new Date(report.checkedAt).toLocaleString('de-DE')}
               </p>

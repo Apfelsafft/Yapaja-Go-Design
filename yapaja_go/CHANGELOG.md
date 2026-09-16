@@ -10,6 +10,76 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.10.1
+
+**Vier gemeldete Fehler — zwei davon haben die Navigation lahmgelegt.**
+
+### 1. Routing nur noch für ein Land
+
+> „Das routing funktioniert nicht mehr. Es erscheint eine Fehlermeldung
+> ‚no edges found near location'. Liegt das daran dass nur das routing für
+> Liechtenstein angezeigt wird?"
+
+**Ja, genau daran — und es war kein Bedienfehler.**
+
+Es gibt **einen** Routinggraphen, nicht einen je Region. Er wird über alle
+OSM-Extrakte gebaut, die im Zwischenlager liegen. Und dort liegt ein Extrakt
+**nur, wenn für diese Region schon einmal „Routing bauen" gedrückt wurde**:
+Der Kartenbau lädt seinen Extrakt in ein temporäres Verzeichnis und löscht
+ihn am Ende wieder.
+
+Eine installierte Karte enthält also **keine** Straßendaten für die
+Routenberechnung. Wer drei Länder installiert und beim kleinsten auf „Routing
+bauen" drückt, verliert das Routing für die anderen beiden — und die Knöpfe
+stehen pro Region und legen genau das Gegenteil nahe.
+
+**Ab sofort fragt Yapaia vorher.** Bevor ein Routingbau startet, rechnet es
+aus, was danach im Graphen liegt, was verloren geht und welche installierten
+Karten ohne Routing bleiben — und nennt es beim Namen, statt hinterher mit
+„no edges found near location" zu überraschen.
+
+**Was Sie tun müssen:** einmal **„Routing bauen" bei jeder Region**, die Sie
+befahren wollen. Der Graph sammelt danach alles ein, was schon da ist — Sie
+verlieren also nichts, was Sie einmal gebaut haben. Fangen Sie mit dem
+größten Land an.
+
+### 2. Nur eine Kartenregion sichtbar
+
+> „Die Schweiz und Liechtenstein erscheinen immer noch nicht auf der Karte.
+> Nur Deutschland ist zu sehen."
+
+0.9.1 hatte den Kern beigebracht, alle Regionen gleichzeitig zu zeichnen. Die
+Oberfläche hat es nur nie verlangt: Sie schickte **immer** eine Region mit —
+auch im Modus „Automatisch", wo sie die Region der aktuellen Position
+einsetzte. Die ganze Änderung lief damit ins Leere, lautlos, weil eine gültige
+Region eine gültige Karte ergibt. Sie ist nur kleiner, als sie sein müsste.
+
+Im Kartenmenü heißt die Vorgabe jetzt **„Alle"** und zeigt, was sie zeigt. Die
+feste Wahl heißt jetzt **„nur ‹Region›"**.
+
+### 3. Der Knopf für die Online-Prüfung fehlte
+
+> „Online Dienste habe ich enabled aber wie führe ich nun deine Prüfung aus?
+> Ich sehe den Knopf nicht."
+
+Es gab ihn nicht — 0.10.0 hatte die Prüfung nur als Schnittstelle. Jetzt steht
+sie in der **Installationsprüfung** (das Stethoskop-Symbol), unter
+„🌐 Online-Dienste". Je Dienst eine Zeile mit Statuscode, Befund im Klartext
+und der **anklickbaren Adresse** — der kürzeste Weg von „Yapaia sagt X" zu
+„stimmt X?" ist, selbst nachzusehen.
+
+### 4. Das Kartenmenü war oben abgeschnitten
+
+> „Das options Menü ist überfrachtet. Man kann die oberen Einträge nicht mehr
+> lesen."
+
+Der Grund war keine fehlende Aufräumaktion, sondern eine fehlende Grenze: Die
+Klappe sitzt unten links und wächst nach **oben** — ohne Höhenbegrenzung wuchs
+sie aus dem Bildschirm heraus. Alles über der Oberkante war weder lesbar noch
+erreichbar. Jetzt bleibt sie im Bild und lässt sich blättern.
+
+---
+
 ## 0.10.0
 
 **Online-Dienste: der Anfang, und zwar von der ehrlichen Seite.**

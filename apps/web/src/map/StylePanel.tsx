@@ -21,8 +21,6 @@ import { bottomInsetPx } from '../shell/mapControlLayout.js';
 import { useSchmal } from '../shell/useSchmal.js';
 import { useNavStore } from '../drive/navStore.js';
 import { isDriveActive } from '../drive/driveActive.js';
-import { pickActiveRegion } from './activeRegion.js';
-import { usePosition } from '../position/positionStore.js';
 
 const LANG_OPTIONS: Array<{ value: StyleLang; label: string }> = [
   { value: 'name', label: 'Original' },
@@ -56,10 +54,6 @@ export default function StylePanel(): React.ReactElement {
   const installedRegions = useRegionStore((state) => state.regions);
   const manualRegion = useRegionStore((state) => state.manual);
   const setManualRegion = useRegionStore((state) => state.setManual);
-  const position = usePosition();
-  const activeRegionName =
-    pickActiveRegion({ regions: installedRegions, point: position, manual: manualRegion }).region
-      ?.region ?? null;
 
   useEffect(() => {
     if (!isOpen || styles.length > 0) {
@@ -88,7 +82,7 @@ export default function StylePanel(): React.ReactElement {
     <div className="fixed left-4 z-10" style={{ bottom: bottomInsetPx(schmal, driveActive) }}>
       {isOpen && (
         <div
-          className="absolute bottom-14 left-0 mb-2 w-64 rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"
+          className="absolute bottom-14 left-0 mb-2 w-64 max-h-[calc(100vh-7rem)] overflow-y-auto overscroll-contain rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"
           data-testid="style-panel"
         >
           {/* Speed-Lock (E07-T4): Settings is one of docs/06 §4's "complex
@@ -106,11 +100,17 @@ export default function StylePanel(): React.ReactElement {
               einzigen gibt es nichts zu waehlen, und ein Bedienelement ohne
               Wirkung ist schlimmer als keines.
 
-              „Automatisch" ist die Vorgabe und richtig: sie zeigt die Region,
-              in der man sich befindet. Die feste Wahl ist fuer die Planung
-              gedacht — eine Gegend aufschlagen, in der man gerade nicht ist.
-              Sie ueberlebt einen Neustart absichtlich nicht (siehe
-              regionStore.ts). */}
+              Seit 0.10.0 heisst die Vorgabe „Alle" und zeigt WIRKLICH alle
+              installierten Regionen gleichzeitig — vorher hiess sie
+              „Automatisch" und zeigte genau eine, naemlich die, in der man
+              sich befand. Fuer ein Wohnmobil ist eine Grenze der Normalfall;
+              gemeldet wurde „Sehe aber nur Deutschland".
+
+              Die feste Wahl bleibt und heisst jetzt, was sie tut: NUR diese.
+              Sie ist fuer die Planung gedacht — eine Gegend aufschlagen, in
+              der man gerade nicht ist — und fuer schwache Geraete, denen
+              mehrere Quellen zu viel sind. Sie ueberlebt einen Neustart
+              absichtlich nicht (siehe regionStore.ts). */}
           {installedRegions.length > 1 && (
             <section>
               <h2 className="font-semibold mb-2">Angezeigte Region</h2>
@@ -125,10 +125,10 @@ export default function StylePanel(): React.ReactElement {
                       : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
                   }`}
                 >
-                  Automatisch
-                  {activeRegionName !== null && manualRegion === null && (
+                  Alle
+                  {manualRegion === null && (
                     <span className="block font-normal text-slate-500 dark:text-slate-400">
-                      derzeit: {activeRegionName}
+                      {installedRegions.map((e) => e.region).join(', ')}
                     </span>
                   )}
                 </button>
@@ -144,7 +144,7 @@ export default function StylePanel(): React.ReactElement {
                         : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
                     }`}
                   >
-                    {entry.region}
+                    nur {entry.region}
                   </button>
                 ))}
               </div>

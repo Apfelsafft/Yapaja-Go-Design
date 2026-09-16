@@ -151,20 +151,31 @@ test('ein Katalogeintrag MIT Download-Quelle bekommt weiterhin einen Download-Kn
 });
 
 /**
- * Die Karte muss SAGEN, welche Region sie will.
+ * Die Stil-Anfrage nennt KEINE Region — und das ist der Punkt.
  *
- * Bis 2026-09-03 tat sie das nicht: `fetchStyle` schickte nur Stil und
- * Optionen, und der Core setzte die Kachel-URL aus SEINER Vorgabe zusammen —
- * der ersten installierten Region (`listRegions` sortiert alphabetisch). Mit
- * Liechtenstein und Rheinland-Pfalz installiert gewann damit immer
- * Liechtenstein, während Follow-Me die Kamera auf die eigene Position nach
- * Rheinland-Pfalz zog. Ergebnis: eine leere Karte, ohne Fehler, ohne Hinweis.
+ * ─── DIESE PRÜFUNG STAND FRÜHER ANDERSHERUM DA ──────────────────────────────
+ * Bis 0.10.0 sicherte sie zu, dass die Anfrage eine Region NENNT. Der Grund
+ * war gut: davor entschied der Core allein und nahm die erste installierte
+ * (`listRegions` sortiert alphabetisch). Mit Liechtenstein und
+ * Rheinland-Pfalz installiert gewann damit immer Liechtenstein, während
+ * Follow-Me die Kamera nach Rheinland-Pfalz zog — eine leere Karte, ohne
+ * Fehler, ohne Hinweis.
  *
- * Diese Prüfung braucht dafür keine zweite Region. Sie prüft die Ursache: ob
- * die Anfrage die Region überhaupt benennt. Tut sie es nicht, entscheidet
- * wieder der Core allein — und der Fehler ist zurück.
+ * Seit 0.9.1 wählt der Core gar nichts mehr aus: nennt die Anfrage keine
+ * Region, zeichnet er ALLE installierten gleichzeitig. Damit ist der alte
+ * Fehler nicht mehr möglich — die Region unter dem Fahrzeug ist immer dabei —
+ * und das Nennen einer einzigen ist von der Lösung zum Problem geworden.
+ *
+ * Gemeldet: „Die Schweiz und Liechtenstein erscheinen immer noch nicht auf
+ * der Karte. Nur Deutschland ist zu sehen." Die Ursache war genau diese Zeile
+ * in `MapView`, die 0.9.1 vollständig wirkungslos machte.
+ *
+ * Die Gegenrichtung — eine FESTE Wahl wird sehr wohl mitgeschickt — lässt
+ * sich hier nicht prüfen: die Auswahl erscheint erst ab zwei installierten
+ * Regionen, und diese Umgebung hat genau eine. Sie steht in
+ * `src/map/stilRegion.test.ts`.
  */
-test('die Stil-Anfrage benennt die anzuzeigende Region', async ({ page }) => {
+test('die Stil-Anfrage nennt ohne feste Wahl KEINE Region', async ({ page }) => {
   const tracker = await trackRequests(page, CORE_BASE_URL);
 
   await page.goto(CORE_BASE_URL + '/');
@@ -177,8 +188,8 @@ test('die Stil-Anfrage benennt die anzuzeigende Region', async ({ page }) => {
     const region = new URL(url).searchParams.get('region');
     expect(
       region,
-      `Die Stil-Anfrage ${url} nennt keine Region — dann entscheidet wieder der Core, ` +
-        'und bei mehreren installierten Regionen gewinnt die alphabetisch erste.',
-    ).toBe(FIXTURE_REGION);
+      `Die Stil-Anfrage ${url} nennt eine Region. Dann zeichnet der Core NUR diese — ` +
+        'wer mehrere Länder installiert hat, sieht nur eines davon.',
+    ).toBeNull();
   }
 });
