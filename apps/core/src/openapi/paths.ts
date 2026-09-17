@@ -83,6 +83,14 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     tags: ['Karten'],
   },
   'DELETE /api/v1/map/regions/:id': { summary: 'Installierte Region entfernen', tags: ['Karten'] },
+  'GET /api/v1/map/regions/laufender-bau': {
+    // Damit sich die Oberfläche nach einem Neuladen wieder an einen laufenden
+    // Bau hängen kann: der Job trägt seine Region selbst. Vorher lag diese
+    // Zuordnung nur im Speicher des Browsers und war beim Verlassen der Seite
+    // weg — der Kern wusste alles und zeigte nichts.
+    summary: 'Der gerade laufende schwere Bau (Kacheln/Routing/Suche) oder null',
+    tags: ['Karten'],
+  },
   'GET /api/v1/jobs/:id': { summary: 'Download-/Import-Job-Status (progress, eta, error)', tags: ['Karten'] },
   'DELETE /api/v1/jobs/:id': { summary: 'Job abbrechen', tags: ['Karten'] },
   'GET /tiles/:regionParam': { summary: 'PMTiles-Kachel (HTTP-Range-Support)', tags: ['Karten'], rawResponse: true },

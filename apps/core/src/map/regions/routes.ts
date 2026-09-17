@@ -5,6 +5,7 @@
  * - POST   /api/v1/map/regions           starts a resumable download job (202)
  * - POST   /api/v1/map/regions/:id/build starts a tile BUILD job (202, B-04)
  * - DELETE /api/v1/map/regions/:id       removes an installed region (409 if last)
+ * - GET    /api/v1/map/regions/laufender-bau  der gerade laufende schwere Bau
  * - GET    /api/v1/jobs/:id              job status (progress/bytes/error)
  * - DELETE /api/v1/jobs/:id              cancels a queued/running job
  *
@@ -300,7 +301,7 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
         );
       }
 
-      const jobId = jobs.create(BUILD_JOB_KIND);
+      const jobId = jobs.create(BUILD_JOB_KIND, { region: regionId, bauart: 'kacheln' });
       // Der Logger wird hier verdrahtet, nicht in `build.ts`: nur die Route
       // kennt die Fastify-Instanz, und deren stdout ist das, was im
       // Add-on-Protokoll erscheint.
@@ -436,7 +437,7 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
         );
       }
 
-      const jobId = jobs.create(BUILD_JOB_KIND);
+      const jobId = jobs.create(BUILD_JOB_KIND, { region: regionId, bauart: 'routing' });
       fastify.log.info(
         { abdeckung, zuLaden: plan.zuLaden.map((z) => z.region) },
         `Routingbau: ${abdeckungSatz(abdeckung)}`,
@@ -536,7 +537,7 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
         );
       }
 
-      const jobId = jobs.create(BUILD_JOB_KIND);
+      const jobId = jobs.create(BUILD_JOB_KIND, { region: regionId, bauart: 'suche' });
       runBuildJob(
         jobId,
         jobs,
@@ -572,6 +573,35 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
 
       await unlink(filePath);
       return reply.code(204).send(undefined);
+    },
+  );
+
+  // GET /api/v1/map/regions/laufender-bau -- der gerade laufende schwere Bau,
+  // oder `null`.
+  //
+  // ─── WARUM ES DIESE ROUTE GIBT ──────────────────────────────────────────
+  // Gemeldet: „Wenn man von Yapaia woandershin wechselt und dann wieder
+  // aufruft sind die aktuellen Fortschrittsinformationen vom Bau nicht mehr
+  // sichtbar." Und beim nächsten Druck auf „bauen": „Es läuft bereits ein
+  // Bau."
+  //
+  // Beides stimmte. Der Bau lief im Kern ungestört weiter — die Oberfläche
+  // merkte sich nur im Speicher des Browsers, welcher Job zu welcher Region
+  // gehört, und der ist beim Verlassen der Seite weg. Danach wusste der Kern
+  // alles und zeigte nichts; der Betreiber sah einen Bau, der offenbar läuft,
+  // ohne jede Auskunft darüber, wie weit er ist oder ob er noch lebt.
+  //
+  // Dieselbe Fehlerklasse, die dieses Projekt schon mehrfach getroffen hat:
+  // die Antwort ist da, sie ist von dort, wo der Betreiber hinsieht, nur
+  // nicht erreichbar. Diese Route ist der Weg dorthin.
+  //
+  // Sie steht VOR `/api/v1/map/regions/:id` in keiner Konkurrenz — es gibt
+  // dort kein GET mit Parameter —, aber sie steht bewusst bei den Jobs und
+  // nicht bei den Regionen: was sie liefert, ist ein Job.
+  fastify.get<{ Reply: { data: JobSnapshot | null } }>(
+    '/api/v1/map/regions/laufender-bau',
+    async (_request, reply) => {
+      return reply.code(200).send({ data: jobs.findUnfinished(BUILD_JOB_KIND) ?? null });
     },
   );
 

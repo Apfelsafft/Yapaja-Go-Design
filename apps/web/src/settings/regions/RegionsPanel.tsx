@@ -25,6 +25,7 @@ import {
   fetchCatalog,
   fetchInstalledRegions,
   fetchJob,
+  fetchLaufenderBau,
   startDownload,
   startBuild,
   startGraphBuild,
@@ -202,12 +203,40 @@ export default function RegionsPanel(): React.ReactElement {
   }, [downloads]);
 
   const refresh = useCallback(async () => {
-    const [installedRegions, catalogRegions] = await Promise.all([
+    const [installedRegions, catalogRegions, laufend] = await Promise.all([
       fetchInstalledRegions(),
       fetchCatalog(),
+      fetchLaufenderBau(),
     ]);
     setInstalled(installedRegions);
     setCatalog(catalogRegions);
+
+    // ─── SICH WIEDER AN EINEN LAUFENDEN BAU HÄNGEN ────────────────────────
+    // Gemeldet: „Wenn man von Yapaia woandershin wechselt und dann wieder
+    // aufruft sind die aktuellen Fortschrittsinformationen vom Bau nicht mehr
+    // sichtbar." — und beim nächsten Druck auf „bauen": „Es läuft bereits ein
+    // Bau."
+    //
+    // Beides stimmte. Der Bau lief im Kern weiter; nur DIESE Zuordnung
+    // (welcher Job gehört zu welcher Region) lag im Speicher des Browsers und
+    // war beim Verlassen der Seite weg. Der Kern wusste alles und zeigte
+    // nichts.
+    //
+    // Der Job trägt seine Region seit 0.10.4 selbst — die Anzeige kann sich
+    // deshalb einfach wieder anhängen, und das Abfragen läuft danach von
+    // allein weiter.
+    //
+    // Ein Job OHNE Region wird bewusst ignoriert statt irgendwo einsortiert:
+    // an der falschen Stelle wäre er schlimmer als gar nicht.
+    if (laufend?.region) {
+      const region = laufend.region;
+      setDownloads((prev) =>
+        // Ein gerade erst hier gestarteter Job hat Vorrang — er ist aktueller
+        // als das, was der Kern eine Netzrunde zuvor gemeldet hat.
+        prev[region] ? prev : { ...prev, [region]: { jobId: laufend.id, job: laufend } },
+      );
+    }
+
     setLoaded(true);
   }, []);
 

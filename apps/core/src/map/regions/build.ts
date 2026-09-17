@@ -243,6 +243,38 @@ export function formatDownloadNote(p: CurlProgress): string {
 }
 
 /**
+ * Entfernt Terminal-Farbcodes aus einer Zeile.
+ *
+ * ─── WARUM ──────────────────────────────────────────────────────────────────
+ * Gemeldet mit Bildschirmfoto: in der Oberfläche stand
+ *
+ *   ␛[32;1m[INFO]␛[0m invalid_argument thrown for condition (2025 Sep 19- Oct 15)
+ *
+ * Valhalla färbt seine Protokollzeilen ein. Auf einem Terminal ist das grün
+ * und unauffällig; in einem Browser sind es sichtbare Steuerzeichen, die
+ * genau das Wort umklammern, auf das es ankommt. Aus einer harmlosen
+ * INFO-Zeile wird so etwas, das nach einem Absturz aussieht.
+ *
+ * Die Zeile selbst bleibt unverändert — nur die Farbe geht. Sie zu
+ * unterdrücken wäre falsch: sie sagt etwas (Valhalla konnte eine zeitlich
+ * begrenzte Beschränkung aus den OSM-Daten nicht lesen und überspringt sie),
+ * und der Bau läuft dabei weiter.
+ */
+export function ansiFrei(zeile: string): string {
+  // `\x1B` und NICHT das Zeichen selbst: ein rohes Steuerzeichen im
+  // Quelltext ist beim Lesen unsichtbar, und eine unsichtbare Zeichenkette in
+  // einem Muster ist das Letzte, was man beim Suchen eines Fehlers gebrauchen
+  // kann. (Genau daran ist hier ein Mutationstest durchgerutscht: das
+  // Suchmuster traf die Zeile nicht, und das sah aus wie ein bestandener
+  // Test.)
+  //
+  // `no-control-regex` ist hier abgeschaltet, weil genau das der Zweck ist:
+  // ESC-Sequenzen SIND Steuerzeichen, und sie sollen weg.
+  // eslint-disable-next-line no-control-regex
+  return zeile.replace(/\x1B\[[0-9;]*[A-Za-z]/g, '');
+}
+
+/**
  * Die Notiz zu einem Ausgabe-Klumpen: die letzte Zeile, die etwas aussagt.
  *
  * Rueckwaerts gesucht, damit eine Kopfzeile am Ende des Klumpens nicht die
@@ -251,7 +283,10 @@ export function formatDownloadNote(p: CurlProgress): string {
 export function noteFromChunk(chunk: string): string | null {
   const lines = chunk
     .split(/\r?\n|\r/)
-    .map((l) => l.trim())
+    // Farbcodes zuerst weg: sonst zerlegt `parseCurlProgress` eine
+    // eingefaerbte Fortschrittszeile in die falsche Zahl von Feldern und
+    // erkennt sie nicht mehr.
+    .map((l) => ansiFrei(l).trim())
     .filter((l) => l.length > 0);
 
   for (let i = lines.length - 1; i >= 0; i -= 1) {

@@ -29,6 +29,7 @@ import {
   runBuildJob,
   truncateNote,
   type SpawnedBuild,
+  ansiFrei,
 } from './build.js';
 import { JobRegistry } from './jobs.js';
 import type { CatalogEntry } from './catalog.js';
@@ -371,5 +372,66 @@ describe('curls Fortschrittstabelle wird lesbar gemacht', () => {
     expect(humanDuration('1:05:00')).toBe('1 Std. 5 Min.');
     expect(humanDuration('0:00:42')).toBe('weniger als 1 Min.');
     expect(humanDuration('--:--:--')).toBeNull();
+  });
+});
+
+
+/**
+ * --- FARBCODES GEHOEREN NICHT IN EINEN BROWSER -----------------------------
+ *
+ * Gemeldet mit Bildschirmfoto: in der Oberflaeche stand waehrend des
+ * Routingbaus eine Zeile, in der die Steuerzeichen sichtbar waren:
+ *
+ *   <ESC>[32;1m[INFO]<ESC>[0m invalid_argument thrown for condition (2025 Sep 19- Oct 15)
+ *
+ * dazu: „Ich sehe eine Warnmeldung kann aber nicht beurteilen ob er gestoppt
+ * hat oder weiter baut."
+ *
+ * Valhalla faerbt seine Protokollzeilen ein. Auf einem Terminal ist das gruen
+ * und unauffaellig; im Browser sind es sichtbare Steuerzeichen, die genau das
+ * Wort umklammern, auf das es ankommt -- aus einer INFO-Zeile wird etwas, das
+ * nach einem Absturz aussieht.
+ *
+ * Die Zeile SELBST bleibt: sie sagt etwas (eine zeitlich begrenzte
+ * Beschraenkung in den OSM-Daten liess sich nicht lesen und wird
+ * uebersprungen), und der Bau laeuft dabei weiter. Nur die Farbe geht.
+ */
+describe('ansiFrei', () => {
+  it('entfernt die Farbcodes aus einer Valhalla-Zeile', () => {
+    expect(ansiFrei('\u001B[32;1m[INFO]\u001B[0m invalid_argument thrown')).toBe(
+      '[INFO] invalid_argument thrown',
+    );
+  });
+
+  it('laesst den Text unangetastet', () => {
+    // Die Meldung soll lesbar bleiben, nicht verschwinden. Sie zu
+    // unterdruecken hiesse, eine Auskunft wegzuwerfen.
+    const roh = '\u001B[31m[ERROR]\u001B[0m tile 123 fehlt';
+    expect(ansiFrei(roh)).toContain('[ERROR]');
+    expect(ansiFrei(roh)).toContain('tile 123 fehlt');
+  });
+
+  it('kommt mit einer Zeile ohne Farbcodes zurecht', () => {
+    expect(ansiFrei('ganz normal')).toBe('ganz normal');
+  });
+
+  it('greift auch in der Job-Notiz', () => {
+    // Der Weg von der Prozessausgabe bis auf den Bildschirm -- das ist die
+    // Stelle, die gemeldet wurde.
+    expect(noteFromChunk('\u001B[32;1m[INFO]\u001B[0m Baue Kacheln')).toBe('[INFO] Baue Kacheln');
+  });
+
+  it('und rettet damit die Erkennung der Fortschrittszeile', () => {
+    // curls Tabelle wird an der FORM erkannt: zwoelf Felder. Ein
+    // vorangestellter Farbcode waere ein dreizehntes -- die Zeile fiele durch
+    // und stuende als roher Zahlensalat auf dem Bildschirm.
+    // Dieselbe Zeile wie FROM_SCREENSHOT oben, nur eingefaerbt -- samt der
+    // zwoelften Spalte („Current Speed"), die curl immer mitschreibt. Beim
+    // ersten Versuch stand hier eine Zeile mit elf Feldern, und der Test hat
+    // das prompt gemeldet: die Form ist genau die Erkennung.
+    const roh = ' 13 4607M   13  635M    0     0  8641k      0  0:09:06  0:01:15  0:07:51 8905k';
+    const zeile = `\u001B[0m${roh}`;
+    expect(noteFromChunk(zeile)).toContain('Kartendaten werden geladen');
+    expect(noteFromChunk(zeile)).toContain('4607 MB');
   });
 });

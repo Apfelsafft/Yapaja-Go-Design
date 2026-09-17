@@ -10,6 +10,43 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.10.4
+
+**Ein laufender Bau bleibt sichtbar, auch wenn Sie die Seite verlassen.**
+
+Gemeldet während des ersten großen Routingbaus:
+
+> „Wenn man von Yapaia woandershin wechselt und dann wieder aufruft sind die
+> aktuellen Fortschrittsinformationen vom Bau nicht mehr sichtbar."
+> Und beim nächsten Druck auf „bauen": „Es läuft bereits ein Bau."
+
+Beides stimmte gleichzeitig — und das war der ganze Fehler. Der Bau lief
+ungestört weiter; Yapaia merkte sich nur **im Speicher des Browsers**, welcher
+Vorgang zu welcher Region gehört, und der ist beim Verlassen der Seite weg.
+Danach wusste das Add-on alles und zeigte nichts.
+
+Bei einem Vorgang, der Stunden dauert, ist „läuft er noch?" die Frage, auf die
+es ankommt. Ab jetzt hängt sich die Anzeige beim Öffnen wieder an den
+laufenden Bau an — mit Fortschrittsbalken, Statuszeile und unter der richtigen
+Region.
+
+### Und die Meldung, die nach einem Absturz aussah
+
+Im Fortschrittstext stand
+
+> `[32;1m[INFO][0m invalid_argument thrown for condition (2025 Sep 19- Oct 15)`
+
+Das sind **Terminal-Farbcodes**. Valhalla färbt seine Protokollzeilen ein; auf
+einer Kommandozeile ist das unauffälliges Grün, im Browser sichtbarer
+Zeichensalat — ausgerechnet rund um das Wort, auf das es ankommt.
+
+Die Codes sind jetzt weg, der Text bleibt. Und der Text sagt: **INFO**. Es ist
+keine Fehlermeldung. Valhalla konnte eine zeitlich begrenzte Beschränkung aus
+den OpenStreetMap-Daten (ein Datumsbereich) nicht lesen und überspringt sie —
+der Bau läuft dabei normal weiter.
+
+---
+
 ## 0.10.3
 
 **Die Prüfung der Online-Dienste sagt jetzt, was sie wirklich gefunden hat.**
