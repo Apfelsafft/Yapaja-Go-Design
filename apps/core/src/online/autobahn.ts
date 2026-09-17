@@ -135,6 +135,58 @@ export function leseKoordinate(roh: unknown): { lat: number | null; lon: number 
   };
 }
 
+/**
+ * Die FELDNAMEN eines rohen Eintrags, mit ihren Typen — ohne die Werte.
+ *
+ * ─── WOZU ───────────────────────────────────────────────────────────────────
+ * Aus der ersten echten Prüfung auf dem Gerät kam:
+ *
+ *   Autobahn A61 — parking_lorry: 60 Einträge, alle brauchbar.
+ *   Beispiel: „A61 | undefined" — ohne Koordinaten
+ *
+ * Sechzig Einträge, und kein einziger lässt sich auf eine Karte legen. Warum,
+ * weiß ich nicht: dieser Dienst hat offenbar einen anderen Aufbau als die
+ * übrigen vier. Ich könnte raten — `coordinates` statt `coordinate`, ein
+ * verschachteltes `position`, ein GeoJSON-Feld. Jede dieser Vermutungen wäre
+ * plausibel, und genau so ist in diesem Projekt schon einmal eine Woche
+ * verlorengegangen.
+ *
+ * Also wird stattdessen GEFRAGT. Diese Funktion nennt, was in einem Eintrag
+ * wirklich steht, und die Prüfung zeigt es an. Der nächste Lauf auf dem Gerät
+ * beantwortet die Frage in einer Zeile.
+ *
+ * ─── WARUM NUR NAMEN UND TYPEN, NIE WERTE ───────────────────────────────────
+ * Weil der Betreiber diesen Text weitergibt, damit ich ihn lese. Feldnamen
+ * verraten nichts über ihn; Werte könnten es. Ein Aufbau lässt sich aus den
+ * Namen vollständig ablesen — die Werte braucht dafür niemand.
+ */
+export function feldBericht(roh: unknown): string {
+  if (roh === null || typeof roh !== 'object') return typeof roh;
+
+  const typVon = (wert: unknown): string => {
+    if (wert === null) return 'null';
+    if (Array.isArray(wert)) return 'array';
+    return typeof wert;
+  };
+
+  const teile: string[] = [];
+  for (const [name, wert] of Object.entries(roh as Record<string, unknown>).slice(0, 40)) {
+    // Eine Ebene tiefer, aber auch nur eine: die Koordinaten stecken bei den
+    // anderen Diensten genau dort. Tiefer zu gehen ergäbe eine Wand aus Text,
+    // in der die eine wichtige Zeile untergeht.
+    if (wert !== null && typeof wert === 'object' && !Array.isArray(wert)) {
+      const innen = Object.entries(wert as Record<string, unknown>)
+        .slice(0, 12)
+        .map(([k, v]) => `${k}:${typVon(v)}`)
+        .join(', ');
+      teile.push(`${name}{${innen}}`);
+      continue;
+    }
+    teile.push(`${name}:${typVon(wert)}`);
+  }
+  return teile.join(', ');
+}
+
 /** Text aus einem Feld, das eine Zeichenkette ODER eine Liste davon sein kann. */
 export function leseText(wert: unknown): string {
   if (typeof wert === 'string') return wert.trim();
@@ -185,19 +237,51 @@ export function normalisiere(
   };
 }
 
-/** Alle brauchbaren Meldungen einer Antwort, plus wie viele verworfen wurden. */
+export interface AntwortBefund {
+  meldungen: Verkehrsmeldung[];
+  /** Einträge ohne Titel — mit ihnen lässt sich gar nichts anfangen. */
+  verworfen: number;
+  /**
+   * Meldungen MIT Titel, aber OHNE Koordinaten.
+   *
+   * Sie sind nicht wertlos (im Text steht etwas), aber sie können nicht auf
+   * die Karte. Bis 0.10.2 fielen sie unter „alle brauchbar" — und genau das
+   * ist die Fehlersorte, gegen die diese Datei geschrieben wurde: ein Befund,
+   * der wie eine gute Nachricht aussieht. Sechzig LKW-Parkplätze, von denen
+   * kein einziger zeichenbar ist, sind keine gute Nachricht.
+   */
+  ohneKoordinaten: number;
+  schluessel: string | null;
+  mehrdeutig: string[];
+  /** Die Feldnamen des ERSTEN Eintrags, für den Fall, dass etwas nicht passt. */
+  felder: string | null;
+}
+
+/** Alle brauchbaren Meldungen einer Antwort, plus was daran fehlte. */
 export function ausAntwort(
   json: unknown,
   strasse: string,
   dienst: AutobahnDienst,
-): { meldungen: Verkehrsmeldung[]; verworfen: number; schluessel: string | null; mehrdeutig: string[] } {
+): AntwortBefund {
   const { schluessel, eintraege, mehrdeutig } = parseListe(json);
   const meldungen: Verkehrsmeldung[] = [];
   let verworfen = 0;
+  let ohneKoordinaten = 0;
   for (const eintrag of eintraege) {
     const m = normalisiere(eintrag, strasse, dienst);
-    if (m) meldungen.push(m);
-    else verworfen += 1;
+    if (!m) {
+      verworfen += 1;
+      continue;
+    }
+    if (m.lat === null || m.lon === null) ohneKoordinaten += 1;
+    meldungen.push(m);
   }
-  return { meldungen, verworfen, schluessel, mehrdeutig };
+  return {
+    meldungen,
+    verworfen,
+    ohneKoordinaten,
+    schluessel,
+    mehrdeutig,
+    felder: eintraege.length > 0 ? feldBericht(eintraege[0]) : null,
+  };
 }

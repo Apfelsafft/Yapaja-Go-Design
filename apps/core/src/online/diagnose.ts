@@ -63,6 +63,16 @@ export interface DiagnoseZeile {
   schluessel?: string | null;
   eintraege?: number;
   verworfen?: number;
+  /** Mit Titel, aber ohne Koordinaten — nicht auf die Karte zu bringen. */
+  ohne_koordinaten?: number;
+  /**
+   * Die Feldnamen des ersten Eintrags, MIT Typen und OHNE Werte.
+   *
+   * Nur gesetzt, wenn etwas nicht aufging — sonst wäre es Lärm. Wer es liest,
+   * sieht genau, wie der Dienst wirklich aufgebaut ist, und muss nicht raten.
+   * Werte stehen bewusst nicht dabei: dieser Text wird weitergegeben.
+   */
+  felder?: string;
   /** Ein Beispiel, so wie Yapaia es verstanden hat. */
   beispiel?: Verkehrsmeldung;
 }
@@ -160,6 +170,8 @@ export function beschreibeListe(
   verworfen: number,
   schluessel: string | null,
   mehrdeutig: string[],
+  /** Meldungen mit Titel, aber ohne Koordinaten — nicht zeichenbar. */
+  ohneKoordinaten = 0,
 ): string {
   if (mehrdeutig.length > 0) {
     return (
@@ -177,10 +189,26 @@ export function beschreibeListe(
   if (verworfen === eintraege) {
     return `Liste unter „${schluessel}" mit ${eintraege} Einträgen — aber KEINER war brauchbar. Die Felder heißen anders als erwartet.`;
   }
-  if (verworfen > 0) {
-    return `Liste unter „${schluessel}": ${eintraege} Einträge, davon ${verworfen} ohne Titel übersprungen.`;
+
+  const brauchbar = eintraege - verworfen;
+  const teile = [`Liste unter „${schluessel}": ${eintraege} Einträge`];
+  if (verworfen > 0) teile.push(`davon ${verworfen} ohne Titel übersprungen`);
+
+  // ─── DIE KORREKTUR AUS DER ERSTEN ECHTEN PRUEFUNG ───────────────────────
+  // Hier stand „alle brauchbar" — auch bei sechzig LKW-Parkplätzen, von denen
+  // kein einziger Koordinaten hatte. Für eine Karte ist das nicht brauchbar,
+  // und genau diese Sorte beruhigender Befund sollte diese Datei verhindern.
+  if (ohneKoordinaten === brauchbar) {
+    teile.push(
+      'aber KEINER hat Koordinaten — auf die Karte kann davon nichts. ' +
+        'Die Feldnamen stehen unten; dieser Dienst ist anders aufgebaut als die übrigen',
+    );
+  } else if (ohneKoordinaten > 0) {
+    teile.push(`${ohneKoordinaten} ohne Koordinaten (nicht zeichenbar)`);
+  } else if (verworfen === 0) {
+    teile.push('alle mit Koordinaten');
   }
-  return `Liste unter „${schluessel}": ${eintraege} Einträge, alle brauchbar.`;
+  return `${teile.join(', ')}.`;
 }
 
 /**
@@ -213,17 +241,25 @@ export async function diagnoseAutobahn(
     const url = autobahnDienstUrl(strasse, dienst);
     const { zeile, json } = await ruf(`Autobahn ${strasse} — ${dienst}`, url, deps);
     if (json !== null) {
-      const { meldungen, verworfen, schluessel, mehrdeutig } = ausAntwort(json, strasse, dienst);
-      zeile.schluessel = schluessel;
-      zeile.eintraege = meldungen.length + verworfen;
-      zeile.verworfen = verworfen;
+      const befund = ausAntwort(json, strasse, dienst);
+      const gesamt = befund.meldungen.length + befund.verworfen;
+      zeile.schluessel = befund.schluessel;
+      zeile.eintraege = gesamt;
+      zeile.verworfen = befund.verworfen;
+      zeile.ohne_koordinaten = befund.ohneKoordinaten;
       zeile.befund = beschreibeListe(
-        meldungen.length + verworfen,
-        verworfen,
-        schluessel,
-        mehrdeutig,
+        gesamt,
+        befund.verworfen,
+        befund.schluessel,
+        befund.mehrdeutig,
+        befund.ohneKoordinaten,
       );
-      if (meldungen.length > 0) zeile.beispiel = meldungen[0];
+      if (befund.meldungen.length > 0) zeile.beispiel = befund.meldungen[0];
+      // Die Feldnamen NUR, wenn etwas nicht aufging. Bei einem Dienst, der
+      // sauber liefert, wären sie bloss eine Zeile Fachtext mehr.
+      if (befund.felder && (befund.verworfen > 0 || befund.ohneKoordinaten > 0)) {
+        zeile.felder = befund.felder;
+      }
     }
     zeilen.push(zeile);
   }
@@ -243,9 +279,25 @@ export function gesamturteil(zeilen: readonly DiagnoseZeile[]): string {
   if (erreicht.length === 0) {
     return 'Kein einziger Dienst war erreichbar. Sehr wahrscheinlich ist gerade kein Internet da — für die Navigation ist das folgenlos, sie arbeitet offline.';
   }
-  const mitDaten = zeilen.filter((z) => (z.eintraege ?? 0) > 0 && (z.verworfen ?? 0) === 0);
+  // ─── „VERWERTBAR" HEISST: DAMIT LAESST SICH ETWAS ZEICHNEN ──────────────
+  // Hier zählte nur `verworfen === 0`. Die erste echte Prüfung meldete
+  // daraufhin „5 von 6 lieferten verwertbare Daten" — obwohl bei einem dieser
+  // fünf sechzig Einträge ohne jede Koordinate lagen. Der Satz war beruhigend
+  // und falsch, und beruhigend-falsch ist in diesem Projekt die teuerste
+  // Sorte Aussage.
+  const mitDaten = zeilen.filter(
+    (z) => (z.eintraege ?? 0) > 0 && (z.verworfen ?? 0) === 0 && (z.ohne_koordinaten ?? 0) === 0,
+  );
+  const nurText = zeilen.filter(
+    (z) => (z.eintraege ?? 0) > 0 && (z.ohne_koordinaten ?? 0) > 0,
+  );
   if (mitDaten.length > 0) {
-    return `${erreicht.length} von ${zeilen.length} Diensten antworteten, und ${mitDaten.length} davon lieferten verwertbare Daten.`;
+    const satz = `${erreicht.length} von ${zeilen.length} Diensten antworteten, und ${mitDaten.length} davon lieferten Daten mit Koordinaten.`;
+    if (nurText.length === 0) return satz;
+    return (
+      `${satz} Bei ${nurText.length} weiteren kamen Einträge an, denen die Koordinaten ` +
+      'fehlen — die stehen im Text, aber nicht auf der Karte. Die Feldnamen dazu stehen in der jeweiligen Zeile.'
+    );
   }
   const verstanden = zeilen.filter((z) => z.schluessel != null);
   if (verstanden.length > 0) {

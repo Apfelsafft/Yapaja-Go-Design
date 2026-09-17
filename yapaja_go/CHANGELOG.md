@@ -10,6 +10,46 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.10.3
+
+**Die Prüfung der Online-Dienste sagt jetzt, was sie wirklich gefunden hat.**
+
+Ihr erster echter Lauf auf dem Gerät hat funktioniert — und dabei einen
+Fehler in der Prüfung selbst aufgedeckt. Sie meldete:
+
+> Autobahn A61 — parking_lorry: 60 Einträge, **alle brauchbar**.
+> Beispiel: „A61 | undefined" — ohne Koordinaten
+
+Sechzig LKW-Parkplätze, von denen **kein einziger** auf eine Karte gezeichnet
+werden kann. „Alle brauchbar" war für eine Navigations-App schlicht falsch,
+und das Gesamturteil zählte sie obendrein als Erfolg mit.
+
+### Was sich ändert
+
+* **Ohne Koordinaten heißt ohne Koordinaten.** Einträge, die zwar einen Text
+  haben, aber keinen Ort, werden getrennt gezählt und benannt. Das
+  Gesamturteil rechnet sie nicht mehr als Erfolg.
+* **Die Prüfung nennt jetzt den Aufbau des Dienstes.** Wo etwas nicht aufgeht,
+  steht darunter eine Zeile mit den Feldnamen, die wirklich ankamen. Damit
+  lässt sich beantworten, *warum* Koordinaten fehlen, statt es zu vermuten.
+
+Es stehen dort nur **Feldnamen und Typen, niemals Werte** — die Zeile ist zum
+Weitergeben gedacht, und für den Aufbau braucht die Werte niemand.
+
+### Warum das so gebaut ist
+
+Die LKW-Parkplätze sind für ein Wohnmobil kein Nebenthema: über 7,5 Tonnen
+sind sie nachts oft die einzige Fläche, auf der man legal steht. Ich könnte
+raten, wie dieser eine Dienst seine Orte ablegt — die Entwicklungsumgebung
+kommt an die Schnittstelle nicht heran. Raten hat dieses Projekt schon einmal
+eine Woche gekostet. Deshalb fragt die Prüfung stattdessen Ihr Gerät.
+
+**Wenn Sie mögen:** Lassen Sie die Prüfung noch einmal laufen und schicken Sie
+mir die neue Zeile unter `parking_lorry`. Dann kann ich die Parkplätze auf die
+Karte bringen, ohne zu raten.
+
+---
+
 ## 0.10.2
 
 **Ein Knopf, ein Routinggraph, alle installierten Karten.**

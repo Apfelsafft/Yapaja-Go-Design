@@ -26,6 +26,7 @@ import {
   leseText,
   normalisiere,
   parseListe,
+  feldBericht,
 } from './autobahn';
 
 describe('parseListe — die Liste selbst finden', () => {
@@ -226,5 +227,104 @@ describe('die Adressen', () => {
     // Die Kennung kommt aus einer Anfrage. Sie wird zwar vorher geprüft, aber
     // zwei Schlösser an einer Tür, die nach draußen führt, sind hier richtig.
     expect(autobahnDienstUrl('A 61/../x', 'warning')).not.toContain('../');
+  });
+});
+
+/**
+ * ─── DIE FRAGE, DIE ICH NICHT SELBST BEANTWORTEN KANN ───────────────────────
+ *
+ * Aus der ersten echten Prüfung auf dem Gerät:
+ *
+ *   Autobahn A61 — parking_lorry: 60 Einträge, alle brauchbar.
+ *   Beispiel: „A61 | undefined" — ohne Koordinaten
+ *
+ * Dieser eine Dienst ist anders aufgebaut als die vier anderen. Warum, weiß
+ * ich nicht — die Netzregeln dieser Entwicklungsumgebung lassen die
+ * Schnittstelle nicht durch, ich kann sie nicht aufrufen.
+ *
+ * Ich könnte raten: `coordinates` statt `coordinate`, ein verschachteltes
+ * `position`, GeoJSON. Alles plausibel, und genau so ist der gpsd-Fehler
+ * entstanden — drei plausible Diagnosen, alle falsch.
+ *
+ * Also wird gefragt statt geraten. `feldBericht` nennt, was WIRKLICH in einem
+ * Eintrag steht; die Prüfung zeigt es an; der nächste Lauf auf dem Gerät
+ * beantwortet die Frage in einer Zeile.
+ */
+describe('feldBericht — den Aufbau nennen, statt ihn zu erraten', () => {
+  it('nennt Feldnamen mit ihren Typen', () => {
+    expect(feldBericht({ title: 'A61', isBlocked: true, lorryParkingFeatureIcons: [] })).toBe(
+      'title:string, isBlocked:boolean, lorryParkingFeatureIcons:array',
+    );
+  });
+
+  it('geht EINE Ebene tiefer — dort stecken bei den anderen die Koordinaten', () => {
+    expect(feldBericht({ coordinate: { lat: '49.9', long: '7.8' } })).toBe(
+      'coordinate{lat:string, long:string}',
+    );
+  });
+
+  it('verrät KEINE Werte', () => {
+    // Dieser Text wird vom Betreiber weitergegeben, damit ich ihn lese.
+    // Feldnamen sagen nichts über ihn, Werte könnten es. Für den Aufbau
+    // braucht sie ohnehin niemand.
+    const bericht = feldBericht({
+      title: 'Raststätte Geheim',
+      coordinate: { lat: '49.123456', long: '7.654321' },
+    });
+    expect(bericht).not.toContain('Geheim');
+    expect(bericht).not.toContain('49.123456');
+    expect(bericht).toContain('title:string');
+  });
+
+  it('unterscheidet null von einem Objekt', () => {
+    // `typeof null === 'object'` — wer das übersieht, meldet ein leeres
+    // Klammerpaar und schickt damit auf die falsche Fährte.
+    expect(feldBericht({ coordinate: null })).toBe('coordinate:null');
+  });
+
+  it('bricht bei sehr vielen Feldern ab, statt eine Wand zu erzeugen', () => {
+    const viele: Record<string, number> = {};
+    for (let i = 0; i < 100; i += 1) viele[`f${i}`] = i;
+    expect(feldBericht(viele).split(', ')).toHaveLength(40);
+  });
+
+  it('kommt mit etwas zurecht, das gar kein Objekt ist', () => {
+    expect(feldBericht('text')).toBe('string');
+    expect(feldBericht(null)).toBe('object');
+  });
+});
+
+describe('ausAntwort — was NICHT auf die Karte kann, wird gezählt', () => {
+  const OHNE_KOORDINATEN = {
+    parking_lorry: [
+      { title: 'A61 | undefined', identifier: 'p1' },
+      { title: 'A61 | undefined', identifier: 'p2' },
+    ],
+  };
+
+  it('zählt Meldungen ohne Koordinaten getrennt', () => {
+    const b = ausAntwort(OHNE_KOORDINATEN, 'A61', 'parking_lorry');
+    expect(b.meldungen).toHaveLength(2);
+    // Sie sind nicht verworfen — im Text steht ja etwas.
+    expect(b.verworfen).toBe(0);
+    // Aber zeichenbar sind sie nicht, und genau das war der blinde Fleck.
+    expect(b.ohneKoordinaten).toBe(2);
+  });
+
+  it('liefert die Feldnamen des ersten Eintrags mit', () => {
+    expect(ausAntwort(OHNE_KOORDINATEN, 'A61', 'parking_lorry').felder).toContain('title:string');
+  });
+
+  it('zählt bei sauberen Antworten nichts als fehlend', () => {
+    const b = ausAntwort(
+      { roadworks: [{ title: 'Baustelle', coordinate: { lat: '49.9', long: '7.8' } }] },
+      'A61',
+      'roadworks',
+    );
+    expect(b.ohneKoordinaten).toBe(0);
+  });
+
+  it('felder ist null, wenn die Liste leer war', () => {
+    expect(ausAntwort({ warning: [] }, 'A61', 'warning').felder).toBeNull();
   });
 });
