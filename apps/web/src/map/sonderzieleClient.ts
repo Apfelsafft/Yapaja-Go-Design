@@ -107,9 +107,37 @@ function istMerkmal(wert: unknown): wert is SonderzielMerkmal {
   return typeof p.symbol === 'string' && p.symbol.length > 0;
 }
 
+/**
+ * Die Adresse einer Schnittstelle — RELATIV zum ausgelieferten Verzeichnis.
+ *
+ * ─── DER FEHLER, DEN DAS BEHEBT ─────────────────────────────────────────────
+ * Hier stand `fetch("/api/v1/map/sonderziele")`. Der fuehrende Schraegstrich
+ * ist eine Adresse ab der DOMAINWURZEL -- und genau die gibt es unter Home
+ * Assistant Ingress nicht: dort laeuft Yapaia unter
+ *
+ *     /api/hassio_ingress/<token>/
+ *
+ * Eine Anfrage an `/api/v1/...` verlaesst dieses Verzeichnis und landet bei
+ * Home Assistant selbst. Die Entsorgungsstationen waeren also auf jedem
+ * Ingress-Zugang lautlos verschwunden -- und der Betreiber benutzt
+ * ausschliesslich Ingress.
+ *
+ * Aufgefallen ist es `subpath.spec.ts`, das jede einzelne Anfrage darauf
+ * prueft, ob sie unter dem Ingress-Pfad bleibt. Dass dieselbe Fehlerklasse
+ * schon einmal die Lovelace-Karte zerlegt hat, macht es nicht besser.
+ *
+ * `import.meta.env.BASE_URL` ist der Weg, den jedes andere Client-Modul in
+ * dieser Anwendung geht (`routing/client.ts`, `profiles/client.ts`,
+ * `online/verkehrClient.ts` und so fort). Der Pfad darf dabei KEINEN
+ * fuehrenden Schraegstrich haben, sonst ist die Ersetzung wirkungslos.
+ */
+function apiUrl(path: string): string {
+  return `${import.meta.env.BASE_URL}${path}`;
+}
+
 /** Holt die Sonderziele vom Kern. */
-export async function holeSonderziele(basis = ''): Promise<SonderzieleAntwort> {
-  const antwort = await fetch(`${basis}/api/v1/map/sonderziele`);
+export async function holeSonderziele(): Promise<SonderzieleAntwort> {
+  const antwort = await fetch(apiUrl('api/v1/map/sonderziele'));
   if (!antwort.ok) throw new Error(`Sonderziele: HTTP ${antwort.status}`);
   return pruefeAntwort(await antwort.json());
 }
