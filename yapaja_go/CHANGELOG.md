@@ -10,6 +10,53 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.13.1
+
+**Tempo und Höhe auch ohne laufende Route — und das ESP-Display zeigt sie.**
+
+Aus den Entwicklerwerkzeugen gemeldet, alle Yapaia-Entitäten nebeneinander:
+
+| Entität | Zustand |
+| --- | --- |
+| `device_tracker.yapaja_vehicle` | Position auf zehn Nachkommastellen |
+| `sensor.yapaja_nav_state` | `idle` |
+| `sensor.yapaja_speed` | **unknown** |
+| `sensor.yapaja_altitude` | **unknown** |
+
+Das GPS lieferte also gerade eine Position, und im selben Augenblick stand
+beim Tempo „unbekannt". Beides zugleich.
+
+Der Grund: Tempo und Höhe wurden ausschliesslich aus dem Navigationszustand
+gelesen, und den gibt es nur, solange eine Route läuft. Die GPS-Position liegt
+dagegen immer an und bringt Geschwindigkeit und Höhe von sich aus mit — als
+Pflichtfelder. **Die Angabe war da, sie wurde nur nicht abgeholt.**
+
+Jetzt springt das GPS ein, sobald kein Routenwert vorliegt. Während der
+Navigation gilt weiterhin der Wert aus der Route, damit Tacho und
+Tempo-Überschreitung nicht aus verschiedenen Töpfen kommen.
+
+**Ehrlich bleibt es trotzdem:**
+
+- Ohne Satellitenfix bleibt beides „unbekannt" — eine Zahl, die aussieht wie
+  eine Messung, ist schlimmer als ein ehrliches Fragezeichen.
+- Die **Höhe** braucht einen 3D-Fix. Mit einem 2D-Fix könnte der letzte
+  bekannte Wert aus einem anderen Tal stammen; vor einer Passhöhe ist das
+  keine Kleinigkeit. Das Tempo dagegen reicht ein 2D-Fix.
+- **Stillstand ist eine Null**, kein fehlender Wert.
+
+### Das runde ESP32-Display
+
+Es zeigt jetzt ohne Route den **Tacho gross** und den Zustand klein darunter —
+vorher stand auf einem fest verbauten Bildschirm dauerhaft nur „Keine Route".
+
+Ausserdem ein Fehler behoben, der noch nicht aufgetreten ist: die Prüfung auf
+einen fehlenden Wert kannte „leer" und „unavailable", aber nicht **„unknown"**
+— und genau das schickt Home Assistant für einen Sensor ohne Wert. Das Gerät
+hätte daraus die feste Aussage „Keine Route" gemacht: behauptet, es sei alles
+in Ordnung, während es in Wahrheit gar nichts wusste.
+
+---
+
 ## 0.13.0
 
 **Entsorgungsstationen stehen jetzt auf der Karte.**
