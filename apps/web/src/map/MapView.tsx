@@ -32,6 +32,7 @@ import CompassButton from './CompassButton';
 import ViewModeButton from './ViewModeButton';
 import ReCenterButton from './ReCenterButton';
 import StylePanel from './StylePanel';
+import SonderzieleLayer from './SonderzieleLayer.js';
 import RegionsPanel from '../settings/regions/RegionsPanel';
 import StorePanel from '../store/StorePanel';
 import PreflightPanel from '../settings/preflight/PreflightPanel';
@@ -441,6 +442,12 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
       <div ref={containerRef} className="w-full h-full" data-testid="map-container" />
       {status === 'ready' && chrome && (
         <>
+          {/* Entsorgungsstationen und Muellentsorgung. Sie kommen NICHT aus
+              den Kacheln -- das OpenMapTiles-Schema kennt diese Werte nicht --
+              sondern aus dem Suchindex, wo sie schon immer lagen. Hier
+              montiert und nicht bei den Routing-Ebenen: sie haengen an keiner
+              Route, sondern nur an der Karte. */}
+          <SonderzieleLayer />
           <CompassButton />
           <ViewModeButton />
           <ReCenterButton />

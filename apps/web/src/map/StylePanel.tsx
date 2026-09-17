@@ -13,6 +13,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useStyleStore } from '../state/styleStore';
 import { fetchStyleSummaries, type StyleLabelScale, type StyleLang, type StylePoiDensity, type StyleSummary } from './styleClient';
 import ThemeToggle from '../theme/ThemeToggle.js';
+import FaltAbschnitt from './FaltAbschnitt.js';
+import { REGIONEN_NOCH_OFFEN } from './panelAbschnitte.js';
 import DriveLockGate from '../drive/DriveLockGate.js';
 import HandednessToggle from '../shell/HandednessToggle.js';
 import { useOnboardingStore } from '../onboarding/store.js';
@@ -91,9 +93,30 @@ export default function StylePanel(): React.ReactElement {
               Beifahrer" override stays reachable, only the settings CONTENT
               itself is replaced by the overlay. */}
           <DriveLockGate controlId="settings">
-          <ThemeToggle />
 
-          <HandednessToggle />
+          {/* ─── ZUERST: DER GRUND, AUS DEM MAN DIESES MENUE OEFFNET ──────
+              Vorher stand der Kartenstil an vierter Stelle, unter Theme,
+              Haendigkeit und Region. Was man am haeufigsten braucht, gehoert
+              dorthin, wo der Blick zuerst hinfaellt. */}
+          <FaltAbschnitt titel="Kartenstil" offen id="stil">
+            <div className="flex flex-col gap-1">
+              {styles.map((style) => (
+                <button
+                  key={style.id}
+                  onClick={() => setStyleId(style.id)}
+                  aria-pressed={style.id === styleId}
+                  data-testid={`style-option-${style.id}`}
+                  className={`text-left px-3 py-2 rounded-lg border ${
+                    style.id === styleId
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/40 font-semibold'
+                      : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {style.name}
+                </button>
+              ))}
+            </div>
+          </FaltAbschnitt>
 
           {/* ─── ANGEZEIGTE REGION ──────────────────────────────────────────
               Sichtbar nur mit mehr als einer installierten Region — bei einer
@@ -112,8 +135,11 @@ export default function StylePanel(): React.ReactElement {
               mehrere Quellen zu viel sind. Sie ueberlebt einen Neustart
               absichtlich nicht (siehe regionStore.ts). */}
           {installedRegions.length > 1 && (
-            <section>
-              <h2 className="font-semibold mb-2">Angezeigte Region</h2>
+            <FaltAbschnitt
+              titel="Angezeigte Region"
+              offen={installedRegions.length <= REGIONEN_NOCH_OFFEN}
+              id="region"
+            >
               <div className="flex flex-col gap-1">
                 <button
                   onClick={() => setManualRegion(null)}
@@ -148,32 +174,23 @@ export default function StylePanel(): React.ReactElement {
                   </button>
                 ))}
               </div>
-            </section>
+            </FaltAbschnitt>
           )}
 
-          <section>
-            <h2 className="font-semibold mb-2">Kartenstil</h2>
-            <div className="flex flex-col gap-1">
-              {styles.map((style) => (
-                <button
-                  key={style.id}
-                  onClick={() => setStyleId(style.id)}
-                  aria-pressed={style.id === styleId}
-                  data-testid={`style-option-${style.id}`}
-                  className={`text-left px-3 py-2 rounded-lg border ${
-                    style.id === styleId
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/40 font-semibold'
-                      : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  {style.name}
-                </button>
-              ))}
-            </div>
-          </section>
+          {/* ─── DARSTELLUNG: WAS MAN EINMAL EINSTELLT ─────────────────────
+              Hell/Dunkel, Sprache, Schriftgroesse, POI-Dichte. Zusammen vier
+              Abschnitte, die vorher einzeln untereinander standen und den
+              Platz dessen einnahmen, was man taeglich braucht.
 
-          <section>
-            <h2 className="font-semibold mb-2">Sprache der Labels</h2>
+              Zugeklappt kosten sie eine Zeile statt vierzehn. */}
+          <FaltAbschnitt titel="Darstellung" offen={false} id="darstellung">
+            <div className="space-y-3">
+              <ThemeToggle />
+
+              <div>
+                <h3 className="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  Sprache der Labels
+                </h3>
             <div className="flex gap-1 flex-wrap">
               {LANG_OPTIONS.map((opt) => (
                 <button
@@ -189,13 +206,15 @@ export default function StylePanel(): React.ReactElement {
                 >
                   {opt.label}
                 </button>
-              ))}
-            </div>
-          </section>
+                  ))}
+                </div>
+              </div>
 
-          <section>
-            <h2 className="font-semibold mb-2">Label-Größe</h2>
-            <div className="flex gap-1">
+              <div>
+                <h3 className="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  Label-Größe
+                </h3>
+                <div className="flex gap-1">
               {LABEL_SCALE_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
@@ -210,13 +229,15 @@ export default function StylePanel(): React.ReactElement {
                 >
                   {opt.label}
                 </button>
-              ))}
-            </div>
-          </section>
+                  ))}
+                </div>
+              </div>
 
-          <section>
-            <h2 className="font-semibold mb-2">POI-Dichte</h2>
-            <div className="flex gap-1">
+              <div>
+                <h3 className="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  POI-Dichte
+                </h3>
+                <div className="flex gap-1">
               {POI_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
@@ -231,27 +252,36 @@ export default function StylePanel(): React.ReactElement {
                 >
                   {opt.label}
                 </button>
-              ))}
+                  ))}
+                </div>
+              </div>
             </div>
-          </section>
+          </FaltAbschnitt>
 
-          {/* E08-T5: "wieder aufrufbar aus Settings" -- reopens the
+          {/* ─── GERAET: WAS MAN EINMAL IM LEBEN EINSTELLT ─────────────────
+              Links-/Rechtshaendigkeit und der Setup-Assistent. Beides stellt
+              man bei der Einrichtung ein und danach nie wieder — sie standen
+              trotzdem dauerhaft im Bild.
+
+              E08-T5: "wieder aufrufbar aus Settings" -- reopens the
               first-run onboarding wizard on demand (e.g. to redo the
               disclaimer, change GPS source, or set up MQTT later).
               `reopen()` shows the wizard WITHOUT touching the persisted
               `onboarding_state.completed` flag until the user actually
               finishes it again -- see `onboarding/store.ts`. */}
-          <section>
-            <h2 className="font-semibold mb-2">Einrichtung</h2>
-            <button
+          <FaltAbschnitt titel="Gerät" offen={false} id="geraet">
+            <div className="space-y-3">
+              <HandednessToggle />
+              <button
               type="button"
               onClick={() => reopenOnboardingWizard()}
               className="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 text-left hover:bg-slate-100 dark:hover:bg-slate-700 text-xs"
               data-testid="onboarding-reopen-button"
             >
               🧭 Setup-Assistent erneut öffnen
-            </button>
-          </section>
+              </button>
+            </div>
+          </FaltAbschnitt>
           </DriveLockGate>
         </div>
       )}

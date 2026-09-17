@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import type { NavState } from '@yapaia/shared';
+import type { NavState, Position } from '@yapaia/shared';
 import { EventBus } from '../bus/index.js';
 import { DASHBOARD_ENTITIES } from './dashboard.js';
 import {
@@ -140,6 +140,93 @@ describe('die Werte selbst', () => {
       expect(findeZustand(leer, id)?.state, id).toBe(UNBEKANNT);
     }
     expect(findeZustand(leer, 'sensor.yapaja_nav_state')?.state).toBe('idle');
+  });
+
+  describe('ohne Route, aber mit GPS — der gemeldete Fall', () => {
+    /**
+     * Aus den Entwicklerwerkzeugen, alle Yapaia-Entitäten nebeneinander:
+     *
+     *     device_tracker.yapaja_vehicle   latitude: 49.239076998
+     *                                     longitude: 8.320296238
+     *     sensor.yapaja_nav_state         idle
+     *     sensor.yapaja_speed             unknown
+     *     sensor.yapaja_altitude          unknown
+     *
+     * Das GPS lieferte eine Position auf zehn Nachkommastellen, und im
+     * selben Augenblick stand beim Tempo „unbekannt". Beides zugleich.
+     */
+    function gps(teil: Partial<Position> = {}): Position {
+      return {
+        lat: 49.239076998,
+        lon: 8.320296238,
+        alt: 120,
+        speed: 25, // m/s = 90 km/h
+        heading: 180,
+        accuracy: 53.2,
+        source: 'gpsd',
+        fix: '3d',
+        ts: '2026-09-17T18:23:00.000Z',
+        ...teil,
+      } as Position;
+    }
+
+    it('das Tempo kommt vom GPS, wenn keine Route läuft', () => {
+      const zustaende = buildHaStates({ navState: null, position: gps() });
+      expect(findeZustand(zustaende, 'sensor.yapaja_speed')?.state).toBe('90');
+      expect(findeZustand(zustaende, 'sensor.yapaja_nav_state')?.state).toBe('idle');
+    });
+
+    it('die Höhe ebenso — bei einem 3D-Fix', () => {
+      const zustaende = buildHaStates({ navState: null, position: gps({ alt: 214.4 }) });
+      expect(findeZustand(zustaende, 'sensor.yapaja_altitude')?.state).toBe('214');
+    });
+
+    it('bei einem 2D-Fix bleibt die Höhe unbekannt, das Tempo nicht', () => {
+      // Eine Höhe braucht einen vierten Satelliten. Ein alter Wert aus einem
+      // anderen Tal ist schlimmer als ein ehrliches „unbekannt".
+      const zustaende = buildHaStates({ navState: null, position: gps({ fix: '2d' }) });
+      expect(findeZustand(zustaende, 'sensor.yapaja_altitude')?.state).toBe(UNBEKANNT);
+      expect(findeZustand(zustaende, 'sensor.yapaja_speed')?.state).toBe('90');
+    });
+
+    it('ohne Fix bleibt beides unbekannt', () => {
+      const zustaende = buildHaStates({ navState: null, position: gps({ fix: 'none' }) });
+      expect(findeZustand(zustaende, 'sensor.yapaja_speed')?.state).toBe(UNBEKANNT);
+      expect(findeZustand(zustaende, 'sensor.yapaja_altitude')?.state).toBe(UNBEKANNT);
+    });
+
+    it('die laufende Route hat weiterhin Vorrang vor dem GPS', () => {
+      // ─── WARUM DIESE REIHENFOLGE ──────────────────────────────────────
+      // Der Wert aus `navState` ist auf die Route bezogen und speist
+      // dieselbe Quelle wie `speeding`. Kämen die beiden aus verschiedenen
+      // Töpfen, könnte das Display 90 km/h zeigen, während die
+      // Tempo-Überschreitung mit 82 rechnet — zwei Zahlen über dieselbe
+      // Fahrt, die sich widersprechen.
+      const zustaende = buildHaStates({
+        navState: navState({ speed_kmh: 82, altitude_m: 300 }),
+        position: gps({ speed: 25, alt: 120 }),
+      });
+      expect(findeZustand(zustaende, 'sensor.yapaja_speed')?.state).toBe('82');
+      expect(findeZustand(zustaende, 'sensor.yapaja_altitude')?.state).toBe('300');
+    });
+
+    it('läuft eine Route OHNE Tempowert, springt das GPS ein', () => {
+      // `navState` gibt es, aber `speed_kmh` ist null — etwa unmittelbar
+      // nach dem Start, bevor die erste Ortung durch ist.
+      const zustaende = buildHaStates({
+        navState: navState({ speed_kmh: null, altitude_m: null }),
+        position: gps(),
+      });
+      expect(findeZustand(zustaende, 'sensor.yapaja_speed')?.state).toBe('90');
+      expect(findeZustand(zustaende, 'sensor.yapaja_altitude')?.state).toBe('120');
+    });
+
+    it('Stillstand ist eine Null und kein fehlender Wert', () => {
+      // Sonst zeigte das Display beim Halt „unbekannt" statt einer Null,
+      // und aus einer Messung würde eine Lücke.
+      const zustaende = buildHaStates({ navState: null, position: gps({ speed: 0 }) });
+      expect(findeZustand(zustaende, 'sensor.yapaja_speed')?.state).toBe('0');
+    });
   });
 
   it('die Anweisung bringt den Richtungspfeil als Attribut mit', () => {

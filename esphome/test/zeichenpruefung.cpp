@@ -436,8 +436,25 @@ int main() {
     printf("  OK   alle %d Verschiebungen bleiben gültiges UTF-8\n", geprueft);
   }
 
+  // ─── OHNE ROUTE ZEIGT DAS GERAET DAS TEMPO ──────────────────────────────
+  // Gemeldet ueber die Entwicklerwerkzeuge: bei `nav_state: idle` standen
+  // `sensor.yapaja_speed` und `sensor.yapaja_altitude` auf "unknown",
+  // waehrend `device_tracker.yapaja_vehicle` im selben Augenblick eine
+  // Position auf zehn Nachkommastellen fuehrte. Seit 0.13.1 holt der Kern
+  // beides aus dem GPS, sobald ein Fix da ist.
+  //
+  // Damit hat ein fest verbautes Display auch ohne Route etwas zu zeigen --
+  // und zwar das, wofuer man im Fahrzeug ueberhaupt auf einen Tacho sieht.
+  // Der Zustandstext bleibt darunter stehen: er ist die Nebenauskunft.
   Fall ruhe = sommer; ruhe.zustand = "idle";
-  genau("idle: nur die Lage melden", ruhe, 240,240, {"Keine Route"});
+  genau("idle mit Tempo: Tacho gross, Lage klein", ruhe, 240,240,
+        {"87", "km/h", "Keine Route"});
+
+  // Die Gegenprobe. Ohne Tempowert bleibt es beim blossen Zustandstext --
+  // sonst stuende dort eine Null, und eine Null ist die Behauptung
+  // „Stillstand" und nicht „weiss ich nicht".
+  Fall ruhe_ohne = sommer; ruhe_ohne.zustand = "idle"; ruhe_ohne.tempo_da = false;
+  genau("idle ohne Tempo: nur die Lage melden", ruhe_ohne, 240,240, {"Keine Route"});
 
   // ─── DER ZUSTAND, DEN DIESE PRUEFUNG NICHT KANNTE ────────────────────────
   // Gemeldet mit Foto: das Geraet zeigte „Keine Verbindung", waehrend es in
@@ -457,7 +474,22 @@ int main() {
   genau("unavailable: derselbe Fall", unbekannt, 240,240,
         {"Kein Wert aus Home Assistant", "Entitaet pruefen: Filter \"yapa\""});
   Fall weg = sommer; weg.zustand = "off_route";
-  genau("off_route", weg, 240,240, {"Abseits der Route"});
+  genau("off_route mit Tempo", weg, 240,240, {"87", "km/h", "Abseits der Route"});
+
+  // ─── "unknown" IST KEIN ZUSTAND, SONDERN EIN FEHLENDER WERT ─────────────
+  // Diese Pruefung kannte den leeren Zustand und "unavailable", aber nicht
+  // "unknown" -- und genau den schickt Home Assistant fuer einen Sensor ohne
+  // Wert. Die Zeichenroutine kannte ihn ebenfalls nicht und haette daraus
+  // die feste Aussage „Keine Route" gemacht: das Geraet haette behauptet, es
+  // sei alles in Ordnung und es liege nur nichts an, waehrend es in
+  // Wahrheit gar nichts wusste.
+  //
+  // Dass dieselbe Datei beim Anweisungstext SEHR WOHL auf "unknown" prueft,
+  // macht es nicht besser, sondern zeigt nur, dass es an einer Stelle
+  // vergessen wurde.
+  Fall nichts_bekannt = sommer; nichts_bekannt.zustand = "unknown";
+  genau("unknown: kein Zustand, sondern ein fehlender Wert", nichts_bekannt, 240,240,
+        {"Kein Wert aus Home Assistant", "Entitaet pruefen: Filter \"yapa\""});
 
   printf("\n── Welcher Pfeil bei welcher Manoeverart ──\n");
   // `ManeuverType` ist in types.ts ausdruecklich `| string`: Valhalla liefert

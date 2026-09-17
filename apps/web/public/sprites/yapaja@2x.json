@@ -150,5 +150,19 @@
     "width": 36,
     "height": 36,
     "pixelRatio": 2
+  },
+  "poi-entsorgung": {
+    "x": 440,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
+  },
+  "poi-muell": {
+    "x": 480,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
   }
 }

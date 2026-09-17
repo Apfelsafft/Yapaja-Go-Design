@@ -99,13 +99,42 @@ logger:
   # Der C3 hat keinen USB-UART-Bruecke-Chip, sondern USB-Serial-JTAG direkt.
   hardware_uart: USB_SERIAL_JTAG
 
+# ─── API UND OTA KOMMEN VOM DEVICE BUILDER ──────────────────────────────────
+# Diese beiden Bloecke legt der ESPHome Device Builder beim Anlegen des
+# Geraets selbst an. Wer diese Datei dort einfuegt, hat sie also schon --
+# und sie sehen dann genau so aus wie hier.
+#
+# ─── WAS HIER VORHER STAND UND WARUM ES STOERTE ─────────────────────────────
+# Bis 0.13.1 standen hier zwei `!secret`-Verweise:
+#
+#     key:      !secret yapaja_display_api_key
+#     password: !secret yapaja_display_ota_password
+#
+# Das ist fuer eine von Hand gepflegte Konfiguration richtig. Fuer den
+# Device Builder ist es falsch: der erzeugt den Schluessel selbst und traegt
+# ihn unmittelbar ein, und er legt WEDER den einen noch den anderen Eintrag
+# in `secrets.yaml` an. Wer diese Datei also uebernahm, bekam zwei
+# Verweise auf Eintraege, die es nicht gab -- und musste sie von Hand
+# nachtragen, bevor ueberhaupt etwas uebersetzte.
+#
+# Abgeglichen mit einer laufenden Installation (Device Builder 1.14.9,
+# ESPHome 2026.9.0).
 api:
   encryption:
-    key: !secret yapaja_display_api_key
+    # Den Schluessel traegt der Device Builder hier ein. Er steht bewusst
+    # NICHT im Repository: ein Geraeteschluessel gehoert in die Installation,
+    # nicht in den Quelltext -- und ein mitgelieferter waere auf jedem
+    # Geraet derselbe.
+    #
+    # Von Hand gepflegt geht auch `!secret <name>`, dann muss der Eintrag in
+    # `secrets.yaml` stehen.
+    key: ERZEUGT_DER_DEVICE_BUILDER
 
+# Ohne `password:`. Der Device Builder vergibt keines, und OTA ist bereits
+# durch den API-Schluessel geschuetzt. Eine Zeile, die auf einen nicht
+# vorhandenen Eintrag verweist, haette das Uebersetzen verhindert.
 ota:
   - platform: esphome
-    password: !secret yapaja_display_ota_password
 
 wifi:
   ssid: !secret wifi_ssid
@@ -355,13 +384,51 @@ display:
         // Zwei Zeilen, weil eine nicht reicht: die erste sagt, WAS fehlt,
         // die zweite, WO man nachsieht. Auf 240 runden Bildpunkten ist das
         // die kuerzeste ehrliche Fassung.
-        if (zustand.empty() || zustand == "unavailable") {
+        // ─── „unknown" GEHOERT HIER DAZU ───────────────────────────────
+        // Diese Pruefung kannte nur `empty()` und "unavailable". Home
+        // Assistant schickt fuer einen Sensor ohne Wert aber die
+        // Zeichenkette "unknown" -- weiter unten in derselben Datei wird
+        // genau darauf geprueft (beim Anweisungstext). Hier fehlte sie.
+        //
+        // Die Folge waere die schlimmere Haelfte dieses ganzen Themas
+        // gewesen: aus einem FEHLENDEN Wert wurde die feste Aussage „Keine
+        // Route". Das Geraet haette also behauptet, es sei alles in
+        // Ordnung und es liege nur nichts an -- waehrend es in Wahrheit gar
+        // nichts wusste.
+        if (zustand.empty() || zustand == "unavailable" || zustand == "unknown") {
           it.print(cx, cy - 10, id(font_s), id(c_warnung), TextAlign::CENTER,
                    "Kein Wert aus Home Assistant");
           it.print(cx, cy + 10, id(font_s), id(c_gedaempft), TextAlign::CENTER,
                    "Entitaet pruefen: Filter \"yapa\"");
           return;
         }
+
+        // ─── OHNE ROUTE IST DAS TEMPO DAS WICHTIGSTE ──────────────────────
+        // Gemeldet ueber die Entwicklerwerkzeuge: bei `nav_state: idle`
+        // standen `speed` und `altitude` auf "unknown", obwohl der
+        // device_tracker im selben Augenblick eine Position fuehrte. Seit
+        // 0.13.1 holt der Kern beides aus dem GPS, sobald ein Fix da ist.
+        //
+        // Damit hat dieses Display auch OHNE Route etwas zu zeigen -- und
+        // zwar das, wofuer man im Fahrzeug auf einen Tacho sieht. Vorher
+        // stand hier auf einem fest verbauten Bildschirm dauerhaft nur
+        // „Keine Route".
+        //
+        // Der Zustandstext bleibt darunter stehen, klein und gedaempft: er
+        // ist die Nebenauskunft, nicht die Hauptsache.
+        if (hat(id(yapaja_tempo))) {
+          // `it.printf` und dieselbe Rundung wie in der Fahransicht weiter
+          // unten -- kein `snprintf`, kein `lroundf`: dafuer muesste diese
+          // Datei Header einbinden, die sie bisher nicht braucht, und zwei
+          // verschiedene Rundungen fuer dasselbe Tempo waeren ohnehin eine
+          // Stelle, an der die beiden Ansichten auseinanderlaufen koennten.
+          it.printf(cx, cy - 18, id(font_l), id(c_text), TextAlign::CENTER,
+                    "%d", (int) (id(yapaja_tempo).state + 0.5f));
+          it.print(cx, cy + 14, id(font_s), id(c_gedaempft), TextAlign::CENTER, "km/h");
+          it.print(cx, cy + 36, id(font_s), id(c_gedaempft), TextAlign::CENTER, text);
+          return;
+        }
+
         it.print(cx, cy, id(font_m), id(c_gedaempft), TextAlign::CENTER, text);
         return;
       }

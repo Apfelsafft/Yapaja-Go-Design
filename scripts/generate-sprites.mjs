@@ -415,11 +415,75 @@ export const VERKEHR_MARKEN = [
 ];
 
 /**
+ * Die Marken der SONDERZIELE, die aus dem Suchindex kommen.
+ *
+ * ─── WARUM DIE NICHT BEI DEN ANDEREN POIS STEHEN ────────────────────────────
+ * Weil sie aus einer anderen Quelle kommen, und das ist keine Feinheit. Alle
+ * uebrigen POI-Marken werden aus dem `poi`-Layer der Kacheln gesetzt. Diese
+ * beiden koennen dort nicht stehen: `sanitary_dump_station` und
+ * `waste_disposal` kommen im OpenMapTiles-Schema nicht vor -- nachgezaehlt in
+ * dessen `layers/poi/mapping.yaml`, beide 0x. Sie kommen aus
+ * `lite_search-<region>.db`, wo sie schon immer lagen.
+ *
+ * Die Begruendung im Ganzen steht in
+ * `apps/core/src/map/sonderziele/fehlendeKlassen.ts`.
+ *
+ * ─── DIE FORMEN ────────────────────────────────────────────────────────────
+ * Beide muessen sich bei 18 Bildpunkten von der blauen Wassermarke
+ * (`poi-versorgung`) unterscheiden lassen -- sie stehen oft nebeneinander, an
+ * derselben Ver- und Entsorgungsstelle.
+ *
+ * Deshalb nicht noch ein Tropfen in einer anderen Farbe, sondern zwei andere
+ * Grundformen: ein Pfeil, der nach UNTEN in eine Wanne zeigt (etwas wird
+ * abgelassen), und eine Tonne mit Deckel. Richtung und Umriss tragen die
+ * Bedeutung, nicht die Farbe.
+ */
+export const SONDERZIEL_MARKEN = [
+  {
+    id: 'poi-entsorgung',
+    // Dunkles Petrol. Weit genug vom Wasserblau (0x0277bd) entfernt, um aus
+    // dem Augenwinkel nicht dasselbe zu sein, und ohne mit dem Gruen des
+    // Campingplatzes oder dem Rotorange des Stellplatzes zu konkurrieren.
+    farbe: [0x00, 0x69, 0x5c, 0xff],
+    formen: [
+      // Pfeil nach unten: Schaft und Spitze. Sie ueberlappen um 0.4
+      // Einheiten -- ohne diese Ueberlappung bleibt bei einfacher Aufloesung
+      // eine helle Naht zwischen beiden stehen.
+      { typ: 'rechteck', x: 5.0, y: 1.0, b: 2.0, h: 3.4, r: 0.3 },
+      { typ: 'polygon', punkte: [[3.4, 4.0], [8.6, 4.0], [6, 7.4]] },
+      // Die Wanne, in die abgelassen wird.
+      //
+      // Der Abstand zur Pfeilspitze ist 1.4 Einheiten und damit bei 18
+      // Bildpunkten rund 2 Bildpunkte breit. Das ist Absicht: beim
+      // Leitkegel war ein zu schmaler Zwischenraum genau der Fehler -- er
+      // war nicht als Zwischenraum zu erkennen, sondern trennte die Form.
+      { typ: 'polygon', punkte: [[2.4, 8.6], [9.6, 8.6], [8.6, 10.6], [3.4, 10.6]] },
+    ],
+  },
+  {
+    id: 'poi-muell',
+    // Schiefergrau. Muell ist das Nebenziel dieser beiden; die Farbe soll
+    // nicht um Aufmerksamkeit ruhen, die der Entsorgungsstation gehoert.
+    farbe: [0x54, 0x6e, 0x7a, 0xff],
+    formen: [
+      { typ: 'rechteck', x: 5.0, y: 1.2, b: 2.0, h: 1.2, r: 0.3 }, // Griff
+      { typ: 'rechteck', x: 2.2, y: 2.4, b: 7.6, h: 1.5, r: 0.4 }, // Deckel
+      { typ: 'polygon', punkte: [[2.9, 4.2], [9.1, 4.2], [8.4, 10.5], [3.6, 10.5]] },
+      // Zwei Rillen als Loch. Sie enden deutlich vor Boden und Deckel --
+      // ein Loch, das eine Form durchschneidet, hinterlaesst Bruchstuecke
+      // statt einer Tonne.
+      { typ: 'rechteck', x: 4.6, y: 5.6, b: 1.0, h: 3.2, r: 0.2, loch: true },
+      { typ: 'rechteck', x: 6.4, y: 5.6, b: 1.0, h: 3.2, r: 0.2, loch: true },
+    ],
+  },
+];
+
+/**
  * Alles, was als runde Marke auf das Blatt kommt.
  *
- * Eine Liste fuer das Layout, zwei fuer die Bedeutung.
+ * Eine Liste fuer das Layout, drei fuer die Bedeutung.
  */
-export const ALLE_MARKEN = [...POI_MARKEN, ...VERKEHR_MARKEN];
+export const ALLE_MARKEN = [...POI_MARKEN, ...VERKEHR_MARKEN, ...SONDERZIEL_MARKEN];
 
 export const MARKE = { durchmesser: 18, ring: 1, feld: 12 };
 

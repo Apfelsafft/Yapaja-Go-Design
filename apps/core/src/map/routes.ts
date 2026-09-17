@@ -30,6 +30,7 @@ import { listRegions, type MapRegionInfo } from './regions.js';
 import { collectBuildStatus } from './buildStatus.js';
 import { readLiteIndexMeta } from '../search/lite/reader.js';
 import { resolveLiteSearchDir } from '../search/lite/paths.js';
+import { alsGeoJson, leseSonderziele } from './sonderziele/ausIndex.js';
 import { regionsPlugin } from './regions/routes.js';
 import {
   applyStyleOptions,
@@ -209,6 +210,28 @@ export const mapPlugin: FastifyPluginAsync = async (fastify) => {
       readLiteIndexMeta,
     );
     return reply.code(200).send({ data: status });
+  });
+
+  // GET /api/v1/map/sonderziele -- die POIs, die in keiner Kachel stehen
+  // koennen (Entsorgungsstation, Muellentsorgung), als GeoJSON aus dem
+  // Suchindex.
+  //
+  // ─── WARUM ES DIESE SCHNITTSTELLE GIBT ────────────────────────────────────
+  // Das OpenMapTiles-Schema kennt `sanitary_dump_station` nicht -- nachgezaehlt
+  // in dessen `layers/poi/mapping.yaml`, 0x. Fuer ein Wohnmobil ist das die
+  // schmerzlichste Luecke der ganzen POI-Liste. Die Daten lagen dabei die
+  // ganze Zeit in `lite_search-<region>.db`, weil der Suchindex mit derselben
+  // Filterliste gebaut wird: wer sie SUCHTE, fand sie; wer auf die KARTE sah,
+  // nicht.
+  //
+  // ─── OHNE AUSSCHNITT, DAFUER MIT BEFUND ──────────────────────────────────
+  // Die Antwort enthaelt ALLE Sonderziele aller installierten Regionen. Es
+  // sind wenige, sie aendern sich nur beim Neubau des Index, und die Karte
+  // holt sie einmal. Dafuer sagt `befund`, was NICHT drin ist: fehlender
+  // Index, zu alter Index, gekappte Liste. Ohne diese Felder sehen „hier gibt
+  // es keine" und „konnte nicht nachsehen" auf der Karte gleich aus.
+  fastify.get('/api/v1/map/sonderziele', async (_request, reply) => {
+    return reply.code(200).send(alsGeoJson(leseSonderziele()));
   });
 
   // GET /api/v1/map/styles -- available styles (id, name, preview?).

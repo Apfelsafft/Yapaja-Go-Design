@@ -10,6 +10,171 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.13.2
+
+**Die ESP32-Anzeige lässt sich jetzt ohne Nacharbeit übernehmen.**
+
+Gemeldet mit Bildschirmfoto aus dem laufenden Gerät: im ESPHome Device
+Builder sehen die beiden Blöcke so aus —
+
+```yaml
+api:
+  encryption:
+    key: <vom Device Builder eingetragen>
+
+ota:
+  - platform: esphome
+```
+
+In der mitgelieferten Datei standen dagegen zwei Verweise auf Einträge in
+`secrets.yaml`: einer für den API-Schlüssel, einer für ein OTA-Passwort.
+
+Für eine von Hand gepflegte Konfiguration ist das richtig. Für den Device
+Builder ist es falsch: **der erzeugt den Schlüssel selbst** und trägt ihn
+direkt ein, ein OTA-Passwort vergibt er gar nicht — und **keinen** der beiden
+Einträge legt er in `secrets.yaml` an. Wer die Datei also übernahm, bekam zwei
+Verweise auf etwas, das es nicht gab, und musste beides von Hand nachtragen,
+bevor überhaupt etwas übersetzte.
+
+Beide Blöcke sind jetzt so, wie der Device Builder sie anlegt. In
+`secrets.yaml` gehören nur noch `wifi_ssid` und `wifi_password`.
+
+Ein echter Schlüssel steht weiterhin **nicht** im Projekt — er gehört zur
+Installation, und ein mitgelieferter wäre auf jedem Gerät derselbe. An seiner
+Stelle steht ein Platzhalter, den der Device Builder überschreibt. Damit das
+beim nächsten Abgleich mit einem laufenden Gerät nicht versehentlich kippt,
+schlägt jetzt eine Prüfung an, sobald etwas an dieser Stelle wie ein echter
+Schlüssel aussieht.
+
+---
+
+## 0.13.1
+
+**Tempo und Höhe auch ohne laufende Route — und das ESP-Display zeigt sie.**
+
+Aus den Entwicklerwerkzeugen gemeldet, alle Yapaia-Entitäten nebeneinander:
+
+| Entität | Zustand |
+| --- | --- |
+| `device_tracker.yapaja_vehicle` | Position auf zehn Nachkommastellen |
+| `sensor.yapaja_nav_state` | `idle` |
+| `sensor.yapaja_speed` | **unknown** |
+| `sensor.yapaja_altitude` | **unknown** |
+
+Das GPS lieferte also gerade eine Position, und im selben Augenblick stand
+beim Tempo „unbekannt". Beides zugleich.
+
+Der Grund: Tempo und Höhe wurden ausschliesslich aus dem Navigationszustand
+gelesen, und den gibt es nur, solange eine Route läuft. Die GPS-Position liegt
+dagegen immer an und bringt Geschwindigkeit und Höhe von sich aus mit — als
+Pflichtfelder. **Die Angabe war da, sie wurde nur nicht abgeholt.**
+
+Jetzt springt das GPS ein, sobald kein Routenwert vorliegt. Während der
+Navigation gilt weiterhin der Wert aus der Route, damit Tacho und
+Tempo-Überschreitung nicht aus verschiedenen Töpfen kommen.
+
+**Ehrlich bleibt es trotzdem:**
+
+- Ohne Satellitenfix bleibt beides „unbekannt" — eine Zahl, die aussieht wie
+  eine Messung, ist schlimmer als ein ehrliches Fragezeichen.
+- Die **Höhe** braucht einen 3D-Fix. Mit einem 2D-Fix könnte der letzte
+  bekannte Wert aus einem anderen Tal stammen; vor einer Passhöhe ist das
+  keine Kleinigkeit. Das Tempo dagegen reicht ein 2D-Fix.
+- **Stillstand ist eine Null**, kein fehlender Wert.
+
+### Das runde ESP32-Display
+
+Es zeigt jetzt ohne Route den **Tacho gross** und den Zustand klein darunter —
+vorher stand auf einem fest verbauten Bildschirm dauerhaft nur „Keine Route".
+
+Ausserdem ein Fehler behoben, der noch nicht aufgetreten ist: die Prüfung auf
+einen fehlenden Wert kannte „leer" und „unavailable", aber nicht **„unknown"**
+— und genau das schickt Home Assistant für einen Sensor ohne Wert. Das Gerät
+hätte daraus die feste Aussage „Keine Route" gemacht: behauptet, es sei alles
+in Ordnung, während es in Wahrheit gar nichts wusste.
+
+---
+
+## 0.13.0
+
+**Entsorgungsstationen stehen jetzt auf der Karte.**
+
+Für ein Wohnmobil ist das die wichtigste Adresse überhaupt, und sie fehlte.
+Im Quelltext stand seit 0.9.0 dazu:
+
+> Eine Entsorgungsstation führen unsere Kacheln nicht … Für ein Wohnmobil ist
+> das die schmerzlichste Lücke dieser Liste, und sie lässt sich nur beim
+> Kachelbau schliessen.
+
+Die erste Hälfte stimmt: das Kartenschema, aus dem die Kacheln gebaut werden,
+kennt `amenity=sanitary_dump_station` überhaupt nicht — nachgezählt, kein
+einziges Vorkommen. Kein Kachelbau der Welt hätte daran etwas geändert.
+
+Die zweite Hälfte war falsch. Die Stationen lagen die ganze Zeit im
+**Suchindex**: er wird aus derselben OSM-Datei gefiltert, und
+`sanitary_dump_station` steht seit jeher auf seiner Liste. Wer „Entsorgung"
+in die **Suche** tippte, fand sie. Wer auf die **Karte** sah, nicht. Es hat
+nie ein Datensatz gefehlt, sondern ein Weg von der einen Datei zur anderen.
+
+Den gibt es jetzt. Auf der Karte erscheinen:
+
+| Symbol | Was es ist |
+| --- | --- |
+| Petrolfarbener Pfeil in eine Wanne | **Entsorgungsstation** — Abwasser und Chemietoilette |
+| Graue Tonne mit Deckel | **Müllentsorgung** |
+
+Beide sind bewusst keine weitere Variante des blauen Wassertropfens: auf einem
+Stellplatz stehen sie oft direkt daneben, und dann müssen sie im Vorbeifahren
+auseinanderzuhalten sein.
+
+**Voraussetzung:** der Suchindex der Region muss gebaut sein — derselbe, der
+auch die Suche speist. Ist er es nicht, sagt Yapaia das, statt eine leere
+Karte zu zeigen. Genau dafür gibt es die Auskunft: eine Karte ohne Symbol kann
+heißen „hier gibt es keine" oder „ich konnte nicht nachsehen", und für jemanden
+mit vollem Abwassertank ist das ein erheblicher Unterschied.
+
+**Was weiterhin fehlt:** Frischwasser-Zapfstellen (`amenity=water_point`) und
+Duschen. Sie fehlen im Kartenschema **und** im Suchindex, also gibt es sie
+derzeit an keiner Stelle. Das steht hier, damit niemand es für ein Versehen
+hält.
+
+---
+
+## 0.12.2
+
+**Das Optionen-Menü ist aufgeräumt.**
+
+Zweimal gemeldet, wörtlich gleich:
+
+> „Das options Menü ist überfrachtet. Man kann die oberen Einträge nicht mehr
+> lesen."
+
+Beim ersten Mal habe ich nur die Höhe begrenzt und das Menü scrollbar gemacht.
+Der Inhalt blieb derselbe — er lief nur nicht mehr oben aus dem Bild. Das war
+ein Symptom-Fix, und er hat die Meldung nicht beendet.
+
+Jetzt ist das Menü nach **Häufigkeit** geteilt:
+
+| sofort sichtbar | zugeklappt |
+| --- | --- |
+| **Kartenstil** — der Grund, aus dem man dieses Menü öffnet | **Darstellung** — Hell/Dunkel, Sprache, Schriftgröße, POI-Dichte |
+| **Angezeigte Region** — unterwegs im Grenzgebiet mehrmals am Tag | **Gerät** — Links-/Rechtshänder, Einrichtungs-Assistent |
+
+Nichts ist verschwunden: jede Klappe geht mit einem Tipp auf die Überschrift
+wieder auf, und die ganze Zeile schaltet — nicht nur das kleine Dreieck. Im
+fahrenden Fahrzeug ist ein 12-Punkte-Ziel nicht zu treffen.
+
+„Angezeigte Region" bleibt bis zu vier installierten Karten offen; das ist der
+Normalfall, und dort soll der Wechsel **ein** Tipp sein. Ab der fünften Karte
+klappt die Liste zu, damit sie nicht alles andere aus dem Bild schiebt.
+
+Statt „überfrachtet" gibt es jetzt eine Zahl: das Menü zählt beim Öffnen seine
+Bedienzeilen und darf vierzehn nicht überschreiten. Vorher waren es
+fünfundzwanzig. Ein Test hält das fest, damit es nicht ein drittes Mal
+zuwächst.
+
+---
+
 ## 0.12.1
 
 **Der ESP32 sagt jetzt, was ihm wirklich fehlt.**

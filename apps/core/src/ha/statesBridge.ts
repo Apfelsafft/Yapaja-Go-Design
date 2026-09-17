@@ -51,6 +51,7 @@ import type { EventBus } from '../bus/index.js';
 import type { HaConnection } from './config.js';
 import { EIGENER_FAHRZEUG_TRACKER } from './eigeneEntitaeten.js';
 import { buildSpeedPayload, maneuverIcon } from '../mqtt/mapping.js';
+import { tempoAusPosition, hoeheAusPosition } from './ausPosition.js';
 
 /** Ein Zustand, wie ihn Home Assistant entgegennimmt. */
 export interface HaStateWrite {
@@ -99,7 +100,19 @@ export function buildHaStates(zustand: YapaiaZustand): HaStateWrite[] {
     });
   };
 
-  dazu('sensor.yapaja_speed', zahl(tempo?.speed_kmh ?? null), 'Speed', {
+  // ─── TEMPO: ROUTE ZUERST, SONST DAS GPS ─────────────────────────────────
+  // Gemeldet aus den Entwicklerwerkzeugen: `device_tracker.yapaja_vehicle`
+  // fuehrte eine Position auf zehn Nachkommastellen, und `sensor.yapaja_speed`
+  // stand im selben Augenblick auf `unknown`. Der Grund war, dass hier
+  // ausschliesslich `navState` gelesen wurde -- und den gibt es nur, solange
+  // eine Route laeuft. Die GPS-Position liegt dagegen immer an und bringt
+  // `speed` als PFLICHTFELD mit. Die Angabe war da und wurde nicht abgeholt.
+  //
+  // Die Reihenfolge ist Absicht: waehrend der Navigation gilt weiterhin der
+  // Wert aus `navState`, weil er auf die Route bezogen ist (und dieselbe
+  // Quelle speist wie `speeding`). Das GPS springt nur ein, wo bisher
+  // `unknown` stand.
+  dazu('sensor.yapaja_speed', zahl(tempo?.speed_kmh ?? tempoAusPosition(position)), 'Speed', {
     unit_of_measurement: 'km/h',
     device_class: 'speed',
     state_class: 'measurement',
@@ -168,7 +181,8 @@ export function buildHaStates(zustand: YapaiaZustand): HaStateWrite[] {
       state_class: 'measurement',
     },
   );
-  dazu('sensor.yapaja_altitude', zahl(navState?.altitude_m ?? null), 'Altitude', {
+  // Die Hoehe ebenso -- aber nur bei einem 3D-Fix, siehe `ausPosition.ts`.
+  dazu('sensor.yapaja_altitude', zahl(navState?.altitude_m ?? hoeheAusPosition(position)), 'Altitude', {
     unit_of_measurement: 'm',
     device_class: 'distance',
     state_class: 'measurement',

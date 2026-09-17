@@ -107,13 +107,29 @@ Platz leer.
 ## Einrichten
 
 1. **Secrets.** In `secrets.yaml` (bei der ESPHome-Add-on-Installation im
-   selben Ordner) gehören:
+   selben Ordner) gehören nur die beiden WLAN-Zeilen:
    ```yaml
    wifi_ssid: "..."
    wifi_password: "..."
-   yapaja_display_api_key: "..."       # 32 Byte base64, vom ESPHome-Assistenten
-   yapaja_display_ota_password: "..."
    ```
+
+   **`api:` und `ota:` brauchen hier nichts.** Beide Blöcke legt der ESPHome
+   Device Builder beim Anlegen des Geräts selbst an: er erzeugt den
+   API-Schlüssel und trägt ihn direkt in die Gerätedatei ein, und ein
+   OTA-Passwort vergibt er nicht.
+
+   > Bis 0.13.1 standen in dieser Datei `!secret yapaja_display_api_key` und
+   > `!secret yapaja_display_ota_password`. Das ist für eine von Hand
+   > gepflegte Konfiguration richtig — wer aber den Device Builder benutzt,
+   > bekam zwei Verweise auf Einträge, die es dort nicht gibt, und musste sie
+   > von Hand nachtragen, bevor überhaupt etwas übersetzte. Abgeglichen mit
+   > einer laufenden Installation (Device Builder 1.14.9, ESPHome 2026.9.0).
+
+   Wer die Datei **ohne** Device Builder pflegt, schreibt statt
+   `key: ERZEUGT_DER_DEVICE_BUILDER` wieder `key: !secret <name>` und legt den
+   Eintrag in `secrets.yaml` an. Ein echter Schlüssel gehört nie ins
+   Repository: er gehört zur Installation, und ein mitgelieferter wäre auf
+   jedem Gerät derselbe.
 2. **Zeitzone und Pins** oben in `substitutions` eintragen.
 3. Für dieses Board ist nichts weiter zu tun. Für ein anderes den
    `display:`-Block und `rund` anpassen — siehe unten.

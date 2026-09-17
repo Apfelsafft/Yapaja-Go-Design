@@ -43,8 +43,24 @@ export const SHIELD_ICONS = {
   minor: 'shield-minor',
 } as const;
 
-/** Jedes Symbol, fuer das ein Bild ausgeliefert wird. */
-export const SHIPPED_ICONS = Object.values(SHIELD_ICONS);
+/**
+ * Die SCHILDER im Blatt — nicht jedes Bild darin.
+ *
+ * Der Name stand hier frueher als „jedes Symbol, fuer das ein Bild
+ * ausgeliefert wird". Das stimmte schon mit der ersten POI-Marke nicht mehr,
+ * und seit die Sonderziele aus dem Suchindex dazukommen, erst recht nicht.
+ * Wer sich darauf verlaesst, haelt eine Teilmenge fuer das Ganze.
+ *
+ * Wofuer die Liste wirklich da ist: `shieldSprites.test.ts` prueft mit ihr,
+ * dass jedes ausgelieferte SCHILD auch von einer Ebene benutzt wird. Die
+ * POI-Marken werden nicht in den Basisebenen genannt, sondern ueber
+ * `poiKategorien.ts` und `sonderziele/fehlendeKlassen.ts` zugeordnet; fuer sie
+ * gibt es dort eigene Pruefungen in beide Richtungen.
+ */
+export const SHIPPED_SHIELD_ICONS = Object.values(SHIELD_ICONS);
+
+/** @deprecated Der alte, zu weit klingende Name. Gleicher Inhalt. */
+export const SHIPPED_ICONS = SHIPPED_SHIELD_ICONS;
 
 /**
  * Textfarbe je Schild. Sie steht NICHT im Bild — der Text kommt aus den
