@@ -43,6 +43,7 @@ function bildnamen(ausdruck: unknown): string[] {
 }
 import { listStyleSummaries, getStyleDocument } from './registry';
 import { POI_KATEGORIEN } from './poiKategorien';
+import { FEHLENDE_KLASSEN } from '../sonderziele/fehlendeKlassen';
 
 /** Muss zu `SPRITE_NAME` in `scripts/generate-sprites.mjs` passen.
  *  Der Abgleich gegen den Erzeuger steht in `scripts/shield-sprites.test.ts`
@@ -143,13 +144,47 @@ describe('Straßenschilder — Stil gegen die ausgelieferten Bilder', () => {
     }
   });
 
+  it('zu jedem Sonderziel aus dem Suchindex gibt es ebenfalls ein Bild', () => {
+    // Seit 0.13.0 gibt es eine ZWEITE Quelle für POI-Marken: die Kategorien,
+    // die das Kachelschema gar nicht führen kann (Entsorgungsstation,
+    // Müllentsorgung) und die deshalb aus `lite_search-<region>.db` kommen.
+    // Für sie gilt dasselbe wie für die anderen — ein fehlendes Bild zeichnet
+    // MapLibre als NICHTS, ohne eine Meldung.
+    const vorhanden = new Set(Object.keys(spriteJson()));
+    for (const k of FEHLENDE_KLASSEN) {
+      expect(
+        vorhanden.has(k.symbol),
+        `Sonderziel "${k.name}" nennt "${k.symbol}" — das Blatt führt es nicht.`,
+      ).toBe(true);
+    }
+  });
+
   it('jedes POI-Bild im Blatt gehört auch zu einer Kategorie', () => {
     // Die Gegenrichtung: ein Bild, das niemand nennt, ist totes Gewicht in
     // einem Add-on, das offline auf einem Fahrzeugrechner liegt.
-    const genannt = new Set(POI_KATEGORIEN.map((k) => k.symbol));
+    //
+    // BEIDE Quellen zählen. Beim Zufügen der Sonderziele ist genau dieser
+    // Test rot geworden und hat gefragt, wer „poi-entsorgung" eigentlich
+    // nennt — das ist seine Aufgabe, und er hat sie getan.
+    const genannt = new Set([
+      ...POI_KATEGORIEN.map((k) => k.symbol),
+      ...FEHLENDE_KLASSEN.map((k) => k.symbol),
+    ]);
     for (const name of Object.keys(spriteJson())) {
       if (!name.startsWith('poi-')) continue;
       expect(genannt.has(name), `"${name}" liegt im Blatt, keine Kategorie nennt es`).toBe(true);
+    }
+  });
+
+  it('die beiden Quellen benutzen kein Bild doppelt', () => {
+    // Ein gemeinsames Bild hiesse: auf der Karte sind eine Tankstelle aus der
+    // Kachel und eine Entsorgungsstation aus dem Index dasselbe Ding.
+    const ausKacheln = new Set(POI_KATEGORIEN.map((k) => k.symbol));
+    for (const k of FEHLENDE_KLASSEN) {
+      expect(
+        ausKacheln.has(k.symbol),
+        `"${k.symbol}" wird von beiden Quellen benutzt`,
+      ).toBe(false);
     }
   });
 

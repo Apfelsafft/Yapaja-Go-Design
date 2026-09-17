@@ -20,7 +20,7 @@ interface LiteSearchRow {
   postcode: string | null;
 }
 
-interface LiteAllRow {
+export interface LiteAllRow {
   name: string;
   kind: string;
   lat: number;
@@ -251,6 +251,50 @@ export class LiteIndexReader {
       address: r.address,
       locality: r.locality,
     }));
+  }
+
+  /**
+   * Alle Einträge dieser Kategorien — für die Karte, nicht für die Suche.
+   *
+   * ─── WOFÜR DAS DA IST ─────────────────────────────────────────────────────
+   * Ein paar Sonderziele kann das Kachelschema gar nicht führen; die
+   * Entsorgungsstation ist das wichtigste davon. Nachgemessen und begründet
+   * steht das in `map/sonderziele/fehlendeKlassen.ts`. Der Suchindex hat sie
+   * längst, weil `build-lite-index.sh` mit derselben Filterliste arbeitet —
+   * es fehlte nur der Weg von hier auf die Karte.
+   *
+   * ─── WARUM OHNE AUSSCHNITT UND OHNE SORTIERUNG ────────────────────────────
+   * Weil es wenige sind. Die Karte holt sie EINMAL und behält sie: sie ändern
+   * sich nur, wenn jemand den Index neu baut. Eine Abfrage je Kartenbewegung
+   * wäre mehr Aufwand für beide Seiten und brächte nichts.
+   *
+   * Deshalb ist `hoechstens` auch kein Feinschliff, sondern die Sicherung:
+   * `places` hat keinen Index auf `category`, die Abfrage liest also die
+   * Tabelle durch. Das ist für eine Handvoll Kategorien vertretbar und für
+   * eine versehentlich weit gefasste Liste nicht mehr. Wer die Grenze
+   * erreicht, bekommt eine gekappte Antwort — und erfährt es (siehe
+   * `sonderziele/ausIndex.ts`), statt eine stillschweigend halbe Karte zu
+   * sehen.
+   *
+   * ─── EIN INDEX OHNE `category` LIEFERT NICHTS, UND DAS IST RICHTIG ────────
+   * `category` gibt es erst seit 0.3.6. Ein älterer Index kennt die Spalte
+   * nicht; dann gibt es hier nichts zurückzugeben. Kein Fehler — die Daten
+   * sind wirklich nicht da, und erst ein Neubau ändert das.
+   */
+  byCategories(kategorien: readonly string[], hoechstens: number): LiteAllRow[] {
+    if (kategorien.length === 0 || hoechstens <= 0) return [];
+    const db = this.open();
+    if (!this.columns(db).has('category')) return [];
+
+    const platzhalter = kategorien.map(() => '?').join(', ');
+    return db
+      .prepare(
+        `SELECT p.name as name, p.kind as kind, p.lat as lat, p.lon as lon, ${this.selectList(db)}
+         FROM places p
+         WHERE p.category IN (${platzhalter})
+         LIMIT ?`,
+      )
+      .all(...kategorien, hoechstens) as LiteAllRow[];
   }
 
   close(): void {

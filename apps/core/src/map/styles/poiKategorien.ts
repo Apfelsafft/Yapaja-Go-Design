@@ -38,12 +38,26 @@
  * Nichts schlug fehl, nichts stand im Protokoll. Dieselbe Sorte lautloses
  * Nichts wie bei den fehlenden Glyphen und beim nicht zu oeffnenden GPS.
  *
- * ─── WAS NICHT GEHT, UND DAS GEHOERT DAZU ───────────────────────────────────
+ * ─── WAS DIE KACHELN NICHT KOENNEN -- UND WER ES DOCH KANN ──────────────────
  * Eine ENTSORGUNGSSTATION (`amenity=sanitary_dump_station`) fuehren unsere
- * Kacheln nicht -- sie steht in keiner der Quelltabellen von planetiler. Fuer
- * ein Wohnmobil ist das die schmerzlichste Luecke dieser Liste, und sie laesst
- * sich hier nicht schliessen, sondern nur beim Kachelbau. Sie steht hier,
- * damit niemand sie fuer ein Versehen haelt.
+ * Kacheln nicht. Das ist nachgemessen: in `layers/poi/mapping.yaml` von
+ * OpenMapTiles, aus dem planetiler den `poi`-Layer bildet, kommt der Wert 0x
+ * vor, ebenso `waste_disposal`, `water_point` und `shower`. Fuer ein
+ * Wohnmobil ist das die schmerzlichste Luecke dieser Liste.
+ *
+ * Hier stand bis 0.12.2 dazu: „sie laesst sich hier nicht schliessen, sondern
+ * nur beim Kachelbau". Der erste Halbsatz stimmt, der zweite war FALSCH --
+ * und zwar auf genau die Art, die dieses Projekt seit Monaten verfolgt.
+ *
+ * Denn der SUCHINDEX hatte diese Stationen die ganze Zeit. Er wird mit
+ * `osmium tags-filter` aus derselben `.osm.pbf` gebaut, und seine Filterliste
+ * (`search/lite/poiCategories.ts`) enthaelt `sanitary_dump_station`, seit es
+ * sie gibt. Wer SUCHTE, fand sie. Wer auf die KARTE sah, nicht. Es fehlte
+ * kein Datensatz, es fehlte ein Weg von der einen Datei zur anderen.
+ *
+ * Seit 0.13.0 gibt es ihn: `map/sonderziele/` liest sie aus
+ * `lite_search-<region>.db` und legt sie als eigene Ebene auf die Karte. Die
+ * Liste hier bleibt, was sie ist -- was die KACHELN hergeben.
  */
 
 /** Eine Kategorie, wie Yapaia sie auf der Karte zeigt. */
@@ -159,7 +173,8 @@ export const POI_KATEGORIEN: readonly PoiKategorie[] = [
     symbol: 'poi-versorgung',
     name: 'Wasser und Entsorgung',
     // Was die Kacheln hergeben. Eine echte Entsorgungsstation ist NICHT
-    // dabei -- siehe Kopf.
+    // dabei -- sie kommt seit 0.13.0 aus dem Suchindex, siehe Kopf und
+    // `map/sonderziele/fehlendeKlassen.ts`.
     klassen: ['drinking_water', 'toilets', 'recycling'],
     rang: 9,
   },

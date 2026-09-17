@@ -113,20 +113,27 @@ test.describe('Speed-Lock (E07-T4)', () => {
 
     await page.getByTestId('style-panel-toggle').click();
     await expect(page.getByTestId('style-panel')).toBeVisible();
-    await expect(page.getByTestId('theme-toggle')).toBeVisible(); // normal content while unlocked
+    // Was hier geprueft wird, ist „die Klappe zeigt ihren normalen Inhalt".
+    // Bis 0.12.2 stand dafuer `theme-toggle`. Seit die Optionen nach
+    // Haeufigkeit gefaltet sind, liegt der Umschalter hinter „Darstellung"
+    // und ist beim Oeffnen nicht mehr sichtbar -- die Ueberschrift dagegen
+    // immer. Sie ist ohnehin der bessere Zeuge: `DriveLockGate` ersetzt den
+    // GESAMTEN Inhalt, also verschwinden die Ueberschriften mit, und der Test
+    // haengt nicht mehr daran, welcher einzelne Schalter gerade obenauf liegt.
+    await expect(page.getByTestId('panel-abschnitt-schalter-darstellung')).toBeVisible();
     await expect(page.getByTestId('drive-lock-overlay')).toHaveCount(0);
 
     // 18 km/h (5 m/s) -- above the default 10 km/h threshold.
     await postSpeed(page, 5);
     await expect(page.getByTestId('drive-lock-overlay')).toBeVisible({ timeout: 5_000 });
     await expect(page.getByTestId('drive-lock-overlay')).toContainText('Während der Fahrt gesperrt');
-    await expect(page.getByTestId('theme-toggle')).toHaveCount(0); // settings content replaced, not just covered
+    await expect(page.getByTestId('panel-abschnitt-schalter-darstellung')).toHaveCount(0); // settings content replaced, not just covered
     await expect(page.getByTestId('drive-lock-passenger-button')).toBeVisible();
 
     // Slow back down -> unlocked again, normal settings content is back.
     await postSpeed(page, 0);
     await expect(page.getByTestId('drive-lock-overlay')).toHaveCount(0, { timeout: 5_000 });
-    await expect(page.getByTestId('theme-toggle')).toBeVisible();
+    await expect(page.getByTestId('panel-abschnitt-schalter-darstellung')).toBeVisible();
 
     expect(pageErrors).toEqual([]);
   });
@@ -183,7 +190,7 @@ test.describe('Speed-Lock (E07-T4)', () => {
 
     // Past 5s -> unlocked, even though speed is STILL above the threshold.
     await expect(page.getByTestId('drive-lock-overlay')).toHaveCount(0, { timeout: 5_000 });
-    await expect(page.getByTestId('theme-toggle')).toBeVisible();
+    await expect(page.getByTestId('panel-abschnitt-schalter-darstellung')).toBeVisible();
 
     // The override is persisted to `sessionStorage` (the actual "remembered
     // for the session" mechanism, `driveLockStore.ts`), not just held in
@@ -199,7 +206,7 @@ test.describe('Speed-Lock (E07-T4)', () => {
     await page.getByTestId('style-panel-toggle').click(); // reopen
     await expect(page.getByTestId('style-panel')).toBeVisible();
     await expect(page.getByTestId('drive-lock-overlay')).toHaveCount(0);
-    await expect(page.getByTestId('theme-toggle')).toBeVisible();
+    await expect(page.getByTestId('panel-abschnitt-schalter-darstellung')).toBeVisible();
 
     // A DIFFERENT gated surface is unlocked too (the override is global, not per-surface).
     await page.getByTestId('regions-panel-toggle').click();

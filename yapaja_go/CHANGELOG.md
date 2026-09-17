@@ -10,6 +10,51 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.13.0
+
+**Entsorgungsstationen stehen jetzt auf der Karte.**
+
+Für ein Wohnmobil ist das die wichtigste Adresse überhaupt, und sie fehlte.
+Im Quelltext stand seit 0.9.0 dazu:
+
+> Eine Entsorgungsstation führen unsere Kacheln nicht … Für ein Wohnmobil ist
+> das die schmerzlichste Lücke dieser Liste, und sie lässt sich nur beim
+> Kachelbau schliessen.
+
+Die erste Hälfte stimmt: das Kartenschema, aus dem die Kacheln gebaut werden,
+kennt `amenity=sanitary_dump_station` überhaupt nicht — nachgezählt, kein
+einziges Vorkommen. Kein Kachelbau der Welt hätte daran etwas geändert.
+
+Die zweite Hälfte war falsch. Die Stationen lagen die ganze Zeit im
+**Suchindex**: er wird aus derselben OSM-Datei gefiltert, und
+`sanitary_dump_station` steht seit jeher auf seiner Liste. Wer „Entsorgung"
+in die **Suche** tippte, fand sie. Wer auf die **Karte** sah, nicht. Es hat
+nie ein Datensatz gefehlt, sondern ein Weg von der einen Datei zur anderen.
+
+Den gibt es jetzt. Auf der Karte erscheinen:
+
+| Symbol | Was es ist |
+| --- | --- |
+| Petrolfarbener Pfeil in eine Wanne | **Entsorgungsstation** — Abwasser und Chemietoilette |
+| Graue Tonne mit Deckel | **Müllentsorgung** |
+
+Beide sind bewusst keine weitere Variante des blauen Wassertropfens: auf einem
+Stellplatz stehen sie oft direkt daneben, und dann müssen sie im Vorbeifahren
+auseinanderzuhalten sein.
+
+**Voraussetzung:** der Suchindex der Region muss gebaut sein — derselbe, der
+auch die Suche speist. Ist er es nicht, sagt Yapaia das, statt eine leere
+Karte zu zeigen. Genau dafür gibt es die Auskunft: eine Karte ohne Symbol kann
+heißen „hier gibt es keine" oder „ich konnte nicht nachsehen", und für jemanden
+mit vollem Abwassertank ist das ein erheblicher Unterschied.
+
+**Was weiterhin fehlt:** Frischwasser-Zapfstellen (`amenity=water_point`) und
+Duschen. Sie fehlen im Kartenschema **und** im Suchindex, also gibt es sie
+derzeit an keiner Stelle. Das steht hier, damit niemand es für ein Versehen
+hält.
+
+---
+
 ## 0.12.2
 
 **Das Optionen-Menü ist aufgeräumt.**
