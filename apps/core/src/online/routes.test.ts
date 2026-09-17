@@ -43,6 +43,7 @@ async function server(
   await app.register(onlinePlugin, {
     env: { ONLINE_ENABLED: an ? 'true' : 'false' } as NodeJS.ProcessEnv,
     diagnoseDeps: fetchFn ? { fetchFn } : undefined,
+    verkehrDeps: fetchFn ? { fetchFn } : undefined,
   });
   await app.ready();
   return app;
@@ -196,5 +197,106 @@ describe('onlineStatus', () => {
 
   it('sagt im ausgeschalteten Zustand, dass nichts hinausgeht', () => {
     expect(onlineStatus(false).hinweis).toContain('nie das Haus');
+  });
+});
+
+/**
+ * ─── POST /api/v1/online/verkehr ────────────────────────────────────────────
+ *
+ * Baustellen und Sperrungen für die Autobahnen, die die App nennt.
+ *
+ * Die wichtigste Zusicherung ist dieselbe wie oben: ohne Schalter geht NICHTS
+ * hinaus — und geprüft wird das daran, ob `fetch` gerufen wurde, nicht an der
+ * Antwort. Eine leere Liste sähe sonst genauso aus, ob nun nichts gemeldet
+ * war oder gar nicht gefragt wurde.
+ */
+describe('POST /api/v1/online/verkehr', () => {
+  async function frage(app: FastifyInstance, strassen: unknown): Promise<{
+    status: number;
+    body: { data?: { meldungen: unknown[]; strassen: unknown[]; urteil: string }; error?: { code: string } };
+  }> {
+    const antwort = await app.inject({
+      method: 'POST',
+      url: '/api/v1/online/verkehr',
+      payload: { strassen },
+    });
+    return { status: antwort.statusCode, body: antwort.json() };
+  }
+
+  it('AUSGESCHALTET: 409 und KEIN einziger Aufruf nach draußen', async () => {
+    const { fetchFn, rufe } = zaehlenderFetch();
+    const app = await server(false, fetchFn);
+    const { status, body } = await frage(app, ['A61']);
+    expect(status).toBe(409);
+    expect(body.error?.code).toBe('ONLINE_DISABLED');
+    expect(rufe).toEqual([]);
+    await app.close();
+  });
+
+  it('EINGESCHALTET: fragt die genannte Autobahn ab', async () => {
+    const { fetchFn, rufe } = zaehlenderFetch();
+    const app = await server(true, fetchFn);
+    const { status, body } = await frage(app, ['A61']);
+    expect(status).toBe(200);
+    expect(rufe.every((u) => u.includes('/A61/services/'))).toBe(true);
+    expect(body.data?.urteil).toContain('nichts gemeldet');
+    await app.close();
+  });
+
+  it('fragt NUR die genannten Straßen ab und sucht sich keine dazu', async () => {
+    // Der Kern weiß nicht, wo das Fahrzeug hinfährt. Sich hier etwas
+    // auszudenken hiesse, entweder zu viel nach draußen zu rufen oder eine
+    // Lücke zu erzeugen, die wie Ruhe aussieht.
+    const { fetchFn, rufe } = zaehlenderFetch();
+    const app = await server(true, fetchFn);
+    await frage(app, ['A3']);
+    expect(rufe.some((u) => u.includes('/A61/'))).toBe(false);
+    await app.close();
+  });
+
+  it('ohne Straßen wird gar nicht gerufen — und das steht auch da', async () => {
+    const { fetchFn, rufe } = zaehlenderFetch();
+    const app = await server(true, fetchFn);
+    const { status, body } = await frage(app, []);
+    expect(status).toBe(200);
+    expect(rufe).toEqual([]);
+    // „nichts gemeldet" wäre hier eine Entwarnung, die niemand geprüft hat.
+    expect(body.data?.urteil).toContain('nichts abgefragt');
+    await app.close();
+  });
+
+  it('verträgt einen unsinnigen Rumpf, statt zu stürzen', async () => {
+    const { fetchFn, rufe } = zaehlenderFetch();
+    const app = await server(true, fetchFn);
+    for (const unsinn of [null, 'A61', 42, { a: 1 }]) {
+      const { status } = await frage(app, unsinn);
+      expect(status, JSON.stringify(unsinn)).toBe(200);
+    }
+    expect(rufe).toEqual([]);
+    await app.close();
+  });
+
+  it('wirft Einträge weg, die keine Autobahnkennung sind', async () => {
+    // Sie landen in einer Adresse. Kodiert werden sie ohnehin, aber freier
+    // Text an dieser Stelle wäre trotzdem eine Einladung.
+    const { fetchFn, rufe } = zaehlenderFetch();
+    const app = await server(true, fetchFn);
+    await frage(app, ['../../etc/passwd', 'A61']);
+    expect(rufe.every((u) => u.includes('/A61/services/'))).toBe(true);
+    await app.close();
+  });
+
+  it('der Zwischenspeicher überlebt zwischen zwei Anfragen', async () => {
+    // Läge er in der Anfrage, wäre er bei jedem Aufruf leer — und damit
+    // genau so wirkungslos wie gar keiner. Auf einem Mobilfunkanschluss im
+    // Wohnmobil ist das keine Kleinigkeit.
+    const { fetchFn, rufe } = zaehlenderFetch();
+    const app = await server(true, fetchFn);
+    await frage(app, ['A61']);
+    const nachErstem = rufe.length;
+    expect(nachErstem).toBeGreaterThan(0);
+    await frage(app, ['A61']);
+    expect(rufe.length).toBe(nachErstem);
+    await app.close();
   });
 });

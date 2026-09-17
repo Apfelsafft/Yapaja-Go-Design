@@ -130,28 +130,31 @@ static sensor::Sensor s_tempo, s_limit, s_mdist, s_rest;
 static binary_sensor::BinarySensor s_schnell;
 static text_sensor::TextSensor s_anweisung, s_art, s_zustand, s_ankunft;
 
-// `id(x)` liefert in ESPHome das OBJEKT (Punktschreibweise), keinen Zeiger.
-#define id(x) _id_##x
-#define _id_font_xl (&f_xl)
-#define _id_font_l  (&f_l)
-#define _id_font_m  (&f_m)
-#define _id_font_s  (&f_s)
-#define _id_c_hintergrund k_hintergrund
-#define _id_c_text        k_text
-#define _id_c_gedaempft   k_gedaempft
-#define _id_c_pfeil       k_pfeil
-#define _id_c_warnung     k_warnung
-#define _id_c_gut         k_gut
-#define _id_c_schild      k_schild
-#define _id_yapaja_tempo               s_tempo
-#define _id_yapaja_tempolimit          s_limit
-#define _id_yapaja_manoever_entfernung s_mdist
-#define _id_yapaja_reststrecke         s_rest
-#define _id_yapaja_zu_schnell          s_schnell
-#define _id_yapaja_anweisung           s_anweisung
-#define _id_yapaja_manoever_art        s_art
-#define _id_yapaja_fahrzustand         s_zustand
-#define _id_yapaja_ankunft             s_ankunft
+// ─── Die Variablen, die ESPHome erzeugt ────────────────────────────────────
+// KEIN `#define id(...)` mehr. ESPHome setzt `id(name)` in die C++-Variable
+// selbst um — bei Komponenten ein ZEIGER — und nur `id(name).` wird zu
+// `name->`. `run.mjs` bildet genau diese Umschreibung nach; hier stehen
+// deshalb schlicht die Variablen, die danach im Text stehen.
+//
+// Bis 0.11.1 stand hier ein `#define id(x) _id_##x`, das jede Kennung auf ein
+// OBJEKT abbildete — damit `id(x).state` übersetzt. Genau dadurch übersetzte
+// auch `hilfsfunktion(id(x))`, was auf dem Gerät scheitert. Eine Prüfung, die
+// eine Annahme nachbaut statt der Wirklichkeit, prüft die Annahme.
+static BaseFont *font_xl = &f_xl, *font_l = &f_l, *font_m = &f_m, *font_s = &f_s;
+
+// Farben kommen aus `color:` und sind WERTE (`cg.variable`), keine Zeiger.
+static Color &c_hintergrund = k_hintergrund, &c_text = k_text,
+             &c_gedaempft = k_gedaempft, &c_pfeil = k_pfeil,
+             &c_warnung = k_warnung, &c_gut = k_gut, &c_schild = k_schild;
+
+static sensor::Sensor *yapaja_tempo = &s_tempo, *yapaja_tempolimit = &s_limit,
+                      *yapaja_manoever_entfernung = &s_mdist,
+                      *yapaja_reststrecke = &s_rest;
+static binary_sensor::BinarySensor *yapaja_zu_schnell = &s_schnell;
+static text_sensor::TextSensor *yapaja_anweisung = &s_anweisung,
+                               *yapaja_manoever_art = &s_art,
+                               *yapaja_fahrzustand = &s_zustand,
+                               *yapaja_ankunft = &s_ankunft;
 
 static void zeichne(Display &it) {
 #include "lambda_body.inc"  // wird von run.mjs erzeugt

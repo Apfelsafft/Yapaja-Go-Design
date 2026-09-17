@@ -10,6 +10,80 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.11.1
+
+**Die ESP32-Anzeige lässt sich jetzt übersetzen.**
+
+Gemeldet beim Versuch, das Display zu flashen — der Bau brach nach über
+tausend Schritten ab:
+
+> `no match for call to '(…<lambda(esphome::sensor::Sensor&)>)`
+> `(esphome::homeassistant::HomeassistantSensor* const&)'`
+
+Eine Hilfsfunktion in der Zeichenroutine erwartete eine Referenz, bekam aber
+einen Zeiger. **Das war mein Fehler, und schlimmer: meine eigene Prüfung hat
+ihn durchgelassen.**
+
+### Warum die Prüfung ihn nicht gefunden hat
+
+Es gibt seit Längerem eine Prüfung, die die Zeichenroutine auf einem
+gewöhnlichen Rechner übersetzt und ausführt — genau damit so etwas nicht erst
+auf dem Gerät auffällt. Sie hat anstandslos durchgewinkt.
+
+Der Grund war kein übersehener Fall, sondern ein **falsches Modell**: Die
+Prüfung bildete `id(name)` als Objekt ab. ESPHome setzt dort aber die
+C++-Variable selbst ein, und die ist ein **Zeiger**; nur `id(name).` wird zu
+`name->`. Deshalb übersetzte `hilfsfunktion(id(name))` in der Prüfung und auf
+dem Gerät nicht.
+
+Eine Prüfung, die eine Annahme nachbaut statt der Wirklichkeit, prüft die
+Annahme. Sie ist dann schlimmer als keine, weil sie Sicherheit gibt, die es
+nicht gibt.
+
+### Was jetzt anders ist
+
+Die Prüfung bildet ESPHomes Umschreibung nach — nachgelesen in dessen
+Quelltext, nicht geraten. Sie bricht außerdem ab, wenn in der Konfiguration
+eine Kennung auftaucht, die sie nicht kennt: sonst entstünde beim nächsten
+neuen Sensor genau dieselbe Lücke noch einmal.
+
+Und die Prüfumgebung steht jetzt selbst unter Aufsicht. Mit dem alten Stand
+der Zeichenroutine erzeugt sie exakt dieselbe Fehlermeldung, die auf Ihrem
+Gerät stand.
+
+---
+
+## 0.11.0
+
+**Verkehrsmeldungen: Yapaia kann jetzt Baustellen und Sperrungen abrufen.**
+
+Die Grundlage steht — Yapaia holt Baustellen und Sperrungen von der Autobahn
+GmbH für die Autobahnen, die auf Ihrer Strecke liegen. **Auf der Karte
+erscheinen sie noch nicht**; das ist der nächste Schritt. Was jetzt schon
+funktioniert, ist der Teil darunter, und der ist der schwierigere.
+
+### Was daran wichtig ist
+
+* **Nichts geht ohne Ihren Schalter hinaus.** Wie schon bei der Prüfung: ist
+  `online` → `enabled` aus, wird die Schnittstelle nicht einmal angefasst.
+* **Es wird nicht bei jeder Kartenbewegung nachgefragt.** Antworten werden
+  fünf Minuten zwischengespeichert. Im Wohnmobil hängt Yapaia am
+  Mobilfunkanschluss — das ist kein Nebenthema.
+* **Ohne Netz gilt die letzte bekannte Lage.** Wer auf der A61 steht und
+  gerade kein Netz hat, bekommt die zwanzig Minuten alte Baustellenmeldung
+  statt einer leeren Karte. Eine Baustelle steht Wochen; zwanzig Minuten
+  ändern daran nichts. **Das Alter wird dabei immer mitgesagt.**
+* **Eine Lücke sieht nicht wie Ruhe aus.** Antwortet eine der Autobahnen
+  nicht, steht das ausdrücklich da: *„Für A3 liegen KEINE Daten vor — dort
+  kann etwas sein, das hier nicht steht."*
+
+Der letzte Punkt ist der eigentliche Grund für den ganzen Aufwand. Eine leere
+Karte kann zweierlei heißen: „hier ist nichts" oder „ich konnte nicht
+nachsehen". Für jemanden, der auf eine gesperrte Autobahn zufährt, ist das
+der ganze Unterschied.
+
+---
+
 ## 0.10.4
 
 **Ein laufender Bau bleibt sichtbar, auch wenn Sie die Seite verlassen.**

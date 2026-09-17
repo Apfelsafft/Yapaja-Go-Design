@@ -7,6 +7,7 @@
  *
  *  - `GET  /api/v1/online/status`   -> was eingeschaltet ist, ohne etwas zu rufen
  *  - `POST /api/v1/online/diagnose` -> ruft die Dienste WIRKLICH und berichtet
+ *  - `POST /api/v1/online/verkehr`  -> Baustellen und Sperrungen je Autobahn
  *
  * ─── WARUM DIAGNOSE EIN POST IST ────────────────────────────────────────────
  * Weil sie das Haus verlässt. Ein GET sieht harmlos aus: Browser holen ihn
@@ -26,6 +27,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { ApiError } from '@yapaia/shared';
 import { diagnoseAutobahn, gesamturteil, type DiagnoseDeps, type DiagnoseZeile } from './diagnose.js';
+import { holeVerkehr, verkehrUrteil, type VerkehrBefund, type VerkehrDeps } from './verkehr.js';
+import { VerkehrCache } from './verkehrCache.js';
 
 /** Fährt Yapaia die Online-Dienste überhaupt? */
 export function onlineEingeschaltet(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -65,6 +68,19 @@ export interface OnlinePluginOptions {
   /** Injizierbar für Tests — sonst die echte Umgebung. */
   env?: NodeJS.ProcessEnv;
   diagnoseDeps?: DiagnoseDeps;
+  verkehrDeps?: VerkehrDeps;
+  /** Injizierbar, damit ein Test die Uhr stellen kann. In Produktion gehört
+   *  er zur Plugin-Instanz und lebt so lange wie der Kern. */
+  verkehrCache?: VerkehrCache;
+}
+
+interface VerkehrBody {
+  /** Die Autobahnen, die zählen — die App leitet sie aus der Route ab. */
+  strassen?: unknown;
+}
+
+interface VerkehrReply {
+  data: VerkehrBefund & { urteil: string };
 }
 
 interface DiagnoseBody {
@@ -122,6 +138,62 @@ export const onlinePlugin: FastifyPluginAsync<OnlinePluginOptions> = async (fast
         'online: Diagnose gelaufen',
       );
       return reply.code(200).send({ data: { urteil: gesamturteil(zeilen), zeilen } });
+    },
+  );
+
+  // POST /api/v1/online/verkehr -- Baustellen und Sperrungen für die
+  // genannten Autobahnen.
+  //
+  // ─── WARUM AUCH DAS EIN POST IST ────────────────────────────────────────
+  // Aus demselben Grund wie die Diagnose: der Aufruf verlässt das Haus. Ein
+  // GET sieht harmlos aus — Browser holen ihn vor, Erreichbarkeitsprüfungen
+  // fragen ihn ab, ein Dashboard lädt ihn im Hintergrund nach. Nichts davon
+  // soll ungefragt eine Anfrage an einen fremden Server auslösen. Für einen
+  // reinen Lesevorgang ist POST ungewöhnlich; die Regel „Yapaia telefoniert
+  // nur auf Ansage" wiegt hier schwerer als die Form.
+  //
+  // ─── UND WARUM ER SICH NICHT SELBST DIE STRASSEN SUCHT ──────────────────
+  // Welche Autobahnen zählen, weiß nur, wer die Route kennt — das ist die
+  // App. Der Kern hier zu raten hiesse, entweder zu viel zu fragen (eine
+  // Salve nach draußen) oder zu wenig (eine Lücke, die wie Ruhe aussieht).
+  //
+  // Der Zwischenspeicher gehört zur PLUGIN-Instanz und nicht in die
+  // Anfrage: sonst wäre er bei jedem Aufruf leer und damit wirkungslos.
+  const verkehrCache = opts.verkehrCache ?? new VerkehrCache();
+
+  fastify.post<{ Body: VerkehrBody; Reply: VerkehrReply | ApiError }>(
+    '/api/v1/online/verkehr',
+    async (request, reply) => {
+      if (!onlineEingeschaltet(env)) {
+        return reply
+          .code(409)
+          .send(
+            fehler(
+              'ONLINE_DISABLED',
+              'Die Online-Dienste sind ausgeschaltet. Einschalten in der Add-on-Konfiguration ' +
+                'unter „online" → „enabled"; danach verlässt eine Anfrage das Haus.',
+            ),
+          );
+      }
+
+      const roh = Array.isArray(request.body?.strassen) ? request.body.strassen : [];
+      const befund = await holeVerkehr(
+        roh.filter((s): s is string => typeof s === 'string'),
+        { ...opts.verkehrDeps, cache: verkehrCache },
+      );
+
+      // Die Einschränkungen gehören ins Protokoll, nicht nur in die Antwort:
+      // wer später einem Fehler nachgeht, sieht hier, ob die Daten damals
+      // überhaupt vollständig waren.
+      fastify.log.info(
+        {
+          strassen: befund.strassen,
+          meldungen: befund.meldungen.length,
+          ohne_ort: befund.ohne_ort,
+        },
+        `online: Verkehr abgefragt — ${verkehrUrteil(befund)}`,
+      );
+      return reply.code(200).send({ data: { ...befund, urteil: verkehrUrteil(befund) } });
     },
   );
 };

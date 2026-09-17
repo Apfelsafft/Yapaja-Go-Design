@@ -244,10 +244,30 @@ display:
       // nicht" NaN, und `NaN` ungeprueft zu drucken ergibt nicht "nan",
       // sondern "-2147483648".
       //
-      // Als REFERENZ, nicht als Zeiger: `id(...)` liefert in ESPHome das
-      // Objekt selbst -- daher auch die Punktschreibweise `id(x).state`.
-      auto hat = [](esphome::sensor::Sensor &s) {
-        return s.has_state() && !std::isnan(s.state);
+      // ─── ZEIGER, NICHT REFERENZ ───────────────────────────────────────
+      // Hier stand eine Referenz, mit der Begruendung, `id(...)` liefere in
+      // ESPHome das Objekt selbst. Das war falsch, und der Bau auf dem
+      // Geraet ist genau daran gescheitert:
+      //
+      //   no known conversion for argument 1 from
+      //   'esphome::homeassistant::HomeassistantSensor* const'
+      //   to 'esphome::sensor::Sensor&'
+      //
+      // Nachgelesen in ESPHomes `cpp_generator.py` (process_lambda):
+      //
+      //   if parts[i * 3 + 2] == ".":
+      //       parts[i * 3 + 1] = var._     // ergibt "name->"
+      //   else:
+      //       parts[i * 3 + 1] = var       // ergibt "name" -- den ZEIGER
+      //
+      // `id(x)` wird also zum Zeiger; nur `id(x).` wird zu `x->`. Deshalb
+      // funktioniert die Punktschreibweise ueberall sonst in dieser Datei
+      // und ausgerechnet hier nicht.
+      //
+      // Der Nullzeiger-Vergleich kostet nichts und deckt den Fall ab, dass
+      // eine Entitaet in Home Assistant gar nicht existiert.
+      auto hat = [](esphome::sensor::Sensor *s) {
+        return s != nullptr && s->has_state() && !std::isnan(s->state);
       };
 
       // ══ Fahrzustand ════════════════════════════════════════════════════

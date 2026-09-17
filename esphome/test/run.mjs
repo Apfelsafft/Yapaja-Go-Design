@@ -59,6 +59,88 @@ export function substitutionen(text) {
   return werte;
 }
 
+/**
+ * Welche `id(...)` ein ZEIGER ist und welche ein WERT.
+ *
+ * ─── WARUM DIESE TABELLE DER KERN DIESER DATEI IST ──────────────────────────
+ * ESPHome setzt `id(name)` nicht in ein Objekt um, sondern in die C++-Variable
+ * selbst — und die ist bei Komponenten ein ZEIGER. Nachgelesen in ESPHomes
+ * `cpp_generator.py` (`process_lambda`):
+ *
+ *   if parts[i * 3 + 2] == ".":
+ *       parts[i * 3 + 1] = var._     // ergibt "name->"
+ *   else:
+ *       parts[i * 3 + 1] = var       // ergibt "name"  -- der Zeiger
+ *
+ * Diese Prüfung hat das bis 0.11.1 FALSCH nachgebaut: sie definierte
+ * `id(name)` als Objekt, damit `id(name).state` übersetzt. Damit übersetzte
+ * auch `hilfsfunktion(id(name))` — auf dem Gerät aber nicht, denn dort geht
+ * ein Zeiger hinein. Der Bau brach nach über tausend Übersetzungsschritten ab:
+ *
+ *   no known conversion for argument 1 from
+ *   'esphome::homeassistant::HomeassistantSensor* const'
+ *   to 'esphome::sensor::Sensor&'
+ *
+ * Eine Prüfung, die eine ANNAHME nachbaut statt der Wirklichkeit, prüft die
+ * Annahme. Sie ist dann schlimmer als keine: sie gibt Sicherheit, die es nicht
+ * gibt. Deshalb bildet dieser Lauf jetzt dieselbe Umschreibung nach.
+ *
+ * Nicht alles ist ein Zeiger: `color:` erzeugt einen WERT (`cg.variable`),
+ * Komponenten einen Zeiger (`cg.new_Pvariable`). Deshalb zwei Listen.
+ */
+export const ZEIGER_IDS = new Set([
+  'font_xl', 'font_l', 'font_m', 'font_s',
+  'yapaja_tempo', 'yapaja_tempolimit', 'yapaja_manoever_entfernung',
+  'yapaja_reststrecke', 'yapaja_zu_schnell', 'yapaja_anweisung',
+  'yapaja_manoever_art', 'yapaja_fahrzustand', 'yapaja_ankunft',
+]);
+
+export const WERT_IDS = new Set([
+  'c_hintergrund', 'c_text', 'c_gedaempft', 'c_pfeil', 'c_warnung', 'c_gut',
+  'c_schild',
+]);
+
+/**
+ * Entfernt Kommentare, so wie ESPHome es vor dem Suchen der Kennungen tut.
+ *
+ * Nachgelesen in `esphome/core/__init__.py`, Methode `Lambda.comment_remover`:
+ * ein Muster über Zeilenkommentare, Blockkommentare und Zeichenketten; was
+ * mit einem Schrägstrich beginnt, wird durch EIN Leerzeichen ersetzt, alles
+ * andere bleibt stehen. Dasselbe Muster steht unten in JavaScript.
+ *
+ * Ohne diesen Schritt hielte dieser Lauf ein `id(...)` in einem KOMMENTAR für
+ * echt — und genau das ist beim ersten Versuch passiert: der Satz, der die
+ * Bedeutung von `id(...)` erklärt, enthielt selbst ein solches Vorkommen.
+ *
+ * Zeichenketten bleiben unangetastet; nur Kommentare verschwinden. Der
+ * Zeilenumbruch bleibt erhalten, damit Fehlermeldungen des Übersetzers weiter
+ * auf die richtige Zeile zeigen.
+ */
+export function ohneKommentare(text) {
+  return text.replace(
+    /\/\/.*?$|\/\*[\s\S]*?\*\/|'(?:\\.|[^\\'])*'|"(?:\\.|[^\\"])*"/gm,
+    (treffer) => (treffer.startsWith('/') ? ' ' : treffer),
+  );
+}
+
+/**
+ * Setzt `id(...)` genau so um, wie ESPHome es tut.
+ *
+ * Ein unbekannter Name bricht ab, statt durchgelassen zu werden. Sonst
+ * entstünde beim nächsten neuen Sensor genau dieselbe Lücke noch einmal —
+ * eine Prüfung, die still an ihm vorbeiläuft.
+ */
+export function idsUmschreiben(rumpf) {
+  return rumpf.replace(/id\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)(\.?)/g, (_ganz, name, punkt) => {
+    if (ZEIGER_IDS.has(name)) return punkt ? `${name}->` : name;
+    if (WERT_IDS.has(name)) return punkt ? `${name}.` : name;
+    throw new Error(
+      `id(${name}) ist in run.mjs weder als Zeiger noch als Wert eingetragen. ` +
+        'Ohne diesen Eintrag prüft dieser Lauf etwas anderes als das Gerät übersetzt.',
+    );
+  });
+}
+
 export function lambdaRumpf(text) {
   const zeilen = text.split('\n');
   const start = zeilen.findIndex((z) => /^\s*lambda:\s*\|-?\s*$/.test(z));
@@ -85,7 +167,10 @@ export function lambdaRumpf(text) {
     if (!(name in werte)) throw new Error(`\${${name}} hat keine Entsprechung unter substitutions:`);
     return werte[name];
   });
-  return ersetzt;
+  // Und zuletzt dieselben zwei Schritte wie ESPHome: Kommentare raus, dann
+  // die Kennungen umschreiben. Erst danach ist das hier derselbe C++-Text,
+  // den auch das Gerät übersetzt.
+  return idsUmschreiben(ohneKommentare(ersetzt));
 }
 
 function main() {
