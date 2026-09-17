@@ -352,6 +352,75 @@ export const POI_MARKEN = [
 ];
 
 /** Groesse einer POI-Marke in logischen Punkten. */
+/**
+ * Die Marken der VERKEHRSLAGE — Baustellen und Sperrungen.
+ *
+ * ─── WARUM EINE EIGENE LISTE ────────────────────────────────────────────────
+ * Sie teilen sich Zeichenmaschinerie und Blatt mit den POIs, sind aber etwas
+ * anderes: ein POI ist ein Ort, den man ansteuern kann; eine Baustelle ist
+ * etwas, das einem entgegenkommt. Sie in `POI_MARKEN` zu legen hiesse, den
+ * Namen jener Konstanten falsch werden zu lassen — und ein Name, der nicht
+ * mehr stimmt, ist in diesem Projekt schon oefter teuer gewesen als die paar
+ * Zeilen, die eine zweite Liste kostet.
+ *
+ * ─── DIE FORMEN ────────────────────────────────────────────────────────────
+ * Beide muessen sich bei 18 Bildpunkten Durchmesser AUF DEN ERSTEN BLICK
+ * unterscheiden -- und zwar waehrend der Fahrt. Deshalb nicht zwei Varianten
+ * derselben Form, sondern zwei grundverschiedene: ein aufrechter Kegel gegen
+ * einen liegenden Balken. Auch die Farben liegen weit auseinander.
+ *
+ * Gezeichnet wird weiss auf farbigem Kern. Ein `loch` laesst die Kernfarbe
+ * durchscheinen -- beim Kegel ergibt das den Querstreifen, den man von
+ * Leitkegeln kennt.
+ */
+export const VERKEHR_MARKEN = [
+  {
+    id: 'verkehr-baustelle',
+    // Bernstein. Bewusst weit weg vom Rotorange des Wohnmobil-Stellplatzes:
+    // die beiden duerfen aus dem Augenwinkel nicht dasselbe sein.
+    farbe: [0xf2, 0xa0, 0x1e, 0xff],
+    formen: [
+      // ─── EIN KEGEL MIT FLACHER SPITZE, KEIN DREIECK ──────────────────
+      // Zuerst stand hier ein spitzes Dreieck mit einem Querstreifen als
+      // Loch. Angesehen sah man: der Streifen war an seiner Hoehe BREITER
+      // als der Kegel und hat die Spitze abgetrennt -- uebrig blieben zwei
+      // Bruchstuecke, die nichts mehr bedeuteten.
+      //
+      // Die flache Spitze loest beides auf einmal: sie macht den Kegel vom
+      // gruenen Zelt-Dreieck unterscheidbar, auch wenn man die Farbe nicht
+      // auswertet, und sie braucht keinen Streifen, der etwas durchschneiden
+      // koennte.
+      { typ: 'polygon', punkte: [[4.9, 1.5], [7.1, 1.5], [9.5, 8.9], [2.5, 8.9]] },
+      // Die Standplatte. Sie macht aus einer Form, die steht, eine Form, die
+      // AUFGESTELLT wurde.
+      { typ: 'rechteck', x: 1.3, y: 9.2, b: 9.4, h: 1.6, r: 0.4 },
+    ],
+  },
+  {
+    id: 'verkehr-sperrung',
+    // Rot. Die einzige Marke in diesem Satz, die „hier geht es nicht weiter"
+    // sagt -- und die einzige in dieser Farbe.
+    farbe: [0xc6, 0x28, 0x28, 0xff],
+    formen: [
+      // Ein einziger liegender Balken, wie im Verbotszeichen. Nichts sonst:
+      // jede weitere Linie nimmt ihm bei dieser Groesse die Eindeutigkeit.
+      // ─── HOCH GENUG, UM BEI 18 BILDPUNKTEN EIN BALKEN ZU SEIN ────────
+      // Zuerst 2.0 Einheiten hoch. Bei einfacher Aufloesung sind das 1,4
+      // Bildpunkte -- gerendert EINE Zeile, also ein Strich und kein Balken.
+      // Gesehen hat man das erst im vergroesserten Abzug; gerechnet hatte es
+      // vorher niemand.
+      { typ: 'rechteck', x: 2.0, y: 4.4, b: 8.0, h: 3.2, r: 0.7 },
+    ],
+  },
+];
+
+/**
+ * Alles, was als runde Marke auf das Blatt kommt.
+ *
+ * Eine Liste fuer das Layout, zwei fuer die Bedeutung.
+ */
+export const ALLE_MARKEN = [...POI_MARKEN, ...VERKEHR_MARKEN];
+
 export const MARKE = { durchmesser: 18, ring: 1, feld: 12 };
 
 /** Ein Stern als Polygon -- damit „Sehenswuerdigkeit" ohne Schriftzeichen
@@ -473,7 +542,7 @@ export function baueBlatt(skala) {
   // begrenzen die Texturbreite.
   const l = luecke(skala);
   const schilderBreite = SHIELDS.length * b + (SHIELDS.length - 1) * l;
-  const markenBreite = POI_MARKEN.length * d + (POI_MARKEN.length - 1) * l;
+  const markenBreite = ALLE_MARKEN.length * d + (ALLE_MARKEN.length - 1) * l;
   const blattBreite = Math.max(schilderBreite, markenBreite);
   const hoehe = h + l + d;
   const puffer = Buffer.alloc(blattBreite * hoehe * 4, 0);
@@ -487,7 +556,7 @@ export function baueBlatt(skala) {
     beschreibung[schild.id] = { x: ox, y: 0, width: b, height: h, pixelRatio: skala, ...bereiche };
   });
 
-  POI_MARKEN.forEach((marke, n) => {
+  ALLE_MARKEN.forEach((marke, n) => {
     const ox = n * (d + l);
     const oy = h + l;
     zeichneMarke(puffer, blattBreite, ox, oy, marke, skala);

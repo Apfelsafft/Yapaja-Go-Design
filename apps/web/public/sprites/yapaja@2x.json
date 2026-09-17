@@ -136,5 +136,19 @@
     "width": 36,
     "height": 36,
     "pixelRatio": 2
+  },
+  "verkehr-baustelle": {
+    "x": 360,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
+  },
+  "verkehr-sperrung": {
+    "x": 400,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
   }
 }

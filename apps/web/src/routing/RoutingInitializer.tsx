@@ -10,6 +10,8 @@ import RouteLayer from './RouteLayer.js';
 import RouteRestorer from './RouteRestorer.js';
 import DestinationSelector from './DestinationSelector.js';
 import RoutingPanel from './RoutingPanel.js';
+import VerkehrLayer from '../online/VerkehrLayer.js';
+import VerkehrHinweis from '../online/VerkehrHinweis.js';
 
 export default function RoutingInitializer(): React.ReactElement {
   const profileCount = useProfileStore((state) => state.profiles.length);
@@ -36,6 +38,15 @@ export default function RoutingInitializer(): React.ReactElement {
           nicht fehlt, waehrend die Fahrt weiterlaeuft. */}
       <RouteRestorer />
       <RouteLayer />
+      {/* Baustellen und Sperrungen auf der Strecke. Fragt NUR, wenn es eine
+          Route gibt, und nur bei einer Änderung der Autobahnen — nicht bei
+          jeder Positionsmeldung. Hier montiert und nicht in `MapView`, weil
+          die Ebene die Route braucht und die hier liegt. */}
+      <VerkehrLayer />
+      {/* Sagt, was auf der Karte FEHLT — eine Autobahn ohne Antwort, ein
+          alter Stand, Meldungen ohne Ort. Ohne ihn sähe eine unvollständige
+          Karte aus wie eine leere Strecke. */}
+      <VerkehrHinweis />
       <DestinationSelector />
       <RoutingPanel />
     </>
