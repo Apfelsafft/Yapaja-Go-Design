@@ -10,6 +10,44 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.13.2
+
+**Die ESP32-Anzeige lässt sich jetzt ohne Nacharbeit übernehmen.**
+
+Gemeldet mit Bildschirmfoto aus dem laufenden Gerät: im ESPHome Device
+Builder sehen die beiden Blöcke so aus —
+
+```yaml
+api:
+  encryption:
+    key: <vom Device Builder eingetragen>
+
+ota:
+  - platform: esphome
+```
+
+In der mitgelieferten Datei standen dagegen zwei Verweise auf Einträge in
+`secrets.yaml`: einer für den API-Schlüssel, einer für ein OTA-Passwort.
+
+Für eine von Hand gepflegte Konfiguration ist das richtig. Für den Device
+Builder ist es falsch: **der erzeugt den Schlüssel selbst** und trägt ihn
+direkt ein, ein OTA-Passwort vergibt er gar nicht — und **keinen** der beiden
+Einträge legt er in `secrets.yaml` an. Wer die Datei also übernahm, bekam zwei
+Verweise auf etwas, das es nicht gab, und musste beides von Hand nachtragen,
+bevor überhaupt etwas übersetzte.
+
+Beide Blöcke sind jetzt so, wie der Device Builder sie anlegt. In
+`secrets.yaml` gehören nur noch `wifi_ssid` und `wifi_password`.
+
+Ein echter Schlüssel steht weiterhin **nicht** im Projekt — er gehört zur
+Installation, und ein mitgelieferter wäre auf jedem Gerät derselbe. An seiner
+Stelle steht ein Platzhalter, den der Device Builder überschreibt. Damit das
+beim nächsten Abgleich mit einem laufenden Gerät nicht versehentlich kippt,
+schlägt jetzt eine Prüfung an, sobald etwas an dieser Stelle wie ein echter
+Schlüssel aussieht.
+
+---
+
 ## 0.13.1
 
 **Tempo und Höhe auch ohne laufende Route — und das ESP-Display zeigt sie.**

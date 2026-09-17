@@ -99,13 +99,42 @@ logger:
   # Der C3 hat keinen USB-UART-Bruecke-Chip, sondern USB-Serial-JTAG direkt.
   hardware_uart: USB_SERIAL_JTAG
 
+# ─── API UND OTA KOMMEN VOM DEVICE BUILDER ──────────────────────────────────
+# Diese beiden Bloecke legt der ESPHome Device Builder beim Anlegen des
+# Geraets selbst an. Wer diese Datei dort einfuegt, hat sie also schon --
+# und sie sehen dann genau so aus wie hier.
+#
+# ─── WAS HIER VORHER STAND UND WARUM ES STOERTE ─────────────────────────────
+# Bis 0.13.1 standen hier zwei `!secret`-Verweise:
+#
+#     key:      !secret yapaja_display_api_key
+#     password: !secret yapaja_display_ota_password
+#
+# Das ist fuer eine von Hand gepflegte Konfiguration richtig. Fuer den
+# Device Builder ist es falsch: der erzeugt den Schluessel selbst und traegt
+# ihn unmittelbar ein, und er legt WEDER den einen noch den anderen Eintrag
+# in `secrets.yaml` an. Wer diese Datei also uebernahm, bekam zwei
+# Verweise auf Eintraege, die es nicht gab -- und musste sie von Hand
+# nachtragen, bevor ueberhaupt etwas uebersetzte.
+#
+# Abgeglichen mit einer laufenden Installation (Device Builder 1.14.9,
+# ESPHome 2026.9.0).
 api:
   encryption:
-    key: !secret yapaja_display_api_key
+    # Den Schluessel traegt der Device Builder hier ein. Er steht bewusst
+    # NICHT im Repository: ein Geraeteschluessel gehoert in die Installation,
+    # nicht in den Quelltext -- und ein mitgelieferter waere auf jedem
+    # Geraet derselbe.
+    #
+    # Von Hand gepflegt geht auch `!secret <name>`, dann muss der Eintrag in
+    # `secrets.yaml` stehen.
+    key: ERZEUGT_DER_DEVICE_BUILDER
 
+# Ohne `password:`. Der Device Builder vergibt keines, und OTA ist bereits
+# durch den API-Schluessel geschuetzt. Eine Zeile, die auf einen nicht
+# vorhandenen Eintrag verweist, haette das Uebersetzen verhindert.
 ota:
   - platform: esphome
-    password: !secret yapaja_display_ota_password
 
 wifi:
   ssid: !secret wifi_ssid
