@@ -10,6 +10,43 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.12.1
+
+**Der ESP32 sagt jetzt, was ihm wirklich fehlt.**
+
+Gemeldet mit Foto: Das Display zeigte **„Keine Verbindung"** — während dasselbe
+Gerät in ESPHome als *Gerät online* mit IP-Adresse dastand.
+
+Beides stimmte. Die Verbindung war da; es fehlte der **Wert**. Der Satz zeigte
+damit genau dorthin, wo nichts zu finden war: zum Router, zum WLAN, zur API.
+
+### Was tatsächlich fehlt
+
+Die Entität heißt in Home Assistant sehr wahrscheinlich anders, als die
+ESP-Konfiguration sie sucht. Home Assistant vergibt die Entity-ID aus Geräte-
+*plus* Entitätsnamen; ältere Installationen haben deshalb
+`sensor.yapaia_go_nav_state` statt `sensor.yapaja_nav_state` — und eine
+Registrierung benennt nichts um.
+
+Yapaias Lovelace-Dashboard löst das seit Langem, indem es zur Laufzeit
+*nachsieht*. Die ESP-Konfiguration konnte das nie: ESPHome löst die Namen beim
+Übersetzen auf. Sie hatte die Namen fest verdrahtet.
+
+### Was sich ändert
+
+* **Die Meldung sagt, was los ist:** „Kein Wert aus Home Assistant" und
+  darunter, wo man nachsieht. Zwei Zeilen, weil eine nicht reicht.
+* **Die Entitätsnamen stehen an einer Stelle**, ganz oben in der
+  Konfiguration unter `substitutions:` — mit der Anleitung daneben, wie man
+  die richtigen findet (Entwicklerwerkzeuge → Zustände → Filter `yapa`).
+* `esphome/README.md` hat einen eigenen Abschnitt dazu.
+
+Das ist dieselbe Fehlerklasse, die dieses Projekt seit Monaten verfolgt: eine
+Meldung, die einen Zustand beschreibt, den sie nicht hat — und die Suche in
+die falsche Richtung lenkt.
+
+---
+
 ## 0.12.0
 
 **Baustellen und Sperrungen stehen auf der Karte.**

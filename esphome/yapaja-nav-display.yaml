@@ -47,6 +47,32 @@ substitutions:
   # Fuer ein eckiges Panel auf `false` — dann wird die volle Breite genutzt.
   rund: "true"
 
+  # ─── DIE ENTITAETEN AUS HOME ASSISTANT ────────────────────────────────────
+  # ACHTUNG: Diese Namen stehen NICHT fest.
+  #
+  # Gemeldet vom Geraet: „Keine Verbindung", obwohl es in ESPHome online war.
+  # Das Geraet WAR verbunden — es bekam nur keinen Wert, weil die Entitaet in
+  # Home Assistant anders heisst als hier eingetragen.
+  #
+  # Warum das so ist, steht in `apps/core/src/ha/dashboard.ts`: Home Assistant
+  # vergibt eine Entity-ID aus GERAETE- plus Entitaetsnamen, solange die
+  # MQTT-Discovery kein `object_id` mitschickt. Seit 0.6.9 schickt Yapaia eines
+  # mit, und dann heisst sie `sensor.yapaja_nav_state`. Aeltere Installationen
+  # behalten aber ihre einmal vergebene ID — dort heisst dieselbe Entitaet
+  # `sensor.yapaia_go_nav_state`. Eine Registrierung benennt nichts um.
+  #
+  # Genau deshalb erzeugt Yapaia sein Lovelace-Dashboard zur Laufzeit und
+  # liefert es nicht fertig aus: es SIEHT NACH, wie die Entitaeten heissen.
+  # Diese Datei kann das nicht — ESPHome loest die Namen beim Uebersetzen auf.
+  # Also stehen sie hier an EINER Stelle, zum Nachsehen und Anpassen.
+  #
+  # ─── SO FINDEN SIE DIE RICHTIGEN NAMEN ────────────────────────────────────
+  # In Home Assistant: Entwicklerwerkzeuge -> Zustaende -> Filter „yapa".
+  # Dort stehen die echten IDs. Weicht der Anfang ab (etwa `yapaia_go_`
+  # statt `yapaja_`), tragen Sie ihn unten ein und flashen neu.
+  entity_praefix: sensor.yapaja
+  entity_praefix_binaer: binary_sensor.yapaja
+
   # ─── PINS DES ESP32-2424S012 ──────────────────────────────────────────────
   # Fuer ein anderes Board anpassen; README.md nennt die gaengigen.
   pin_sck: GPIO6
@@ -106,38 +132,38 @@ time:
 sensor:
   - platform: homeassistant
     id: yapaja_tempo
-    entity_id: sensor.yapaja_speed
+    entity_id: ${entity_praefix}_speed
   - platform: homeassistant
     id: yapaja_tempolimit
-    entity_id: sensor.yapaja_speed_limit
+    entity_id: ${entity_praefix}_speed_limit
   - platform: homeassistant
     id: yapaja_manoever_entfernung
-    entity_id: sensor.yapaja_instruction_distance
+    entity_id: ${entity_praefix}_instruction_distance
 
 binary_sensor:
   - platform: homeassistant
     id: yapaja_zu_schnell
-    entity_id: binary_sensor.yapaja_speeding
+    entity_id: ${entity_praefix_binaer}_speeding
 
 text_sensor:
   # Der Anweisungstext, bereits auf Deutsch formuliert ("Links abbiegen auf B27").
   - platform: homeassistant
     id: yapaja_anweisung
-    entity_id: sensor.yapaja_instruction
+    entity_id: ${entity_praefix}_instruction
   # Die Art des Manoevers — daraus wird der Pfeil. Steht im Attribut, nicht
   # im Zustand.
   - platform: homeassistant
     id: yapaja_manoever_art
-    entity_id: sensor.yapaja_instruction
+    entity_id: ${entity_praefix}_instruction
     attribute: type
   # idle | routing | navigating | paused | arrived | off_route
   - platform: homeassistant
     id: yapaja_fahrzustand
-    entity_id: sensor.yapaja_nav_state
+    entity_id: ${entity_praefix}_nav_state
   # ISO 8601 in UTC. Wird unten umgerechnet, nicht abgeschnitten.
   - platform: homeassistant
     id: yapaja_ankunft
-    entity_id: sensor.yapaja_eta
+    entity_id: ${entity_praefix}_eta
 
 # ─── HINTERGRUNDBELEUCHTUNG ─────────────────────────────────────────────────
 # Als Licht ausgefuehrt, damit Home Assistant sie dimmen kann — nachts im
@@ -311,7 +337,31 @@ display:
         if (zustand == "paused")    text = "Pausiert";
         if (zustand == "arrived")   text = "Angekommen";
         if (zustand == "off_route") text = "Abseits der Route";
-        if (zustand.empty() || zustand == "unavailable") text = "Keine Verbindung";
+        // ─── „KEINE VERBINDUNG" WAR FALSCH ────────────────────────────
+        // Hier stand dieses Wort. Gemeldet mit Foto: das Geraet zeigte es,
+        // waehrend es in ESPHome als „Geraet online" mit IP-Adresse
+        // dastand. Beides stimmte — die WLAN- und API-Verbindung war da,
+        // nur die ENTITAET lieferte keinen Wert.
+        //
+        // Der Satz schickte damit genau dorthin, wo nichts zu finden war:
+        // zum Router, zum WLAN, zur API. Der wahrscheinliche Grund liegt
+        // ganz woanders, naemlich beim Namen der Entitaet (siehe
+        // `entity_praefix` oben in den substitutions).
+        //
+        // Das ist dieselbe Fehlerklasse, die dieses Projekt seit Monaten
+        // verfolgt: eine Meldung, die einen Zustand beschreibt, den sie
+        // nicht hat — und die Suche in die falsche Richtung lenkt.
+        //
+        // Zwei Zeilen, weil eine nicht reicht: die erste sagt, WAS fehlt,
+        // die zweite, WO man nachsieht. Auf 240 runden Bildpunkten ist das
+        // die kuerzeste ehrliche Fassung.
+        if (zustand.empty() || zustand == "unavailable") {
+          it.print(cx, cy - 10, id(font_s), id(c_warnung), TextAlign::CENTER,
+                   "Kein Wert aus Home Assistant");
+          it.print(cx, cy + 10, id(font_s), id(c_gedaempft), TextAlign::CENTER,
+                   "Entitaet pruefen: Filter \"yapa\"");
+          return;
+        }
         it.print(cx, cy, id(font_m), id(c_gedaempft), TextAlign::CENTER, text);
         return;
       }

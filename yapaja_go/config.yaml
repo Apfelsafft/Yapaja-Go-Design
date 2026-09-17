@@ -10,7 +10,7 @@
 name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.12.0"
+version: "0.12.1"
 # ─── MINDESTVERSION VON HOME ASSISTANT ──────────────────────────────────────
 # Seit 0.8.4 sind die selten angefassten Optionen in aufklappbaren Gruppen
 # zusammengefasst. Verschachtelte Konfiguration gibt es in Home Assistant aber

@@ -189,6 +189,44 @@ Abstufung auffiele, gibt es nicht.
 `esphome/test/puffer.test.ts` rechnet die Größe bei jedem Testlauf nach und
 schlägt an, wenn sie über 64 KB steigt.
 
+### Wenn „Kein Wert aus Home Assistant" auf dem Display steht
+
+Das Gerät ist verbunden — es bekommt nur keinen Wert. In ESPHome steht es dann
+als **Gerät online** mit IP-Adresse da, und trotzdem zeigt das Display diesen
+Satz. Beides stimmt.
+
+Der wahrscheinliche Grund: **Die Entität heißt in Home Assistant anders, als
+diese Konfiguration sie sucht.**
+
+Home Assistant vergibt die Entity-ID aus Geräte- *plus* Entitätsnamen, solange
+die MQTT-Discovery kein `object_id` mitschickt. Seit Yapaia 0.6.9 schickt sie
+eines mit, und dann heißt sie `sensor.yapaja_nav_state`. **Ältere
+Installationen behalten ihre einmal vergebene ID** — dort heißt dieselbe
+Entität `sensor.yapaia_go_nav_state`. Eine Registrierung benennt nichts um.
+
+(Genau deshalb erzeugt Yapaia sein Lovelace-Dashboard zur Laufzeit, statt es
+fertig auszuliefern: es *sieht nach*, wie die Entitäten heißen. Diese Datei
+kann das nicht — ESPHome löst die Namen beim Übersetzen auf.)
+
+**So finden Sie es heraus:**
+
+1. Home Assistant → **Entwicklerwerkzeuge → Zustände**
+2. Im Filter `yapa` eingeben
+3. Dort steht die echte ID, etwa `sensor.yapaia_go_nav_state`
+
+Weicht der Anfang ab, tragen Sie ihn oben in `navi.yaml` unter
+`substitutions:` ein und flashen neu:
+
+```yaml
+substitutions:
+  entity_praefix: sensor.yapaia_go
+  entity_praefix_binaer: binary_sensor.yapaia_go
+```
+
+**Findet der Filter gar nichts**, liegt es nicht am Namen: dann veröffentlicht
+Yapaia die Entitäten noch nicht. Prüfen Sie im Add-on, ob MQTT oder der
+HA-interne Kanal eingeschaltet ist.
+
 ### Wenn das WLAN nicht zustande kommt
 
 Das ist **kein Fehler dieser Konfiguration**, aber der zweite Stolperstein
