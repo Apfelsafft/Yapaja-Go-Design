@@ -35,7 +35,29 @@ import {
   type AutobahnDienst,
   type Verkehrsmeldung,
 } from './autobahn.js';
+import { symbolFuer } from '../map/styles/verkehrSymbole.js';
 import { VerkehrCache } from './verkehrCache.js';
+
+/**
+ * Eine Meldung, wie sie an die Oberfläche geht: mit dem Namen ihres Bildes.
+ *
+ * ─── WARUM DER KERN DAS SYMBOL MITLIEFERT ───────────────────────────────────
+ * Weil sonst die Oberfläche die Zuordnung Art→Bild kennen müsste. Ein
+ * Versuch, sie dort per `import` aus dem Kern zu holen, hätte alle Tests
+ * bestanden und den BROWSER-BAU gebrochen: `@yapaia/core` steht in der
+ * Auflösung von `vitest.config.ts`, aber nicht in der von
+ * `apps/web/vite.config.ts`.
+ *
+ * Die Zuordnung zweimal zu schreiben wäre die andere Möglichkeit gewesen —
+ * und damit zwei Stellen, die auseinanderlaufen können, während MapLibre zu
+ * einem unbekannten `icon-image` schweigt.
+ *
+ * Also trägt die Meldung ihr Bild selbst. Ein Besitzer, keine Kopie.
+ */
+export interface VerkehrsmeldungMitBild extends Verkehrsmeldung {
+  /** Der Name im Sprite-Blatt, oder `null`, wenn es für die Art keines gibt. */
+  symbol: string | null;
+}
 
 /**
  * Welche Dienste für die Karte abgefragt werden.
@@ -68,8 +90,8 @@ export interface StrassenBefund {
 }
 
 export interface VerkehrBefund {
-  /** Alle zeichenbaren Meldungen, entdoppelt. */
-  meldungen: Verkehrsmeldung[];
+  /** Alle zeichenbaren Meldungen, entdoppelt — jede mit ihrem Bildnamen. */
+  meldungen: VerkehrsmeldungMitBild[];
   /** Je Straße: woher die Daten kommen. */
   strassen: StrassenBefund[];
   /** Meldungen MIT Text, aber OHNE Ort — sie können nicht auf die Karte. */
@@ -208,7 +230,11 @@ export async function holeVerkehr(
     befunde.push({ strasse, quelle: 'frisch', meldungen: meldungen.length });
   }
 
-  return { meldungen: [...gesammelt.values()], strassen: befunde, ohne_ort: ohneOrt };
+  return {
+    meldungen: [...gesammelt.values()].map((m) => ({ ...m, symbol: symbolFuer(m) })),
+    strassen: befunde,
+    ohne_ort: ohneOrt,
+  };
 }
 
 /**

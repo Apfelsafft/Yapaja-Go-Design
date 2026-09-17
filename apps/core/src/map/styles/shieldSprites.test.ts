@@ -33,6 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { buildBaseLayers } from './baseLayers';
 import { LIGHT_PALETTE, DARK_PALETTE, CONTRAST_PALETTE, OUTDOOR_PALETTE } from './palette';
 import { SPRITE_URL, SHIELD_ICONS, SHIPPED_ICONS, SHIELD_TEXT_COLORS } from './sprites';
+import { VERKEHR_SYMBOLE, VERKEHR_ICONS, VERKEHR_BEZEICHNUNG } from './verkehrSymbole';
 
 /** Alle Bildnamen, die in einem Ausdruck vorkommen. */
 function bildnamen(ausdruck: unknown): string[] {
@@ -224,4 +225,64 @@ describe('Straßenschilder — Stil gegen die ausgelieferten Bilder', () => {
     expect(Object.keys(SHIELD_TEXT_COLORS).sort()).toEqual(Object.keys(SHIELD_ICONS).sort());
   });
 
+});
+
+/**
+ * ─── DIE SYMBOLE DER VERKEHRSLAGE ───────────────────────────────────────────
+ *
+ * Dieselbe Falle wie bei den Schildern und den POIs, zum dritten Mal: ein
+ * `icon-image`, das im Blatt nicht vorkommt, ist KEIN Fehler — die Ebene
+ * bleibt einfach leer. MapLibre sagt dazu nichts.
+ *
+ * Deshalb hält dieser Block beide Richtungen gegeneinander: jedes benannte
+ * Symbol liegt im Blatt, und jedes Bild im Blatt wird auch benannt.
+ */
+describe('Verkehrssymbole', () => {
+  it('zu jeder Meldungsart gibt es ein Bild im Blatt', () => {
+    const vorhanden = new Set(Object.keys(spriteJson()));
+    for (const [art, symbol] of Object.entries(VERKEHR_SYMBOLE)) {
+      expect(
+        vorhanden.has(symbol),
+        `Die Art "${art}" nennt "${symbol}" — das Blatt führt es nicht. ` +
+          'Die Meldung bliebe unsichtbar, ohne Fehlermeldung.',
+      ).toBe(true);
+    }
+  });
+
+  it('jedes verkehr-Bild im Blatt gehört auch zu einer Art', () => {
+    // Totes Gewicht in einem Add-on, das offline auf einem Fahrzeugrechner
+    // liegt — und schlimmer: ein Hinweis darauf, dass eine Art vergessen
+    // wurde.
+    const genannt = new Set<string>(VERKEHR_ICONS);
+    for (const name of Object.keys(spriteJson())) {
+      if (!name.startsWith('verkehr-')) continue;
+      expect(genannt.has(name), `"${name}" liegt im Blatt, wird aber nirgends genannt`).toBe(true);
+    }
+  });
+
+  it('auch im @2x-Blatt', () => {
+    // Auf dem iPad wird das feine Blatt geladen. Fehlte dort ein Symbol,
+    // wäre die Meldung genau auf dem Gerät unsichtbar, auf dem getestet wird.
+    const fein = new Set(Object.keys(spriteJson('@2x')));
+    for (const symbol of VERKEHR_ICONS) {
+      expect(fein.has(symbol), `"${symbol}" fehlt im @2x-Blatt`).toBe(true);
+    }
+  });
+
+  it('Verkehrssymbole heißen nicht wie POI-Symbole', () => {
+    // Eine Baustelle ist kein Ort, den man ansteuert. Gerieten die Namen
+    // durcheinander, zeigte die POI-Ebene Baustellen und umgekehrt — und
+    // beides sähe aus, als sei es so gemeint.
+    for (const name of VERKEHR_ICONS) {
+      expect(name.startsWith('verkehr-'), `"${name}" folgt nicht der Namensregel`).toBe(true);
+    }
+  });
+
+  it('die Bezeichnung ist ein WORT und kein Bezeichner', () => {
+    // Sie steht in der Oberfläche. Ein `verkehr-baustelle` dort wäre kein
+    // Text, sondern ein durchgerutschter Schlüssel.
+    for (const wort of Object.values(VERKEHR_BEZEICHNUNG)) {
+      expect(wort).toMatch(/^[A-ZÄÖÜ][a-zäöüß]+$/);
+    }
+  });
 });

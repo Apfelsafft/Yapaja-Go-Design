@@ -10,6 +10,78 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.12.1
+
+**Der ESP32 sagt jetzt, was ihm wirklich fehlt.**
+
+Gemeldet mit Foto: Das Display zeigte **„Keine Verbindung"** — während dasselbe
+Gerät in ESPHome als *Gerät online* mit IP-Adresse dastand.
+
+Beides stimmte. Die Verbindung war da; es fehlte der **Wert**. Der Satz zeigte
+damit genau dorthin, wo nichts zu finden war: zum Router, zum WLAN, zur API.
+
+### Was tatsächlich fehlt
+
+Die Entität heißt in Home Assistant sehr wahrscheinlich anders, als die
+ESP-Konfiguration sie sucht. Home Assistant vergibt die Entity-ID aus Geräte-
+*plus* Entitätsnamen; ältere Installationen haben deshalb
+`sensor.yapaia_go_nav_state` statt `sensor.yapaja_nav_state` — und eine
+Registrierung benennt nichts um.
+
+Yapaias Lovelace-Dashboard löst das seit Langem, indem es zur Laufzeit
+*nachsieht*. Die ESP-Konfiguration konnte das nie: ESPHome löst die Namen beim
+Übersetzen auf. Sie hatte die Namen fest verdrahtet.
+
+### Was sich ändert
+
+* **Die Meldung sagt, was los ist:** „Kein Wert aus Home Assistant" und
+  darunter, wo man nachsieht. Zwei Zeilen, weil eine nicht reicht.
+* **Die Entitätsnamen stehen an einer Stelle**, ganz oben in der
+  Konfiguration unter `substitutions:` — mit der Anleitung daneben, wie man
+  die richtigen findet (Entwicklerwerkzeuge → Zustände → Filter `yapa`).
+* `esphome/README.md` hat einen eigenen Abschnitt dazu.
+
+Das ist dieselbe Fehlerklasse, die dieses Projekt seit Monaten verfolgt: eine
+Meldung, die einen Zustand beschreibt, den sie nicht hat — und die Suche in
+die falsche Richtung lenkt.
+
+---
+
+## 0.12.0
+
+**Baustellen und Sperrungen stehen auf der Karte.**
+
+Sobald eine Route über eine Bundesautobahn führt, holt Yapaia die Meldungen
+für genau diese Autobahnen und zeichnet sie ein: ein bernsteinfarbener
+Leitkegel für Baustellen, ein roter Balken für Sperrungen.
+
+* **Nur mit Route, nur bei Änderung.** Ohne Route wird nicht gefragt. Ändern
+  sich die Autobahnen nicht, wird auch nicht neu gefragt — die Position
+  kommt im Sekundentakt, die Strecke nicht.
+* **Nur Autobahnen.** Die Schnittstelle der Autobahn GmbH führt ausschließlich
+  Bundesautobahnen; eine Anfrage nach der B9 käme als leere Liste zurück und
+  wäre von „dort ist nichts los" nicht zu unterscheiden.
+* **Sperrungen gewinnen.** Überdecken sich zwei Symbole, bleibt die Sperrung
+  stehen. Eine Baustelle kostet Zeit, eine Sperrung die ganze Strecke.
+
+### Und der Hinweis, der die Lücken nennt
+
+Über der Karte erscheint ein Satz, wenn etwas **fehlt**:
+
+> Für A3 liegen gerade keine Verkehrsdaten vor — dort kann etwas sein, das
+> hier nicht steht.
+
+Ist alles da, steht dort nichts. Ein Hinweis, der bei jeder Fahrt erscheint,
+wird nach drei Tagen nicht mehr gelesen.
+
+Der Satz ist der eigentliche Punkt: Eine Karte ohne Baustellensymbole kann
+zweierlei heißen — es ist nichts gemeldet, oder es konnte niemand nachsehen.
+Für jemanden, der auf eine gesperrte Autobahn zufährt, ist das der ganze
+Unterschied. Genauso wird gesagt, wenn die Daten aus dem Zwischenspeicher
+stammen und wie alt sie sind.
+
+---
+
 ## 0.11.2
 
 **Der ESP32-Bildschirm bleibt nicht mehr schwarz.**

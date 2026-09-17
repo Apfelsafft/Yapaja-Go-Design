@@ -438,6 +438,24 @@ int main() {
 
   Fall ruhe = sommer; ruhe.zustand = "idle";
   genau("idle: nur die Lage melden", ruhe, 240,240, {"Keine Route"});
+
+  // ─── DER ZUSTAND, DEN DIESE PRUEFUNG NICHT KANNTE ────────────────────────
+  // Gemeldet mit Foto: das Geraet zeigte „Keine Verbindung", waehrend es in
+  // ESPHome als „Geraet online" mit IP-Adresse dastand. Beides stimmte — die
+  // Verbindung war da, nur die ENTITAET lieferte keinen Wert.
+  //
+  // Diese Pruefung hatte Faelle fuer `idle` und `off_route`, aber keinen fuer
+  // den LEEREN Zustand. Genau der ist beim ersten Einschalten der Normalfall:
+  // solange Home Assistant nichts geschickt hat, ist der Text leer.
+  //
+  // Der alte Satz schickte an den Router. Der neue sagt, was fehlt und wo man
+  // nachsieht.
+  Fall stumm = sommer; stumm.zustand = "";
+  genau("leerer Zustand: sagt WAS fehlt, nicht -keine Verbindung-", stumm, 240,240,
+        {"Kein Wert aus Home Assistant", "Entitaet pruefen: Filter \"yapa\""});
+  Fall unbekannt = sommer; unbekannt.zustand = "unavailable";
+  genau("unavailable: derselbe Fall", unbekannt, 240,240,
+        {"Kein Wert aus Home Assistant", "Entitaet pruefen: Filter \"yapa\""});
   Fall weg = sommer; weg.zustand = "off_route";
   genau("off_route", weg, 240,240, {"Abseits der Route"});
 
