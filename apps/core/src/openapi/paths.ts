@@ -92,6 +92,25 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     tags: ['Karten'],
   },
   'GET /api/v1/jobs/:id': { summary: 'Download-/Import-Job-Status (progress, eta, error)', tags: ['Karten'] },
+
+  // ─── ONLINE-DIENSTE ────────────────────────────────────────────────────
+  // Die einzigen Endpunkte, bei denen Yapaia das Haus verlässt. Beide
+  // abfragenden sind POST und nicht GET, obwohl sie nur lesen: ein GET wird
+  // von Browsern vorgeholt, von Erreichbarkeitsprüfungen abgefragt und von
+  // Dashboards im Hintergrund geladen — nichts davon soll ungefragt eine
+  // Anfrage an einen fremden Server auslösen.
+  'GET /api/v1/online/status': {
+    summary: 'Sind die Online-Dienste an? (ruft NICHT nach draußen)',
+    tags: ['Online'],
+  },
+  'POST /api/v1/online/diagnose': {
+    summary: 'Ruft die Online-Dienste wirklich auf und berichtet im Klartext',
+    tags: ['Online'],
+  },
+  'POST /api/v1/online/verkehr': {
+    summary: 'Baustellen und Sperrungen für die genannten Autobahnen',
+    tags: ['Online'],
+  },
   'DELETE /api/v1/jobs/:id': { summary: 'Job abbrechen', tags: ['Karten'] },
   'GET /tiles/:regionParam': { summary: 'PMTiles-Kachel (HTTP-Range-Support)', tags: ['Karten'], rawResponse: true },
   'GET /api/v1/map/regions': { summary: 'Installierte Kartenregionen', tags: ['Karten'] },
