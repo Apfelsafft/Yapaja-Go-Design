@@ -10,6 +10,41 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.12.2
+
+**Das Optionen-Menü ist aufgeräumt.**
+
+Zweimal gemeldet, wörtlich gleich:
+
+> „Das options Menü ist überfrachtet. Man kann die oberen Einträge nicht mehr
+> lesen."
+
+Beim ersten Mal habe ich nur die Höhe begrenzt und das Menü scrollbar gemacht.
+Der Inhalt blieb derselbe — er lief nur nicht mehr oben aus dem Bild. Das war
+ein Symptom-Fix, und er hat die Meldung nicht beendet.
+
+Jetzt ist das Menü nach **Häufigkeit** geteilt:
+
+| sofort sichtbar | zugeklappt |
+| --- | --- |
+| **Kartenstil** — der Grund, aus dem man dieses Menü öffnet | **Darstellung** — Hell/Dunkel, Sprache, Schriftgröße, POI-Dichte |
+| **Angezeigte Region** — unterwegs im Grenzgebiet mehrmals am Tag | **Gerät** — Links-/Rechtshänder, Einrichtungs-Assistent |
+
+Nichts ist verschwunden: jede Klappe geht mit einem Tipp auf die Überschrift
+wieder auf, und die ganze Zeile schaltet — nicht nur das kleine Dreieck. Im
+fahrenden Fahrzeug ist ein 12-Punkte-Ziel nicht zu treffen.
+
+„Angezeigte Region" bleibt bis zu vier installierten Karten offen; das ist der
+Normalfall, und dort soll der Wechsel **ein** Tipp sein. Ab der fünften Karte
+klappt die Liste zu, damit sie nicht alles andere aus dem Bild schiebt.
+
+Statt „überfrachtet" gibt es jetzt eine Zahl: das Menü zählt beim Öffnen seine
+Bedienzeilen und darf vierzehn nicht überschreiten. Vorher waren es
+fünfundzwanzig. Ein Test hält das fest, damit es nicht ein drittes Mal
+zuwächst.
+
+---
+
 ## 0.12.1
 
 **Der ESP32 sagt jetzt, was ihm wirklich fehlt.**

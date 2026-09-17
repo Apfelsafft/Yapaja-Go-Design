@@ -74,6 +74,28 @@ async function openStylePanel(page: Page): Promise<void> {
   await expect(page.locator('[data-testid="style-panel"]')).toBeVisible({ timeout: 5_000 });
 }
 
+/**
+ * Oeffnet einen zugeklappten Abschnitt des Kartenmenues.
+ *
+ * ─── WARUM ES DIESEN HELFER SEIT 0.12.2 BRAUCHT ─────────────────────────────
+ * Die selten gebrauchten Einstellungen (Sprache, Schriftgroesse, POI-Dichte,
+ * Haendigkeit) liegen seit dem Umbau hinter einer Klappe. Der Betreiber hatte
+ * ZWEIMAL gemeldet, dass das Menue ueberfrachtet sei.
+ *
+ * Fuenf Pruefungen hier sind daran haengengeblieben — zu Recht: sie haben die
+ * Knoepfe vorher direkt gefunden, und jetzt kostet es einen Tipp mehr. Genau
+ * diesen Tipp macht dieser Helfer, statt ihn zu umgehen. Wuerde er die Klappe
+ * per Quelltext aufziehen, pruefte er einen Weg, den es fuer den Betreiber
+ * nicht gibt.
+ */
+async function oeffneAbschnitt(page: Page, id: string): Promise<void> {
+  const schalter = page.locator(`[data-testid="panel-abschnitt-schalter-${id}"]`);
+  await expect(schalter).toBeVisible({ timeout: 5_000 });
+  if ((await schalter.getAttribute('aria-expanded')) !== 'true') {
+    await schalter.click();
+  }
+}
+
 async function selectStyle(page: Page, styleId: string): Promise<void> {
   const option = page.locator(`[data-testid="style-option-${styleId}"]`);
   await expect(option).toBeVisible({ timeout: 5_000 });
@@ -251,6 +273,8 @@ test.describe('style options', () => {
     await waitForMapReady(page);
     await openStylePanel(page);
 
+    // Seit 0.12.2 liegen diese Optionen hinter einer Klappe.
+    await oeffneAbschnitt(page, 'darstellung');
     const poiOff = page.locator('[data-testid="poi-option-off"]');
     await expect(poiOff).toBeVisible({ timeout: 5_000 });
     await poiOff.click();
@@ -294,6 +318,8 @@ test.describe('style options', () => {
     const baseSize = await currentPlaceLabelSize();
     expect(baseSize).toBeTruthy();
 
+    // Seit 0.12.2 liegen diese Optionen hinter einer Klappe.
+    await oeffneAbschnitt(page, 'darstellung');
     await page.locator('[data-testid="labelscale-option-1.2"]').click();
     await expect.poll(() => currentPlaceLabelSize()).toBeCloseTo((baseSize as number) * 1.2, 1);
 
@@ -306,6 +332,8 @@ test.describe('style options', () => {
     await waitForMapReady(page);
     await openStylePanel(page);
 
+    // Seit 0.12.2 liegen diese Optionen hinter einer Klappe.
+    await oeffneAbschnitt(page, 'darstellung');
     await page.locator('[data-testid="lang-option-name_de"]').click();
 
     await expect
@@ -328,6 +356,8 @@ test.describe('style options', () => {
     await openStylePanel(page);
 
     await selectStyle(page, 'yapaja-dark');
+    // Seit 0.12.2 liegen diese Optionen hinter einer Klappe.
+    await oeffneAbschnitt(page, 'darstellung');
     await page.locator('[data-testid="poi-option-off"]').click();
     await page.locator('[data-testid="labelscale-option-1.2"]').click();
     await page.locator('[data-testid="lang-option-name_en"]').click();
@@ -399,6 +429,8 @@ test.describe('offline / same-origin', () => {
       .poll(async () => relativeLuminance(await readCenterPixel(page)), { timeout: 5_000 })
       .toBeLessThan(0.3);
     await selectStyle(page, 'yapaja-contrast');
+    // Seit 0.12.2 liegen diese Optionen hinter einer Klappe.
+    await oeffneAbschnitt(page, 'darstellung');
     await page.locator('[data-testid="poi-option-reduced"]').click();
     await page.locator('[data-testid="lang-option-name_de"]').click();
     await selectStyle(page, 'yapaja-light');
@@ -459,5 +491,81 @@ test.describe('das Kartenmenü bleibt bedienbar', () => {
         /auto|scroll/,
       );
     }
+  });
+});
+
+/**
+ * ─── UND ES MUSS AUCH OHNE BLÄTTERN PASSEN ──────────────────────────────────
+ *
+ * Die Prüfungen darüber halten fest, dass die Klappe im Bild bleibt und sich
+ * blättern lässt. Beides war die Antwort auf den ERSTEN Bericht — und beides
+ * war ein Symptom-Fix: der Inhalt blieb derselbe, er lief nur nicht mehr aus
+ * dem Bild.
+ *
+ * Gemeldet wurde derselbe Satz ein ZWEITES Mal. Blättern zu müssen, um an den
+ * Kartenstil zu kommen, ist im fahrenden Fahrzeug keine Bedienung.
+ *
+ * Seit 0.12.2 sind die selten gebrauchten Abschnitte zugeklappt (siehe
+ * `map/panelAbschnitte.ts`). Diese Prüfung hält fest, was dabei herauskommen
+ * soll: die Klappe passt beim Öffnen OHNE Blättern in den Bildschirm.
+ */
+test.describe('das Kartenmenü ist nicht mehr überfrachtet', () => {
+  test('passt beim Öffnen ohne Blättern in ein 13-Zoll-Tablet', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto(CORE_BASE_URL + '/');
+    await openStylePanel(page);
+
+    const panel = page.locator('[data-testid="style-panel"]');
+    const { scrollHeight, clientHeight } = await panel.evaluate((el) => ({
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+    }));
+    expect(
+      scrollHeight,
+      'die Klappe ist beim Öffnen höher als ihr Platz — man müsste blättern, ' +
+        'um an den Kartenstil zu kommen',
+    ).toBeLessThanOrEqual(clientHeight);
+  });
+
+  test('der Kartenstil steht sofort da, ohne einen Abschnitt zu öffnen', async ({ page }) => {
+    // Der Grund, aus dem man dieses Menü überhaupt öffnet. Ihn hinter einen
+    // Tipp zu legen wäre die falsche Sparsamkeit.
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto(CORE_BASE_URL + '/');
+    await openStylePanel(page);
+
+    await expect(page.getByTestId('panel-abschnitt-stil')).toBeVisible();
+    await expect(page.getByTestId('style-option-yapaja-light')).toBeVisible();
+  });
+
+  test('Darstellung und Gerät sind zugeklappt und lassen sich öffnen', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto(CORE_BASE_URL + '/');
+    await openStylePanel(page);
+
+    // Zugeklappt: die Überschrift ist da, der Inhalt nicht. Dieser Test darf
+    // `oeffneAbschnitt` NICHT benutzen — er prüft gerade den Zustand davor.
+    await expect(page.getByTestId('panel-abschnitt-schalter-darstellung')).toBeVisible();
+    await expect(page.getByTestId('poi-option-off')).toHaveCount(0);
+
+    // Und ein Tipp bringt ihn zurück — sonst wäre er nicht gefaltet,
+    // sondern weg.
+    await page.getByTestId('panel-abschnitt-schalter-darstellung').click();
+    await expect(page.getByTestId('poi-option-off')).toBeVisible();
+  });
+
+  test('die ganze Überschrift schaltet, nicht nur das Dreieck', async ({ page }) => {
+    // Im fahrenden Fahrzeug ist ein 12-Punkte-Ziel nicht zu treffen.
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto(CORE_BASE_URL + '/');
+    await openStylePanel(page);
+
+    const schalter = page.getByTestId('panel-abschnitt-schalter-geraet');
+    const box = await schalter.boundingBox();
+    expect(box, 'der Schalter hat keine Ausdehnung').not.toBeNull();
+    // Mindestens so breit wie die halbe Klappe und hoch genug für einen
+    // Finger.
+    expect(box!.width).toBeGreaterThan(120);
+    expect(box!.height).toBeGreaterThanOrEqual(28);
   });
 });
