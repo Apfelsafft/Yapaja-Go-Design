@@ -10,6 +10,53 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.11.2
+
+**Der ESP32-Bildschirm bleibt nicht mehr schwarz.**
+
+Nach dem erfolgreichen Flashen meldete das Gerät:
+
+> `[E][display:016]: Could not allocate buffer for display!`
+> `[E][component:204]: display was marked as failed`
+
+Alles andere lief weiter — nur der Bildschirm blieb dunkel.
+
+### Die Ursache, nachgerechnet
+
+Der Bildpuffer war mit **115 200 Byte** angesetzt (240 × 240 bei 16 Bit
+Farbe, ESPHomes Voreinstellung) und musste **am Stück** in den
+Arbeitsspeicher passen. Der ESP32-C3 auf diesem Board hat 400 KB und kein
+PSRAM; nach dem Start von WLAN und der verschlüsselten API ist der freie
+Speicher zerstückelt. Ein zusammenhängender Block dieser Größe ist dort die
+Ausnahme.
+
+Mit `color_palette: 8BIT` sind es **57 600 Byte** — die Hälfte. Der Preis
+sind 256 statt 65 536 Farben, und den merkt diese Anzeige nicht: dunkler
+Grund, weißer Text, ein blauer Pfeil, rot für zu schnell, grün für gut.
+Farbverläufe gibt es keine.
+
+### Das Unangenehme daran
+
+In `esphome/README.md` stand dieser Fallstrick schon beschrieben — *„Das
+geht, ist aber neben WLAN und API knapp"* — und ausgeliefert wurde trotzdem
+die riskante Voreinstellung. Ein dokumentierter Fallstrick, in den man
+anschließend selbst hineinlaufen lässt, ist keine Dokumentation.
+
+Die Puffergröße wird jetzt bei jedem Testlauf nachgerechnet und schlägt an,
+bevor etwas auf ein Gerät kommt. Der dort empfohlene Ausweg (`GRAYSCALE`)
+war außerdem der schlechtere: gleiche Puffergröße, aber zusätzlich ohne
+Farbe — und die Tempo-Warnung soll rot sein.
+
+### Und wenn das WLAN nicht will
+
+Die zweite Meldung in Ihrem Protokoll (`Probe Request Unsuccessful`) kommt
+nicht von dieser Konfiguration, sondern vom Netz. `esphome/README.md` hat
+dafür jetzt einen eigenen Abschnitt: was sich aus dem Protokoll ablesen
+lässt und in welcher Reihenfolge sich die vier häufigen Ursachen prüfen
+lassen.
+
+---
+
 ## 0.11.1
 
 **Die ESP32-Anzeige lässt sich jetzt übersetzen.**

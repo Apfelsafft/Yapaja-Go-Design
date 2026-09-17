@@ -213,6 +213,39 @@ display:
       width: 240
       height: 240
     invert_colors: true
+    # ─── WARUM 8 BIT UND NICHT DIE VOREINSTELLUNG ──────────────────────────
+    # Gemeldet vom Geraet, direkt nach dem Flashen:
+    #
+    #   [E][display:016]: Could not allocate buffer for display!
+    #   [E][component:204]: display was marked as failed
+    #
+    # Der Bildpuffer passte nicht in den Arbeitsspeicher. Nachgerechnet aus
+    # ESPHomes eigenem Quelltext statt geschaetzt:
+    #
+    #   ili9xxx_display.h:   ILI9XXXColorMode buffer_color_mode_{BITS_16};
+    #   ili9xxx_display.cpp: if (buffer_color_mode_ == BITS_16)
+    #                          init_internal_(get_buffer_length_() * 2);
+    #
+    # Voreinstellung ist also 16 Bit je Bildpunkt:
+    #
+    #   240 x 240 x 2 Byte = 115 200 Byte -- AM STUECK.
+    #
+    # Der ESP32-C3 auf diesem Board hat 400 kB SRAM und KEIN PSRAM. Davon
+    # gehen WLAN-Stapel, TCP/IP und die verschluesselte API ab, und was
+    # uebrig bleibt, ist nach dem Start des Funks zerstueckelt. Ein
+    # zusammenhaengender Block von 115 kB ist dort die Ausnahme, nicht die
+    # Regel -- deshalb ist das Display gescheitert, waehrend alles andere
+    # weiterlief.
+    #
+    # `8BIT` halbiert ihn auf 57 600 Byte. Gespeichert wird dann RGB332
+    # (ili9xxx_display.cpp, Zweig `default:` -> `color_to_332`); eine Palette
+    # braucht es dafuer NICHT.
+    #
+    # Der Preis: 256 statt 65 536 Farben. Fuer diese Anzeige ist das
+    # folgenlos -- dunkler Grund, weisser und gedaempfter Text, ein blauer
+    # Pfeil, rot fuer zu schnell, gruen fuer gut. Farbverlaeufe gibt es hier
+    # keine, an denen eine Abstufung auffiele.
+    color_palette: 8BIT
     # Yapaia meldet im Sekundentakt; 500 ms zeichnen ist fluessig genug und
     # laesst dem Funk Luft. Auf dem C3 ist beides knapp.
     update_interval: 500ms

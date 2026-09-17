@@ -149,12 +149,85 @@ Zeichenroutine rechnet in Anteilen der Displaygröße.
 | Guition JC3248W535 | 320 × 480 | `qspi_dbi` / `AXS15231` | `false` |
 | Sunton ESP32-8048S043 | 800 × 480 | `rpi_dpi_rgb` | `false` |
 
-### Wenn der Arbeitsspeicher nicht reicht
+### Der Arbeitsspeicher — und warum hier `8BIT` steht
 
-Ein voller Bildpuffer ist 240 × 240 × 2 Bytes = **115 KB** von 400 KB. Das
-geht, ist aber neben WLAN und API knapp. Wirft das Gerät beim Start einen
-Speicherfehler, halbiert `color_palette: GRAYSCALE` im `display:`-Block den
-Puffer auf 58 KB — um den Preis, dass die Tempo-Warnung nicht mehr rot ist.
+An dieser Stelle stand bis 0.11.2 der Satz: *„Ein voller Bildpuffer ist
+115 KB von 400 KB. Das geht, ist aber neben WLAN und API knapp."*
+
+**Es ging nicht.** Beim ersten Flashen auf echter Hardware:
+
+```
+[E][display:016]: Could not allocate buffer for display!
+[E][component:204]: display was marked as failed
+```
+
+Das Übrige lief weiter — WLAN, API, das ganze Programm. Nur der Bildschirm
+blieb schwarz. Die Gefahr war hier beschrieben, und ausgeliefert wurde
+trotzdem die riskante Voreinstellung. Ein dokumentierter Fallstrick, in den
+man dann selbst hineinlaufen lässt, ist keine Dokumentation.
+
+Nachgerechnet aus ESPHomes Quelltext (`ili9xxx_display.h/.cpp`, `display.py`):
+
+| Einstellung | Bytes je Punkt | Puffer | Farben |
+|---|---|---|---|
+| ohne Angabe (`BITS_16`) | 2 | **115 200** | 65 536 |
+| `color_palette: 8BIT` | 1 | **57 600** | 256 (RGB332) |
+| `color_palette: GRAYSCALE` | 1 | 57 600 | 256 Graustufen |
+
+Der C3 hat 400 KB SRAM und **kein PSRAM**. Nach dem Start von WLAN, TCP/IP
+und der verschlüsselten API ist der freie Speicher zerstückelt — ein Puffer
+braucht aber *einen zusammenhängenden* Block. 115 KB sind dort die Ausnahme.
+
+Die Konfiguration nutzt deshalb **`8BIT`**. Der alte Rat hier lautete
+`GRAYSCALE`; das ist bei gleicher Puffergröße die schlechtere Wahl, weil es
+zusätzlich die Farbe kostet — und die Tempo-Warnung soll rot sein.
+
+256 Farben genügen dieser Anzeige vollkommen: dunkler Grund, weißer und
+gedämpfter Text, ein blauer Pfeil, rot und grün. Farbverläufe, an denen eine
+Abstufung auffiele, gibt es nicht.
+
+`esphome/test/puffer.test.ts` rechnet die Größe bei jedem Testlauf nach und
+schlägt an, wenn sie über 64 KB steigt.
+
+### Wenn das WLAN nicht zustande kommt
+
+Das ist **kein Fehler dieser Konfiguration**, aber der zweite Stolperstein
+beim ersten Einschalten. So sieht es aus:
+
+```
+[I][wifi:1486]: - 'MeinNetz' (9E:FA:43:DC:38:E6) ▂▄▆█
+[W][wifi_esp32:860]: Disconnected ssid='MeinNetz' reason='Probe Request Unsuccessful'
+[W][wifi_esp32:869]: Disconnected ssid='MeinNetz' reason='Unspecified'
+```
+
+Zu lesen ist daraus zweierlei, und beides ist eine Tatsache und keine
+Vermutung:
+
+* Der Name **stimmt** und das Netz ist auf 2,4 GHz — sonst stünde es nicht in
+  der Liste, und der Balken zeigt guten Empfang.
+* Es scheitert an der **Anmeldung**, nicht am Finden.
+
+Häufige Ursachen, in der Reihenfolge, in der sich das prüfen lässt:
+
+1. **Falsches Passwort** in `secrets.yaml` unter `wifi_password`. Der
+   häufigste Fall, und der am schnellsten ausgeschlossene.
+2. **WPA3 ausschließlich.** Der C3 kann WPA3, aber manche Router verlangen
+   zusätzlich „Protected Management Frames" zwingend. Stellen Sie den Router
+   testweise auf **WPA2/WPA3 gemischt**.
+3. **Gastnetz oder Mesh-Knoten.** Beginnt die zweite Stelle der BSSID mit
+   `2`, `6`, `A` oder `E` (im Beispiel oben `9E:…`), ist es eine *virtuelle*
+   Zugangskennung — typisch für Gastnetze und Mesh. Dort ist oft die
+   Client-Trennung aktiv, und das Gerät käme ohnehin nicht an Home Assistant
+   heran. Nehmen Sie das normale Netz.
+4. **MAC-Filter** im Router.
+
+Hilft nichts davon, probieren Sie `fast_connect: true` im `wifi:`-Block: das
+überspringt den Suchlauf und meldet sich direkt an, was bei manchen
+Mesh-Aufbauten den Unterschied macht.
+
+Solange kein WLAN da ist, öffnet das Gerät nach kurzer Zeit den eigenen
+Zugangspunkt **„Yapaia Navi Fallback"** — darüber lässt es sich im Browser
+neu einrichten, ohne es wieder anzustöpseln.
 
 ### Helligkeit bei Nacht
 
