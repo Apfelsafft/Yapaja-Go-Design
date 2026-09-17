@@ -119,7 +119,10 @@ function makeDockerlessBin(options: { withJava?: boolean } = {}): string {
   mkdirSync(dir, { recursive: true });
   // `bash` gehoert dazu, weil die Stubs selbst `#!/usr/bin/env bash` nutzen --
   // `env` sucht den Interpreter im PATH, nicht im PATH des Aufrufers.
-  for (const tool of ['bash', 'dirname', 'basename', 'mktemp', 'rm', 'mkdir', 'cp', 'mv', 'head', 'wc', 'tr', 'cat', 'stat', 'sync']) {
+  // `tail` und `readlink` kamen mit der Kopfpruefung des Extrakts dazu
+  // (0.10.2). Fehlten sie hier, liefe der Test in einen Fehler, den es im
+  // Add-on-Container nicht gibt — beide sind dort selbstverstaendlich da.
+  for (const tool of ['bash', 'dirname', 'basename', 'mktemp', 'rm', 'mkdir', 'cp', 'mv', 'head', 'tail', 'readlink', 'wc', 'tr', 'cat', 'stat', 'sync']) {
     const resolved = execFileSync(BASH, ['-c', `command -v ${tool} || true`], { encoding: 'utf-8' }).trim();
     if (resolved) {
       symlinkSync(resolved, join(dir, tool));
@@ -169,10 +172,32 @@ afterEach(() => {
   rmSync(work, { recursive: true, force: true });
 });
 
-/** A minimal stand-in for an OSM extract; the stub never parses it. */
+/**
+ * Der Dateikopf einer OSM-PBF, echt nachgebaut.
+ *
+ * Bis 0.10.1 stand hier `Buffer.alloc(1024, 7)` mit dem Vermerk „the stub
+ * never parses it". Das Stub nicht — das SKRIPT jetzt schon: es verwirft seit
+ * 0.10.2 eine Datei ohne diese Kennung, weil ein halb geladener Extrakt im
+ * gemeinsamen Zwischenlager sonst jeden spaeteren Routingbau vergiftet, ohne
+ * eine einzige Fehlermeldung.
+ *
+ * Aufbau laut PBF-Format: 4 Bytes Laenge des BlobHeader (big endian), dann
+ * der BlobHeader als Protobuf — Feld 1 (`type`, Zeichenkette) ergibt 0x0a,
+ * die Laenge 0x09 und die neun Zeichen "OSMHeader".
+ */
+function osmPbfKopf(): Buffer {
+  return Buffer.concat([
+    Buffer.from([0x00, 0x00, 0x00, 0x0d]),
+    Buffer.from([0x0a, 0x09]),
+    Buffer.from('OSMHeader', 'ascii'),
+  ]);
+}
+
+/** A minimal stand-in for an OSM extract; the stub never parses it, aber das
+ *  Skript prueft den Kopf. */
 function writeFakePbf(name = 'liechtenstein-latest.osm.pbf'): string {
   const path = join(work, name);
-  writeFileSync(path, Buffer.alloc(1024, 7));
+  writeFileSync(path, Buffer.concat([osmPbfKopf(), Buffer.alloc(1024, 7)]));
   return path;
 }
 
@@ -239,13 +264,111 @@ describe('build-pmtiles.sh — Ableitung der Regions-ID und des Zielpfads', () =
   });
 });
 
+/**
+ * ─── DER EXTRAKT BLEIBT LIEGEN (0.10.2) ─────────────────────────────────────
+ *
+ * Die gemeldete Wirkung: „Das routing funktioniert nicht mehr. Es erscheint
+ * eine Fehlermeldung ‚no edges found near location'."
+ *
+ * Die Ursache lag hier. Der Kachelbau lud seinen Extrakt in ein temporaeres
+ * Verzeichnis und loeschte ihn per `trap cleanup EXIT` wieder. Der
+ * ROUTINGGRAPH wird aber aus dem gemeinsamen Zwischenlager gebaut -- eine
+ * installierte Karte hinterliess dort nichts. Wer drei Laender installierte
+ * und „Routing bauen" drueckte, bekam Routing fuer genau eines.
+ *
+ * Diese Tests halten die neue Zusicherung fest: nach einem Kachelbau LIEGT
+ * der Extrakt im Zwischenlager, und zwar unter dem Namen der Region.
+ */
+describe('build-pmtiles.sh — der OSM-Extrakt bleibt fuer das Routing liegen', () => {
+  /** Das Zwischenlager, so wie das Skript es ohne Env-Vorgabe ableitet. */
+  function lager(): string {
+    return join(dirname(tilesDir), 'planetiler-sources');
+  }
+
+  it('legt den Extrakt nach dem Bau als <region>.osm.pbf ab', () => {
+    const pbf = writeFakePbf('liechtenstein-latest.osm.pbf');
+    expect(run([pbf]).status).toBe(0);
+    expect(existsSync(join(lager(), 'liechtenstein.osm.pbf'))).toBe(true);
+  });
+
+  it('benennt ihn nach der REGION, nicht nach der Quelldatei', () => {
+    // Sonst laege im geteilten Verzeichnis fuer jede Region dieselbe Datei,
+    // und der Graphbau saehe genau ein Land — egal wie viele gebaut wurden.
+    const pbf = writeFakePbf('irgendwas-latest.osm.pbf');
+    expect(run([pbf, 'schweiz']).status).toBe(0);
+    expect(existsSync(join(lager(), 'schweiz.osm.pbf'))).toBe(true);
+    expect(existsSync(join(lager(), 'irgendwas.osm.pbf'))).toBe(false);
+  });
+
+  it('zwei Regionen hinterlassen ZWEI Extrakte', () => {
+    // Das ist der eigentliche Punkt der ganzen Aenderung: der Graph wird
+    // ueber alles gebaut, was hier liegt.
+    expect(run([writeFakePbf('liechtenstein-latest.osm.pbf')]).status).toBe(0);
+    expect(run([writeFakePbf('switzerland-latest.osm.pbf')]).status).toBe(0);
+    expect(existsSync(join(lager(), 'liechtenstein.osm.pbf'))).toBe(true);
+    expect(existsSync(join(lager(), 'switzerland.osm.pbf'))).toBe(true);
+  });
+
+  it('nutzt einen vorhandenen Extrakt und laedt nicht erneut', () => {
+    // Ohne diese Zusicherung kostete ein zweiter Bau derselben Region 4 GB
+    // Download — auf einem Mobilfunkanschluss teuer erkauft.
+    const pbf = writeFakePbf('liechtenstein-latest.osm.pbf');
+    expect(run([pbf]).status).toBe(0);
+    // Jetzt eine URL uebergeben, die es gar nicht gibt: der Bau muss trotzdem
+    // durchlaufen, weil der Extrakt schon da ist.
+    const zweiter = run(['https://example.invalid/gibts-nicht.osm.pbf', 'liechtenstein']);
+    expect(zweiter.status).toBe(0);
+    expect(zweiter.stdout).toContain('bereits vorhandenen OSM-Extrakt');
+  });
+
+  it('verwirft einen unvollstaendigen Extrakt, statt ihn zu benutzen', () => {
+    // Die gefaehrlichste Datei im Verzeichnis: sie existiert, ist nicht leer,
+    // und jeder spaetere Graphbau nimmt sie — mit einem halben Land und ohne
+    // eine einzige Fehlermeldung.
+    mkdirSync(lager(), { recursive: true });
+    writeFileSync(join(lager(), 'liechtenstein.osm.pbf'), Buffer.alloc(4096, 7));
+    const pbf = writeFakePbf('liechtenstein-latest.osm.pbf');
+    const result = run([pbf]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('unvollstaendig und wird verworfen');
+    // Und danach liegt dort der GUTE Extrakt.
+    const wieder = readFileSync(join(lager(), 'liechtenstein.osm.pbf'));
+    expect(wieder.subarray(6, 15).toString('ascii')).toBe('OSMHeader');
+  });
+
+  it('lehnt eine lokale Datei ab, die keine OSM-PBF ist', () => {
+    // Sie wuerde ins gemeinsame Lager wandern und von dort jeden Routingbau
+    // vergiften. Lieber hier abbrechen.
+    const kaputt = join(work, 'keine-pbf-latest.osm.pbf');
+    writeFileSync(kaputt, Buffer.from('<html>404</html>'));
+    const result = run([kaputt]);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('keine OSM-PBF');
+    expect(existsSync(join(lager(), 'keine-pbf.osm.pbf'))).toBe(false);
+  });
+
+  it('hinterlaesst keine .part-Datei, wenn die Quelle fehlt', () => {
+    // Eine liegengebliebene `.part` waere harmlos — eine liegengebliebene
+    // `.osm.pbf` waere es nicht. Geprueft wird deshalb beides.
+    const result = run(['https://example.invalid/gibts-nicht-latest.osm.pbf']);
+    expect(result.status).not.toBe(0);
+    expect(existsSync(join(lager(), 'gibts-nicht.osm.pbf'))).toBe(false);
+    expect(existsSync(join(lager(), 'gibts-nicht.osm.pbf.part'))).toBe(false);
+  });
+});
+
 describe('build-pmtiles.sh — planetiler-Aufruf', () => {
   it('uebergibt --osm-path/--output und den Xmx-Heap an den Container', () => {
     const pbf = writeFakePbf();
     const result = run([pbf], { PLANETILER_XMX: '3g' });
     expect(result.status).toBe(0);
     const argv = readFileSync(join(work, 'docker-argv.txt'), 'utf-8');
-    expect(argv).toContain('--osm-path=/data/input.osm.pbf');
+    // Der Extrakt liegt seit 0.10.2 im gemeinsamen Zwischenlager (im
+    // Container als /sources eingehaengt) und nicht mehr im Arbeits-
+    // verzeichnis. Er heisst dort nach der REGION, nicht `input.osm.pbf` --
+    // sonst laege in einem Verzeichnis, das alle Regionen teilen, fuer jede
+    // dieselbe Datei.
+    expect(argv).toContain('--osm-path=/sources/liechtenstein.osm.pbf');
     expect(argv).toContain('--output=/data/out.pmtiles');
     expect(argv).toContain('-Xmx3g');
     // Auf eine VERSION gepinnt, nicht `:latest` -- gleiche Regel wie ueberall
@@ -294,7 +417,7 @@ describe('build-pmtiles.sh — planetiler-Aufruf', () => {
     expect(result.status).toBe(0);
     const argv = readFileSync(join(work, 'docker-argv.txt'), 'utf-8');
     expect(argv).toContain('example.invalid/planetiler:pinned');
-    expect(argv).toContain('--input=/data/input.osm.pbf');
+    expect(argv).toContain('--input=/sources/liechtenstein.osm.pbf');
     expect(argv).toContain('--output=/data/out.pmtiles');
     expect(argv).toContain('--eigenes-flag');
     // Die Default-Argumente duerfen dann NICHT zusaetzlich mitlaufen.
@@ -515,7 +638,7 @@ describe('build-pmtiles.sh — atomarer Swap (W-17)', () => {
       dfBinCounter += 1;
       const dir = join(work, `df-bin-${dfBinCounter}`);
       mkdirSync(dir, { recursive: true });
-      for (const tool of ['bash', 'dirname', 'basename', 'mktemp', 'rm', 'mkdir', 'cp', 'mv', 'head', 'wc', 'tr', 'cat', 'stat', 'sync', 'awk']) {
+      for (const tool of ['bash', 'dirname', 'basename', 'mktemp', 'rm', 'mkdir', 'cp', 'mv', 'head', 'tail', 'readlink', 'wc', 'tr', 'cat', 'stat', 'sync', 'awk']) {
         const resolved = execFileSync(BASH, ['-c', `command -v ${tool} || true`], {
           encoding: 'utf-8',
         }).trim();
@@ -574,7 +697,7 @@ describe('build-pmtiles.sh — atomarer Swap (W-17)', () => {
      */
     it('laesst den Faktor ueberschreiben', () => {
       const pbf = join(work, 'gross-latest.osm.pbf');
-      writeFileSync(pbf, Buffer.alloc(20 * 1024 * 1024, 7));
+      writeFileSync(pbf, Buffer.concat([osmPbfKopf(), Buffer.alloc(20 * 1024 * 1024, 7)]));
       const jar = join(work, 'planetiler.jar');
       writeFileSync(jar, 'nicht wirklich ein jar');
 

@@ -275,6 +275,18 @@ export function runBuildJob(
   tilesDir: string,
   deps: BuildJobDeps = {},
   variant: BuildVariant = TILE_BUILD,
+  /**
+   * Zusätzliche Umgebung für genau diesen Lauf.
+   *
+   * Gebraucht vom Routingbau: er bekommt in `YAPAIA_GRAPH_EXTRAKTE` die
+   * Regionen mit, deren OSM-Extrakt noch fehlt (siehe `graphPlan.ts`). Das
+   * Skript sieht nur das Zwischenlager; welche Karten installiert sind und
+   * wo ihr Extrakt herkäme, weiß allein der Kern.
+   *
+   * Als Parameter und nicht in `BuildJobDeps`: `deps` ist das, was für einen
+   * TEST ausgetauscht wird, nicht das, was ein Lauf inhaltlich mitbringt.
+   */
+  zusatzEnv: Record<string, string> = {},
 ): void {
   const logger = deps.logger;
   const spawnFn: SpawnBuildFn =
@@ -301,6 +313,7 @@ export function runBuildJob(
     child = spawnFn(variant.command, [source, entry.id], {
       TILES_DIR: tilesDir,
       PLANETILER_XMX: `${Math.round(BUILD_HEAP_BYTES / 1024 ** 3)}g`,
+      ...zusatzEnv,
     });
   } catch (err) {
     jobs.markError(jobId, {

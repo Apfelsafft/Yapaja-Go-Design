@@ -9,6 +9,7 @@ import {
   fetchInstalledRegions,
   fetchJob,
   startDownload,
+  startGraphBuild,
   RegionApiError,
 } from './client';
 
@@ -161,5 +162,63 @@ describe('deleteRegion', () => {
     ) as unknown as typeof fetch;
 
     await expect(deleteRegion('solo')).rejects.toMatchObject({ code: 'LAST_REGION' });
+  });
+});
+
+/**
+ * ─── DIE RUECKFRAGE ZUR ROUTING-ABDECKUNG ───────────────────────────────────
+ *
+ * Der Kern lehnt einen Routingbau mit 409 `COVERAGE_LOSS` ab, wenn danach
+ * eine installierte Karte ohne Straßendaten dastünde. In 0.10.1 gab es kein
+ * Feld, mit dem man ihn hätte bestätigen können — die Warnung war damit eine
+ * Sackgasse: sie stand da, und der Betreiber kam nicht an ihr vorbei.
+ *
+ * Deshalb prüfen diese Tests nicht bloß, dass ein Feld mitgeht, sondern dass
+ * es sich zwischen den beiden Aufrufen auch UNTERSCHEIDET. Ein fest
+ * verdrahtetes `true` bestünde sonst denselben Test — und hätte die
+ * Rückfrage klammheimlich ganz abgeschafft.
+ */
+describe('startGraphBuild', () => {
+  const originalFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  function gesendeterKoerper(mock: ReturnType<typeof vi.fn>): { abdeckung_bestaetigt?: boolean } {
+    return JSON.parse((mock.mock.calls[0][1] as { body: string }).body) as {
+      abdeckung_bestaetigt?: boolean;
+    };
+  }
+
+  it('fragt ohne Bestätigung — der Kern soll die Rückfrage stellen dürfen', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ job_id: 'j1' }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    expect(await startGraphBuild('germany')).toBe('j1');
+    expect(gesendeterKoerper(fetchMock).abdeckung_bestaetigt).toBe(false);
+  });
+
+  it('reicht die Bestätigung durch, wenn sie gegeben wurde', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ job_id: 'j2' }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    expect(await startGraphBuild('germany', true)).toBe('j2');
+    expect(gesendeterKoerper(fetchMock).abdeckung_bestaetigt).toBe(true);
+  });
+
+  it('gibt COVERAGE_LOSS als RegionApiError MIT Code weiter', async () => {
+    // Die Oberfläche unterscheidet daran Rückfrage von Fehler. Ginge der Code
+    // verloren, landete die Frage wieder in der roten Zeile ohne Ausweg.
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      jsonResponse(
+        { error: { code: 'COVERAGE_LOSS', message: 'Ohne Routing bleiben: mein-bundesland.' } },
+        false,
+        409,
+      ),
+    ) as unknown as typeof fetch;
+
+    await expect(startGraphBuild('germany')).rejects.toMatchObject({
+      code: 'COVERAGE_LOSS',
+    });
   });
 });

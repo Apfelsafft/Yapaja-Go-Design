@@ -31,6 +31,7 @@ import {
   pbfLagerPfad,
   regionenMitExtrakt,
 } from './graphAbdeckung.js';
+import { GRAPH_PLAN_ENV, graphBauPlan, planAlsEnv } from './graphPlan.js';
 import { listRegions } from '../regions.js';
 import { loadCatalog, type CatalogEntry } from './catalog.js';
 import { checkDiskSpace, type StatfsFn } from './disk.js';
@@ -391,25 +392,41 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
         );
       }
 
-      // ─── WAS DIESER BAU KOSTET, BEVOR ER LAEUFT ───────────────────────
-      // Es gibt EINEN Graphen, nicht einen je Region -- die Knoepfe stehen
-      // aber pro Region und legen das Gegenteil nahe. Gemeldet: „Das routing
-      // funktioniert nicht mehr ... Liegt das daran dass nur das routing fuer
-      // Liechtenstein angezeigt wird?" Ja.
+      // ─── EIN GRAPH UEBER ALLE INSTALLIERTEN KARTEN ────────────────────
+      // Es gibt EINEN Routinggraphen, nicht einen je Region -- die Knoepfe
+      // stehen aber pro Region und legen das Gegenteil nahe. Gemeldet: „Das
+      // routing funktioniert nicht mehr ... Liegt das daran dass nur das
+      // routing fuer Liechtenstein angezeigt wird?" Ja.
       //
-      // Der Bau sammelt jede `.osm.pbf` im Zwischenlager ein -- und dort
-      // liegt eine Region nur, wenn fuer SIE schon einmal „Routing bauen"
-      // gedrueckt wurde. Der Kachelbau hinterlaesst keine (siehe
-      // `graphAbdeckung.ts`). Wer drei Laender installiert und beim kleinsten
-      // drueckt, verliert die anderen beiden -- lautlos.
+      // 0.10.1 hat das wenigstens SICHTBAR gemacht: der Bau rechnete vorher
+      // aus, was er verliert, und fragte nach. Der Betreiber bekam damit eine
+      // Warnung — und keinen Weg. Wer drei Laender wollte, konnte nichts tun.
       //
-      // Statt hinterher zu ueberraschen wird vorher gerechnet und gefragt.
-      const abdeckung = abdeckungNachBau({
+      // Seit 0.10.2 ist die Abdeckung keine Auskunft mehr, sondern eine
+      // Ansage: jede installierte Karte kommt in den Graphen. Fehlt ihr
+      // OSM-Extrakt, wird er geladen. Nur was WEDER Extrakt NOCH Quelle hat
+      // (eine von Hand abgelegte `.pmtiles` etwa), bleibt draussen — und
+      // genau das wird benannt, statt lautlos zu fehlen.
+      const plan = graphBauPlan({
         installiert: (await listRegions(tilesDir, fastify.log)).map((r) => r.region),
         mitExtrakt: regionenMitExtrakt(pbfLagerPfad(resolveGraphDir())),
+        katalog: catalog,
+        bauRegion: regionId,
+      });
+      const abdeckung = abdeckungNachBau({
+        installiert: (await listRegions(tilesDir, fastify.log)).map((r) => r.region),
+        // Nach diesem Bau haben genau die Regionen des Plans einen Extrakt —
+        // die vorhandenen und die nachgeladenen. Die Abdeckung aus DEMSELBEN
+        // Plan zu rechnen ist das, was Anzeige und Bau zusammenhaelt; zwei
+        // getrennte Rechnungen waeren wieder zwei Seiten, die je die Haelfte
+        // sehen.
+        mitExtrakt: plan.regionen,
         bauRegion: regionId,
         jetzt: graphRegionenJetzt(resolveGraphDir()),
       });
+
+      // Gefragt wird nur noch bei einem Verlust, den auch dieser Bau nicht
+      // abwenden kann. Alles andere ist jetzt geloest statt gemeldet.
       const verlust = abdeckung.verliert.length > 0 || abdeckung.ohneRouting.length > 0;
       if (verlust && request.body?.abdeckung_bestaetigt !== true) {
         return reply.code(409).send(
@@ -420,7 +437,10 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
       }
 
       const jobId = jobs.create(BUILD_JOB_KIND);
-      fastify.log.info({ abdeckung }, `Routingbau: ${abdeckungSatz(abdeckung)}`);
+      fastify.log.info(
+        { abdeckung, zuLaden: plan.zuLaden.map((z) => z.region) },
+        `Routingbau: ${abdeckungSatz(abdeckung)}`,
+      );
       runBuildJob(
         jobId,
         jobs,
@@ -428,6 +448,7 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
         tilesDir,
         { ...opts.buildDeps, logger: opts.buildDeps?.logger ?? ((line) => fastify.log.info(line)) },
         GRAPH_BUILD,
+        { [GRAPH_PLAN_ENV]: planAlsEnv(plan) },
       );
       return reply.code(202).send({ job_id: jobId, abdeckung });
     },
