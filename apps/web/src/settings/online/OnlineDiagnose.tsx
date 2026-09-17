@@ -133,6 +133,18 @@ export default function OnlineDiagnose(): React.ReactElement {
                     : ' — ohne Koordinaten'}
                 </p>
               )}
+              {/* Die Feldnamen des Dienstes — nur da, wenn etwas nicht aufging.
+                  Sie beantworten die Frage „warum fehlen die Koordinaten?"
+                  ohne Raten. Namen und Typen, keine Werte: dieser Text wird
+                  weitergegeben. */}
+              {z.felder && (
+                <p
+                  className="mt-0.5 break-all font-mono text-[10px] text-slate-500 dark:text-slate-400"
+                  data-testid={`online-diagnose-felder-${z.dienst}`}
+                >
+                  Felder: {z.felder}
+                </p>
+              )}
             </li>
           ))}
         </ul>

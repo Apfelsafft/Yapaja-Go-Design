@@ -60,6 +60,11 @@ export interface JobSnapshot {
    *  Ein Prozentwert wäre dort erfunden — planetilers Ausgabe lässt sich
    *  nicht versionsstabil in eine Zahl übersetzen. */
   note?: string;
+  /** Woran gearbeitet wird. Damit findet die Anzeige nach einem Neuladen
+   *  wieder die Region, unter der sie den Fortschritt zeigen muss. */
+  region?: string;
+  /** `kacheln` | `routing` | `suche`. */
+  bauart?: string;
 }
 
 interface ApiErrorBody {
@@ -235,5 +240,36 @@ export async function deleteRegion(regionId: string): Promise<void> {
   });
   if (!response.ok) {
     throw await toApiError(response);
+  }
+}
+
+/**
+ * Der gerade laufende schwere Bau — oder `null`.
+ *
+ * ─── WOFÜR ──────────────────────────────────────────────────────────────────
+ * Gemeldet: „Wenn man von Yapaia woandershin wechselt und dann wieder aufruft
+ * sind die aktuellen Fortschrittsinformationen vom Bau nicht mehr sichtbar."
+ * Und beim nächsten Druck auf „bauen": „Es läuft bereits ein Bau."
+ *
+ * Beides stimmte. Der Bau lief im Kern ungestört weiter — diese Oberfläche
+ * merkte sich nur im Speicher des Browsers, welcher Job zu welcher Region
+ * gehört, und der ist beim Verlassen der Seite weg. Danach wusste der Kern
+ * alles und zeigte nichts.
+ *
+ * Mit dieser Abfrage hängt sich die Anzeige beim Öffnen wieder an: der Job
+ * trägt seine Region selbst, also weiß sie auch wieder, WO sie den Fortschritt
+ * zeigen muss.
+ *
+ * Wirft nie: keine Antwort heißt „ich weiß es nicht", und das darf die
+ * Regionsliste nicht am Erscheinen hindern.
+ */
+export async function fetchLaufenderBau(): Promise<JobSnapshot | null> {
+  try {
+    const response = await fetch(apiUrl('api/v1/map/regions/laufender-bau'));
+    if (!response.ok) return null;
+    const body = (await response.json()) as { data: JobSnapshot | null };
+    return body?.data ?? null;
+  } catch {
+    return null;
   }
 }

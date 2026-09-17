@@ -27,6 +27,11 @@ export interface DiagnoseZeile {
   schluessel?: string | null;
   eintraege?: number;
   verworfen?: number;
+  /** Mit Titel, aber ohne Koordinaten — nicht auf die Karte zu bringen. */
+  ohne_koordinaten?: number;
+  /** Feldnamen und Typen des Dienstes, ohne Werte. Nur gesetzt, wenn etwas
+   *  nicht aufging — dann beantwortet es die Frage „warum?" ohne Raten. */
+  felder?: string;
   beispiel?: { titel: string; lat: number | null; lon: number | null };
 }
 

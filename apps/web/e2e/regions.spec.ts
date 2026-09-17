@@ -193,3 +193,60 @@ test('die Stil-Anfrage nennt ohne feste Wahl KEINE Region', async ({ page }) => 
     ).toBeNull();
   }
 });
+
+/**
+ * ─── EIN LAUFENDER BAU MUSS EINEN NEUSTART DER SEITE ÜBERLEBEN ──────────────
+ *
+ * Gemeldet: „Wenn man von Yapaia woandershin wechselt und dann wieder aufruft
+ * sind die aktuellen Fortschrittsinformationen vom Bau nicht mehr sichtbar."
+ * Und beim nächsten Druck auf „bauen": „Es läuft bereits ein Bau."
+ *
+ * Beides stimmte gleichzeitig. Der Bau lief im Kern weiter — nur die
+ * Zuordnung „welcher Job gehört zu welcher Region" lag im Speicher des
+ * Browsers und war beim Verlassen der Seite weg.
+ *
+ * Genau das lässt sich NUR in einem echten Browser prüfen: ein Strukturtest
+ * auf der Quelle kann nicht nachstellen, dass eine Seite neu geladen wird.
+ * Der Kern wird deshalb hier vorgetäuscht, die Seite aber ist echt.
+ */
+test('ein laufender Bau ist nach dem Neuladen der Seite weiterhin sichtbar', async ({ page }) => {
+  const LAUFEND = {
+    id: 'job-abc',
+    status: 'running',
+    progress: 0,
+    bytes: 0,
+    totalBytes: null,
+    error: null,
+    note: '[INFO] Baue Routinggraph über germany, switzerland',
+    region: FIXTURE_REGION,
+    bauart: 'routing',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  // Der Kern meldet einen laufenden Bau — so, wie er es nach einem Neuladen
+  // der Seite auch täte, während planetiler oder Valhalla weiterarbeiten.
+  await page.route('**/api/v1/map/regions/laufender-bau', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: LAUFEND }) }),
+  );
+  await page.route(`**/api/v1/jobs/${LAUFEND.id}`, (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: LAUFEND }) }),
+  );
+
+  await page.goto(CORE_BASE_URL + '/');
+  await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
+
+  await page.getByTestId('regions-panel-toggle').click();
+  await expect(page.getByTestId('regions-panel')).toBeVisible();
+
+  // Der Fortschritt steht unter DER Region, zu der er gehört — nicht
+  // irgendwo. An der falschen Stelle wäre er schlimmer als gar nicht.
+  await expect(page.getByTestId(`download-progress-${FIXTURE_REGION}`)).toBeVisible();
+
+  // Und die Statuszeile ist lesbar: ohne Terminal-Farbcodes, die im Browser
+  // als sichtbarer Zeichensalat genau das Wort umklammern, auf das es
+  // ankommt.
+  const status = page.getByTestId(`job-status-${FIXTURE_REGION}`);
+  await expect(status).toContainText('[INFO]');
+  await expect(status).not.toContainText('[32;1m');
+});

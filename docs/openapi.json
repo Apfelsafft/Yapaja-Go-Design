@@ -862,6 +862,29 @@
         }
       }
     },
+    "/api/v1/map/regions/laufender-bau": {
+      "get": {
+        "summary": "Der gerade laufende schwere Bau (Kacheln/Routing/Suche) oder null",
+        "tags": [
+          "Karten"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/jobs/{id}": {
       "get": {
         "summary": "Download-/Import-Job-Status (progress, eta, error)",

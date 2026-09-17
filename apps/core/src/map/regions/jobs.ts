@@ -35,6 +35,27 @@ export interface JobSnapshot {
    *  B-04). Ein Prozentwert waere dort erfunden; diese Zeile sagt
    *  stattdessen, WORAN gerade gearbeitet wird. */
   note?: string;
+  /**
+   * Woran gearbeitet wird — Region und Bauart.
+   *
+   * ─── WARUM DAS HIER STEHEN MUSS ───────────────────────────────────────
+   * Gemeldet: „Wenn man von Yapaia woandershin wechselt und dann wieder
+   * aufruft sind die aktuellen Fortschrittsinformationen vom Bau nicht mehr
+   * sichtbar."
+   *
+   * Der Bau lief weiter — die Oberflaeche hatte nur vergessen, WELCHER Job
+   * zu welcher Region gehoert: sie merkte sich das im Speicher des Browsers,
+   * und der ist beim Verlassen der Seite weg. Ein Druck auf „bauen" sagte
+   * danach „es laeuft bereits ein Bau", ohne zu zeigen, welcher.
+   *
+   * Dieselbe Fehlerklasse wie schon mehrfach hier: die Auskunft existiert,
+   * sie ist von dort, wo der Betreiber hinsieht, nur nicht erreichbar.
+   * Deshalb traegt der Job sie jetzt selbst, und die Oberflaeche kann sich
+   * nach einem Neuladen wieder anhaengen.
+   */
+  region?: string;
+  /** `kacheln` | `routing` | `suche` — wofuer der Knopf gedrueckt wurde. */
+  bauart?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -60,6 +81,8 @@ function toSnapshot(record: JobRecord): JobSnapshot {
     totalBytes: record.totalBytes,
     error: record.error,
     note: record.note,
+    region: record.region,
+    bauart: record.bauart,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -75,7 +98,13 @@ export class JobRegistry {
   /** Registers a new job in `queued` state and returns its id. `kind` ist
    *  optional und dient allein dazu, laufende Jobs derselben Art
    *  wiederzufinden (`findUnfinished`). */
-  create(kind: string | null = null): string {
+  create(
+    kind: string | null = null,
+    /** Woran gearbeitet wird. Ohne das findet die Oberflaeche nach einem
+     *  Neuladen zwar den laufenden Job, weiss aber nicht, unter welcher
+     *  Region sie ihn anzeigen soll. */
+    woran: { region?: string; bauart?: string } = {},
+  ): string {
     const id = randomUUID();
     const timestamp = nowIso();
     this.jobs.set(id, {
@@ -88,6 +117,8 @@ export class JobRegistry {
       cancelled: false,
       onCancel: null,
       kind,
+      region: woran.region,
+      bauart: woran.bauart,
       createdAt: timestamp,
       updatedAt: timestamp,
     });

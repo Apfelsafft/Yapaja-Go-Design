@@ -68,7 +68,9 @@ describe('beschreibeListe — der Befund in einem Satz', () => {
   });
 
   it('meldet den guten Fall als guten Fall', () => {
-    expect(beschreibeListe(5, 0, 'roadworks', [])).toContain('alle brauchbar');
+    // Früher „alle brauchbar". Das war für eine KARTE nicht dasselbe — siehe
+    // den Block darunter.
+    expect(beschreibeListe(5, 0, 'roadworks', [])).toContain('alle mit Koordinaten');
   });
 });
 
@@ -184,7 +186,7 @@ describe('gesamturteil', () => {
 
   it('meldet den Erfolg als Erfolg', () => {
     const t = gesamturteil([zeile({ eintraege: 3, verworfen: 0, schluessel: 'roadworks' })]);
-    expect(t).toContain('verwertbare Daten');
+    expect(t).toContain('Daten mit Koordinaten');
   });
 
   it('unterscheidet „nichts gemeldet" von „Aufbau anders"', () => {
@@ -197,5 +199,105 @@ describe('gesamturteil', () => {
 
   it('sagt auch dann etwas, wenn gar nichts geprüft wurde', () => {
     expect(gesamturteil([])).toContain('nichts geprüft');
+  });
+});
+
+/**
+ * ─── DIE KORREKTUR AUS DER ERSTEN ECHTEN PRUEFUNG ───────────────────────────
+ *
+ * Auf dem Gerät kam heraus:
+ *
+ *   Autobahn A61 — parking_lorry: 60 Einträge, alle brauchbar.
+ *   Beispiel: „A61 | undefined" — ohne Koordinaten
+ *   ⇒ „6 von 6 Diensten antworteten, und 5 davon lieferten verwertbare Daten."
+ *
+ * Sechzig Einträge, kein einziger zeichenbar — und der Befund klang gut. Genau
+ * diese Sorte Aussage sollte diese Datei verhindern; sie ist die teuerste, die
+ * es in diesem Projekt gibt, weil sie niemanden zum Nachsehen bewegt.
+ *
+ * Diese Tests halten die Korrektur fest. Sie prüfen ausdrücklich auch, dass
+ * das alte Wort NICHT mehr fällt — sonst bestünden sie, während daneben
+ * weiterhin „alle brauchbar" stünde.
+ */
+describe('Einträge ohne Koordinaten sind nicht „brauchbar"', () => {
+  function zeile(teil: Partial<DiagnoseZeile>): DiagnoseZeile {
+    return { dienst: 'x', url: 'https://x', status: 200, dauer_ms: 1, befund: '', ...teil };
+  }
+
+  it('sagt es deutlich, wenn KEINER Koordinaten hat', () => {
+    const t = beschreibeListe(60, 0, 'parking_lorry', [], 60);
+    expect(t).toContain('KEINER hat Koordinaten');
+    expect(t).toContain('auf die Karte kann davon nichts');
+  });
+
+  it('und behauptet dann nicht mehr, alles sei brauchbar', () => {
+    const t = beschreibeListe(60, 0, 'parking_lorry', [], 60);
+    expect(t).not.toContain('alle brauchbar');
+    expect(t).not.toContain('alle mit Koordinaten');
+  });
+
+  it('nennt die Zahl, wenn es nur einen Teil betrifft', () => {
+    const t = beschreibeListe(10, 0, 'parking_lorry', [], 4);
+    expect(t).toContain('4 ohne Koordinaten');
+    expect(t).not.toContain('alle mit Koordinaten');
+  });
+
+  /**
+   * ─── DER GANZE ZWECK DIESER AENDERUNG ─────────────────────────────────
+   * Die Feldnamen nützen nur, wenn sie AUF DEM BILDSCHIRM landen. Eine
+   * Mutation, die das Anhängen entfernte, hat alle Tests überlebt — es prüfte
+   * niemand den Weg von `ausAntwort` bis in die Zeile.
+   *
+   * Das ist dieselbe Lücke wie bei der Route `build-graph`: beide Seiten für
+   * sich richtig, die Naht dazwischen ungeprüft.
+   */
+  it('die Feldnamen landen wirklich in der Diagnosezeile', async () => {
+    const zeilen = await diagnoseAutobahn('A61', {
+      fetchFn: fetchMit((url) =>
+        url.includes('parking_lorry')
+          ? antwort(200, {
+              parking_lorry: [{ title: 'A61 | undefined', lorryParkingFeatureIcons: [] }],
+            })
+          : antwort(200, { x: [] }),
+      ),
+    });
+    const parken = zeilen.find((z) => z.dienst.includes('parking_lorry'));
+    expect(parken?.ohne_koordinaten).toBe(1);
+    expect(parken?.felder).toContain('lorryParkingFeatureIcons:array');
+  });
+
+  it('aber NICHT bei einem Dienst, der sauber liefert', async () => {
+    // Sonst stünde unter jeder Zeile eine Wand aus Fachtext, und der eine
+    // Fall, auf den es ankommt, ginge darin unter.
+    const zeilen = await diagnoseAutobahn('A61', {
+      fetchFn: fetchMit(() =>
+        antwort(200, { roadworks: [{ title: 'Baustelle', coordinate: { lat: '49.9', long: '7.8' } }] }),
+      ),
+    });
+    for (const z of zeilen) {
+      expect(z.felder, z.dienst).toBeUndefined();
+    }
+  });
+
+  it('verweist auf die Feldnamen, statt eine Ursache zu erfinden', () => {
+    // Warum die Koordinaten fehlen, WEISS hier niemand. Der Satz darf das
+    // nicht überspielen — er schickt zum Nachsehen.
+    expect(beschreibeListe(60, 0, 'parking_lorry', [], 60)).toContain('Feldnamen');
+  });
+
+  it('das Gesamturteil zählt sie nicht als verwertbar mit', () => {
+    const t = gesamturteil([
+      zeile({ eintraege: 30, verworfen: 0, schluessel: 'roadworks' }),
+      zeile({ eintraege: 60, verworfen: 0, schluessel: 'parking_lorry', ohne_koordinaten: 60 }),
+    ]);
+    expect(t).toContain('1 davon lieferten Daten mit Koordinaten');
+    expect(t).toContain('1 weiteren');
+    expect(t).toContain('fehlen');
+  });
+
+  it('und sagt im guten Fall weiterhin nur den guten Fall', () => {
+    // Der Zusatz darf nicht immer erscheinen — sonst liest ihn niemand mehr.
+    const t = gesamturteil([zeile({ eintraege: 30, verworfen: 0, schluessel: 'roadworks' })]);
+    expect(t).not.toContain('fehlen');
   });
 });
