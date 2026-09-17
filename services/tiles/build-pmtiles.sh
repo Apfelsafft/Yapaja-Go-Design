@@ -49,8 +49,10 @@
 # `<TILES_DIR>/<region>.pmtiles` ausliefert.
 #
 # Ablauf:
-#   1. PBF beschaffen (URL -> Download nach Arbeitsverzeichnis, sonst lokale
-#      Datei verwenden).
+#   1. PBF beschaffen. Sie landet im gemeinsamen Zwischenlager
+#      (`PLANETILER_SOURCES_DIR`) als `<region>.osm.pbf` und BLEIBT dort --
+#      der Routinggraph wird daraus gebaut. Liegt sie schon da, wird nichts
+#      geladen.
 #   2. planetiler im Docker-Container laufen lassen; Ausgabe geht in ein
 #      TEMP-Verzeichnis, NIEMALS direkt auf `<TILES_DIR>/<region>.pmtiles`.
 #   3. Erzeugnis pruefen: existiert, nicht leer, beginnt mit der
@@ -108,17 +110,25 @@
 #                      HA-Add-on-Container). Bezugsquelle (belegt):
 #                      github.com/onthegomap/planetiler/releases/download/v0.10.2/planetiler.jar
 #   PLANETILER_XMX     JVM-Heap fuer planetiler (Default: 1g)
-#   PLANETILER_SOURCES_DIR  Dauerhafte Ablage der NICHT regionsspezifischen
-#                       Basisdaten des OpenMapTiles-Profils (Wasserflaechen,
-#                       Natural Earth, Seen-Mittellinien). Default:
-#                       <TILES_DIR>/../planetiler-sources. Beim ERSTEN Bau
-#                       werden sie geladen (mehrere hundert MB), danach nutzt
-#                       jede weitere Region dieselben Dateien.
+#   PLANETILER_SOURCES_DIR  Das gemeinsame Zwischenlager. Default:
+#                       <TILES_DIR>/../planetiler-sources. Dort liegen
+#                       ZWEIERLEI:
+#                         * die nicht regionsspezifischen Basisdaten des
+#                           OpenMapTiles-Profils (Wasserflaechen, Natural
+#                           Earth, Seen-Mittellinien) -- beim ERSTEN Bau
+#                           geladen, danach von jeder Region genutzt;
+#                         * seit 0.10.2 die OSM-Extrakte selbst, als
+#                           `<region>.osm.pbf`. Sie bleiben liegen, weil der
+#                           ROUTINGGRAPH aus genau diesem Verzeichnis gebaut
+#                           wird (`yapaja-build-graph`) und eine installierte
+#                           Karte sonst keine Strassendaten mitbringt.
 #   PLANETILER_ARGS    ERSETZT die planetiler-Argumente komplett. Fuer den
 #                       Fall, dass die CLI der verwendeten Version von der
 #                       hier hinterlegten abweicht -- dann muss niemand
-#                       dieses Skript patchen. `%INPUT%` und `%OUTPUT%`
-#                       werden durch die containerinternen Pfade ersetzt.
+#                       dieses Skript patchen. `%INPUT%`, `%OUTPUT%` und
+#                       `%SOURCES%` werden durch die jeweils passenden Pfade
+#                       ersetzt (containerintern im Docker-Modus, echt im
+#                       JAR-Modus).
 
 set -euo pipefail
 
@@ -228,16 +238,95 @@ cleanup() {
 }
 trap cleanup EXIT
 
-INPUT_NAME="input.osm.pbf"
-if [[ "$PBF_ARG" =~ ^https?:// ]]; then
+# ─── GEMEINSAME BASISDATEN, DIE NICHT AUS DER PBF KOMMEN ────────────────────
+# Das OpenMapTiles-Profil, das planetiler hier benutzt, braucht neben dem
+# OSM-Extrakt DREI weitere Quellen, die nicht regionsspezifisch sind:
+# `lake_centerline.shp.zip`, `water-polygons-split-3857.zip` und
+# `natural_earth_vector.sqlite.zip` (Seen-Mittellinien, Wasserflaechen,
+# Natural-Earth-Basis fuer kleine Zoomstufen).
+#
+# Ohne sie bricht planetiler ab, BEVOR auch nur eine Kachel entsteht:
+#
+#   java.lang.IllegalArgumentException: data/sources/lake_centerline.shp.zip
+#   does not exist. Run with --download to fetch it
+#
+# `--download` holt laut planetilers eigenem Quelltext (`Planetiler.java`,
+# `getPath`) NUR, was noch nicht da ist. Deshalb zeigt `--download_dir` auf
+# ein DAUERHAFTES Verzeichnis neben den Kacheln und nicht ins
+# Arbeitsverzeichnis: sonst wuerden mehrere hundert MB Basisdaten bei jedem
+# Lauf neu geholt und danach weggeworfen.
+SOURCES_DIR="${PLANETILER_SOURCES_DIR:-$(dirname "$TILES_DIR")/planetiler-sources}"
+mkdir -p "$SOURCES_DIR"
+
+# ─── UND DER EXTRAKT BLEIBT JETZT AUCH LIEGEN ───────────────────────────────
+# Bis 0.10.1 landete er in $WORK_DIR und fiel mit `trap cleanup EXIT` weg.
+# Der Kopfkommentar oben nannte $SOURCES_DIR ausdruecklich die Ablage der
+# „NICHT regionsspezifischen Basisdaten" -- die regionsspezifischen wurden
+# also bewusst weggeworfen.
+#
+# Das hat den Routinggraphen gekostet. `yapaja-build-graph` baut EINEN Graphen
+# ueber JEDE `.osm.pbf` in genau diesem Verzeichnis. Eine installierte Karte
+# hinterliess dort nichts -- wer drei Laender installierte und dann „Routing
+# bauen" drueckte, bekam Routing nur fuer das eine Land, dessen Extrakt der
+# Graphbau selbst geladen hatte. Gemeldet als „no edges found near location"
+# mitten in Deutschland; nichts verband diese Meldung mit dem Kachelbau von
+# vorgestern.
+#
+# Der Preis ist Plattenplatz: Deutschland ~4 GB, die Schweiz ~400 MB. Dafuer
+# * deckt „Routing bauen" alles ab, was installiert ist,
+# * laedt der Suchindex-Bau nicht noch einmal dasselbe herunter
+#   (`yapaja-build-lite-index` sucht genau hier -- sein Kommentar
+#   „Wiederverwendet, was der Kachelbau schon heruntergeladen hat" stimmte
+#   bis hierher schlicht nicht),
+# * und ein zweiter Kachelbau derselben Region laedt gar nichts mehr.
+INPUT_FILE="$SOURCES_DIR/$REGION_ID.osm.pbf"
+
+# ─── ABGEBROCHENE UEBERTRAGUNGEN ERKENNEN ───────────────────────────────────
+# Eine halb geladene .osm.pbf ist die gefaehrlichste Datei in diesem
+# Verzeichnis: sie existiert, ist nicht leer, und jeder spaetere Graphbau
+# nimmt sie -- mit einem Land, dem die Haelfte fehlt, und ohne eine einzige
+# Fehlermeldung.
+#
+# Geprueft wird der Dateikopf. Eine OSM-PBF beginnt per Format mit einer
+# 4-Byte-Laenge, dann folgt der BlobHeader als Protobuf: Feld 1 (`type`,
+# Zeichenkette) ergibt die Bytes 0x0a 0x09 und danach exakt "OSMHeader".
+# Das steht bei Byte 6..14 und braucht kein osmium und kein Python.
+#
+# (Dieselbe Funktion steht in `yapaja_go/rootfs/usr/bin/yapaja-build-graph`.
+# `services/tiles/osm-pbf-kopf.test.ts` vergleicht beide Fassungen Zeichen
+# fuer Zeichen, damit sie nicht auseinanderlaufen koennen.)
+ist_osm_pbf() {
+  [ -s "$1" ] || return 1
+  [ "$(head -c 15 "$1" 2>/dev/null | tail -c 9)" = "OSMHeader" ]
+}
+
+if [ -s "$INPUT_FILE" ] && ! ist_osm_pbf "$INPUT_FILE"; then
+  echo "Der vorhandene Extrakt $INPUT_FILE ist unvollstaendig und wird verworfen."
+  rm -f "$INPUT_FILE"
+fi
+
+if [ -s "$INPUT_FILE" ]; then
+  echo "Nutze bereits vorhandenen OSM-Extrakt: $INPUT_FILE"
+elif [[ "$PBF_ARG" =~ ^https?:// ]]; then
   command -v curl >/dev/null 2>&1 || { echo "FEHLER: curl nicht im PATH gefunden (fuer den PBF-Download)." >&2; exit 1; }
   echo "Lade OSM-Extrakt herunter: $PBF_ARG"
-  if ! curl -fL --retry 3 -o "$WORK_DIR/$INPUT_NAME" "$PBF_ARG"; then
+  # Erst nach `.part`, dann umbenennen: ein Abbruch darf keine Datei
+  # hinterlassen, die beim naechsten Lauf als fertiger Extrakt durchgeht.
+  if ! curl -fL --retry 3 -o "$INPUT_FILE.part" "$PBF_ARG"; then
+    rm -f "$INPUT_FILE.part"
     echo "FEHLER: Download der PBF fehlgeschlagen: $PBF_ARG" >&2
     echo "Pruefe die URL im Browser. Geofabrik verteilt Rohdaten als '.osm.pbf'" >&2
     echo "(NICHT '.pmtiles' -- daraus baut genau dieses Skript die Kacheln)." >&2
     exit 1
   fi
+  if ! ist_osm_pbf "$INPUT_FILE.part"; then
+    rm -f "$INPUT_FILE.part"
+    echo "FEHLER: das Heruntergeladene ist keine OSM-PBF." >&2
+    echo "Erwartet wird ein Extrakt im '.osm.pbf'-Format. Haeufigste Ursache: die" >&2
+    echo "URL liefert eine HTML-Seite (Umleitung, Fehlerseite) statt der Datei." >&2
+    exit 1
+  fi
+  mv "$INPUT_FILE.part" "$INPUT_FILE"
 else
   if [ ! -f "$PBF_ARG" ]; then
     echo "FEHLER: lokale PBF-Datei nicht gefunden: $PBF_ARG" >&2
@@ -245,8 +334,18 @@ else
     echo "https://download.geofabrik.de/ -- oder gib eine URL statt eines Pfades an." >&2
     exit 1
   fi
+  if ! ist_osm_pbf "$PBF_ARG"; then
+    echo "FEHLER: \"$PBF_ARG\" ist keine OSM-PBF (Kopfkennung \"OSMHeader\" fehlt)." >&2
+    echo "Sie wuerde ins gemeinsame Zwischenlager gelegt und danach auch jeden" >&2
+    echo "Routingbau vergiften -- deshalb wird hier abgebrochen." >&2
+    exit 1
+  fi
   echo "Nutze lokale PBF-Datei: $PBF_ARG"
-  cp "$PBF_ARG" "$WORK_DIR/$INPUT_NAME"
+  # Nur kopieren, wenn es nicht ohnehin schon die Datei im Zwischenlager ist.
+  if [ "$(readlink -f "$PBF_ARG")" != "$(readlink -f "$INPUT_FILE" 2>/dev/null || echo "")" ]; then
+    cp "$PBF_ARG" "$INPUT_FILE.part"
+    mv "$INPUT_FILE.part" "$INPUT_FILE"
+  fi
 fi
 
 # --- Passt das ueberhaupt auf die Platte? ------------------------------------
@@ -282,7 +381,7 @@ if ! command -v df >/dev/null 2>&1 || ! command -v awk >/dev/null 2>&1; then
 else
 free_mb() { df -Pm "$1" 2>/dev/null | awk 'NR==2 {print $4}'; }
 
-INPUT_MB=$(( $(stat -c %s "$WORK_DIR/$INPUT_NAME") / 1024 / 1024 ))
+INPUT_MB=$(( $(stat -c %s "$INPUT_FILE") / 1024 / 1024 ))
 NEED_MB=$(( INPUT_MB * PMTILES_DISK_FACTOR + PMTILES_DISK_MARGIN_MB ))
 
 # Zwei Dateisysteme koennen betroffen sein: das Arbeitsverzeichnis und das
@@ -323,44 +422,19 @@ fi
 # Signaturpruefung unten wird geschwenkt (W-17).
 OUT_NAME="out.pmtiles"
 
-# ─── GEMEINSAME BASISDATEN, DIE NICHT AUS DER PBF KOMMEN ────────────────────
-# Das OpenMapTiles-Profil, das planetiler hier benutzt, braucht neben dem
-# OSM-Extrakt DREI weitere Quellen, die nicht regionsspezifisch sind:
-# `lake_centerline.shp.zip`, `water-polygons-split-3857.zip` und
-# `natural_earth_vector.sqlite.zip` (Seen-Mittellinien, Wasserflaechen,
-# Natural-Earth-Basis fuer kleine Zoomstufen).
+# `%OUTPUT%` ist ein CONTAINER-interner Pfad ($WORK_DIR ist als /data
+# eingehaengt). `%SOURCES%` und `%INPUT%` bleiben bis zur Laufart stehen und
+# werden erst dort aufgeloest -- als Mount-Ziel /sources (Docker) bzw. als
+# echte Pfade (JAR). Platzhalter und keine festen Pfade, weil die
+# JAR-Variante die /data-Ersetzung als globales Suchen-und-Ersetzen macht:
+# stuende hier schon ein echter Pfad, der selbst `/data` enthaelt (im
+# Repo-Fall `<repo>/data/planetiler-sources`), wuerde diese Ersetzung ihn
+# zerlegen.
 #
-# Ohne sie bricht planetiler ab, BEVOR auch nur eine Kachel entsteht:
-#
-#   java.lang.IllegalArgumentException: data/sources/lake_centerline.shp.zip
-#   does not exist. Run with --download to fetch it
-#
-# Genau das ist im Add-on passiert. Die Argumente hier nannten `--download`
-# nicht -- der Aufruf war also von Anfang an unvollstaendig und konnte in
-# KEINER Umgebung durchlaufen, auch nicht per Docker. Dass es nie auffiel,
-# liegt daran, dass planetiler in den Tests durch ein Stub ersetzt ist: das
-# Stub schreibt eine PMTiles-Datei und schert sich nicht um fehlende Quellen.
-# Der Aufruf selbst war nie gegen ein echtes planetiler gelaufen.
-#
-# `--download` holt laut planetilers eigenem Quelltext (`Planetiler.java`,
-# `getPath`) NUR, was noch nicht da ist -- die PBF wird also nicht erneut
-# geladen, und ein zweiter Regionsbau laedt gar nichts mehr nach. Deshalb
-# zeigt `--download_dir` auf ein DAUERHAFTES Verzeichnis neben den Kacheln
-# und nicht ins Arbeitsverzeichnis: sonst wuerden mehrere hundert MB
-# Basisdaten bei jedem Lauf neu geholt und danach weggeworfen.
-SOURCES_DIR="${PLANETILER_SOURCES_DIR:-$(dirname "$TILES_DIR")/planetiler-sources}"
-mkdir -p "$SOURCES_DIR"
-
-# `%INPUT%`/`%OUTPUT%` sind die CONTAINER-internen Pfade ($WORK_DIR ist als
-# /data eingehaengt). `%SOURCES%` bleibt bis zur Laufart stehen und wird erst
-# dort aufgeloest -- als Mount-Ziel /sources (Docker) bzw. als echter Pfad
-# (JAR). Ein Platzhalter und kein fester Pfad, weil die JAR-Variante die
-# /data-Ersetzung als globales Suchen-und-Ersetzen macht: stuende hier schon
-# ein echter Pfad, der selbst `/data` enthaelt (im Repo-Fall
-# `<repo>/data/planetiler-sources`), wuerde diese Ersetzung ihn zerlegen.
-DEFAULT_ARGS="--osm-path=/data/$INPUT_NAME --output=/data/$OUT_NAME --force --nodemap-type=sortedtable --download --download_dir=%SOURCES%"
+# Der Extrakt liegt seit 0.10.2 NEBEN den gemeinsamen Basisdaten und nicht
+# mehr im Arbeitsverzeichnis (siehe oben), faellt also unter %SOURCES%.
+DEFAULT_ARGS="--osm-path=%INPUT% --output=/data/$OUT_NAME --force --nodemap-type=sortedtable --download --download_dir=%SOURCES%"
 RAW_ARGS="${PLANETILER_ARGS:-$DEFAULT_ARGS}"
-RAW_ARGS="${RAW_ARGS//%INPUT%//data/$INPUT_NAME}"
 RAW_ARGS="${RAW_ARGS//%OUTPUT%//data/$OUT_NAME}"
 # Wortweise aufsplitten: die Argumente sind kontrollierte, leerzeichenfreie
 # Flags -- Anfuehrungszeichen innerhalb von PLANETILER_ARGS werden bewusst
@@ -412,12 +486,16 @@ if [ -n "${PLANETILER_JAR:-}" ]; then
   JAR_ARGV=()
   for a in "${PLANETILER_ARGV[@]}"; do
     a="${a//\/data/$WORK_DIR}"
-    JAR_ARGV+=("${a//%SOURCES%/$SOURCES_DIR}")
+    a="${a//%SOURCES%/$SOURCES_DIR}"
+    JAR_ARGV+=("${a//%INPUT%/$INPUT_FILE}")
   done
   RUN_CMD=(java "-Xmx$PLANETILER_XMX" -jar "$PLANETILER_JAR" "${JAR_ARGV[@]}")
 else
   DOCKER_ARGV=()
-  for a in "${PLANETILER_ARGV[@]}"; do DOCKER_ARGV+=("${a//%SOURCES%//sources}"); done
+  for a in "${PLANETILER_ARGV[@]}"; do
+    a="${a//%SOURCES%//sources}"
+    DOCKER_ARGV+=("${a//%INPUT%//sources/$REGION_ID.osm.pbf}")
+  done
   RUN_CMD=(docker run --rm
     -e JAVA_TOOL_OPTIONS="-Xmx$PLANETILER_XMX"
     -v "$WORK_DIR:/data"

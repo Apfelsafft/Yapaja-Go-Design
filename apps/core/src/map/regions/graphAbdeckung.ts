@@ -13,26 +13,33 @@
  * `yapaja-build-graph` ihn über JEDE `.osm.pbf`, die im Zwischenlager liegt —
  * das sollte „alles, was installiert ist" bedeuten.
  *
- * Tut es aber nicht. Der KACHELBAU lädt seinen OSM-Extrakt in ein temporäres
- * Verzeichnis und löscht es am Ende wieder (`build-pmtiles.sh`: `WORK_DIR`,
- * `trap cleanup EXIT`). Im Zwischenlager landen nur die gemeinsamen
- * Basisdaten — das Skript sagt es sogar selbst: „Dauerhafte Ablage der NICHT
+ * Tat es aber nicht. Der KACHELBAU lud seinen OSM-Extrakt in ein temporäres
+ * Verzeichnis und löschte es am Ende wieder (`build-pmtiles.sh`: `WORK_DIR`,
+ * `trap cleanup EXIT`). Im Zwischenlager landeten nur die gemeinsamen
+ * Basisdaten — das Skript sagte es sogar selbst: „Dauerhafte Ablage der NICHT
  * regionsspezifischen Basisdaten".
  *
- * Ein Extrakt liegt dort also NUR, wenn für diese Region schon einmal
- * „Routing bauen" gedrückt wurde. Eine installierte Karte heißt nicht, dass
- * es dafür auch Straßendaten gibt.
+ * Ein Extrakt lag dort also NUR, wenn für diese Region schon einmal „Routing
+ * bauen" gedrückt worden war. Eine installierte Karte hieß nicht, dass es
+ * dafür auch Straßendaten gibt.
  *
- * Folge: Wer drei Länder installiert und dann „Routing bauen" bei dem
- * kleinsten drückt, hat danach Routing NUR für das kleinste — und die
- * Oberfläche legt mit einem Knopf je Region das Gegenteil nahe. In Köln
- * antwortet Valhalla dann mit „No suitable edges near location", und nichts
- * verbindet diese Meldung mit dem Knopf von vorhin.
+ * Folge: Wer drei Länder installierte und dann „Routing bauen" bei dem
+ * kleinsten drückte, hatte danach Routing NUR für das kleinste — und die
+ * Oberfläche legte mit einem Knopf je Region das Gegenteil nahe. In Köln
+ * antwortete Valhalla dann mit „No suitable edges near location", und nichts
+ * verband diese Meldung mit dem Knopf von vorhin.
  *
- * ─── WAS DIESE DATEI TUT ────────────────────────────────────────────────────
- * Sie rechnet VOR dem Bau aus, was danach im Graphen liegt und was nicht. Der
- * Bau kann damit fragen, statt hinterher zu überraschen. Sie baut nichts und
- * löscht nichts — sie sieht nur nach.
+ * ─── SEIT 0.10.2 IST DIE URSACHE WEG ────────────────────────────────────────
+ * Der Kachelbau BEHÄLT seinen Extrakt, und der Routingbau lädt nach, was
+ * einer installierten Karte noch fehlt (`graphPlan.ts`). Eine Lücke bleibt
+ * nur für Karten, die weder Extrakt noch Katalogeintrag haben — etwa eine von
+ * Hand nach /share gelegte `.pmtiles`.
+ *
+ * ─── WARUM DIESE DATEI TROTZDEM BLEIBT ──────────────────────────────────────
+ * Weil „die Ursache ist weg" und „es kann nicht mehr passieren" zweierlei
+ * sind. Diese Rechnung ist der Wächter, der es SAGEN würde: sie vergleicht,
+ * was installiert ist, mit dem, was danach im Graphen liegt, und benennt
+ * jede Abweichung. Sie baut nichts und löscht nichts — sie sieht nur nach.
  */
 
 import { readdirSync, readFileSync } from 'node:fs';

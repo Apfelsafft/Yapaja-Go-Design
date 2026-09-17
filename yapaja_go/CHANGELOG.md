@@ -10,6 +10,58 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.10.2
+
+**Ein Knopf, ein Routinggraph, alle installierten Karten.**
+
+### Die Ursache, die 0.10.1 nur sichtbar gemacht hat
+
+0.10.1 hat ausgerechnet, dass ein Routingbau die anderen Länder verliert, und
+davor gewarnt. Das war ehrlicher als vorher — aber es war keine Lösung: Sie
+bekamen eine Warnung und keinen Weg. Wer drei Länder wollte, konnte nichts
+tun.
+
+Der Grund lag beim **Kartenbau**: Er lud seinen OSM-Extrakt in ein
+temporäres Verzeichnis und löschte ihn am Ende wieder. Der Routinggraph wird
+aber aus genau diesen Extrakten gebaut. Eine installierte Karte hinterließ
+also **keine Straßendaten** — sie sah aus wie eine Karte und war beim Routen
+nicht vorhanden.
+
+### Was sich ändert
+
+* **Der Kartenbau behält seinen Extrakt.** Jede Region, deren Karte Sie
+  bauen, bringt ab sofort auch ihre Straßendaten mit.
+* **„Routing bauen" deckt alles ab.** Der Bau lädt die Extrakte nach, die
+  noch fehlen — für jede installierte Karte, nicht nur für die, deren Knopf
+  Sie gedrückt haben. Egal, welchen Sie drücken: danach routet Yapaia über
+  alle Länder, auch über die Grenze.
+* **Nichts wird doppelt geladen.** Liegt ein Extrakt schon da, bleibt er
+  liegen. Auch der Suchindex-Bau benutzt ihn jetzt wirklich — bisher stand
+  das nur im Quelltext.
+* **Die Warnung hat einen Knopf.** Wenn eine Karte gar keine Quelle hat (eine
+  von Hand nach `/share` gelegte `.pmtiles` etwa), erscheint weiterhin eine
+  Rückfrage. Sie ist jetzt gelb statt rot und hat „Trotzdem bauen" daneben.
+
+### Und ein Fehler, der noch nie aufgetreten ist
+
+Eine **abgebrochene Übertragung** war die gefährlichste Datei im System: Eine
+halb geladene `.osm.pbf` existiert, ist nicht leer — und jeder spätere
+Routingbau hätte sie genommen. Mit einem Land, dem die Hälfte fehlt, und ohne
+eine einzige Fehlermeldung; Sie hätten es erst gemerkt, wenn eine Route
+mitten im Nichts endet.
+
+Beide Bauwege prüfen den Dateikopf jetzt, verwerfen eine unvollständige Datei
+und laden sie neu. Dasselbe gilt für eine URL, die statt der Datei eine
+HTML-Fehlerseite liefert.
+
+### Was das an Platz kostet
+
+Die Extrakte bleiben jetzt liegen: Deutschland rund 4 GB, die Schweiz rund
+400 MB, Liechtenstein wenige MB. Das ist der Preis dafür, dass ein Routingbau
+alles abdeckt und kein zweiter Download nötig wird.
+
+---
+
 ## 0.10.1
 
 **Vier gemeldete Fehler — zwei davon haben die Navigation lahmgelegt.**

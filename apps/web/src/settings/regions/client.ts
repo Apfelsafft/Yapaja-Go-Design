@@ -163,10 +163,29 @@ export async function startBuild(regionId: string): Promise<string> {
  *  zeigt die App zwar die Karte und die Position, kann aber keine Route
  *  berechnen. Wirft RegionApiError bei 409 (BUILD_IN_PROGRESS /
  *  INSUFFICIENT_MEMORY / NO_BUILD_SOURCE) oder 404. */
-export async function startGraphBuild(regionId: string): Promise<string> {
+export async function startGraphBuild(
+  regionId: string,
+  /**
+   * „Ja, ich weiß, dass eine installierte Karte ohne Routing bleibt."
+   *
+   * Der Kern lehnt einen Bau mit 409 `COVERAGE_LOSS` ab, wenn danach eine
+   * installierte Karte ohne Straßendaten dastünde. Seit 0.10.2 kommt das nur
+   * noch vor, wenn es für sie WEDER Extrakt NOCH Quelle gibt — etwa eine von
+   * Hand nach /share gelegte `.pmtiles`.
+   *
+   * Ohne dieses Feld war die Warnung eine Sackgasse: sie stand da, und der
+   * Betreiber hatte keinen Weg an ihr vorbei. Eine Meldung, die einen Zustand
+   * beschreibt, den man nicht verlassen kann, ist keine Hilfe.
+   */
+  abdeckungBestaetigt = false,
+): Promise<string> {
   const response = await fetch(
     apiUrl(`api/v1/map/regions/${encodeURIComponent(regionId)}/build-graph`),
-    { method: 'POST' },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ abdeckung_bestaetigt: abdeckungBestaetigt }),
+    },
   );
   if (!response.ok) {
     throw await toApiError(response);

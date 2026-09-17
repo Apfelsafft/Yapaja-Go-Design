@@ -177,6 +177,14 @@ export default function RegionsPanel(): React.ReactElement {
   const [loaded, setLoaded] = useState(false);
   const [downloads, setDownloads] = useState<Record<string, DownloadState>>({});
   const [errorByRegion, setErrorByRegion] = useState<Record<string, string>>({});
+  /**
+   * Die offene Rückfrage zur Routing-Abdeckung, je Region.
+   *
+   * BEWUSST getrennt von `errorByRegion`: ein Fehler sagt „es ging nicht",
+   * diese Meldung sagt „es geht, aber nicht ganz — willst du?". In derselben
+   * roten Zeile wäre sie eine Sackgasse, und genau das war sie in 0.10.1.
+   */
+  const [abdeckungsfrage, setAbdeckungsfrage] = useState<Record<string, string>>({});
 
   // E03-T6: Listen to UI store to open the panel from RoutingPanel
   const regionsPanelOpen = useUiStore((state) => state.regionsPanel.isOpen);
@@ -266,12 +274,25 @@ export default function RegionsPanel(): React.ReactElement {
   // Der Routinggraph ist ein EIGENES Erzeugnis aus derselben PBF. Er teilt
   // sich Job-Maschinerie und Sperre mit dem Kachelbau -- zwei schwere Bauten
   // nebeneinander sprengen den Speicher der 8-GB-VM.
-  const handleGraphBuild = useCallback(async (regionId: string) => {
+  //
+  // Seit 0.10.2 deckt EIN Bau alle installierten Karten ab — fehlende
+  // OSM-Extrakte werden dabei nachgeladen. Der Kern lehnt nur noch dann mit
+  // 409 `COVERAGE_LOSS` ab, wenn eine installierte Karte weder Extrakt noch
+  // Quelle hat (eine von Hand abgelegte `.pmtiles`). Dafür gibt es jetzt
+  // einen Knopf: eine Warnung, an der man nicht vorbeikommt, ist keine.
+  const handleGraphBuild = useCallback(async (regionId: string, bestaetigt = false) => {
     setErrorByRegion((prev) => ({ ...prev, [regionId]: '' }));
+    setAbdeckungsfrage((prev) => ({ ...prev, [regionId]: '' }));
     try {
-      const jobId = await startGraphBuild(regionId);
+      const jobId = await startGraphBuild(regionId, bestaetigt);
       setDownloads((prev) => ({ ...prev, [regionId]: { jobId, job: null } }));
     } catch (err) {
+      if (err instanceof RegionApiError && err.code === 'COVERAGE_LOSS') {
+        // Kein Fehler, sondern eine Frage. Sie gehört deshalb nicht in die
+        // rote Fehlerzeile, aus der es keinen Weg gibt.
+        setAbdeckungsfrage((prev) => ({ ...prev, [regionId]: err.message }));
+        return;
+      }
       const message =
         err instanceof RegionApiError
           ? formatApiError(err)
@@ -410,6 +431,35 @@ export default function RegionsPanel(): React.ReactElement {
                     >
                       {errorByRegion[region.region]}
                     </p>
+                  )}
+                  {/* Eine Rückfrage, kein Fehler — deshalb gelb und MIT Knopf.
+                      Ohne den stand hier ein Satz, an dem es nicht weiterging. */}
+                  {abdeckungsfrage[region.region] && (
+                    <div
+                      className="mt-1 rounded border border-amber-400 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
+                      data-testid={`region-abdeckung-${region.region}`}
+                    >
+                      <p>{abdeckungsfrage[region.region]}</p>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          className="rounded bg-amber-600 px-2 py-1 text-white hover:bg-amber-700"
+                          data-testid={`region-abdeckung-weiter-${region.region}`}
+                          onClick={() => void handleGraphBuild(region.region, true)}
+                        >
+                          Trotzdem bauen
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded border border-amber-400 px-2 py-1 hover:bg-amber-100 dark:hover:bg-amber-900"
+                          onClick={() =>
+                            setAbdeckungsfrage((prev) => ({ ...prev, [region.region]: '' }))
+                          }
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </li>
                 );

@@ -52,6 +52,11 @@ Beispiel:
 Env-Overrides:
   VALHALLA_TILES_DIR  Live-Verzeichnis des Graphen
                       (Default: /share/yapaja/valhalla/tiles)
+  YAPAIA_GRAPH_EXTRAKTE
+                      Weitere Regionen, deren Extrakt noch fehlt -- eine
+                      Zeile je Region, "<region> <url>". Setzt der Kern; er
+                      ist die einzige Stelle, die weiss, welche Karten
+                      installiert sind und wo ihr Extrakt herkaeme.
 EOF
   exit 1
 fi
@@ -99,29 +104,102 @@ trap cleanup EXIT
 
 # --- PBF beschaffen ---------------------------------------------------------
 # Extrakte werden zwischengelagert und WIEDERVERWENDET -- dieselbe Ablage, die
-# der Suchindex-Bau schon benutzt. Ohne sie muesste fuer jeden Mehr-Laender-
-# Graphen jedes Land erneut geladen werden.
+# der Kachelbau und der Suchindex-Bau benutzen. Ohne sie muesste fuer jeden
+# Mehr-Laender-Graphen jedes Land erneut geladen werden.
 PBF_CACHE="$(dirname "$(dirname "$LIVE_DIR")")/planetiler-sources"
 mkdir -p "$PBF_CACHE"
 
-CACHED="$PBF_CACHE/$REGION_ID.osm.pbf"
-if [[ "$PBF_ARG" =~ ^https?:// ]]; then
-  if [ -s "$CACHED" ]; then
-    echo "Verwende bereits vorhandenen OSM-Extrakt: $CACHED"
+# ─── ABGEBROCHENE UEBERTRAGUNGEN ERKENNEN ───────────────────────────────────
+# Eine halb geladene .osm.pbf ist die gefaehrlichste Datei in diesem
+# Verzeichnis: sie existiert, ist nicht leer, und der Bau unten nimmt jede
+# `*.osm.pbf` per Glob -- also auch sie, mit einem Land, dem die Haelfte
+# fehlt, und ohne eine einzige Fehlermeldung.
+#
+# Geprueft wird der Dateikopf. Eine OSM-PBF beginnt per Format mit einer
+# 4-Byte-Laenge, dann folgt der BlobHeader als Protobuf: Feld 1 (`type`,
+# Zeichenkette) ergibt die Bytes 0x0a 0x09 und danach exakt "OSMHeader".
+# Das steht bei Byte 6..14 und braucht kein osmium und kein Python.
+#
+# (Dieselbe Funktion steht in `services/tiles/build-pmtiles.sh`.
+# `services/tiles/osm-pbf-kopf.test.ts` vergleicht beide Fassungen Zeichen
+# fuer Zeichen, damit sie nicht auseinanderlaufen koennen.)
+ist_osm_pbf() {
+  [ -s "$1" ] || return 1
+  [ "$(head -c 15 "$1" 2>/dev/null | tail -c 9)" = "OSMHeader" ]
+}
+
+# Holt EINEN Extrakt ins Zwischenlager, falls er fehlt. Gibt 1 zurueck, wenn
+# es nicht geklappt hat -- der Aufrufer entscheidet, ob das den Bau abbricht.
+hole_extrakt() {
+  local region="$1" quelle="$2" ziel
+  ziel="$PBF_CACHE/$region.osm.pbf"
+
+  if [ -s "$ziel" ] && ! ist_osm_pbf "$ziel"; then
+    echo "Der vorhandene Extrakt fuer \"$region\" ist unvollstaendig und wird verworfen."
+    rm -f "$ziel"
+  fi
+  if [ -s "$ziel" ]; then
+    echo "Verwende bereits vorhandenen OSM-Extrakt: $ziel"
+    return 0
+  fi
+
+  if [[ "$quelle" =~ ^https?:// ]]; then
+    echo "Lade OSM-Extrakt fuer \"$region\" herunter: $quelle"
+    if ! curl -fL --retry 3 --retry-delay 5 -o "$ziel.part" "$quelle"; then
+      rm -f "$ziel.part"
+      echo "FEHLER: Download fehlgeschlagen fuer \"$region\": $quelle" >&2
+      return 1
+    fi
   else
-    echo "Lade OSM-Extrakt herunter: $PBF_ARG"
-    curl -fL --retry 3 --retry-delay 5 -o "$CACHED.part" "$PBF_ARG"
-    mv "$CACHED.part" "$CACHED"
+    if [ ! -f "$quelle" ]; then
+      echo "FEHLER: lokale PBF-Datei nicht gefunden: $quelle" >&2
+      return 1
+    fi
+    # Schon die Datei im Zwischenlager? Dann ist nichts zu tun.
+    if [ "$(readlink -f "$quelle")" = "$(readlink -f "$ziel" 2>/dev/null || echo "")" ]; then
+      return 0
+    fi
+    cp "$quelle" "$ziel.part"
   fi
-else
-  if [ ! -f "$PBF_ARG" ]; then
-    echo "FEHLER: lokale PBF-Datei nicht gefunden: $PBF_ARG" >&2
-    exit 1
+
+  if ! ist_osm_pbf "$ziel.part"; then
+    rm -f "$ziel.part"
+    echo "FEHLER: das Beschaffte ist keine OSM-PBF (\"$region\")." >&2
+    echo "Haeufigste Ursache: die URL liefert eine HTML-Seite statt der Datei." >&2
+    return 1
   fi
-  # Nur kopieren, wenn es nicht ohnehin schon die Datei im Zwischenlager ist.
-  if [ "$(readlink -f "$PBF_ARG")" != "$(readlink -f "$CACHED" 2>/dev/null || echo "")" ]; then
-    cp "$PBF_ARG" "$CACHED"
-  fi
+  mv "$ziel.part" "$ziel"
+  return 0
+}
+
+# Die Region, deren Knopf gedrueckt wurde.
+hole_extrakt "$REGION_ID" "$PBF_ARG" || exit 1
+
+# ─── UND ALLE ANDEREN INSTALLIERTEN KARTEN DAZU ─────────────────────────────
+# Der Kern uebergibt in $YAPAIA_GRAPH_EXTRAKTE eine Zeile je Region, die noch
+# keinen Extrakt hat: „<region> <url>". Er ist die einzige Stelle, die BEIDES
+# weiss -- welche Karten installiert sind und wo ihr Extrakt herkaeme; dieses
+# Skript sieht nur das Zwischenlager.
+#
+# Warum ueberhaupt: bis 0.10.1 hiess „Routing bauen" bei einer Region
+# faktisch „baue ueber das, was zufaellig hier liegt". Wer drei Laender
+# installiert hatte und beim kleinsten drueckte, verlor die anderen beiden --
+# lautlos, bis mitten in Deutschland „no edges found near location" kam.
+#
+# Ein FEHLSCHLAG hier bricht den Bau NICHT ab. Ein zeitweise nicht
+# erreichbarer Server darf nicht bedeuten, dass auch das Routing fuer die
+# Laender wegfaellt, deren Extrakt laengst daliegt. Er wird gemeldet und die
+# Region fehlt dann eben -- sichtbar, in einer Zeile, die man wiederfindet.
+FEHLGESCHLAGEN=()
+if [ -n "${YAPAIA_GRAPH_EXTRAKTE:-}" ]; then
+  while read -r zusatz_region zusatz_url; do
+    [ -n "$zusatz_region" ] || continue
+    [ -n "$zusatz_url" ] || continue
+    [ "$zusatz_region" = "$REGION_ID" ] && continue
+    if ! hole_extrakt "$zusatz_region" "$zusatz_url"; then
+      FEHLGESCHLAGEN+=("$zusatz_region")
+    fi
+  done <<< "$YAPAIA_GRAPH_EXTRAKTE"
 fi
 
 # ─── EIN GRAPH UEBER ALLE VORHANDENEN LAENDER ───────────────────────────────
@@ -139,9 +217,17 @@ fi
 # Der Preis, ehrlich: der Bau dauert so lange wie die Summe aller Laender, und
 # ein neues Land bedeutet einen kompletten Neubau.
 GRAPH_REGIONS=()
+UEBERSPRUNGEN=()
 for pbf in "$PBF_CACHE"/*.osm.pbf; do
   [ -s "$pbf" ] || continue
   name="$(basename "$pbf")"
+  # `[ -s ]` allein reichte nicht: eine abgebrochene Uebertragung ist nicht
+  # leer. Sie waere hier eingesammelt worden und haette ein halbes Land in den
+  # Graphen gelegt, ohne dass irgendwo etwas gestanden haette.
+  if ! ist_osm_pbf "$pbf"; then
+    UEBERSPRUNGEN+=("$(derive_region_id "$name")")
+    continue
+  fi
   ln -sf "$pbf" "$STAGING_DIR/$name"
   GRAPH_REGIONS+=("$(derive_region_id "$name")")
 done
@@ -152,6 +238,19 @@ if [ "${#GRAPH_REGIONS[@]}" -eq 0 ]; then
 fi
 
 echo "Graph wird ueber ${#GRAPH_REGIONS[@]} Region(en) gebaut: ${GRAPH_REGIONS[*]}"
+
+# Was NICHT dabei ist, gehoert genauso ins Protokoll wie das, was dabei ist.
+# Eine fehlende Region ist beim Routen sonst nicht von einem Fehler zu
+# unterscheiden -- genau daran hat dieses Projekt schon einmal Tage verloren.
+if [ "${#UEBERSPRUNGEN[@]}" -gt 0 ]; then
+  echo "Uebersprungen (Extrakt unvollstaendig): ${UEBERSPRUNGEN[*]}"
+  echo "Fuer diese Regionen gibt es nach dem Bau KEIN Routing. Ein erneutes"
+  echo "\"Routing bauen\" laedt sie neu."
+fi
+if [ "${#FEHLGESCHLAGEN[@]}" -gt 0 ]; then
+  echo "Nicht beschaffbar: ${FEHLGESCHLAGEN[*]}"
+  echo "Fuer diese Regionen gibt es nach dem Bau KEIN Routing."
+fi
 
 # --- Bauen ------------------------------------------------------------------
 # Die Umgebung entspricht dem, was `services/valhalla/build-tiles.sh` dem
