@@ -23,6 +23,18 @@ export default defineConfig({
       'packages/**/*.test.ts',
       'packages/**/*.test.tsx',
       'yapaja_go/**/*.test.ts',
+      // Die Prüfumgebung der ESPHome-Anzeige — und zwar SIE SELBST.
+      //
+      // `esphome/test/run.mjs` übersetzt die Zeichenroutine gegen einen
+      // Nachbau der ESPHome-API; das läuft als eigener CI-Schritt. Bis 0.11.1
+      // stand dieser Nachbau aber unter keiner Aufsicht, und genau darin saß
+      // ein falsches Modell: `id(name)` wurde als Objekt abgebildet, während
+      // ESPHome einen ZEIGER einsetzt. Die Prüfung übersetzte deshalb
+      // anstandslos, was auf dem Gerät nicht übersetzt.
+      //
+      // Eine Prüfumgebung, die selbst ungeprüft ist, prüft ihre eigenen
+      // Annahmen mit.
+      'esphome/**/*.test.ts',
       // E09-T5 reference add-ons (docs/05 §6): deliberately NOT pnpm
       // workspace members (addons-examples/README.md), but their unit tests
       // still run as part of the ONE `npx vitest run` suite everyone uses --

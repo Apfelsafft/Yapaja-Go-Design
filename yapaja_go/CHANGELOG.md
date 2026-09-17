@@ -10,6 +10,49 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.11.1
+
+**Die ESP32-Anzeige lässt sich jetzt übersetzen.**
+
+Gemeldet beim Versuch, das Display zu flashen — der Bau brach nach über
+tausend Schritten ab:
+
+> `no match for call to '(…<lambda(esphome::sensor::Sensor&)>)`
+> `(esphome::homeassistant::HomeassistantSensor* const&)'`
+
+Eine Hilfsfunktion in der Zeichenroutine erwartete eine Referenz, bekam aber
+einen Zeiger. **Das war mein Fehler, und schlimmer: meine eigene Prüfung hat
+ihn durchgelassen.**
+
+### Warum die Prüfung ihn nicht gefunden hat
+
+Es gibt seit Längerem eine Prüfung, die die Zeichenroutine auf einem
+gewöhnlichen Rechner übersetzt und ausführt — genau damit so etwas nicht erst
+auf dem Gerät auffällt. Sie hat anstandslos durchgewinkt.
+
+Der Grund war kein übersehener Fall, sondern ein **falsches Modell**: Die
+Prüfung bildete `id(name)` als Objekt ab. ESPHome setzt dort aber die
+C++-Variable selbst ein, und die ist ein **Zeiger**; nur `id(name).` wird zu
+`name->`. Deshalb übersetzte `hilfsfunktion(id(name))` in der Prüfung und auf
+dem Gerät nicht.
+
+Eine Prüfung, die eine Annahme nachbaut statt der Wirklichkeit, prüft die
+Annahme. Sie ist dann schlimmer als keine, weil sie Sicherheit gibt, die es
+nicht gibt.
+
+### Was jetzt anders ist
+
+Die Prüfung bildet ESPHomes Umschreibung nach — nachgelesen in dessen
+Quelltext, nicht geraten. Sie bricht außerdem ab, wenn in der Konfiguration
+eine Kennung auftaucht, die sie nicht kennt: sonst entstünde beim nächsten
+neuen Sensor genau dieselbe Lücke noch einmal.
+
+Und die Prüfumgebung steht jetzt selbst unter Aufsicht. Mit dem alten Stand
+der Zeichenroutine erzeugt sie exakt dieselbe Fehlermeldung, die auf Ihrem
+Gerät stand.
+
+---
+
 ## 0.11.0
 
 **Verkehrsmeldungen: Yapaia kann jetzt Baustellen und Sperrungen abrufen.**
