@@ -10,6 +10,48 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.15.0
+
+**Das ESP32-Display wird beim Parken zur digitalen Wasserwaage.**
+
+Unter **2 km/h** wechselt die runde Anzeige auf eine Libelle: eine Blase, zwei
+Ringe, ein Fadenkreuz — und darunter die Neigung in Grad für links/rechts und
+vorne/hinten. Steht das Wohnmobil innerhalb der Toleranz, wird der Ring grün
+und es steht **„steht gerade"** da.
+
+Sobald es wieder schneller wird, ist die Navigationsanzeige zurück.
+
+### Was Sie einstellen müssen
+
+Die Neigung kommt aus einem **anderen Gerät** als der Rest der Anzeige (bei
+mir ein MPU6050). Alle Einstellungen stehen deshalb an einer Stelle, oben in
+`substitutions`:
+
+| Einstellung | Vorgabe |
+| --- | --- |
+| `entity_neigung_lr` / `entity_neigung_vh` | die beiden Entitäten in Grad |
+| `wasserwaage_ab_kmh` | 2 |
+| `wasserwaage_gerade_grad` | 0,5 |
+| `wasserwaage_bereich_grad` | 5 |
+| `neigung_lr_vorzeichen` / `neigung_vh_vorzeichen` | 1 |
+
+**Die Vorzeichen müssen Sie einmal prüfen.** Welches Vorzeichen welche Seite
+meint, hängt vom Einbau des Sensors ab. Heben Sie eine Seite an: wandert die
+Blase zur **angehobenen** Seite, stimmt es — wie bei einer echten Libelle.
+Sonst das Vorzeichen auf `-1` setzen. Raten wäre hier besonders ärgerlich, denn
+eine spiegelverkehrte Wasserwaage schickt den Auffahrkeil unter das falsche Rad.
+
+### Wann sie bewusst nichts zeigt
+
+- **Ohne Neigungswerte** steht dort „Keine Neigungswerte" und keine Blase. Eine
+  Blase in der Mitte hieße „steht gerade" — ausgerechnet die beruhigende
+  Behauptung, bei der niemand nachsieht.
+- **Bei unbekanntem Tempo** bleibt es bei der Navigationsanzeige. Unbekannt
+  heißt nicht „vermutlich steht es"; sonst erschiene die Wasserwaage mitten
+  auf der Autobahn, sobald das GPS aussetzt.
+
+---
+
 ## 0.14.1
 
 **Das Tempolimit steht jetzt auch da, wenn keine Route läuft.**

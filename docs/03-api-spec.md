@@ -86,7 +86,8 @@ interface NavState {
   duration_remaining_s: number | null;
   eta: string | null;                    // ISO 8601 in UTC ('...Z'); Core UTC-only (W-22), Client formatiert lokal (formatEta)
   speed_kmh: number | null;              // aktuelle Geschwindigkeit
-  speed_limit_kmh: number | null;        // erlaubt lt. Kartendaten, null = unbekannt
+  speed_limit_kmh: number | null;        // AUSGESCHILDERT lt. Kartendaten, null = unbekannt/unbegrenzt
+  speed_limit_vehicle_kmh: number | null; // was DIESES Fahrzeug hier darf (Gewicht + Tempo-100), null = keine eigene Grenze
   altitude_m: number | null;
   destination: { latlng: LatLng; name: string | null } | null;
 }
@@ -204,7 +205,7 @@ Alle Payloads JSON. HA-Auto-Discovery unter `homeassistant/...` (siehe docs/04).
 | `yapaja/nav/instruction` | `{type, instruction, street_names, distance_m, icon}` – `icon` = mdi-Name für Richtungspfeil (z. B. `mdi:arrow-left-top`) | ✔ |
 | `yapaja/nav/maneuver` | dieselben Felder, aber als **Zustand**: aus `nav/state`, also im Sekundentakt. `null`, wenn kein Manöver ansteht. **Hieran hängen die Anzeige-Sensoren** (`sensor.yapaja_instruction`, `…_instruction_distance`) — an `nav/instruction` stünde die Entfernung zwischen zwei Ansagen still (0.7.2) | ✔ |
 | `yapaja/nav/eta` | `{eta, duration_remaining_s, distance_remaining_m}` | ✔ |
-| `yapaja/nav/speed` | `{speed_kmh, speed_limit_kmh, speeding: bool}` | ✔ |
+| `yapaja/nav/speed` | `{speed_kmh, speed_limit_kmh, speed_limit_vehicle_kmh, speed_limit_effective_kmh, speed_limit_source, speeding: bool}` | ✔ |
 | `yapaja/nav/altitude` | `{altitude_m}` | ✔ |
 | `yapaja/nav/destination` | `{lat, lon, name}` oder `null` | ✔ |
 | `yapaja/route/summary` | `{distance_m, duration_s, via: string[]}` bei neuer Route | ✔ |
@@ -232,4 +233,18 @@ wenn im Kommando enthalten).
 - `eta` nie in der Vergangenheit; `duration_remaining_s` fällt bei konstanter Fahrt.
 - Route-Distanz ≥ Luftlinie und ≤ 4 × Luftlinie (sonst `RouteWarning` + Log).
 - `speed_limit_kmh ∈ {5..130} ∪ null` (DE); Wert `null` heißt „unbekannt", niemals 0.
+- **Seit 0.14.0** trägt `nav/speed` drei weitere Felder. Die Erweiterung ist
+  rückwärtskompatibel — bestehende Automationen, die `speed_kmh`,
+  `speed_limit_kmh` oder `speeding` lesen, bleiben unverändert gültig:
+  - `speed_limit_vehicle_kmh` — was DIESES Fahrzeug hier darf. Ein Wohnmobil
+    über 3,5 t darf weniger als das Schild erlaubt, und auf einer unbegrenzten
+    Autobahn gibt es gar kein Schild. Steht deshalb NEBEN `speed_limit_kmh`
+    und ersetzt es nicht.
+  - `speed_limit_effective_kmh` — die niedrigere der beiden bekannten Zahlen.
+    **Danach richtet sich `speeding`.**
+  - `speed_limit_source ∈ {'schild', 'fahrzeug', 'keine'}` — woher diese Zahl
+    kommt. Ohne sie wäre am Wert nicht abzulesen, ob gerade das Schild oder
+    das Fahrzeuggewicht entscheidet.
+- `speeding` ist nur `true`, wenn Tempo UND Grenze bekannt sind. Eine
+  unbekannte Grenze ist keine Übertretung.
 - Bei `fix: 'none'` werden keine `pos/update` publiziert, stattdessen `event/gps_lost`.

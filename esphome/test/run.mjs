@@ -94,6 +94,8 @@ export const ZEIGER_IDS = new Set([
   'yapaja_manoever_entfernung',
   'yapaja_reststrecke', 'yapaja_zu_schnell', 'yapaja_anweisung',
   'yapaja_manoever_art', 'yapaja_fahrzustand', 'yapaja_ankunft',
+  // Die digitale Wasserwaage.
+  'neigung_lr', 'neigung_vh',
 ]);
 
 export const WERT_IDS = new Set([

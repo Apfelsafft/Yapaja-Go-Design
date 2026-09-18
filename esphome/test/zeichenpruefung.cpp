@@ -127,6 +127,8 @@ static Color k_hintergrund{0x10,0x14,0x18}, k_text{0xF2,0xF5,0xF7},
              k_gedaempft{0x8A,0x94,0x9E}, k_pfeil{0x4E,0xA1,0xFF},
              k_warnung{0xFF,0x4D,0x4D}, k_gut{0x3D,0xDC,0x84}, k_schild{255,255,255};
 static sensor::Sensor s_tempo, s_limit, s_limit_fz, s_mdist, s_rest;
+// Die digitale Wasserwaage: Neigung links/rechts und vorne/hinten.
+static sensor::Sensor s_lr, s_vh;
 static binary_sensor::BinarySensor s_schnell;
 static text_sensor::TextSensor s_anweisung, s_art, s_zustand, s_ankunft;
 
@@ -151,6 +153,7 @@ static sensor::Sensor *yapaja_tempo = &s_tempo, *yapaja_tempolimit = &s_limit,
                       *yapaja_tempolimit_fahrzeug = &s_limit_fz,
                       *yapaja_manoever_entfernung = &s_mdist,
                       *yapaja_reststrecke = &s_rest;
+static sensor::Sensor *neigung_lr = &s_lr, *neigung_vh = &s_vh;
 static binary_sensor::BinarySensor *yapaja_zu_schnell = &s_schnell;
 static text_sensor::TextSensor *yapaja_anweisung = &s_anweisung,
                                *yapaja_manoever_art = &s_art,
@@ -168,6 +171,8 @@ struct Fall {
   float tempo, limit, mdist, rest; bool tempo_da, limit_da, mdist_da, rest_da;
   // Was DIESES Fahrzeug darf -- getrennt vom Schild.
   float limit_fz; bool limit_fz_da;
+  // Neigung in Grad, fuer die Wasserwaage.
+  float lr, vh; bool neigung_da;
   bool schnell;
 };
 
@@ -186,6 +191,8 @@ static void lauf(const Fall &f, int w, int h, bool zeige) {
   setze(s_tempo, f.tempo, f.tempo_da);
   setze(s_limit, f.limit, f.limit_da);
   setze(s_limit_fz, f.limit_fz, f.limit_fz_da);
+  setze(s_lr, f.lr, f.neigung_da);
+  setze(s_vh, f.vh, f.neigung_da);
   setze(s_mdist, f.mdist, f.mdist_da);
   setze(s_rest,  f.rest,  f.rest_da);
   s_schnell.state = f.schnell;
@@ -337,6 +344,8 @@ int main() {
     // Ein Test, der aus dem falschen Grund gruen ist, sieht aus wie einer,
     // der stimmt.
     s_limit_fz.has=f.limit_fz_da; s_limit_fz.state=f.limit_fz_da?f.limit_fz:NAN;
+    s_lr.has=f.neigung_da; s_lr.state=f.neigung_da?f.lr:NAN;
+    s_vh.has=f.neigung_da; s_vh.state=f.neigung_da?f.vh:NAN;
     s_mdist.has=f.mdist_da; s_mdist.state=f.mdist_da?f.mdist:NAN;
     s_rest.has=f.rest_da;   s_rest.state=f.rest_da?f.rest:NAN;
     s_schnell.state=f.schnell;
@@ -359,7 +368,9 @@ int main() {
               "2026-09-15T14:32:00.000Z",87,80,1240,42.5,
               true,true,true,true,false,
               // Ohne Fahrzeuggrenze -- so wie bis 0.13.2.
-              0,false};
+              0,false,
+              // Ohne Neigungswerte; das Tempo liegt ohnehin ueber der Schwelle.
+              0,0,false};
   // Reihenfolge wie gezeichnet: Anweisung oben, Entfernung unter dem Pfeil,
   // dann die untere Zeile. Die RESTSTRECKE fehlt bewusst -- auf 240 runden
   // Bildpunkten ist kein Platz fuer ein fuenftes Feld, und sie ist von den
@@ -493,6 +504,43 @@ int main() {
   // Damit hat ein fest verbautes Display auch ohne Route etwas zu zeigen --
   // und zwar das, wofuer man im Fahrzeug ueberhaupt auf einen Tacho sieht.
   // Der Zustandstext bleibt darunter stehen: er ist die Nebenauskunft.
+  // ─── DIE DIGITALE WASSERWAAGE (0.15.0) ──────────────────────────────────
+  // Unter 2 km/h wechselt die Anzeige auf eine runde Libelle. Gemessen wird
+  // an den TEXTEN: die Blase selbst ist eine Zeichnung, aber die Zahlen und
+  // der Satz „steht gerade" sagen eindeutig, welcher Zweig lief.
+  Fall parkt = sommer;
+  parkt.tempo = 0.4f; parkt.tempo_da = true;
+  parkt.lr = -1.2f; parkt.vh = -0.6f; parkt.neigung_da = true;
+  genau("unter 2 km/h: Wasserwaage statt Navigation", parkt, 240,240,
+        {"L/R -1.2°", "V/H -0.6°"});
+
+  // Innerhalb der Toleranz kommt der Satz dazu -- und NUR dann.
+  Fall eben = parkt; eben.lr = 0.2f; eben.vh = -0.1f;
+  // Die Reihenfolge ist die ZEICHENreihenfolge, nicht die von oben nach
+  // unten: der Satz steht ueber der Mitte, wird aber zuletzt gemalt.
+  genau("gerade genug: sagt es auch", eben, 240,240,
+        {"L/R +0.2°", "V/H -0.1°", "steht gerade"});
+
+  // ─── OHNE NEIGUNGSWERTE KEINE BLASE ─────────────────────────────────────
+  // Eine Blase in der Mitte hiesse „steht gerade". Fehlen die Werte, waere
+  // das eine Behauptung -- und zwar die beruhigende, bei der niemand
+  // nachsieht.
+  Fall ohne_neigung = parkt; ohne_neigung.neigung_da = false;
+  genau("ohne Neigungswerte: sagt WAS fehlt", ohne_neigung, 240,240,
+        {"Keine Neigungswerte", "Sensoren pruefen"});
+
+  // ─── BEI UNBEKANNTEM TEMPO BLEIBT ES BEI DER NAVIGATION ─────────────────
+  // Unbekannt heisst NICHT „vermutlich steht es". Sonst erschiene die
+  // Wasserwaage mitten auf der Autobahn, sobald das GPS aussetzt.
+  Fall tempo_weg = parkt; tempo_weg.tempo_da = false;
+  genau("Tempo unbekannt: KEINE Wasserwaage", tempo_weg, 240,240,
+        {"Links abbiegen auf B27","1.2 km","80","16:32"});
+
+  // Die Gegenprobe zur Schwelle: knapp darueber laeuft die Navigation weiter.
+  Fall rollt = parkt; rollt.tempo = 5.0f;
+  genau("ueber der Schwelle: Navigation", rollt, 240,240,
+        {"Links abbiegen auf B27","1.2 km","5","80","16:32"});
+
   Fall ruhe = sommer; ruhe.zustand = "idle";
   genau("idle mit Tempo: Tacho gross, Lage klein", ruhe, 240,240,
         {"87", "km/h", "Keine Route"});
