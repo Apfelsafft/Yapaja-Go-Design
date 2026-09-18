@@ -8,6 +8,7 @@ import {
   assessSuspiciousProfile,
   shouldShowHeightDisclaimer,
   RANGES,
+  nachkommastellen,
 } from './validation.js';
 
 describe('validateProfile', () => {
@@ -187,5 +188,78 @@ describe('shouldShowHeightDisclaimer', () => {
 
   it('should not show disclaimer when height_m is missing', () => {
     expect(shouldShowHeightDisclaimer({})).toBe(false);
+  });
+});
+
+/**
+ * ─── DIE FEINHEIT DES GEWICHTS ──────────────────────────────────────────────
+ * Gemeldet: „Mein Womo wiegt 3,49to. Was man nur durch die schieberegler nicht
+ * einstellen kann. […] die Regler gehen in 10er Schritten."
+ *
+ * Das ist nicht nur unbequem. Bei 3,5 t liegt die Grenze, an der sich die
+ * zulässigen Höchstgeschwindigkeiten ändern. Mit 0,1er-Schritten wählt jemand
+ * mit 3,55 t naheliegend 3,5 — und bekommt die Grenzen der LEICHTEREN Klasse.
+ */
+describe('das Gewicht lässt sich fein genug einstellen', () => {
+  it('geht in Schritten von zehn Kilogramm', () => {
+    // 0,01 t ist die Feinheit, in der ein Fahrzeugschein die zulässige
+    // Gesamtmasse ausweist.
+    expect(RANGES.weight_t.step).toBe(0.01);
+  });
+
+  it('ein Wert wie 3,49 t liegt auf einem Schritt', () => {
+    // Die eigentliche Beschwerde: mit 0,1 lag er zwischen zwei Rasten, und
+    // der Browser wies ihn auch im Zahlenfeld ab.
+    const schritte = (3.49 - RANGES.weight_t.min) / RANGES.weight_t.step;
+    expect(Math.abs(schritte - Math.round(schritte))).toBeLessThan(1e-6);
+  });
+
+  it('auch 3,55 t liegt auf einem Schritt — der gefährliche Fall', () => {
+    // Mit 0,1er-Schritten gab es hier nur 3,5 (zu leicht eingestuft) oder
+    // 3,6 (zu schwer). Die erste Wahl ist die naheliegende und die
+    // gefährliche: sie erlaubt zu viel.
+    const schritte = (3.55 - RANGES.weight_t.min) / RANGES.weight_t.step;
+    expect(Math.abs(schritte - Math.round(schritte))).toBeLessThan(1e-6);
+  });
+
+  it('so fein wie Höhe, Breite und Länge', () => {
+    // Die drei waren immer schon auf 0,01. Dass ausgerechnet das Gewicht
+    // gröber war, war keine Entscheidung, sondern ein Versehen.
+    expect(RANGES.weight_t.step).toBe(RANGES.height_m.step);
+  });
+});
+
+/**
+ * ─── WIE VIELE STELLEN ANGEZEIGT WERDEN ─────────────────────────────────────
+ * Das Zahlenfeld rundete fest auf zwei Stellen. Bei der
+ * Durchschnittsgeschwindigkeit (Schritt 1) stand damit „80.00" da — eine
+ * Genauigkeit, die die Zahl nicht hat.
+ */
+describe('nachkommastellen', () => {
+  it('folgt der Schrittweite', () => {
+    expect(nachkommastellen(0.01)).toBe(2);
+    expect(nachkommastellen(0.1)).toBe(1);
+    expect(nachkommastellen(1)).toBe(0);
+  });
+
+  it('jedes Feld zeigt so viele Stellen, wie es einstellen kann', () => {
+    // Die Gegenprobe zur festen Zwei: ein Feld, das nur ganze km/h kann,
+    // darf keine Hundertstel behaupten.
+    expect(nachkommastellen(RANGES.avg_speed_kmh.step)).toBe(0);
+    expect(nachkommastellen(RANGES.weight_t.step)).toBe(2);
+  });
+
+  it('kommt mit unsinnigen Schrittweiten aus, statt zu werfen', () => {
+    expect(nachkommastellen(0)).toBe(0);
+    expect(nachkommastellen(Number.NaN)).toBe(0);
+    expect(nachkommastellen(-1)).toBe(0);
+    // ─── DIESER FALL IST DER EINZIGE, DER DIE ABSICHERUNG PRÜFT ────────────
+    // Die drei oben kommen auch OHNE sie auf 0 heraus: „0", „NaN" und „-1"
+    // haben schlicht keinen Punkt. Eine Mutation, die `if (!Number.isFinite
+    // …) return 0;` streicht, überlebte sie deshalb alle drei.
+    //
+    // Erst ein negativer BRUCH unterscheidet: ohne die Absicherung zählt die
+    // Funktion die Stellen von „-0.5" und meldet 1.
+    expect(nachkommastellen(-0.5)).toBe(0);
   });
 });

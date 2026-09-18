@@ -10,6 +10,43 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.16.4
+
+**Das Gewicht lässt sich jetzt auf zehn Kilogramm genau eintragen — und
+eintippen.**
+
+Gemeldet:
+
+> „Mein Womo wiegt 3,49to. Was man nur durch die schieberegler nicht
+> einstellen kann. Man kann keine Werte über die Tastatur eingeben und die
+> Regler gehen in 10er Schritten."
+
+Zwei Ursachen, beide behoben:
+
+1. **Die Schrittweite war 0,1 t.** Jetzt 0,01 t — zehn Kilogramm, dieselbe
+   Feinheit, die Höhe, Breite und Länge schon immer hatten.
+2. **Das Zahlenfeld ließ sich nicht betippen.** Es formatierte bei *jedem*
+   Tastendruck neu: wer „3.49" tippt, erzeugt unterwegs „3." — daraus wurde
+   3, und das Feld schrieb „3.00" zurück, mitten in die Eingabe hinein. Jetzt
+   gilt beim Tippen das Getippte; formatiert wird erst beim Verlassen des
+   Feldes.
+
+**Warum das mehr ist als Bequemlichkeit.** Bei 3,5 t liegt die Grenze, an der
+sich die zulässigen Höchstgeschwindigkeiten ändern. Mit 0,1er-Schritten wählt
+jemand mit **3,55 t** naheliegend 3,5 — und bekommt damit die Grenzen der
+*leichteren* Klasse. Das ist die gefährliche Richtung: zu viel erlaubt.
+
+> Für 3,49 t war das Ergebnis übrigens nie falsch: 3,5 t zählt selbst noch zur
+> leichten Klasse („über 3,5 t" heißt über, nicht ab). Wer aufrundete, bekam
+> trotzdem die richtigen Limits. Ärgerlich war es dennoch — und für die
+> Nachbarn oberhalb der Grenze eben nicht nur ärgerlich.
+
+Nebenbei: Felder zeigen jetzt so viele Nachkommastellen, wie sie einstellen
+können. Bei der Durchschnittsgeschwindigkeit (ganze km/h) stand vorher
+„80.00" — eine Genauigkeit, die die Zahl nicht hat.
+
+---
+
 ## 0.16.3
 
 **Zwei Schalter für die Wasserwaage — und eine zweite Ansicht.**
