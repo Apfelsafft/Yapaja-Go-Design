@@ -1,3 +1,7 @@
+import type { Position as SharedPosition } from '@yapaia/shared';
+import { TempolimitDienst } from './routing/tempolimitDienst.js';
+import { ValhallaClient } from './routing/valhallaClient.js';
+import { VALHALLA_COSTING } from './routing/profileMapping.js';
 import Fastify, { FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import pino from 'pino';
@@ -664,10 +668,39 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // der Add-on-Option `ha_internal` (Init-Skript setzt `HA_INTERNAL=1`).
   // Solange MQTT verbunden ist, haelt er sich von selbst zurueck -- warum,
   // steht in `ha/statesBridge.ts`.
+  // ─── DAS TEMPOLIMIT OHNE ROUTE ──────────────────────────────────────────
+  // Eigener Valhalla-Client statt eines geliehenen: der von `routingService`
+  // ist privat, und ein zweiter kostet nichts -- er haelt keine Verbindung,
+  // sondern baut sie je Anfrage auf. Dieselbe URL, dieselbe Umgebung.
+  const tempolimitDienst = new TempolimitDienst({
+    traceAttributes: (body) =>
+      new ValhallaClient({
+        baseUrl: process.env.VALHALLA_URL,
+        logger: {
+          info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+          warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+          error: (msg, meta) => fastify.log.error(meta ?? {}, msg),
+        },
+      }).traceAttributes(body),
+    costing: () => VALHALLA_COSTING,
+  });
+  // Der Positionsstrom fuellt die Spur. `melde` wartet nie und wirft nie --
+  // eine Tempolimit-Abfrage darf den Positionsstrom nicht aufhalten.
+  eventBus.subscribe('pos/update', (pos) => {
+    tempolimitDienst.melde(pos as SharedPosition);
+  });
+
   const haStatesBridge =
     process.env.HA_INTERNAL === '1'
       ? new HaStatesBridge({
           bus: eventBus,
+          // Ohne Route kommt das Tempolimit von hier -- siehe
+          // `routing/tempolimitDienst.ts`.
+          tempoHier: () => tempolimitDienst.aktuell(),
+          fahrzeug: () => {
+            const p = profileService.getActive();
+            return p ? { weight_t: p.weight_t, tempo_100: p.tempo_100 === true } : null;
+          },
           verbindung: () => resolveHaConnection({ settings: settingsService }),
           mqttLiefert: () => mqttBridge?.getHealthStatus() === 'ok',
           schreibe: (verbindung, write) =>

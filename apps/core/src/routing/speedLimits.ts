@@ -41,6 +41,33 @@ export interface TraceAttributesEdge {
   begin_shape_index?: unknown;
   end_shape_index?: unknown;
   speed_limit?: unknown;
+  road_class?: unknown;
+}
+
+/**
+ * Die acht Klassen, die Valhalla als Zeichenkette schreibt.
+ *
+ * Nachgelesen in `baldr/graphconstants.h` (`to_string(RoadClass)`), nicht
+ * angenommen. Wichtig dabei: kennt Valhalla die Klasse nicht, schreibt es die
+ * Zeichenkette `"null"` -- nicht JSON-`null`. Wer darauf nicht achtet, fuehrt
+ * eine Strassenklasse namens „null" mit sich.
+ */
+const STRASSENKLASSEN: ReadonlySet<string> = new Set([
+  'motorway',
+  'trunk',
+  'primary',
+  'secondary',
+  'tertiary',
+  'unclassified',
+  'residential',
+  'service_other',
+]);
+
+/** Die Strassenklasse einer Kante, oder `null`. */
+export function roadClassOf(edge: TraceAttributesEdge): string | null {
+  const raw = edge.road_class;
+  if (typeof raw !== 'string') return null;
+  return STRASSENKLASSEN.has(raw) ? raw : null;
 }
 
 export interface TraceAttributesResponse {
@@ -101,9 +128,25 @@ export function speedSegmentsFromTraceAttributes(
     if (begin === null || end === null || end <= begin) continue;
 
     const kmh = speedLimitOf(edge);
-    if (kmh === null) continue;
+    const road_class = roadClassOf(edge);
 
-    segments.push({ begin_shape_index: begin, end_shape_index: end, kmh });
+    // ─── EINE KANTE OHNE SCHILD IST NICHT WERTLOS ──────────────────────────
+    // Hier stand `if (kmh === null) continue;` -- Kanten ohne Tempolimit
+    // fielen also weg. Fuer die Anzeige des Schildes war das richtig: ein
+    // Eintrag ohne Aussage waere Ballast gewesen.
+    //
+    // Seit 0.14.0 ist es falsch, und zwar ausgerechnet im wichtigsten Fall.
+    // Eine deutsche Autobahn OHNE Begrenzung hat kein `speed_limit`. Die
+    // Kante flog damit heraus -- und mit ihr die Strassenklasse, aus der
+    // sich die FAHRZEUGgrenze ergibt. Genau dort, wo ein Wohnmobil ueber
+    // 3,5 t nur 80 fahren darf und das Schild nichts sagt, wusste Yapaia
+    // hinterher gar nichts mehr.
+    //
+    // Jetzt bleibt eine Kante, wenn sie EINES von beiden hat. Traegt sie
+    // keines, ist sie weiterhin Ballast und faellt weg.
+    if (kmh === null && road_class === null) continue;
+
+    segments.push({ begin_shape_index: begin, end_shape_index: end, kmh, road_class });
   }
   return segments;
 }
@@ -134,7 +177,14 @@ export function buildTraceAttributesBody(
     // Ohne Filter liefert Valhalla je Kante ein grosses Objekt. Gebraucht wird
     // nichts davon; bei einer langen Route ist der Unterschied erheblich.
     filters: {
-      attributes: ['edge.speed_limit', 'edge.begin_shape_index', 'edge.end_shape_index'],
+      attributes: [
+        'edge.speed_limit',
+        'edge.begin_shape_index',
+        'edge.end_shape_index',
+        // Woraus sich die FAHRZEUGgrenze ergibt -- ohne sie ist auf einer
+        // unbegrenzten Autobahn nicht zu sagen, was dieses Fahrzeug darf.
+        'edge.road_class',
+      ],
       action: 'include',
     },
   };

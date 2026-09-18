@@ -131,6 +131,33 @@ Platz leer.
    Repository: er gehört zur Installation, und ein mitgelieferter wäre auf
    jedem Gerät derselbe.
 2. **Zeitzone und Pins** oben in `substitutions` eintragen.
+2b. **Digitale Wasserwaage** (optional). Unter 2 km/h wechselt die Anzeige auf
+   eine runde Libelle — beim Parken die einzige Frage, die zählt. Dafür
+   braucht es zwei Neigungssensoren in Grad (etwa ein MPU6050). Alles dazu
+   steht in `substitutions`:
+
+   | Einstellung | Bedeutung |
+   | --- | --- |
+   | `entity_neigung_lr` | Entität für links/rechts |
+   | `entity_neigung_vh` | Entität für vorne/hinten |
+   | `wasserwaage_ab_kmh` | Ab welchem Tempo sie erscheint (Vorgabe 2) |
+   | `wasserwaage_gerade_grad` | Ab wann „steht gerade" (Vorgabe 0,5°) |
+   | `wasserwaage_bereich_grad` | Vollausschlag am Rand (Vorgabe 5°) |
+   | `neigung_lr_vorzeichen` | `1` oder `-1` |
+   | `neigung_vh_vorzeichen` | `1` oder `-1` |
+
+   **Die Vorzeichen müssen Sie einmal prüfen.** Welches Vorzeichen welche
+   Seite meint, hängt davon ab, wie der Sensor eingebaut ist — das kann diese
+   Datei nicht wissen, und Raten wäre hier besonders ärgerlich: eine
+   spiegelverkehrte Wasserwaage schickt den Auffahrkeil unter das falsche Rad.
+
+   So geht es: eine Seite anheben (oder sich auf eine Seite stellen). Wandert
+   die Blase zur **angehobenen** Seite, stimmt es — wie bei einer echten
+   Libelle. Wandert sie zur anderen, das jeweilige Vorzeichen auf `-1` setzen.
+
+   Fehlen die Neigungswerte, zeigt das Gerät **„Keine Neigungswerte"** statt
+   einer Blase in der Mitte. Eine mittige Blase hieße „steht gerade" — und das
+   wäre ausgerechnet die beruhigende Behauptung, bei der niemand nachsieht.
 3. Für dieses Board ist nichts weiter zu tun. Für ein anderes den
    `display:`-Block und `rund` anpassen — siehe unten.
 4. Übersetzen und flashen: in Home Assistant über das ESPHome-Add-on, oder

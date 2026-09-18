@@ -266,9 +266,29 @@ test.describe.serial('docs/07 §5 Flow 8 (MQTT cmd/destination)', () => {
     expect(eta.distance_remaining_m).not.toBeNull();
 
     const speed = JSON.parse(seen.get(topic('nav/speed')) as string) as Record<string, unknown>;
+    // ─── DER VERTRAG AUS docs/03 §4, SEIT 0.14.0 ERWEITERT ──────────────
+    // Die drei neuen Felder trennen, was vorher eine Zahl war: was
+    // AUSGESCHILDERT ist, was DIESES FAHRZEUG darf, und welche der beiden
+    // fuer `speeding` entscheidet. Ein Wohnmobil ueber 3,5 t darf weniger
+    // als das Schild erlaubt -- und auf einer unbegrenzten Autobahn gibt es
+    // gar kein Schild.
+    //
+    // Genau auf GLEICHHEIT geprueft und nicht auf „enthaelt": dieses Thema
+    // lesen fremde Automationen. Ein Feld, das unbemerkt dazukommt oder
+    // verschwindet, faellt sonst erst dort auf.
     expect(Object.keys(speed).sort()).toEqual(
-      ['speed_kmh', 'speed_limit_kmh', 'speeding'].sort(),
+      [
+        'speed_kmh',
+        'speed_limit_kmh',
+        'speed_limit_vehicle_kmh',
+        'speed_limit_effective_kmh',
+        'speed_limit_source',
+        'speeding',
+      ].sort(),
     );
+    // Die drei alten Felder bleiben, was sie waren -- die Erweiterung ist
+    // rueckwaertskompatibel, und das soll geprueft dastehen.
+    expect(typeof speed.speed_limit_source).toBe('string');
     expect(typeof speed.speeding).toBe('boolean');
 
     const altitude = JSON.parse(seen.get(topic('nav/altitude')) as string) as Record<string, unknown>;

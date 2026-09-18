@@ -90,9 +90,12 @@ export function substitutionen(text) {
  */
 export const ZEIGER_IDS = new Set([
   'font_xl', 'font_l', 'font_m', 'font_s',
-  'yapaja_tempo', 'yapaja_tempolimit', 'yapaja_manoever_entfernung',
+  'yapaja_tempo', 'yapaja_tempolimit', 'yapaja_tempolimit_fahrzeug',
+  'yapaja_manoever_entfernung',
   'yapaja_reststrecke', 'yapaja_zu_schnell', 'yapaja_anweisung',
   'yapaja_manoever_art', 'yapaja_fahrzustand', 'yapaja_ankunft',
+  // Die digitale Wasserwaage.
+  'neigung_lr', 'neigung_vh',
 ]);
 
 export const WERT_IDS = new Set([

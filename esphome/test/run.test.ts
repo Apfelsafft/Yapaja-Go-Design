@@ -38,7 +38,14 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { idsUmschreiben, ohneKommentare, ZEIGER_IDS, WERT_IDS } from './run.mjs';
+import {
+  idsUmschreiben,
+  ohneKommentare,
+  lambdaRumpf,
+  substitutionen,
+  ZEIGER_IDS,
+  WERT_IDS,
+} from './run.mjs';
 
 const HIER = dirname(fileURLToPath(import.meta.url));
 const YAML = join(HIER, '..', 'yapaja-nav-display.yaml');
@@ -129,5 +136,72 @@ describe('Die ausgelieferte Konfiguration', () => {
     // dem Gerät aber nicht.
     expect(text).toContain('auto hat = [](esphome::sensor::Sensor *s)');
     expect(text).not.toContain('auto hat = [](esphome::sensor::Sensor &s)');
+  });
+});
+
+describe('die Wasserwaage laesst sich an EINER Stelle einstellen', () => {
+  const yaml = (): string =>
+    readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'yapaja-nav-display.yaml'), 'utf-8');
+
+  it('alle Einstellungen stehen unter `substitutions:`', () => {
+    // Gewuenscht war ausdruecklich: „an einer Stelle zu pflegen". Wer eine
+    // dieser Zahlen spaeter in die Zeichenroutine schreibt, macht aus einer
+    // Einstellung eine Suchaufgabe.
+    const werte = substitutionen(yaml());
+    for (const name of [
+      'entity_neigung_lr',
+      'entity_neigung_vh',
+      'wasserwaage_ab_kmh',
+      'wasserwaage_gerade_grad',
+      'wasserwaage_bereich_grad',
+      'neigung_lr_vorzeichen',
+      'neigung_vh_vorzeichen',
+    ]) {
+      expect(werte[name], name).toBeDefined();
+    }
+  });
+
+  it('das VORZEICHEN wirkt sich wirklich aus', () => {
+    // ─── DIE MUTATION, DIE ZUERST UEBERLEBT HAT ───────────────────────────
+    // Der Multiplikator liess sich streichen, ohne dass ein Test rot wurde --
+    // weil alle Pruefstands-Faelle mit `1` laufen und eine Multiplikation
+    // mit 1 nichts aendert.
+    //
+    // Das ist ausgerechnet die wichtigste Einstellung dieser Anzeige: eine
+    // spiegelverkehrte Wasserwaage schickt den Auffahrkeil unter das falsche
+    // Rad. Geprueft wird deshalb, dass ein geaenderter Wert im erzeugten
+    // C++ WIRKLICH ankommt.
+    // ─── UND WARUM JEDE ACHSE EINZELN ──────────────────────────────────
+    // Der erste Entwurf dieser Pruefung tauschte BEIDE Vorzeichen und sah
+    // nach, ob irgendwo ein `-1` steht. Damit ueberlebte die Mutation
+    // weiterhin: faellt der Multiplikator bei LINKS/RECHTS weg, liefert der
+    // von VORNE/HINTEN das gesuchte `-1` -- und die Pruefung war zufrieden.
+    //
+    // Ein Test, der zwei Dinge zugleich prueft, prueft am Ende eines.
+    for (const achse of ['lr', 'vh'] as const) {
+      const geaendert = yaml().replace(
+        `neigung_${achse}_vorzeichen: "1"`,
+        `neigung_${achse}_vorzeichen: "-1"`,
+      );
+      expect(geaendert, `${achse}: die Ersetzung selbst hat nicht gegriffen`).not.toBe(yaml());
+
+      const zeile = lambdaRumpf(geaendert)
+        .split('\n')
+        .find((z) => z.includes(`const float ${achse} =`));
+      expect(zeile, `${achse}: die Zeile gibt es nicht mehr`).toBeDefined();
+      expect(zeile, `${achse}: das Vorzeichen kommt nicht an`).toContain('(float) (-1)');
+    }
+
+    // Die Gegenprobe: mit der Vorgabe steht dort kein Minus.
+    expect(lambdaRumpf(yaml())).not.toContain('(float) (-1)');
+  });
+
+  it('keine Zahl der Wasserwaage steht doppelt im Quelltext', () => {
+    // Eine Einstellung, die auch fest im Code steht, laeuft frueher oder
+    // spaeter mit sich selbst auseinander.
+    const rumpf = lambdaRumpf(yaml());
+    // Die Zeichenroutine darf die Entitaetsnamen nicht kennen -- sie kommen
+    // ueber `id(...)`, nicht als Text.
+    expect(rumpf).not.toContain('sensor.heizung');
   });
 });

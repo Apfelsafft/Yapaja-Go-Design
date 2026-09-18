@@ -52,6 +52,14 @@ import type { HaConnection } from './config.js';
 import { EIGENER_FAHRZEUG_TRACKER } from './eigeneEntitaeten.js';
 import { buildSpeedPayload, maneuverIcon } from '../mqtt/mapping.js';
 import { tempoAusPosition, hoeheAusPosition } from './ausPosition.js';
+import {
+  fahrzeugGrenze,
+  massgeblichesTempo,
+  faehrtZuSchnell,
+  type FahrzeugAngaben,
+  type Strassenklasse,
+} from '../routing/fahrzeugTempo.js';
+import type { Tempoauskunft } from '../routing/tempolimitDienst.js';
 
 /** Ein Zustand, wie ihn Home Assistant entgegennimmt. */
 export interface HaStateWrite {
@@ -64,6 +72,16 @@ export interface HaStateWrite {
 export interface YapaiaZustand {
   navState: NavState | null;
   position: Position | null;
+  /**
+   * Das Tempolimit an der aktuellen Stelle, OHNE laufende Route.
+   *
+   * Es fuellt genau die Luecke, die `navState` laesst: ohne Ziel gibt es
+   * keine Route, aber sehr wohl eine Strasse. Siehe
+   * `routing/tempolimitDienst.ts`.
+   */
+  tempoHier?: Tempoauskunft | null;
+  /** Das aktive Fahrzeug -- fuer die Fahrzeuggrenze ohne Route. */
+  fahrzeug?: FahrzeugAngaben | null;
 }
 
 /** Der Anzeigename des Geraets -- dieselbe Schreibweise wie bei der Discovery. */
@@ -86,6 +104,30 @@ export function buildHaStates(zustand: YapaiaZustand): HaStateWrite[] {
   const { navState, position } = zustand;
   const tempo = navState ? buildSpeedPayload(navState) : null;
   const schreibt: HaStateWrite[] = [];
+
+  // ─── DAS TEMPOLIMIT OHNE ROUTE ──────────────────────────────────────────
+  // `navState` gibt es nur waehrend einer Fahrt mit Ziel. Eine STRASSE gibt
+  // es immer -- und damit ein Tempolimit. Von den zehn Yapaia-Entitaeten war
+  // `speed_limit` die einzige, die ohne Route zu Unrecht leer blieb: ETA und
+  // Anweisung gibt es ohne Ziel wirklich nicht, ein Tempolimit schon.
+  //
+  // Die Reihenfolge ist wie ueberall: die Route zuerst, weil ihr Wert auf
+  // die gefahrene Strecke bezogen ist. Der Ortswert springt nur ein, wo
+  // bisher `unknown` stand.
+  const hier = zustand.tempoHier ?? null;
+  // Nur ein FRISCHER Ortswert zaehlt. Ein veralteter kann von der Strasse
+  // von vorhin stammen, und ein Schild, das die vorige Strasse zeigt, ist
+  // die unangenehmste Sorte Fehler: es stimmt beinahe.
+  const hierGilt = hier !== null && hier.stand === 'frisch';
+  const schildHier = hierGilt ? hier.kmh : null;
+  const fahrzeugHier =
+    hierGilt && zustand.fahrzeug
+      ? fahrzeugGrenze(zustand.fahrzeug, (hier.road_class ?? null) as Strassenklasse | null)
+      : null;
+
+  const schild = tempo?.speed_limit_kmh ?? schildHier;
+  const fahrzeugGrenzeJetzt = tempo?.speed_limit_vehicle_kmh ?? fahrzeugHier;
+  const massgeblich = massgeblichesTempo(schild, fahrzeugGrenzeJetzt);
 
   const dazu = (
     entityId: string,
@@ -118,15 +160,48 @@ export function buildHaStates(zustand: YapaiaZustand): HaStateWrite[] {
     state_class: 'measurement',
     icon: 'mdi:speedometer',
   });
-  dazu('sensor.yapaja_speed_limit', zahl(tempo?.speed_limit_kmh ?? null), 'Speed Limit', {
+  dazu('sensor.yapaja_speed_limit', zahl(schild), 'Speed Limit', {
     unit_of_measurement: 'km/h',
     device_class: 'speed',
     state_class: 'measurement',
     icon: 'mdi:speedometer-medium',
   });
-  dazu('binary_sensor.yapaja_speeding', tempo?.speeding ? 'on' : 'off', 'Speeding', {
+  // ─── WAS DIESES FAHRZEUG DARF, NEBEN DEM SCHILD ────────────────────────
+  // Getrennt und nicht zusammengelegt: auf einer unbegrenzten Autobahn ist
+  // das Schild `unknown` und die Fahrzeuggrenze 80. Eine einzige Zahl liesse
+  // offen, welche davon man draussen wiederfindet.
+  dazu(
+    'sensor.yapaja_speed_limit_vehicle',
+    zahl(fahrzeugGrenzeJetzt),
+    'Speed Limit Vehicle',
+    {
+      unit_of_measurement: 'km/h',
+      device_class: 'speed',
+      state_class: 'measurement',
+      icon: 'mdi:truck-alert',
+    },
+  );
+  // Das Tempo kommt seit 0.13.1 auch aus dem GPS, die Grenze seit 0.14.1
+  // auch ohne Route -- also kann jetzt auch OHNE Fahrt gewarnt werden.
+  dazu(
+    'binary_sensor.yapaja_speeding',
+    faehrtZuSchnell(tempo?.speed_kmh ?? tempoAusPosition(position), massgeblich.grenze)
+      ? 'on'
+      : 'off',
+    'Speeding',
+    {
     device_class: 'safety',
-  });
+    // Damit am Sensor selbst ablesbar ist, WORAN die Warnung haengt. Ohne das
+    // bliebe unklar, ob gerade das Schild oder das Fahrzeuggewicht
+    // entscheidet -- und genau diese Frage stellt sich am Strassenrand.
+    grenze_kmh: massgeblich.grenze,
+    quelle: massgeblich.quelle,
+    // Woher der Ortswert kommt, wenn keine Route laeuft -- oder warum es
+    // keinen gibt. Ohne das saehe „Valhalla antwortet nicht" genauso aus wie
+    // „hier ist nichts ausgeschildert".
+    stand_ohne_route: hier?.stand ?? 'unbekannt',
+    },
+  );
   dazu('sensor.yapaja_eta', navState?.eta ?? UNBEKANNT, 'ETA', {
     device_class: 'timestamp',
     icon: 'mdi:clock-outline',
@@ -258,6 +333,16 @@ export interface HaStatesBridgeDeps {
   /** Schreibt EINEN Zustand. Gibt zurueck, ob es geklappt hat. */
   schreibe: (verbindung: HaConnection, write: HaStateWrite) => Promise<boolean>;
   logger: { info: (msg: string, meta?: Record<string, unknown>) => void; warn: (msg: string, meta?: Record<string, unknown>) => void };
+  /**
+   * Das Tempolimit an der aktuellen Stelle, ohne Route.
+   *
+   * Optional: ohne diese Angabe verhaelt sich die Bruecke wie vor 0.14.1 --
+   * `speed_limit` bleibt ohne Route leer. Damit bleiben die bestehenden
+   * Pruefungen gueltig, die sie ohne diesen Dienst bauen.
+   */
+  tempoHier?: () => Tempoauskunft | null;
+  /** Das aktive Fahrzeug -- fuer die Fahrzeuggrenze ohne Route. */
+  fahrzeug?: () => FahrzeugAngaben | null;
   intervallMs?: number;
   auffrischMs?: number;
   setIntervalImpl?: (fn: () => void, ms: number) => unknown;
@@ -321,7 +406,11 @@ export class HaStatesBridge {
     const alleNeu = jetzt >= this.naechsteAuffrischung;
     if (alleNeu) this.naechsteAuffrischung = jetzt + (this.deps.auffrischMs ?? AUFFRISCH_INTERVALL_MS);
 
-    for (const write of buildHaStates(this.zustand)) {
+    for (const write of buildHaStates({
+      ...this.zustand,
+      tempoHier: this.deps.tempoHier?.() ?? null,
+      fahrzeug: this.deps.fahrzeug?.() ?? null,
+    })) {
       if (!alleNeu && !hatSichGeaendert(write, this.zuletzt.get(write.entityId))) continue;
       const ok = await this.deps.schreibe(verbindung, write);
       // Nur merken, was wirklich angekommen ist -- sonst gilt ein

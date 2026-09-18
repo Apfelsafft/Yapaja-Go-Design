@@ -43,7 +43,18 @@ export const speedSegmentSchema = {
       maximum: 130,
       description: 'Speed limit in km/h (5–130 or null for unknown)',
     },
+    road_class: {
+      type: ['string', 'null'],
+      description:
+        "Valhalla's road class for this edge (motorway, trunk, primary, …) " +
+        'or null. Feeds the VEHICLE speed limit: a motorhome over 3.5 t may ' +
+        'drive less than the posted sign allows, and how much less depends ' +
+        'on whether this is a motorway. See routing/fahrzeugTempo.ts.',
+    },
   },
+  // `road_class` ist NICHT required: eine Route, die vor 0.14.0 berechnet und
+  // gespeichert wurde, hat das Feld nicht. Sie muss weiterhin gueltig sein --
+  // sonst liesse sich nach einem Update keine laufende Fahrt fortsetzen.
   required: ['begin_shape_index', 'end_shape_index', 'kmh'],
   additionalProperties: false,
 } as const;

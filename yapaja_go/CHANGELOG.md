@@ -10,6 +10,147 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.15.0
+
+**Das ESP32-Display wird beim Parken zur digitalen Wasserwaage.**
+
+Unter **2 km/h** wechselt die runde Anzeige auf eine Libelle: eine Blase, zwei
+Ringe, ein Fadenkreuz — und darunter die Neigung in Grad für links/rechts und
+vorne/hinten. Steht das Wohnmobil innerhalb der Toleranz, wird der Ring grün
+und es steht **„steht gerade"** da.
+
+Sobald es wieder schneller wird, ist die Navigationsanzeige zurück.
+
+### Was Sie einstellen müssen
+
+Die Neigung kommt aus einem **anderen Gerät** als der Rest der Anzeige (bei
+mir ein MPU6050). Alle Einstellungen stehen deshalb an einer Stelle, oben in
+`substitutions`:
+
+| Einstellung | Vorgabe |
+| --- | --- |
+| `entity_neigung_lr` / `entity_neigung_vh` | die beiden Entitäten in Grad |
+| `wasserwaage_ab_kmh` | 2 |
+| `wasserwaage_gerade_grad` | 0,5 |
+| `wasserwaage_bereich_grad` | 5 |
+| `neigung_lr_vorzeichen` / `neigung_vh_vorzeichen` | 1 |
+
+**Die Vorzeichen müssen Sie einmal prüfen.** Welches Vorzeichen welche Seite
+meint, hängt vom Einbau des Sensors ab. Heben Sie eine Seite an: wandert die
+Blase zur **angehobenen** Seite, stimmt es — wie bei einer echten Libelle.
+Sonst das Vorzeichen auf `-1` setzen. Raten wäre hier besonders ärgerlich, denn
+eine spiegelverkehrte Wasserwaage schickt den Auffahrkeil unter das falsche Rad.
+
+### Wann sie bewusst nichts zeigt
+
+- **Ohne Neigungswerte** steht dort „Keine Neigungswerte" und keine Blase. Eine
+  Blase in der Mitte hieße „steht gerade" — ausgerechnet die beruhigende
+  Behauptung, bei der niemand nachsieht.
+- **Bei unbekanntem Tempo** bleibt es bei der Navigationsanzeige. Unbekannt
+  heißt nicht „vermutlich steht es"; sonst erschiene die Wasserwaage mitten
+  auf der Autobahn, sobald das GPS aussetzt.
+
+---
+
+## 0.14.1
+
+**Das Tempolimit steht jetzt auch da, wenn keine Route läuft.**
+
+Von den zehn Yapaia-Entitäten war `speed_limit` die letzte, die ohne Route zu
+Unrecht leer blieb. Ankunftszeit und Abbiegehinweis gibt es ohne Ziel
+wirklich nicht — ein Tempolimit braucht aber kein Ziel, sondern nur eine
+Straße.
+
+Für ein fest verbautes Display ist das der Unterschied zwischen nützlich und
+Zierde: ohne Route fährt man die meiste Zeit. Das runde Verkehrszeichen war
+längst gezeichnet, es bekam nur nie einen Wert.
+
+Zusammen mit 0.13.1 (Tacho aus dem GPS) und 0.14.0 (Fahrzeuggrenze) heißt
+das: **Yapaia kann jetzt auch ohne Fahrt mit Ziel vor zu schnellem Fahren
+warnen.**
+
+### Wie es funktioniert
+
+Yapaia merkt sich die letzten Positionen als kurze Fahrtlinie und lässt sie
+von der Karte zuordnen. Eine Linie und kein einzelner Punkt — denn ein Punkt
+hat keine Richtung, und neben einer Autobahn verläuft oft eine Nebenstraße.
+
+### Wann Yapaia bewusst schweigt
+
+Ein **falsches** Tempolimit ist schlimmer als gar keines: ein leeres Schild
+sagt „weiß ich nicht", eine 100 auf einer Landstraße sagt etwas Falsches mit
+Nachdruck. Deshalb bleibt die Anzeige leer, wenn
+
+- das **GPS zu ungenau** ist (schlechter als 30 m). Aus Ihrem Gerät gemeldet
+  wurden 53 m — auf dieser Strecke liegen Autobahn, Auffahrt und
+  Parallelstraße nebeneinander;
+- das Fahrzeug **steht** (ohne Bewegung keine Richtung);
+- die letzte Auskunft **älter als 30 Sekunden** ist. Bei 100 km/h sind das
+  800 Meter — sie könnte von einer anderen Straße stammen;
+- die Karte diese Stelle **nicht kennt**, etwa auf einem Feldweg.
+
+Woran es gerade liegt, steht als Attribut `stand_ohne_route` an
+`binary_sensor.yapaja_speeding`. Ohne diese Angabe sähe „konnte nicht
+nachsehen" genauso aus wie „hier ist nichts ausgeschildert".
+
+Während einer Route gilt weiterhin der Wert aus der Route.
+
+---
+
+## 0.14.0
+
+**Die Tempowarnung gilt jetzt für IHR Fahrzeug, nicht für einen PKW.**
+
+Bisher kannte Yapaia nur das **ausgeschilderte** Limit — und das ist das Limit
+für einen PKW. Auf einer deutschen Autobahn ohne Begrenzung steht gar kein
+Schild. Die Warnung blieb dort auch bei 130 km/h aus, obwohl ein Wohnmobil
+über 3,5 t nur 80 fahren darf. Eine Übertretung um fünfzig, die als „alles in
+Ordnung" durchging.
+
+### Was Sie einstellen müssen
+
+Im **Fahrzeugprofil** gibt es einen neuen Schalter: **Tempo-100-Zulassung**.
+
+> Nur ankreuzen, wenn es in den Fahrzeugpapieren steht. Über 3,5 t entscheidet
+> das über 80 oder 100 km/h auf der Autobahn. Bis 3,5 t ändert es nichts.
+
+Das Gewicht steht bereits im Profil. Aus beidem ergibt sich, was Ihr Fahrzeug
+fahren darf — Yapaia rät nichts.
+
+### Beide Zahlen bleiben sichtbar
+
+Das runde Verkehrszeichen zeigt weiterhin nur das, was **ausgeschildert** ist.
+Die Fahrzeuggrenze steht klein **daneben**, und zwar nur dann, wenn sie etwas
+Neues sagt — also wenn sie niedriger ist als das Schild oder es gar keines
+gibt.
+
+Ein Verkehrszeichen behauptet, dass es draußen steht. Eine 80 im runden Schild
+auf einer unbegrenzten Autobahn wäre diese Behauptung, und wer hinsieht, würde
+das Zeichen am Straßenrand suchen.
+
+Gewarnt wird ab der **niedrigeren** der beiden. Ist nur eine bekannt, gilt
+diese. Ist keine bekannt, wird nicht gewarnt — eine unbekannte Grenze ist
+keine Übertretung.
+
+### Neu in Home Assistant
+
+`sensor.yapaja_speed_limit_vehicle` — was Ihr Fahrzeug hier darf.
+`binary_sensor.yapaja_speeding` trägt jetzt zusätzlich, **woran** die Warnung
+hängt: am Schild oder am Fahrzeug.
+
+### Ein Vorbehalt, der dazugehört
+
+Die hinterlegten Grenzen sind meine beste Lesart der StVO und **keine
+Rechtsauskunft**. Am wenigsten sicher ist der Fall „über 3,5 t bis 7,5 t auf
+der Autobahn" — dort hängt es an der Einstufung in den Fahrzeugpapieren.
+Deshalb ist die Tempo-100-Angabe Ihre und nicht meine Vermutung. Wer seine
+Papiere danebenlegt und eine Zahl anders findet: sie stehen alle an einer
+einzigen Stelle, in `routing/fahrzeugTempo.ts`.
+
+Das ESP32-Display muss neu geflasht werden, damit es die zweite Zahl anzeigt.
+
+---
+
 ## 0.13.2
 
 **Die ESP32-Anzeige lässt sich jetzt ohne Nacharbeit übernehmen.**

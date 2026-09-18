@@ -306,6 +306,27 @@ export default function ProfileEditor({
         </div>
       </div>
 
+      {/* Tempo-100-Zulassung */}
+      <div>
+        <ToggleInput
+          label="Tempo-100-Zulassung"
+          checked={profile.tempo_100 ?? false}
+          onChange={() => handleFieldChange('tempo_100', !(profile.tempo_100 ?? false))}
+          testId="tempo100-toggle"
+        />
+        {/* ─── WARUM HIER EIN SATZ STEHT UND NICHT NUR EIN SCHALTER ───────
+            Weil die Angabe aus den FAHRZEUGPAPIEREN kommt und nicht aus dem
+            Gefühl. Sie entscheidet bei einem Fahrzeug über 3,5 t, ob auf der
+            Autobahn 80 oder 100 gilt — und danach richtet sich die
+            Tempowarnung. Ein Häkchen ohne diesen Hinweis wäre eine Einladung
+            zum Raten. */}
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Nur ankreuzen, wenn es in den Fahrzeugpapieren steht. Über 3,5 t
+          entscheidet das über 80 oder 100 km/h auf der Autobahn — und damit
+          über die Tempowarnung. Bis 3,5 t ändert es nichts.
+        </p>
+      </div>
+
       {/* Hazmat toggle */}
       <div>
         <ToggleInput

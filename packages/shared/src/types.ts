@@ -31,6 +31,19 @@ export interface VehicleProfile {
   length_m: number; // 3.0–20.0
   weight_t: number; // 1.0–40.0
   avg_speed_kmh: number; // 40–130, used for ETA calculation
+  /**
+   * Hat dieses Fahrzeug eine Tempo-100-Zulassung?
+   *
+   * Eine Angabe AUS DEN FAHRZEUGPAPIEREN, keine Ableitung: sie entscheidet
+   * bei einem Fahrzeug ueber 3,5 t, ob auf der Autobahn 80 oder 100 gilt.
+   * Yapaia kann das nicht wissen, und es zu raten waere genau die Art Zahl,
+   * fuer die eine Software nicht geradestehen kann.
+   *
+   * Optional, damit ein vor 0.14.0 gespeichertes Profil gueltig bleibt.
+   * Fehlt die Angabe, gilt sie als nicht vorhanden (der vorsichtigere Fall:
+   * die niedrigere Grenze).
+   */
+  tempo_100?: boolean;
   hazmat: boolean; // default false
   avoid: {
     motorway: boolean;
@@ -126,6 +139,18 @@ export interface SpeedSegment {
   begin_shape_index: number;
   end_shape_index: number;
   kmh: number | null; // null = "unbekannt" (unknown)
+  /**
+   * Valhallas Strassenklasse dieser Kante, oder `null`.
+   *
+   * Eine der acht Zeichenketten aus `baldr/graphconstants.h` (`motorway`,
+   * `trunk`, `primary`, `secondary`, `tertiary`, `unclassified`,
+   * `residential`, `service_other`) -- nachgelesen, nicht angenommen.
+   *
+   * Wofuer: ein Wohnmobil ueber 3,5 t darf weniger als das Schild erlaubt,
+   * und WIE VIEL weniger haengt daran, ob man auf der Autobahn ist. Siehe
+   * `routing/fahrzeugTempo.ts`.
+   */
+  road_class?: string | null;
 }
 
 // TODO(spec): minimal definition, refine when first consumed
@@ -191,6 +216,16 @@ export interface NavState {
   eta: string | null; // ISO 8601 in UTC ('...Z'); Core is UTC-only (W-22). Client formats to the device's local TZ via @yapaia/shared formatEta.
   speed_kmh: number | null; // current speed
   speed_limit_kmh: number | null; // from map data, null = unknown
+  /**
+   * Was DIESES Fahrzeug hier fahren darf, oder `null`.
+   *
+   * Steht NEBEN `speed_limit_kmh` und ersetzt es nicht: das eine ist, was
+   * ausgeschildert ist, das andere, was fuer das Fahrzeug gilt. Auf einer
+   * unbegrenzten Autobahn ist das erste `null` und das zweite 80 -- wuerde
+   * man die beiden zusammenlegen, stuende „80" auf einem runden Schild, das
+   * dort gar nicht steht.
+   */
+  speed_limit_vehicle_kmh: number | null;
   altitude_m: number | null;
   destination: {
     latlng: LatLng;

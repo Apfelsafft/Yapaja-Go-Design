@@ -27,6 +27,7 @@ function baseState(overrides: Partial<NavState> = {}): NavState {
     eta: '2026-01-01T00:05:00.000Z',
     speed_kmh: 80,
     speed_limit_kmh: 100,
+    speed_limit_vehicle_kmh: null,
     altitude_m: 450,
     destination: { latlng: { lat: 47.1, lon: 9.6 }, name: 'Vaduz' },
     ...overrides,
@@ -48,7 +49,68 @@ describe('buildSpeedPayload — plausibility: speeding agrees with speed_kmh vs 
   it('speeding=true when speed exceeds a known limit', () => {
     const state = baseState({ speed_kmh: 120, speed_limit_kmh: 100 });
     const payload = buildSpeedPayload(state);
-    expect(payload).toEqual({ speed_kmh: 120, speed_limit_kmh: 100, speeding: true });
+    expect(payload).toMatchObject({
+      speed_kmh: 120,
+      speed_limit_kmh: 100,
+      speed_limit_effective_kmh: 100,
+      speed_limit_source: 'schild',
+      speeding: true,
+    });
+  });
+
+  describe('die Fahrzeuggrenze zaehlt mit (0.14.0)', () => {
+    it('unbegrenzte Autobahn, 5-t-Wohnmobil bei 130: WARNUNG', () => {
+      // ─── DER GEMELDETE FALL ───────────────────────────────────────────────
+      // Vorher entschied allein das Schild. Auf einer deutschen Autobahn ohne
+      // Begrenzung gibt es keines -- `speed_limit_kmh` war `null`, und damit
+      // blieb `speeding` auch bei 130 km/h aus. Eine Uebertretung um
+      // fuenfzig, die als „alles in Ordnung" durchging.
+      const payload = buildSpeedPayload(
+        baseState({ speed_kmh: 130, speed_limit_kmh: null, speed_limit_vehicle_kmh: 80 }),
+      );
+      expect(payload.speeding).toBe(true);
+      expect(payload.speed_limit_effective_kmh).toBe(80);
+      expect(payload.speed_limit_source).toBe('fahrzeug');
+    });
+
+    it('beide Zahlen reisen einzeln mit', () => {
+      // Zusammengelegt stuende „80" auf einem runden Schild, das an dieser
+      // Autobahn gar nicht steht. Wer hinsieht, suchte es am Strassenrand.
+      const payload = buildSpeedPayload(
+        baseState({ speed_kmh: 130, speed_limit_kmh: null, speed_limit_vehicle_kmh: 80 }),
+      );
+      expect(payload.speed_limit_kmh).toBeNull();
+      expect(payload.speed_limit_vehicle_kmh).toBe(80);
+    });
+
+    it('ein niedrigeres Schild schlaegt die Fahrzeuggrenze', () => {
+      // Baustelle mit 60: das Schild gilt, obwohl das Fahrzeug 80 duerfte.
+      const payload = buildSpeedPayload(
+        baseState({ speed_kmh: 70, speed_limit_kmh: 60, speed_limit_vehicle_kmh: 80 }),
+      );
+      expect(payload.speeding).toBe(true);
+      expect(payload.speed_limit_effective_kmh).toBe(60);
+      expect(payload.speed_limit_source).toBe('schild');
+    });
+
+    it('ohne Fahrzeuggrenze bleibt alles wie vorher', () => {
+      // Die Gegenprobe: ein leichtes Fahrzeug auf unbegrenzter Autobahn wird
+      // NICHT gewarnt. Eine Warnung waere hier schlicht falsch und wuerde
+      // nach drei Fahrten nicht mehr gelesen.
+      const payload = buildSpeedPayload(
+        baseState({ speed_kmh: 130, speed_limit_kmh: null, speed_limit_vehicle_kmh: null }),
+      );
+      expect(payload.speeding).toBe(false);
+      expect(payload.speed_limit_effective_kmh).toBeNull();
+      expect(payload.speed_limit_source).toBe('keine');
+    });
+
+    it('ohne bekanntes Tempo wird nie gewarnt', () => {
+      const payload = buildSpeedPayload(
+        baseState({ speed_kmh: null, speed_limit_kmh: null, speed_limit_vehicle_kmh: 80 }),
+      );
+      expect(payload.speeding).toBe(false);
+    });
   });
 
   it('speeding=false when speed is at or below the limit', () => {

@@ -56,20 +56,70 @@ describe('speedSegmentsFromTraceAttributes', () => {
       ],
     });
     expect(segments).toEqual([
-      { begin_shape_index: 0, end_shape_index: 5, kmh: 50 },
-      { begin_shape_index: 5, end_shape_index: 9, kmh: 100 },
+      { begin_shape_index: 0, end_shape_index: 5, kmh: 50, road_class: null },
+      { begin_shape_index: 5, end_shape_index: 9, kmh: 100, road_class: null },
     ]);
   });
 
-  it('laesst Kanten ohne Limit weg, statt sie mit null aufzunehmen', () => {
+  it('nimmt die Strassenklasse mit, wenn Valhalla eine schickt', () => {
+    // Aus ihr ergibt sich die FAHRZEUGgrenze (`fahrzeugTempo.ts`).
+    const segments = speedSegmentsFromTraceAttributes({
+      edges: [{ begin_shape_index: 0, end_shape_index: 5, speed_limit: 120, road_class: 'motorway' }],
+    });
+    expect(segments[0]?.road_class).toBe('motorway');
+  });
+
+  it('eine unbekannte Klasse wird `null`, auch die Zeichenkette "null"', () => {
+    // ─── DIE FALLE, DIE NACHGELESEN WURDE ───────────────────────────────────
+    // `to_string(RoadClass)` in `baldr/graphconstants.h` gibt fuer eine
+    // unbekannte Klasse die ZEICHENKETTE "null" zurueck, nicht JSON-null.
+    // Wer das uebersieht, fuehrt eine Strassenklasse namens „null" mit sich
+    // -- und die ist keine Autobahn, faellt also stillschweigend in den
+    // Landstrassen-Fall.
+    for (const roh of ['null', 'autobahn', '', 42, null, undefined]) {
+      const segments = speedSegmentsFromTraceAttributes({
+        edges: [{ begin_shape_index: 0, end_shape_index: 5, speed_limit: 80, road_class: roh }],
+      });
+      expect(segments[0]?.road_class, String(roh)).toBeNull();
+    }
+  });
+
+  it('laesst Kanten weg, die WEDER Limit NOCH Klasse tragen', () => {
+    // ─── WAS SICH MIT 0.14.0 GEAENDERT HAT UND WARUM ────────────────────────
+    // Hier stand: „laesst Kanten ohne Limit weg". Das war richtig, solange
+    // aus einem Abschnitt nur das Schild abgelesen wurde -- ein Eintrag ohne
+    // Aussage waere Ballast gewesen.
+    //
+    // Es war aber falsch im wichtigsten Fall: eine deutsche Autobahn OHNE
+    // Begrenzung hat kein `speed_limit`. Die Kante flog heraus, und mit ihr
+    // die Strassenklasse, aus der sich ergibt, dass ein Wohnmobil ueber
+    // 3,5 t hier nur 80 fahren darf. Genau dort wusste Yapaia hinterher gar
+    // nichts mehr -- und `speeding` blieb bei 130 km/h aus.
+    //
+    // Jetzt bleibt eine Kante, wenn sie EINES von beiden traegt.
     const segments = speedSegmentsFromTraceAttributes({
       edges: [
+        // Weder noch: faellt weiterhin weg.
         { begin_shape_index: 0, end_shape_index: 5 },
-        { begin_shape_index: 5, end_shape_index: 9, speed_limit: 'unlimited' },
-        { begin_shape_index: 9, end_shape_index: 12, speed_limit: 80 },
+        // „unlimited" heisst kein Schild -- aber die Klasse bleibt.
+        { begin_shape_index: 5, end_shape_index: 9, speed_limit: 'unlimited', road_class: 'motorway' },
+        { begin_shape_index: 9, end_shape_index: 12, speed_limit: 80, road_class: 'primary' },
       ],
     });
-    expect(segments).toEqual([{ begin_shape_index: 9, end_shape_index: 12, kmh: 80 }]);
+    expect(segments).toEqual([
+      { begin_shape_index: 5, end_shape_index: 9, kmh: null, road_class: 'motorway' },
+      { begin_shape_index: 9, end_shape_index: 12, kmh: 80, road_class: 'primary' },
+    ]);
+  });
+
+  it('eine Kante ganz ohne Aussage faellt weg', () => {
+    // Die Gegenprobe zur Regel darueber: ohne Limit UND ohne Klasse ist der
+    // Eintrag weiterhin Ballast.
+    expect(
+      speedSegmentsFromTraceAttributes({
+        edges: [{ begin_shape_index: 0, end_shape_index: 5, speed_limit: 'unlimited' }],
+      }),
+    ).toEqual([]);
   });
 
   /** Ein Abschnitt mit vertauschten oder fehlenden Grenzen laege irgendwo --

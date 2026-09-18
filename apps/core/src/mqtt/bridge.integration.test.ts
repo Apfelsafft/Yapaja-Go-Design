@@ -407,7 +407,8 @@ describe('MqttBridge (aedes in-process broker)', () => {
       eta: '2026-01-01T00:05:00.000Z',
       speed_kmh: 54,
       speed_limit_kmh: 80,
-      altitude_m: 455,
+      
+      speed_limit_vehicle_kmh: null,altitude_m: 455,
       destination: null,
     });
     h.bus.publish('route/deviation', { at: { lat: 47.0, lon: 9.5 }, cross_track_m: 40, ts: new Date().toISOString() });

@@ -37,6 +37,7 @@ function navState(overrides: Partial<NavState> = {}): NavState {
     eta: '2026-09-09T18:00:00Z',
     speed_kmh: 82.4,
     speed_limit_kmh: 100,
+    speed_limit_vehicle_kmh: null,
     altitude_m: 214,
     destination: null,
     ...overrides,
@@ -140,6 +141,90 @@ describe('die Werte selbst', () => {
       expect(findeZustand(leer, id)?.state, id).toBe(UNBEKANNT);
     }
     expect(findeZustand(leer, 'sensor.yapaja_nav_state')?.state).toBe('idle');
+  });
+
+  describe('das Tempolimit OHNE Route (0.14.1)', () => {
+    // ─── DIE LETZTE ENTITÄT, DIE ZU UNRECHT LEER WAR ──────────────────────
+    // Von den zehn Yapaia-Entitäten blieb `speed_limit` als einzige ohne
+    // Route unbesetzt, obwohl es sie gibt: ETA und Anweisung brauchen ein
+    // Ziel, ein Tempolimit braucht nur eine Straße.
+    const frisch = { kmh: 100, road_class: 'primary' as const, stand: 'frisch' as const };
+
+    it('das Schild kommt vom Ort, wenn keine Route läuft', () => {
+      const z = buildHaStates({ navState: null, position: null, tempoHier: frisch });
+      expect(findeZustand(z, 'sensor.yapaja_speed_limit')?.state).toBe('100');
+    });
+
+    it('mit Fahrzeug ergibt sich auch die Fahrzeuggrenze', () => {
+      const z = buildHaStates({
+        navState: null,
+        position: null,
+        tempoHier: { kmh: null, road_class: 'motorway', stand: 'frisch' },
+        fahrzeug: { weight_t: 5, tempo_100: false },
+      });
+      expect(findeZustand(z, 'sensor.yapaja_speed_limit')?.state).toBe(UNBEKANNT);
+      expect(findeZustand(z, 'sensor.yapaja_speed_limit_vehicle')?.state).toBe('80');
+    });
+
+    it('eine VERALTETE Auskunft gilt nicht', () => {
+      // Bei 100 km/h sind dreissig Sekunden rund 800 Meter. Ein Schild, das
+      // die Straße von vorhin zeigt, ist die unangenehmste Sorte Fehler: es
+      // stimmt beinahe.
+      const z = buildHaStates({
+        navState: null,
+        position: null,
+        tempoHier: { ...frisch, stand: 'veraltet' },
+      });
+      expect(findeZustand(z, 'sensor.yapaja_speed_limit')?.state).toBe(UNBEKANNT);
+    });
+
+    it('ein Fehlschlag gilt ebenso wenig — und ist am Sensor ablesbar', () => {
+      // Ohne diese Angabe sähe „Valhalla antwortet nicht" genauso aus wie
+      // „hier ist nichts ausgeschildert".
+      const z = buildHaStates({
+        navState: null,
+        position: null,
+        tempoHier: { ...frisch, stand: 'fehler' },
+      });
+      expect(findeZustand(z, 'sensor.yapaja_speed_limit')?.state).toBe(UNBEKANNT);
+      expect(
+        findeZustand(z, 'binary_sensor.yapaja_speeding')?.attributes?.stand_ohne_route,
+      ).toBe('fehler');
+    });
+
+    it('die laufende Route hat Vorrang vor dem Ortswert', () => {
+      // Der Wert aus der Route ist auf die gefahrene Strecke bezogen. Der
+      // Ortswert springt nur ein, wo bisher `unknown` stand.
+      const z = buildHaStates({
+        navState: navState({ speed_limit_kmh: 60 }),
+        position: null,
+        tempoHier: frisch,
+      });
+      expect(findeZustand(z, 'sensor.yapaja_speed_limit')?.state).toBe('60');
+    });
+
+    it('ohne Dienst bleibt alles wie vorher', () => {
+      // Die Gegenprobe: wer die Brücke ohne diesen Dienst baut, bekommt das
+      // Verhalten von 0.14.0.
+      const z = buildHaStates({ navState: null, position: null });
+      expect(findeZustand(z, 'sensor.yapaja_speed_limit')?.state).toBe(UNBEKANNT);
+    });
+
+    it('OHNE Route kann jetzt auch gewarnt werden', () => {
+      // Tempo aus dem GPS (0.13.1), Grenze aus dem Ort (0.14.1) — erst
+      // beides zusammen ergibt eine Warnung ohne Fahrt mit Ziel.
+      const z = buildHaStates({
+        navState: null,
+        position: {
+          lat: 49.2, lon: 8.3, alt: 120, speed: 30, heading: 0,
+          accuracy: 8, source: 'gpsd', fix: '3d', ts: '2026-09-18T08:00:00.000Z',
+        } as Position,
+        tempoHier: { kmh: 50, road_class: 'residential', stand: 'frisch' },
+      });
+      // 30 m/s = 108 km/h bei Tempo 50.
+      expect(findeZustand(z, 'binary_sensor.yapaja_speeding')?.state).toBe('on');
+      expect(findeZustand(z, 'binary_sensor.yapaja_speeding')?.attributes?.grenze_kmh).toBe(50);
+    });
   });
 
   describe('ohne Route, aber mit GPS — der gemeldete Fall', () => {

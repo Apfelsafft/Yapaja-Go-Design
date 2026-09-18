@@ -73,6 +73,50 @@ substitutions:
   entity_praefix: sensor.yapaja
   entity_praefix_binaer: binary_sensor.yapaja
 
+  # ─── DIE DIGITALE WASSERWAAGE ─────────────────────────────────────────────
+  # Beim Parken wechselt die Anzeige auf eine runde Libelle: steht das
+  # Wohnmobil gerade? Alles, was dafuer einzustellen ist, steht HIER -- die
+  # Entitaeten kommen aus einem anderen Geraet (einem MPU6050) und heissen
+  # bei jedem anders.
+  #
+  # Gefunden wie oben: Entwicklerwerkzeuge -> Zustaende -> nach „neigung"
+  # filtern. Beide muessen GRAD liefern (`unit_of_measurement: deg`).
+  entity_neigung_lr: sensor.heizung_neigung_links_rechts
+  entity_neigung_vh: sensor.heizung_neigung_vorne_hinten
+
+  # Ab welchem Tempo die Wasserwaage erscheint (km/h).
+  #
+  # Nicht 0: ein stehendes Fahrzeug meldet durch das GPS-Rauschen selten
+  # exakt null. Zwei km/h ist langsamer als Schrittgeschwindigkeit -- wer so
+  # fuhr, parkt.
+  wasserwaage_ab_kmh: "2"
+
+  # Ab wann gilt „steht gerade"? In Grad.
+  #
+  # Eine Libelle, die erst bei 0,0 gruen wird, wird nie gruen. Ein halbes
+  # Grad sind auf 2,5 m Fahrzeugbreite rund 2 cm Hoehenunterschied -- darunter
+  # merkt es im Wohnmobil niemand mehr.
+  wasserwaage_gerade_grad: "0.5"
+
+  # Welcher Neigung entspricht der Rand der Libelle? In Grad.
+  #
+  # Fuenf Grad sind auf 2,5 m rund 22 cm -- mehr gleicht keine Auffahrkeil
+  # aus. Ein groesserer Bereich machte die Blase im interessanten Bereich
+  # traege, ein kleinerer liesse sie staendig am Rand kleben.
+  wasserwaage_bereich_grad: "5"
+
+  # ─── DIE VORZEICHEN ───────────────────────────────────────────────────────
+  # `1` oder `-1`. Welches Vorzeichen welche Seite meint, haengt davon ab, wie
+  # der Sensor im Fahrzeug EINGEBAUT ist -- das kann diese Datei nicht wissen,
+  # und Raten waere hier besonders aergerlich: eine spiegelverkehrte
+  # Wasserwaage schickt den Keil unter das falsche Rad.
+  #
+  # So pruefen Sie es: eine Seite anheben (oder sich auf eine Seite stellen).
+  # Wandert die Blase zur ANGEHOBENEN Seite, stimmt es -- wie bei einer
+  # echten Libelle. Wandert sie zur anderen, hier auf `-1` stellen.
+  neigung_lr_vorzeichen: "1"
+  neigung_vh_vorzeichen: "1"
+
   # ─── PINS DES ESP32-2424S012 ──────────────────────────────────────────────
   # Fuer ein anderes Board anpassen; README.md nennt die gaengigen.
   pin_sck: GPIO6
@@ -165,6 +209,24 @@ sensor:
   - platform: homeassistant
     id: yapaja_tempolimit
     entity_id: ${entity_praefix}_speed_limit
+
+  # ─── WAS DIESES FAHRZEUG DARF ─────────────────────────────────────────────
+  # Getrennt vom Schild und nicht damit verrechnet. Auf einer unbegrenzten
+  # Autobahn ist das Schild `unknown` und dieser Wert 80 -- zusammengelegt
+  # stuende „80" in einem runden Verkehrszeichen, das dort gar nicht steht.
+  - platform: homeassistant
+    id: yapaja_tempolimit_fahrzeug
+    entity_id: ${entity_praefix}_speed_limit_vehicle
+
+  # ─── DIE NEIGUNG, FUER DIE WASSERWAAGE ────────────────────────────────────
+  # Aus einem ANDEREN Geraet als der Rest dieser Anzeige -- deshalb eigene
+  # Einstellungen oben und nicht der `entity_praefix`.
+  - platform: homeassistant
+    id: neigung_lr
+    entity_id: ${entity_neigung_lr}
+  - platform: homeassistant
+    id: neigung_vh
+    entity_id: ${entity_neigung_vh}
   - platform: homeassistant
     id: yapaja_manoever_entfernung
     entity_id: ${entity_praefix}_instruction_distance
@@ -358,6 +420,90 @@ display:
         return s != nullptr && s->has_state() && !std::isnan(s->state);
       };
 
+      // ══ Beim Parken: die digitale Wasserwaage ══════════════════════════
+      // Steht das Wohnmobil gerade? Das ist beim Abstellen die einzige
+      // Frage, und sie geht jeder Navigationsanzeige vor.
+      //
+      // ─── NUR BEI BEKANNTEM, LANGSAMEM TEMPO ───────────────────────────
+      // `hat(...)` ist hier keine Formsache. Ist das Tempo UNBEKANNT, wissen
+      // wir nicht, ob das Fahrzeug steht -- dann waere eine Wasserwaage
+      // mitten auf der Autobahn zu sehen. Unbekannt heisst also: weiter wie
+      // bisher, nicht „vermutlich steht es".
+      // ─── WARUM `(float) (...)` UND NICHT `...f` ───────────────────────
+      // Eine Substitution wird als TEXT eingesetzt. Aus `2` wuerde mit
+      // angehaengtem `f` die Zeichenfolge `2f` -- und das ist kein
+      // Gleitkommaliteral, sondern ein unbekannter Literal-Operator:
+      //
+      //   error: unable to find numeric literal operator 'operator""f'
+      //
+      // Mit `0.5` ginge es gut, mit `2` nicht. Wer oben also eine glatte
+      // Zahl eintraegt, haette den Bau zerlegt -- und zwar erst beim
+      // Uebersetzen auf dem eigenen Geraet. Die Klammer nimmt beide Formen.
+      if (hat(id(yapaja_tempo)) && id(yapaja_tempo).state < (float) (${wasserwaage_ab_kmh})) {
+        const float rr = r - 4;
+
+        // ─── OHNE NEIGUNGSWERTE KEINE BLASE ─────────────────────────────
+        // Eine Blase in der Mitte heisst „steht gerade". Fehlen die Werte,
+        // waere genau das eine Behauptung -- und zwar die beruhigende, bei
+        // der niemand nachsieht. Also lieber schreiben, was fehlt.
+        if (!hat(id(neigung_lr)) || !hat(id(neigung_vh))) {
+          it.circle(cx, cy, (int) rr, id(c_gedaempft));
+          it.print(cx, cy - 10, id(font_s), id(c_warnung), TextAlign::CENTER,
+                   "Keine Neigungswerte");
+          it.print(cx, cy + 10, id(font_s), id(c_gedaempft), TextAlign::CENTER,
+                   "Sensoren pruefen");
+          return;
+        }
+
+        // Vorzeichen aus den substitutions -- welche Seite welches Vorzeichen
+        // meint, haengt vom Einbau des Sensors ab (siehe oben).
+        const float lr = id(neigung_lr).state * (float) (${neigung_lr_vorzeichen});
+        const float vh = id(neigung_vh).state * (float) (${neigung_vh_vorzeichen});
+
+        const float bereich = (float) (${wasserwaage_bereich_grad});
+        const float gerade  = (float) (${wasserwaage_gerade_grad});
+        const bool steht_gerade = fabsf(lr) <= gerade && fabsf(vh) <= gerade;
+
+        // ─── DIE LIBELLE ────────────────────────────────────────────────
+        // Aussenring, ein Ring fuer „gerade genug", und ein Fadenkreuz. Die
+        // beiden Ringe geben der Blase einen Bezug: ohne sie waere jede
+        // Lage gleich weit von „gut" entfernt.
+        it.circle(cx, cy, (int) rr, id(c_gedaempft));
+        const int gut_r = (int) (rr * gerade / bereich);
+        it.circle(cx, cy, gut_r, steht_gerade ? id(c_gut) : id(c_gedaempft));
+        it.line(cx - (int) rr, cy, cx + (int) rr, cy, id(c_gedaempft));
+        it.line(cx, cy - (int) rr, cx, cy + (int) rr, id(c_gedaempft));
+
+        // ─── DIE BLASE ──────────────────────────────────────────────────
+        // Wie bei einer echten Libelle: sie wandert zur ANGEHOBENEN Seite.
+        // Am Rand bleibt sie stehen, statt aus dem Glas zu laufen -- eine
+        // Blase ausserhalb waere unsichtbar, und unsichtbar sieht aus wie
+        // „keine Neigung".
+        float bx = lr / bereich;
+        float by = -vh / bereich;
+        const float weite = sqrtf(bx * bx + by * by);
+        if (weite > 1.0f) { bx /= weite; by /= weite; }
+
+        const int blase_r = std::max(6, (int) (rr / 6));
+        const int px = cx + (int) (bx * (rr - blase_r));
+        const int py = cy + (int) (by * (rr - blase_r));
+        it.filled_circle(px, py, blase_r, steht_gerade ? id(c_gut) : id(c_warnung));
+
+        // ─── DIE ZAHLEN ─────────────────────────────────────────────────
+        // Die Blase zeigt die Richtung, die Zahlen das Mass. Eine Nachkomma-
+        // stelle: das Grad selbst ist zu grob zum Ausrichten, zwei Stellen
+        // flackern im Sekundentakt.
+        it.printf(cx, cy + (int) (rr * 0.52f), id(font_s), id(c_text), TextAlign::CENTER,
+                  "L/R %+.1f°", lr);
+        it.printf(cx, cy + (int) (rr * 0.72f), id(font_s), id(c_text), TextAlign::CENTER,
+                  "V/H %+.1f°", vh);
+        if (steht_gerade) {
+          it.print(cx, cy - (int) (rr * 0.62f), id(font_s), id(c_gut), TextAlign::CENTER,
+                   "steht gerade");
+        }
+        return;
+      }
+
       // ══ Fahrzustand ════════════════════════════════════════════════════
       const std::string zustand = id(yapaja_fahrzustand).state;
       if (zustand != "navigating") {
@@ -545,12 +691,33 @@ display:
       // Weisser Ring mit rotem Rand, wie das Verkehrszeichen. NUR wenn die
       // Karte eines kennt -- ein leeres oder auf 0 stehendes Schild waere die
       // Behauptung, hier gelte Tempo 0.
+      const int sr = std::min(15, r / 7);
       if (hat(id(yapaja_tempolimit))) {
-        const int sr = std::min(15, r / 7);
         it.filled_circle(cx, uy, sr, id(c_warnung));
         it.filled_circle(cx, uy, (sr * 72) / 100, id(c_schild));
         it.printf(cx, uy, id(font_s), id(c_hintergrund), TextAlign::CENTER,
                   "%d", (int) (id(yapaja_tempolimit).state + 0.5f));
+      }
+
+      // ─── DIE FAHRZEUGGRENZE, KLEIN UND OHNE SCHILD ────────────────────
+      // Ein Wohnmobil ueber 3,5 t darf weniger als das Schild erlaubt. Diese
+      // Zahl steht deshalb DANEBEN und NICHT im runden Zeichen: ein
+      // Verkehrszeichen behauptet, dass es draussen steht, und dieses stuende
+      // dort nicht.
+      //
+      // Gezeigt nur, wenn sie ueberhaupt etwas Neues sagt -- also wenn sie
+      // NIEDRIGER ist als das Schild oder es gar keines gibt. Eine Zahl, die
+      // dasselbe sagt wie das Zeichen daneben, ist auf 240 runden
+      // Bildpunkten verschenkter Platz.
+      if (hat(id(yapaja_tempolimit_fahrzeug))) {
+        const int fz = (int) (id(yapaja_tempolimit_fahrzeug).state + 0.5f);
+        const bool sagt_etwas =
+            !hat(id(yapaja_tempolimit)) ||
+            fz < (int) (id(yapaja_tempolimit).state + 0.5f);
+        if (sagt_etwas) {
+          it.printf(cx + sr + 4, uy, id(font_s), id(c_warnung), TextAlign::CENTER_LEFT,
+                    "%d", fz);
+        }
       }
 
       // Yapaia liefert die Ankunft als ISO 8601 in UTC. Hier wird sie
