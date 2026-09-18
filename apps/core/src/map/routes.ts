@@ -39,6 +39,7 @@ import {
   parseStyleOptions,
   rewriteToRegions,
   sichtbareRegionen,
+  verdeckteRegionen,
   type MapStyleDocument,
   type RawStyleQuery,
   type StyleSummary,
@@ -50,6 +51,22 @@ interface TileRouteParams {
 
 interface RegionsReply {
   data: MapRegionInfo[];
+  /**
+   * Was von den installierten Karten WIRKLICH gezeichnet wird.
+   *
+   * ─── WARUM DAS IN DIE ANTWORT GEHOERT ─────────────────────────────────────
+   * `sichtbareRegionen` laesst eine Region weg, deren Ausdehnung vollstaendig
+   * in einer anderen liegt -- sonst zeichnete Yapaia jede Strasse doppelt.
+   * Die Regel ist richtig. Sie war nur STUMM: `verdeckteRegionen` gab es
+   * seit 0.9.0 und niemand fragte sie.
+   *
+   * Gemeldet: „Ich habe Deutschland neu bauen lassen aber Liechtenstein wird
+   * nicht auf der Karte angezeigt." Ob es verdeckt ist oder aus einem anderen
+   * Grund fehlt, war von aussen nicht zu unterscheiden -- und genau diese
+   * Verwechslung verfolgt dieses Projekt seit Monaten.
+   */
+  gezeichnet: string[];
+  verdeckt: Array<{ region: string; verdecktVon: string }>;
 }
 
 interface StylesListReply {
@@ -192,7 +209,11 @@ export const mapPlugin: FastifyPluginAsync = async (fastify) => {
   // GET /api/v1/map/regions -- installed region metadata.
   fastify.get<{ Reply: RegionsReply }>('/api/v1/map/regions', async (_request, reply) => {
     const regions = await listRegions(tilesDir, fastify.log);
-    return reply.code(200).send({ data: regions });
+    return reply.code(200).send({
+      data: regions,
+      gezeichnet: sichtbareRegionen(regions).map((r) => r.region),
+      verdeckt: verdeckteRegionen(regions),
+    });
   });
 
   // GET /api/v1/map/build-status -- was ist gebaut, und wann?

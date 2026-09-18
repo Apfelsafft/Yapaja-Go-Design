@@ -65,8 +65,20 @@ function ohneKommentare(): string {
     .join('\n');
 }
 
-/** Der Platzhalter, der dort steht, wo der Device Builder den Schlüssel einträgt. */
+/** Der Platzhalter für den Fall, dass der Device Builder den Schlüssel setzt. */
 const PLATZHALTER = 'ERZEUGT_DER_DEVICE_BUILDER';
+
+/** Die Anleitung, die dieselben Namen nennen muss. */
+function readme(): string {
+  return readFileSync(join(HIER, '..', 'README.md'), 'utf-8');
+}
+
+/** Der Name hinter `!secret` in der `key:`-Zeile, oder `null`. */
+function schluesselGeheimnis(): string | null {
+  const zeile = ohneKommentare().match(/^\s*key:\s*(.+)$/m)?.[1]?.trim() ?? '';
+  const treffer = zeile.match(/^!secret\s+(\S+)$/);
+  return treffer?.[1] ?? null;
+}
 
 describe('api: — die Form aus dem Device Builder', () => {
   it('hat einen Verschlüsselungsschlüssel', () => {
@@ -115,6 +127,34 @@ describe('die Datei verweist auf keine Geheimnisse, die niemand anlegt', () => {
     for (const name of ['yapaja_display_api_key', 'yapaja_display_ota_password']) {
       expect(ohneKommentare(), `${name} ist wieder da`).not.toContain(name);
     }
+  });
+
+  it('jeder `!secret`-Verweis steht auch in der Anleitung', () => {
+    // ─── DIE PANNE, DIE DAS VERHINDERT ──────────────────────────────────────
+    // Bis 0.13.1 verwies diese Datei auf `yapaja_display_api_key` und
+    // `yapaja_display_ota_password`. Beide gab es nirgends: der Device
+    // Builder legt sie nicht an, und wer die Datei uebernahm, bekam Verweise
+    // ins Leere — bemerkt erst beim Uebersetzen auf dem eigenen Geraet.
+    //
+    // Die Regel dagegen ist einfach: was diese Datei per `!secret` verlangt,
+    // muss in der Anleitung stehen, damit es jemand anlegen KANN. Geprüft
+    // wird die Richtung, die schiefgehen kann — ein Name in der YAML ohne
+    // Entsprechung in der Anleitung.
+    const verlangt = [...ohneKommentare().matchAll(/!secret\s+(\S+)/g)].map((m) => m[1]);
+    expect(verlangt.length, 'gar keine Geheimnisse? dann prüft das hier nichts').toBeGreaterThan(0);
+    for (const name of verlangt) {
+      expect(readme(), `${name} wird verlangt, steht aber in keiner Anleitung`).toContain(
+        name as string,
+      );
+    }
+  });
+
+  it('der API-Schlüssel kommt aus `secrets.yaml`', () => {
+    // So gewünscht. Die Prüfung oben liesse auch den Device-Builder-Weg zu;
+    // diese hier hält fest, wofür sich der Betreiber entschieden hat — und
+    // dass der Name beim nächsten Abgleich mit einem laufenden Gerät nicht
+    // versehentlich durch den echten Schlüssel ersetzt wird.
+    expect(schluesselGeheimnis()).toBe('navi__api_key');
   });
 
   it('benutzt `!secret` weiterhin fürs WLAN — dort legt der Betreiber es selbst an', () => {
