@@ -10,6 +10,38 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.15.1
+
+**Der API-Schlüssel des ESP32-Displays steht jetzt in `secrets.yaml`.**
+
+In `secrets.yaml` gehören damit drei Zeilen:
+
+```yaml
+wifi_ssid: "..."
+wifi_password: "..."
+navi__api_key: "..."      # 32 Byte base64
+```
+
+Den Wert erzeugt der ESPHome Device Builder beim Anlegen des Geräts; er steht
+dort unter `api: → encryption: → key:` und lässt sich von da übernehmen.
+
+Ein Geräteschlüssel gehört in die Installation und nicht in den Quelltext —
+dort stünde er im Repository, wäre auf jedem Gerät derselbe und läge offen.
+
+Heißt Ihr Gerät anders als `navi`, wählen Sie einen anderen Namen und tragen
+ihn in der `key:`-Zeile ein.
+
+### Damit das nicht wieder auseinanderläuft
+
+Neu ist eine Prüfung, die festhält: **jeder `!secret`-Verweis der
+Konfiguration muss auch in der Anleitung stehen.** Genau das war bis 0.13.1
+nicht der Fall — die Datei verlangte `yapaja_display_api_key` und
+`yapaja_display_ota_password`, beide gab es nirgends, und wer die Datei
+übernahm, bekam Verweise ins Leere. Bemerkt hat man es erst beim Übersetzen
+auf dem eigenen Gerät.
+
+---
+
 ## 0.15.0
 
 **Das ESP32-Display wird beim Parken zur digitalen Wasserwaage.**

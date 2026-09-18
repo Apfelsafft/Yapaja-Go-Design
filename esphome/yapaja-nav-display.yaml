@@ -143,10 +143,13 @@ logger:
   # Der C3 hat keinen USB-UART-Bruecke-Chip, sondern USB-Serial-JTAG direkt.
   hardware_uart: USB_SERIAL_JTAG
 
-# ─── API UND OTA KOMMEN VOM DEVICE BUILDER ──────────────────────────────────
-# Diese beiden Bloecke legt der ESPHome Device Builder beim Anlegen des
-# Geraets selbst an. Wer diese Datei dort einfuegt, hat sie also schon --
-# und sie sehen dann genau so aus wie hier.
+# ─── API UND OTA ────────────────────────────────────────────────────────────
+# Beide Bloecke legt der ESPHome Device Builder beim Anlegen des Geraets
+# selbst an. `ota:` steht hier genau so, wie er es schreibt.
+#
+# Beim SCHLUESSEL geht diese Datei bewusst einen anderen Weg als der Device
+# Builder: er traegt ihn unmittelbar ein, hier steht ein Verweis auf
+# `secrets.yaml`. Der Grund steht unten.
 #
 # ─── WAS HIER VORHER STAND UND WARUM ES STOERTE ─────────────────────────────
 # Bis 0.13.1 standen hier zwei `!secret`-Verweise:
@@ -165,14 +168,25 @@ logger:
 # ESPHome 2026.9.0).
 api:
   encryption:
-    # Den Schluessel traegt der Device Builder hier ein. Er steht bewusst
-    # NICHT im Repository: ein Geraeteschluessel gehoert in die Installation,
-    # nicht in den Quelltext -- und ein mitgelieferter waere auf jedem
-    # Geraet derselbe.
+    # Der Schluessel steht in `secrets.yaml`, nicht hier.
     #
-    # Von Hand gepflegt geht auch `!secret <name>`, dann muss der Eintrag in
-    # `secrets.yaml` stehen.
-    key: ERZEUGT_DER_DEVICE_BUILDER
+    # ─── WARUM NICHT UNMITTELBAR EINGETRAGEN ────────────────────────────────
+    # Ein Geraeteschluessel gehoert in die Installation und nicht in den
+    # Quelltext: hier stuende er im Repository, waere auf jedem Geraet
+    # derselbe und laege offen.
+    #
+    # Der Name ist der des Betreibers -- bewusst NICHT `yapaja_...`, denn das
+    # Geraet heisst in seiner ESPHome-Installation `navi`, und `secrets.yaml`
+    # gehoert der Installation, nicht dieser Datei. Wer einen anderen Namen
+    # benutzt, aendert ihn hier.
+    #
+    #   secrets.yaml:
+    #     navi__api_key: "…"      # 32 Byte base64
+    #
+    # Den Wert erzeugt der ESPHome Device Builder beim Anlegen des Geraets --
+    # er steht dann in dessen Geraetedatei und laesst sich von dort in die
+    # `secrets.yaml` uebernehmen.
+    key: !secret navi__api_key
 
 # Ohne `password:`. Der Device Builder vergibt keines, und OTA ist bereits
 # durch den API-Schluessel geschuetzt. Eine Zeile, die auf einen nicht
