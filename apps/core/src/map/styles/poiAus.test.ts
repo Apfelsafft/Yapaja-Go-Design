@@ -25,7 +25,7 @@ import { describe, it, expect } from 'vitest';
 import { POI_LAYER_ID_PREFIX, REDUCED_POI_CLASSES } from './constants.js';
 import { applyStyleOptions, parseStyleOptions } from './options.js';
 import { symbolNachKategorie } from '@yapaia/shared';
-import type { MapStyleDocument, StyleLayer } from './types.js';
+import type { MapStyleDocument, StyleLayer, SymbolLayer } from './types.js';
 
 const POI_LAYER_ID = `${POI_LAYER_ID_PREFIX}alle`;
 
@@ -46,9 +46,22 @@ function stil(poiLayer: Partial<StyleLayer> = {}): MapStyleDocument {
   } as MapStyleDocument;
 }
 
-function poiEbene(dok: MapStyleDocument): StyleLayer {
-  const ebene = dok.layers.find((l) => l.id === POI_LAYER_ID);
+/**
+ * Die POI-Ebene, eingegrenzt auf `SymbolLayer`.
+ *
+ * ─── WARUM DIE EINGRENZUNG SEIN MUSS ────────────────────────────────────────
+ * `StyleLayer` ist eine Vereinigung, und `BackgroundLayer` -- ein Glied davon
+ * -- hat weder `filter` noch `layout`. Ohne diese Zusicherung uebersetzt die
+ * Datei nicht.
+ *
+ * Als `as` waere das eine Behauptung ins Blaue. Die Pruefung auf `type` ist
+ * dieselbe Frage, nur beantwortet statt behauptet -- und sie faellt LAUT aus,
+ * wenn die POI-Ebene eines Tages keine Symbolebene mehr ist.
+ */
+function poiEbene(dok: MapStyleDocument): SymbolLayer {
+  const ebene: StyleLayer | undefined = dok.layers.find((l) => l.id === POI_LAYER_ID);
   if (!ebene) throw new Error('POI-Ebene verschwunden');
+  if (ebene.type !== 'symbol') throw new Error(`POI-Ebene ist ${ebene.type}, keine Symbolebene`);
   return ebene;
 }
 
@@ -168,6 +181,9 @@ describe('der Filter erkennt die Kategorie so wie das Symbol', () => {
   it('fasst Ebenen ohne POI-Präfix nicht an', () => {
     const ergebnis = applyStyleOptions(stil(), { poiAus: ['poi-tanken'] });
     const hintergrund = ergebnis.layers.find((l) => l.id === 'hintergrund');
-    expect(hintergrund?.filter).toBeUndefined();
+    expect(hintergrund).toBeDefined();
+    // Ueber `Record`, weil `BackgroundLayer` gar kein `filter` kennt -- die
+    // Zusicherung lautet ja gerade, dass auch keines dazukommt.
+    expect((hintergrund as unknown as Record<string, unknown>).filter).toBeUndefined();
   });
 });
