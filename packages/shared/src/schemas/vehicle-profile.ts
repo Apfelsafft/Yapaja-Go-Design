@@ -45,6 +45,14 @@ export const vehicleProfileSchema = {
       maximum: 130,
       description: 'Average speed in km/h for ETA calculation (40–130)',
     },
+    tempo_100: {
+      type: 'boolean',
+      description:
+        'Whether this vehicle holds a Tempo-100 permit. An entry from the ' +
+        'vehicle papers, never inferred: for a vehicle over 3.5 t it decides ' +
+        'whether 80 or 100 applies on the Autobahn. NOT required — a profile ' +
+        'stored before 0.14.0 stays valid and counts as "no permit".',
+    },
     hazmat: {
       type: 'boolean',
       description: 'Whether vehicle carries hazardous materials',

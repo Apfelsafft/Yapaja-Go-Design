@@ -37,6 +37,7 @@ function navState(overrides: Partial<NavState> = {}): NavState {
     eta: '2026-09-09T18:00:00Z',
     speed_kmh: 82.4,
     speed_limit_kmh: 100,
+    speed_limit_vehicle_kmh: null,
     altitude_m: 214,
     destination: null,
     ...overrides,

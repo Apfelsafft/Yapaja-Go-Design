@@ -57,6 +57,15 @@ export const navStateSchema = {
       maximum: 130,
       description: 'Speed limit from map data (5–130 or null for unknown)',
     },
+    speed_limit_vehicle_kmh: {
+      type: ['integer', 'null'],
+      minimum: 5,
+      maximum: 130,
+      description:
+        'What THIS vehicle may drive here (5–130 or null). Sits BESIDE ' +
+        'speed_limit_kmh, it does not replace it: one is what is posted, ' +
+        'the other what applies to the vehicle.',
+    },
     altitude_m: {
       type: ['number', 'null'],
       description: 'Current altitude in meters above mean sea level or null',
@@ -90,6 +99,7 @@ export const navStateSchema = {
     'eta',
     'speed_kmh',
     'speed_limit_kmh',
+    'speed_limit_vehicle_kmh',
     'altitude_m',
     'destination',
   ],

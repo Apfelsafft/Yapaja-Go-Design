@@ -10,6 +10,60 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.14.0
+
+**Die Tempowarnung gilt jetzt für IHR Fahrzeug, nicht für einen PKW.**
+
+Bisher kannte Yapaia nur das **ausgeschilderte** Limit — und das ist das Limit
+für einen PKW. Auf einer deutschen Autobahn ohne Begrenzung steht gar kein
+Schild. Die Warnung blieb dort auch bei 130 km/h aus, obwohl ein Wohnmobil
+über 3,5 t nur 80 fahren darf. Eine Übertretung um fünfzig, die als „alles in
+Ordnung" durchging.
+
+### Was Sie einstellen müssen
+
+Im **Fahrzeugprofil** gibt es einen neuen Schalter: **Tempo-100-Zulassung**.
+
+> Nur ankreuzen, wenn es in den Fahrzeugpapieren steht. Über 3,5 t entscheidet
+> das über 80 oder 100 km/h auf der Autobahn. Bis 3,5 t ändert es nichts.
+
+Das Gewicht steht bereits im Profil. Aus beidem ergibt sich, was Ihr Fahrzeug
+fahren darf — Yapaia rät nichts.
+
+### Beide Zahlen bleiben sichtbar
+
+Das runde Verkehrszeichen zeigt weiterhin nur das, was **ausgeschildert** ist.
+Die Fahrzeuggrenze steht klein **daneben**, und zwar nur dann, wenn sie etwas
+Neues sagt — also wenn sie niedriger ist als das Schild oder es gar keines
+gibt.
+
+Ein Verkehrszeichen behauptet, dass es draußen steht. Eine 80 im runden Schild
+auf einer unbegrenzten Autobahn wäre diese Behauptung, und wer hinsieht, würde
+das Zeichen am Straßenrand suchen.
+
+Gewarnt wird ab der **niedrigeren** der beiden. Ist nur eine bekannt, gilt
+diese. Ist keine bekannt, wird nicht gewarnt — eine unbekannte Grenze ist
+keine Übertretung.
+
+### Neu in Home Assistant
+
+`sensor.yapaja_speed_limit_vehicle` — was Ihr Fahrzeug hier darf.
+`binary_sensor.yapaja_speeding` trägt jetzt zusätzlich, **woran** die Warnung
+hängt: am Schild oder am Fahrzeug.
+
+### Ein Vorbehalt, der dazugehört
+
+Die hinterlegten Grenzen sind meine beste Lesart der StVO und **keine
+Rechtsauskunft**. Am wenigsten sicher ist der Fall „über 3,5 t bis 7,5 t auf
+der Autobahn" — dort hängt es an der Einstufung in den Fahrzeugpapieren.
+Deshalb ist die Tempo-100-Angabe Ihre und nicht meine Vermutung. Wer seine
+Papiere danebenlegt und eine Zahl anders findet: sie stehen alle an einer
+einzigen Stelle, in `routing/fahrzeugTempo.ts`.
+
+Das ESP32-Display muss neu geflasht werden, damit es die zweite Zahl anzeigt.
+
+---
+
 ## 0.13.2
 
 **Die ESP32-Anzeige lässt sich jetzt ohne Nacharbeit übernehmen.**

@@ -2908,6 +2908,10 @@
             "maximum": 130,
             "description": "Average speed in km/h for ETA calculation (40–130)"
           },
+          "tempo_100": {
+            "type": "boolean",
+            "description": "Whether this vehicle holds a Tempo-100 permit. An entry from the vehicle papers, never inferred: for a vehicle over 3.5 t it decides whether 80 or 100 applies on the Autobahn. NOT required — a profile stored before 0.14.0 stays valid and counts as \"no permit\"."
+          },
           "hazmat": {
             "type": "boolean",
             "description": "Whether vehicle carries hazardous materials"
@@ -3601,6 +3605,15 @@
             "maximum": 130,
             "description": "Speed limit from map data (5–130 or null for unknown)"
           },
+          "speed_limit_vehicle_kmh": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 5,
+            "maximum": 130,
+            "description": "What THIS vehicle may drive here (5–130 or null). Sits BESIDE speed_limit_kmh, it does not replace it: one is what is posted, the other what applies to the vehicle."
+          },
           "altitude_m": {
             "type": [
               "number",
@@ -3666,6 +3679,7 @@
           "eta",
           "speed_kmh",
           "speed_limit_kmh",
+          "speed_limit_vehicle_kmh",
           "altitude_m",
           "destination"
         ],

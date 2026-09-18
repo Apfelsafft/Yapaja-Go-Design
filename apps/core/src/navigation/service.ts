@@ -77,7 +77,7 @@ import {
 import {
   buildSayText,
   buildSpeedSegmentAnchors,
-  findActiveSpeedLimitKmh,
+  findActiveSpeedSegment,
   findUpcomingManeuver,
   initialAnnouncementState,
   tickAnnouncement,
@@ -93,6 +93,8 @@ import {
   type StableSpeedState,
 } from './deadreckoning.js';
 import { remainingWaypoints } from './waypointProgress.js';
+// Was DIESES Fahrzeug darf -- getrennt von dem, was ausgeschildert ist.
+import { fahrzeugGrenze, type Strassenklasse } from '../routing/fahrzeugTempo.js';
 
 /** Distance-to-destination threshold for arrival (metres). */
 export const ARRIVAL_DISTANCE_M = 40;
@@ -1387,6 +1389,7 @@ export class NavigationService implements DeadReckoningRouteSource {
     let destination: NavState['destination'] = null;
     let routeId: string | null = null;
     let speedLimitKmh: number | null = null;
+    let speedLimitVehicleKmh: number | null = null;
 
     // Every state that owns a route (all but `idle`) reports route-relative
     // fields; only `idle` (stopped) nulls them out.
@@ -1401,7 +1404,21 @@ export class NavigationService implements DeadReckoningRouteSource {
       }
       // E04-T3: active SpeedSegment by progress -> speed_limit_kmh. Empty
       // `speed_limits` (or a gap between segments) -> null, never 0.
-      speedLimitKmh = findActiveSpeedLimitKmh(active.speedSegments, progress);
+      // ─── DAS SCHILD UND DIE FAHRZEUGGRENZE, GETRENNT ──────────────────
+      // Valhalla liefert das AUSGESCHILDERTE Limit -- das fuer einen PKW.
+      // Ein Wohnmobil ueber 3,5 t darf weniger, und auf einer unbegrenzten
+      // Autobahn gibt es ueberhaupt kein Schild. Beide Zahlen bleiben
+      // getrennt: zusammengelegt stuende „80" auf einem runden Schild, das
+      // dort gar nicht steht.
+      const abschnitt = findActiveSpeedSegment(active.speedSegments, progress);
+      speedLimitKmh = abschnitt?.kmh ?? null;
+      const profil = this.profileProvider?.getActive() ?? null;
+      speedLimitVehicleKmh = profil
+        ? fahrzeugGrenze(
+            { weight_t: profil.weight_t, tempo_100: profil.tempo_100 === true },
+            (abschnitt?.road_class ?? null) as Strassenklasse | null,
+          )
+        : null;
 
       // E04-T2: base planned remaining * calibration factor, floored by
       // remaining-distance/avg_speed (see eta.ts#computeEtaDuration).
@@ -1445,6 +1462,7 @@ export class NavigationService implements DeadReckoningRouteSource {
       eta,
       speed_kmh: speedKmh,
       speed_limit_kmh: speedLimitKmh,
+      speed_limit_vehicle_kmh: speedLimitVehicleKmh,
       altitude_m: altitudeM,
       destination,
     };

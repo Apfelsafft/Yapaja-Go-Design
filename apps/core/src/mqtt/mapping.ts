@@ -3,6 +3,11 @@
  * functions only -- no bus/MQTT-client access -- so each mapping is
  * independently unit-testable.
  */
+import {
+  massgeblichesTempo,
+  faehrtZuSchnell,
+  type Tempoquelle,
+} from '../routing/fahrzeugTempo.js';
 import type { ManeuverType, NavInstructionPayload, NavState, Route } from '@yapaia/shared';
 
 /**
@@ -107,20 +112,48 @@ export function buildEtaPayload(state: NavState): MqttEtaPayload {
 
 export interface MqttSpeedPayload {
   speed_kmh: number | null;
+  /** Das AUSGESCHILDERTE Limit. Unveraendert -- auch wenn es hoeher liegt. */
   speed_limit_kmh: number | null;
+  /** Was DIESES Fahrzeug hier darf, oder `null`. */
+  speed_limit_vehicle_kmh: number | null;
+  /** Die niedrigere der beiden bekannten Zahlen -- danach wird gewarnt. */
+  speed_limit_effective_kmh: number | null;
+  /** Woher diese Zahl kommt: `schild`, `fahrzeug` oder `keine`. */
+  speed_limit_source: Tempoquelle;
   speeding: boolean;
 }
 
-/** `yapaja/nav/speed` (docs/03 §4). `speeding` is only ever true when BOTH
- *  values are known and the current speed exceeds the limit -- an unknown
- *  limit (null, "kein Tempolimit bekannt") never counts as speeding. */
+/**
+ * `yapaja/nav/speed` (docs/03 §4).
+ *
+ * ─── WAS SICH MIT 0.14.0 GEAENDERT HAT ──────────────────────────────────────
+ * Hier stand:
+ *
+ *     state.speed_kmh > state.speed_limit_kmh
+ *
+ * Also: gewarnt wurde allein am SCHILD. Das ist das Limit fuer einen PKW.
+ * Ein Wohnmobil ueber 3,5 t darf weniger, und auf einer deutschen Autobahn
+ * ohne Begrenzung gibt es gar kein Schild -- `speed_limit_kmh` war dort
+ * `null`, und damit blieb `speeding` auch bei 130 km/h aus. Eine
+ * Uebertretung um fuenfzig, die als „alles in Ordnung" durchging.
+ *
+ * Jetzt entscheidet die NIEDRIGERE der beiden bekannten Zahlen. Beide reisen
+ * weiterhin einzeln mit: zusammengelegt stuende „80" auf einem runden Schild,
+ * das an dieser Autobahn nicht steht.
+ *
+ * Unveraendert bleibt die vorsichtige Regel: `speeding` ist nur `true`, wenn
+ * Tempo UND Grenze bekannt sind. Eine unbekannte Grenze ist keine
+ * Uebertretung.
+ */
 export function buildSpeedPayload(state: NavState): MqttSpeedPayload {
-  const speeding =
-    state.speed_kmh !== null && state.speed_limit_kmh !== null && state.speed_kmh > state.speed_limit_kmh;
+  const massgeblich = massgeblichesTempo(state.speed_limit_kmh, state.speed_limit_vehicle_kmh);
   return {
     speed_kmh: state.speed_kmh,
     speed_limit_kmh: state.speed_limit_kmh,
-    speeding,
+    speed_limit_vehicle_kmh: state.speed_limit_vehicle_kmh,
+    speed_limit_effective_kmh: massgeblich.grenze,
+    speed_limit_source: massgeblich.quelle,
+    speeding: faehrtZuSchnell(state.speed_kmh, massgeblich.grenze),
   };
 }
 

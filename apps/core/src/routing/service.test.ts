@@ -180,7 +180,7 @@ describe('Tempolimits (0.5.0)', () => {
     });
 
     const routes = await service.createRoutes(request());
-    expect(routes[0].speed_limits).toEqual([{ begin_shape_index: 0, end_shape_index: 2, kmh: 50 }]);
+    expect(routes[0].speed_limits).toEqual([{ begin_shape_index: 0, end_shape_index: 2, kmh: 50, road_class: null }]);
   });
 });
 

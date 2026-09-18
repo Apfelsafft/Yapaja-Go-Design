@@ -124,8 +124,28 @@ export function buildHaStates(zustand: YapaiaZustand): HaStateWrite[] {
     state_class: 'measurement',
     icon: 'mdi:speedometer-medium',
   });
+  // ─── WAS DIESES FAHRZEUG DARF, NEBEN DEM SCHILD ────────────────────────
+  // Getrennt und nicht zusammengelegt: auf einer unbegrenzten Autobahn ist
+  // das Schild `unknown` und die Fahrzeuggrenze 80. Eine einzige Zahl liesse
+  // offen, welche davon man draussen wiederfindet.
+  dazu(
+    'sensor.yapaja_speed_limit_vehicle',
+    zahl(tempo?.speed_limit_vehicle_kmh ?? null),
+    'Speed Limit Vehicle',
+    {
+      unit_of_measurement: 'km/h',
+      device_class: 'speed',
+      state_class: 'measurement',
+      icon: 'mdi:truck-alert',
+    },
+  );
   dazu('binary_sensor.yapaja_speeding', tempo?.speeding ? 'on' : 'off', 'Speeding', {
     device_class: 'safety',
+    // Damit am Sensor selbst ablesbar ist, WORAN die Warnung haengt. Ohne das
+    // bliebe unklar, ob gerade das Schild oder das Fahrzeuggewicht
+    // entscheidet -- und genau diese Frage stellt sich am Strassenrand.
+    grenze_kmh: tempo?.speed_limit_effective_kmh ?? null,
+    quelle: tempo?.speed_limit_source ?? 'keine',
   });
   dazu('sensor.yapaja_eta', navState?.eta ?? UNBEKANNT, 'ETA', {
     device_class: 'timestamp',

@@ -165,6 +165,14 @@ sensor:
   - platform: homeassistant
     id: yapaja_tempolimit
     entity_id: ${entity_praefix}_speed_limit
+
+  # ─── WAS DIESES FAHRZEUG DARF ─────────────────────────────────────────────
+  # Getrennt vom Schild und nicht damit verrechnet. Auf einer unbegrenzten
+  # Autobahn ist das Schild `unknown` und dieser Wert 80 -- zusammengelegt
+  # stuende „80" in einem runden Verkehrszeichen, das dort gar nicht steht.
+  - platform: homeassistant
+    id: yapaja_tempolimit_fahrzeug
+    entity_id: ${entity_praefix}_speed_limit_vehicle
   - platform: homeassistant
     id: yapaja_manoever_entfernung
     entity_id: ${entity_praefix}_instruction_distance
@@ -545,12 +553,33 @@ display:
       // Weisser Ring mit rotem Rand, wie das Verkehrszeichen. NUR wenn die
       // Karte eines kennt -- ein leeres oder auf 0 stehendes Schild waere die
       // Behauptung, hier gelte Tempo 0.
+      const int sr = std::min(15, r / 7);
       if (hat(id(yapaja_tempolimit))) {
-        const int sr = std::min(15, r / 7);
         it.filled_circle(cx, uy, sr, id(c_warnung));
         it.filled_circle(cx, uy, (sr * 72) / 100, id(c_schild));
         it.printf(cx, uy, id(font_s), id(c_hintergrund), TextAlign::CENTER,
                   "%d", (int) (id(yapaja_tempolimit).state + 0.5f));
+      }
+
+      // ─── DIE FAHRZEUGGRENZE, KLEIN UND OHNE SCHILD ────────────────────
+      // Ein Wohnmobil ueber 3,5 t darf weniger als das Schild erlaubt. Diese
+      // Zahl steht deshalb DANEBEN und NICHT im runden Zeichen: ein
+      // Verkehrszeichen behauptet, dass es draussen steht, und dieses stuende
+      // dort nicht.
+      //
+      // Gezeigt nur, wenn sie ueberhaupt etwas Neues sagt -- also wenn sie
+      // NIEDRIGER ist als das Schild oder es gar keines gibt. Eine Zahl, die
+      // dasselbe sagt wie das Zeichen daneben, ist auf 240 runden
+      // Bildpunkten verschenkter Platz.
+      if (hat(id(yapaja_tempolimit_fahrzeug))) {
+        const int fz = (int) (id(yapaja_tempolimit_fahrzeug).state + 0.5f);
+        const bool sagt_etwas =
+            !hat(id(yapaja_tempolimit)) ||
+            fz < (int) (id(yapaja_tempolimit).state + 0.5f);
+        if (sagt_etwas) {
+          it.printf(cx + sr + 4, uy, id(font_s), id(c_warnung), TextAlign::CENTER_LEFT,
+                    "%d", fz);
+        }
       }
 
       // Yapaia liefert die Ankunft als ISO 8601 in UTC. Hier wird sie

@@ -395,7 +395,8 @@ describe('Validators', () => {
       eta: new Date(Date.now() + 300000).toISOString(),
       speed_kmh: 50,
       speed_limit_kmh: 50,
-      altitude_m: 100,
+      
+      speed_limit_vehicle_kmh: null,altitude_m: 100,
       destination: {
         latlng: { lat: 48.1, lon: 11.6 },
         name: 'Munich',
@@ -418,7 +419,8 @@ describe('Validators', () => {
           eta: null,
           speed_kmh: null,
           speed_limit_kmh: null,
-          altitude_m: null,
+          
+          speed_limit_vehicle_kmh: null,altitude_m: null,
           destination: null,
         }),
       ).toBe(true);
@@ -438,7 +440,8 @@ describe('Validators', () => {
         validateNavState({
           ...validNavState,
           speed_limit_kmh: 0,
-        }),
+        
+        speed_limit_vehicle_kmh: null,}),
       ).toBe(false);
     });
   });

@@ -24,6 +24,9 @@ const DEFAULT_PROFILE: Omit<VehicleProfile, 'id' | 'is_active'> = {
   width_m: 2.2,
   length_m: 6.5,
   weight_t: 3.5,
+  // Keine Vorgabe, die etwas behauptet: ohne Zulassung gilt die NIEDRIGERE
+  // Grenze, und das ist der vorsichtigere Fall. Wer eine hat, traegt sie ein.
+  tempo_100: false,
   avg_speed_kmh: 85,
   hazmat: false,
   avoid: {

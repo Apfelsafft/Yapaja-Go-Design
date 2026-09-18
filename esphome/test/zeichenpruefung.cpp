@@ -126,7 +126,7 @@ static BaseFont f_xl{46}, f_l{34}, f_m{19}, f_s{14};
 static Color k_hintergrund{0x10,0x14,0x18}, k_text{0xF2,0xF5,0xF7},
              k_gedaempft{0x8A,0x94,0x9E}, k_pfeil{0x4E,0xA1,0xFF},
              k_warnung{0xFF,0x4D,0x4D}, k_gut{0x3D,0xDC,0x84}, k_schild{255,255,255};
-static sensor::Sensor s_tempo, s_limit, s_mdist, s_rest;
+static sensor::Sensor s_tempo, s_limit, s_limit_fz, s_mdist, s_rest;
 static binary_sensor::BinarySensor s_schnell;
 static text_sensor::TextSensor s_anweisung, s_art, s_zustand, s_ankunft;
 
@@ -148,6 +148,7 @@ static Color &c_hintergrund = k_hintergrund, &c_text = k_text,
              &c_warnung = k_warnung, &c_gut = k_gut, &c_schild = k_schild;
 
 static sensor::Sensor *yapaja_tempo = &s_tempo, *yapaja_tempolimit = &s_limit,
+                      *yapaja_tempolimit_fahrzeug = &s_limit_fz,
                       *yapaja_manoever_entfernung = &s_mdist,
                       *yapaja_reststrecke = &s_rest;
 static binary_sensor::BinarySensor *yapaja_zu_schnell = &s_schnell;
@@ -165,6 +166,8 @@ struct Fall {
   const char *name;
   const char *zustand, *art, *anweisung, *ankunft;
   float tempo, limit, mdist, rest; bool tempo_da, limit_da, mdist_da, rest_da;
+  // Was DIESES Fahrzeug darf -- getrennt vom Schild.
+  float limit_fz; bool limit_fz_da;
   bool schnell;
 };
 
@@ -182,6 +185,7 @@ static void lauf(const Fall &f, int w, int h, bool zeige) {
   };
   setze(s_tempo, f.tempo, f.tempo_da);
   setze(s_limit, f.limit, f.limit_da);
+  setze(s_limit_fz, f.limit_fz, f.limit_fz_da);
   setze(s_mdist, f.mdist, f.mdist_da);
   setze(s_rest,  f.rest,  f.rest_da);
   s_schnell.state = f.schnell;
@@ -289,7 +293,9 @@ int main() {
                      std::vector<std::string> muss) {
     s_zustand.state=f.zustand; s_art.state=f.art; s_anweisung.state=f.anweisung;
     s_ankunft.state=f.ankunft; s_tempo.state=f.tempo; s_tempo.has=f.tempo_da;
-    s_limit.state=f.limit; s_limit.has=f.limit_da; s_mdist.state=f.mdist;
+    s_limit.state=f.limit; s_limit.has=f.limit_da;
+    s_limit_fz.state=f.limit_fz; s_limit_fz.has=f.limit_fz_da;
+    s_mdist.state=f.mdist;
     s_mdist.has=f.mdist_da; s_rest.state=f.rest; s_rest.has=f.rest_da;
     s_schnell.state=f.schnell;
     Display it(w,h); zeichne(it);
@@ -320,6 +326,17 @@ int main() {
     s_ankunft.state=f.ankunft;
     s_tempo.has=f.tempo_da; s_tempo.state=f.tempo_da?f.tempo:NAN;
     s_limit.has=f.limit_da; s_limit.state=f.limit_da?f.limit:NAN;
+    // ─── DIESE ZEILE HAT GEFEHLT ──────────────────────────────────────────
+    // `genau` baut die Sensoren SELBST auf, statt `lauf` zu benutzen -- es
+    // ist die dritte Stelle in dieser Datei, die dasselbe tut. Beim Zufuegen
+    // der Fahrzeuggrenze war sie die einzige, die vergessen wurde, und die
+    // Folge war kein Fehler, sondern Stille: der Sensor blieb leer, die Zahl
+    // wurde nie gezeichnet, und der Test „Fahrzeuggrenze gleich dem Schild"
+    // bestand trotzdem -- weil auch er nichts erwartete.
+    //
+    // Ein Test, der aus dem falschen Grund gruen ist, sieht aus wie einer,
+    // der stimmt.
+    s_limit_fz.has=f.limit_fz_da; s_limit_fz.state=f.limit_fz_da?f.limit_fz:NAN;
     s_mdist.has=f.mdist_da; s_mdist.state=f.mdist_da?f.mdist:NAN;
     s_rest.has=f.rest_da;   s_rest.state=f.rest_da?f.rest:NAN;
     s_schnell.state=f.schnell;
@@ -340,12 +357,42 @@ int main() {
 
   Fall sommer{"x","navigating","turn_left","Links abbiegen auf B27",
               "2026-09-15T14:32:00.000Z",87,80,1240,42.5,
-              true,true,true,true,false};
+              true,true,true,true,false,
+              // Ohne Fahrzeuggrenze -- so wie bis 0.13.2.
+              0,false};
   // Reihenfolge wie gezeichnet: Anweisung oben, Entfernung unter dem Pfeil,
   // dann die untere Zeile. Die RESTSTRECKE fehlt bewusst -- auf 240 runden
   // Bildpunkten ist kein Platz fuer ein fuenftes Feld, und sie ist von den
   // fuenf das entbehrlichste.
   genau("volle Fahrt, MESZ", sommer, 240,240,
+        {"Links abbiegen auf B27","1.2 km","87","80","16:32"});
+
+  // ─── DIE FAHRZEUGGRENZE NEBEN DEM SCHILD (0.14.0) ────────────────────────
+  // Ein Wohnmobil ueber 3,5 t darf weniger, als das Schild erlaubt. Die Zahl
+  // steht DANEBEN und nicht im runden Zeichen: ein Verkehrszeichen behauptet,
+  // dass es draussen steht -- und dieses stuende dort nicht.
+  Fall schwer = sommer; schwer.limit_fz = 60; schwer.limit_fz_da = true;
+  genau("Fahrzeuggrenze unter dem Schild: beide Zahlen", schwer, 240,240,
+        {"Links abbiegen auf B27","1.2 km","87","80","60","16:32"});
+
+  // Der wichtigste Fall: unbegrenzte Autobahn, gar kein Schild. Vorher stand
+  // hier NICHTS -- und `speeding` blieb bei 130 km/h aus.
+  Fall autobahn = sommer;
+  autobahn.limit_da = false;
+  autobahn.limit_fz = 80; autobahn.limit_fz_da = true;
+  autobahn.tempo = 130;
+  genau("unbegrenzte Autobahn: nur die Fahrzeuggrenze", autobahn, 240,240,
+        {"Links abbiegen auf B27","1.2 km","130","80","16:32"});
+
+  // Die Gegenprobe: sagt die Fahrzeuggrenze dasselbe wie das Schild oder
+  // mehr, bleibt sie weg. Eine Zahl, die dasselbe sagt wie das Zeichen
+  // daneben, ist auf 240 runden Bildpunkten verschenkter Platz.
+  Fall gleich = sommer; gleich.limit_fz = 80; gleich.limit_fz_da = true;
+  genau("Fahrzeuggrenze gleich dem Schild: nur das Schild", gleich, 240,240,
+        {"Links abbiegen auf B27","1.2 km","87","80","16:32"});
+
+  Fall hoeher = sommer; hoeher.limit_fz = 100; hoeher.limit_fz_da = true;
+  genau("Fahrzeuggrenze ueber dem Schild: nur das Schild", hoeher, 240,240,
         {"Links abbiegen auf B27","1.2 km","87","80","16:32"});
 
   Fall winter = sommer; winter.ankunft = "2026-01-15T14:32:00.000Z";

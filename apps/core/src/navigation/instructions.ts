@@ -330,9 +330,30 @@ export function findActiveSpeedLimitKmh(
   anchors: readonly SpeedSegmentAnchor[],
   progressM: number,
 ): number | null {
+  return findActiveSpeedSegment(anchors, progressM)?.kmh ?? null;
+}
+
+/**
+ * Der aktive Abschnitt selbst -- nicht nur sein Tempolimit.
+ *
+ * ─── WARUM ES BEIDE GIBT ───────────────────────────────────────────────────
+ * Seit 0.14.0 zaehlt neben dem Schild auch die Strassenklasse: aus ihr ergibt
+ * sich, was DIESES Fahrzeug hier fahren darf (`routing/fahrzeugTempo.ts`).
+ * Dafuer wird der Abschnitt gebraucht und nicht nur eine Zahl daraus.
+ *
+ * `findActiveSpeedLimitKmh` bleibt und ist jetzt auf diese Funktion
+ * zurueckgefuehrt statt danebengeschrieben. Zwei Schleifen mit derselben
+ * halboffenen Bedingung `[startM, endM)` waeren zwei Stellen, an denen sie
+ * auseinanderlaufen koennen -- und eine Tempogrenze, die eine Kante zu frueh
+ * oder zu spaet wechselt, faellt niemandem auf.
+ */
+export function findActiveSpeedSegment(
+  anchors: readonly SpeedSegmentAnchor[],
+  progressM: number,
+): SpeedSegment | null {
   for (const anchor of anchors) {
     if (progressM >= anchor.startM && progressM < anchor.endM) {
-      return anchor.segment.kmh;
+      return anchor.segment;
     }
   }
   return null;
