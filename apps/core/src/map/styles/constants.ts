@@ -45,4 +45,4 @@ export const POI_LAYER_ID_PREFIX = 'poi';
  * Deshalb ist es jetzt DIESELBE: was ein Symbol hat, ist auch das, was
  * „reduziert" übrig lässt.
  */
-export { POI_KLASSEN_MIT_SYMBOL as REDUCED_POI_CLASSES } from './poiKategorien.js';
+export { POI_KLASSEN_MIT_SYMBOL as REDUCED_POI_CLASSES } from '@yapaia/shared';

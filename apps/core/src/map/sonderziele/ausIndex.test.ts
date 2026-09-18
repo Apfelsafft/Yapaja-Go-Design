@@ -29,7 +29,7 @@ import {
   alsGeoJson,
   SONDERZIELE_HOECHSTENS_JE_INDEX,
 } from './ausIndex.js';
-import { FEHLENDE_KLASSEN, klasseFuer } from './fehlendeKlassen.js';
+import { FEHLENDE_KLASSEN, klasseFuer } from '@yapaia/shared';
 import { POI_CATEGORIES } from '../../search/lite/poiCategories.js';
 
 const verzeichnisse: string[] = [];

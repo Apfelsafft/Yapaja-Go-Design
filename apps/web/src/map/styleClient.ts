@@ -9,6 +9,7 @@
  */
 
 import type { StyleSpecification } from 'maplibre-gl';
+import { alsPoiParameter } from '@yapaia/shared';
 
 /** Siehe `apps/core/src/map/styles/options.ts`: unsere Kacheln fuehren
  *  `name`, `name_de` und `name_en` — `name:de` gibt es dort NICHT, und die
@@ -21,6 +22,18 @@ export interface StyleOptions {
   lang: StyleLang;
   labelScale: StyleLabelScale;
   poi: StylePoiDensity;
+  /**
+   * Sonderziel-Kategorien, die NICHT gezeichnet werden — als Sprite-Namen
+   * aus `POI_AUSWAHL` (`@yapaia/shared`).
+   *
+   * ─── GESPEICHERT WIRD DAS ABGESCHALTETE ────────────────────────────────
+   * Nicht das eingeschaltete. Kommt in einer spaeteren Fassung eine
+   * Kategorie dazu, ist sie damit DA und nicht weg. Fuer eine Karte, die
+   * sagen soll, wo es Wasser gibt, ist das die einzig vertretbare Richtung:
+   * ein ungewolltes Symbol klickt man weg, ein fehlendes bemerkt man erst,
+   * wenn man daran vorbeigefahren ist.
+   */
+  poiAus: string[];
 }
 
 export interface StyleSummary {
@@ -35,6 +48,9 @@ export const DEFAULT_STYLE_OPTIONS: StyleOptions = {
   lang: 'name',
   labelScale: '1.0',
   poi: 'full',
+  // Alles an. Wer nichts einstellt, sieht alles -- das ist der Zustand, in
+  // dem die Karte am meisten sagt.
+  poiAus: [],
 };
 
 /**
@@ -72,7 +88,11 @@ export function applyDegradationCaps(
     caps.labelScale !== null && LABEL_SCALE_RANK[caps.labelScale] < LABEL_SCALE_RANK[options.labelScale]
       ? caps.labelScale
       : options.labelScale;
-  return { lang: options.lang, labelScale, poi };
+  // `poiAus` geht unveraendert durch: die Kategorie-Wahl ist eine Aussage des
+  // Fahrers, keine Frage an die Leistung des Geraets. Die Ueberwachung darf
+  // Symbole WEGNEHMEN (ueber `poi`), aber keine zurueckholen, die jemand
+  // bewusst abgeschaltet hat.
+  return { lang: options.lang, labelScale, poi, poiAus: options.poiAus };
 }
 
 interface StylesListApiResponse {
@@ -127,6 +147,22 @@ export async function fetchStyle(
     labelScale: options.labelScale,
     poi: options.poi,
   });
+  // Nur mitschicken, wenn wirklich etwas aus ist. Ein leeres `poiAus=` waere
+  // eine zweite Schreibweise fuer denselben Zustand -- und damit ein zweiter
+  // Eintrag im Zwischenspeicher des Browsers fuer dieselbe Karte.
+  //
+  // ─── DAS `?? []` IST NICHT UEBERFLUESSIG ────────────────────────────────
+  // Die Typangabe sagt, dass `poiAus` da ist, und aus dem Speicher kommt es
+  // auch immer (`normalizeStoredOptions` fuellt es). Aber ein Absturz GENAU
+  // HIER heisst: gar keine Karte. Diese Datei faengt aus demselben Grund
+  // schon jeden Netzfehler ab und liefert lieber `null` als eine Ausnahme.
+  // Ein fehlendes Feld -- etwa aus einem aelteren gespeicherten Zustand oder
+  // einem Aufrufer, der die Menge von Hand baut -- darf nicht mehr kosten
+  // als ein fehlgeschlagener Abruf.
+  const aus = alsPoiParameter(options.poiAus ?? []);
+  if (aus) {
+    params.set('poiAus', aus);
+  }
   if (region) {
     params.set('region', region);
   }

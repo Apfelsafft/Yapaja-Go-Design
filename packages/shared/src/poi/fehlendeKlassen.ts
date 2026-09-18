@@ -2,7 +2,8 @@
  * Die Sonderziele, die in den Kacheln GAR NICHT vorkommen können.
  *
  * ─── DIE LÜCKE, UM DIE ES GEHT ──────────────────────────────────────────────
- * In `apps/core/src/map/styles/poiKategorien.ts` steht seit 0.9.0 dieser Satz:
+ * In `./kategorien.ts` (bis 0.17.0 `apps/core/src/map/styles/poiKategorien.ts`)
+ * steht seit 0.9.0 dieser Satz:
  *
  *   „Eine ENTSORGUNGSSTATION (amenity=sanitary_dump_station) führen unsere
  *    Kacheln nicht … Für ein Wohnmobil ist das die schmerzlichste Lücke
@@ -69,7 +70,7 @@ export interface FehlendeKlasse {
   /**
    * Wer gewinnt, wenn zwei Symbole übereinanderliegen. Kleiner ist wichtiger.
    *
-   * Die Zahlen setzen die Reihe aus `poiKategorien.ts` fort, wo Rang 1 bis 9
+   * Die Zahlen setzen die Reihe aus `./kategorien.ts` fort, wo Rang 1 bis 9
    * vergeben sind. Ein eigener Zahlenraum wäre bequemer zu pflegen und
    * trotzdem falsch: beide Ebenen liegen auf derselben Karte, und ein Rang
    * hat nur dann eine Bedeutung, wenn er mit dem der Nachbarebene vergleichbar

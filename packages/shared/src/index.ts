@@ -111,3 +111,26 @@ export {
   type SunTimesPolarNight,
   type SunTimesMidnightSun,
 } from './sun';
+
+// Sonderziele: der Katalog der Kategorien, aus dem sowohl der Kartenstil im
+// Kern als auch die Schalter in der Oberflaeche entstehen. Liegt hier und
+// nicht in `apps/core`, weil `apps/web` den Kern nicht aufloesen kann und
+// eine zweite Liste genau der `supermarket`-Fehler waere -- siehe
+// `./poi/auswahl.ts`.
+export { POI_KATEGORIEN, POI_KLASSEN_MIT_SYMBOL, symbolNachKategorie, rangNachKategorie, type PoiKategorie } from './poi/kategorien';
+export {
+  FEHLENDE_KLASSEN,
+  FEHLENDE_KATEGORIEN,
+  klasseFuer,
+  type FehlendeKlasse,
+} from './poi/fehlendeKlassen';
+export {
+  POI_AUSWAHL,
+  POI_SCHLUESSEL,
+  istBekannterPoi,
+  parseAbgeschaltet,
+  alsPoiParameter,
+  nichtAbgeschaltet,
+  type PoiAuswahlEintrag,
+  type PoiQuelle,
+} from './poi/auswahl';

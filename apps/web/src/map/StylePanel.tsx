@@ -10,6 +10,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { POI_AUSWAHL } from '@yapaia/shared';
 import { useStyleStore } from '../state/styleStore';
 import { fetchStyleSummaries, type StyleLabelScale, type StyleLang, type StylePoiDensity, type StyleSummary } from './styleClient';
 import ThemeToggle from '../theme/ThemeToggle.js';
@@ -38,6 +39,93 @@ const POI_OPTIONS: Array<{ value: StylePoiDensity; label: string }> = [
   { value: 'reduced', label: 'Reduziert' },
   { value: 'off', label: 'Aus' },
 ];
+
+/**
+ * Die Schalter für die einzelnen Sonderziele.
+ *
+ * ─── DIE LISTE STEHT NICHT HIER ─────────────────────────────────────────────
+ * `POI_AUSWAHL` kommt aus `@yapaia/shared` und wird dort aus den beiden
+ * Kategorienlisten ABGELEITET — den Kacheln und dem Suchindex. Wer eine
+ * Kategorie hinzufügt, bekommt ihren Schalter also geschenkt.
+ *
+ * Eine eigene Liste an dieser Stelle wäre bequemer zu lesen und genau der
+ * Fehler, an dem „reduzierte POIs" monatelang keinen Supermarkt zeigte:
+ * zwei Listen, eine davon still abgedriftet.
+ */
+function SonderzielSchalter(): React.ReactElement {
+  const poiAus = useStyleStore((state) => state.options.poiAus);
+  const setPoiKategorie = useStyleStore((state) => state.setPoiKategorie);
+  const setPoiAus = useStyleStore((state) => state.setPoiAus);
+  const alleAus = poiAus.length === POI_AUSWAHL.length;
+
+  return (
+    <div className="space-y-2">
+      {/* ─── ZUERST DIE BEIDEN, DIE MAN AM HÄUFIGSTEN WILL ─────────────
+          Dreizehn Schalter einzeln umzulegen, nur um „zeig mir gerade mal
+          gar nichts" zu sagen, wäre eine Zumutung auf einem Bildschirm im
+          Fahrerhaus. */}
+      <div className="flex gap-1">
+        <button
+          type="button"
+          onClick={() => setPoiAus([])}
+          disabled={poiAus.length === 0}
+          data-testid="poi-kategorie-alle"
+          className="flex-1 px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 text-xs disabled:opacity-40"
+        >
+          Alle an
+        </button>
+        <button
+          type="button"
+          onClick={() => setPoiAus(POI_AUSWAHL.map((e) => e.schluessel))}
+          disabled={alleAus}
+          data-testid="poi-kategorie-keine"
+          className="flex-1 px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 text-xs disabled:opacity-40"
+        >
+          Alle aus
+        </button>
+      </div>
+
+      <ul className="space-y-0.5">
+        {POI_AUSWAHL.map((eintrag) => {
+          const an = !poiAus.includes(eintrag.schluessel);
+          return (
+            <li key={eintrag.schluessel}>
+              {/* Ein echtes `<label>` mit Kontrollkästchen und nicht ein
+                  angeklickter `<div>`: die Trefferfläche wird damit die ganze
+                  Zeile, und das zählt auf einem wackelnden Bildschirm mehr
+                  als das Aussehen. */}
+              <label className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={an}
+                  onChange={(e) => setPoiKategorie(eintrag.schluessel, e.target.checked)}
+                  data-testid={`poi-kategorie-${eintrag.schluessel}`}
+                  className="h-4 w-4 shrink-0 accent-blue-600"
+                />
+                <span className={`text-xs ${an ? '' : 'text-slate-400 dark:text-slate-500'}`}>
+                  {eintrag.name}
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* ─── WARUM DIESER SATZ DASTEHT ──────────────────────────────────
+          Vier der dreizehn Kategorien kommen nicht aus den Kacheln, sondern
+          aus dem Suchindex — das OpenMapTiles-Schema kennt sie schlicht
+          nicht (siehe `poi/fehlendeKlassen.ts`). Wer keinen Index gebaut
+          hat, legt ihren Schalter um und sieht: nichts ändert sich.
+
+          Ohne diesen Hinweis ist ein Schalter ohne Daten von einem kaputten
+          Schalter nicht zu unterscheiden. */}
+      <p className="text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+        Entsorgung, Frischwasser, Müll und Dusche stammen aus dem Suchindex.
+        Ohne gebauten Index bleiben sie leer — auch eingeschaltet.
+      </p>
+    </div>
+  );
+}
 
 export default function StylePanel(): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
@@ -186,6 +274,11 @@ export default function StylePanel(): React.ReactElement {
               </div>
 
               <div>
+                {/* ─── „DICHTE" IST EINE FRAGE AN DAS GERAET ──────────────
+                    Nicht an den Fahrer. Sie bleibt, weil die
+                    Leistungsueberwachung sie bei niedriger Bildrate
+                    herunterdreht -- welche Kategorien man sehen WILL, steht
+                    jetzt einen Abschnitt tiefer unter „Sonderziele". */}
                 <h3 className="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
                   POI-Dichte
                 </h3>
@@ -208,6 +301,22 @@ export default function StylePanel(): React.ReactElement {
                 </div>
               </div>
             </div>
+          </FaltAbschnitt>
+
+          {/* ─── SONDERZIELE: WAS MAN AUF DER KARTE SEHEN WILL ────────────
+              Gewünscht:
+
+                „Kann ich die einzelnen sonderziele auch an und abschalten?
+                 Zapfstellen brauche ich eher selten und dann stören sie
+                 bspw."
+
+              Ein eigener Abschnitt und nicht bei der Dichte darunter: die
+              Dichte ist eine Frage an das Gerät, diese Liste eine an den
+              Fahrer. Zugeklappt, weil man sie einmal einstellt -- aber als
+              eigene Zeile sichtbar, denn bisher war „POI-Dichte" das
+              einzige, was danach aussah, und es war die falsche Antwort. */}
+          <FaltAbschnitt titel="Sonderziele" offen={false} id="sonderziele">
+            <SonderzielSchalter />
           </FaltAbschnitt>
 
           {/* ─── GERAET: WAS MAN EINMAL IM LEBEN EINSTELLT ─────────────────

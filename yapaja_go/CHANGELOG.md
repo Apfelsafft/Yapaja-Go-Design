@@ -10,6 +10,56 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.17.0
+
+**Jede Sonderziel-Kategorie lässt sich einzeln an- und abschalten.**
+
+Gewünscht:
+
+> „Kann ich die einzelnen sonderziele auch an und abschalten? Zapfstellen
+> brauche ich eher selten und dann stören sie bspw."
+
+Bisher gab es dafür genau einen Schalter — „POI-Dichte" mit den Stufen voll /
+reduziert / aus. Der beantwortet die Frage nicht: wer nur die Zapfstellen
+loswerden wollte, hatte die Wahl zwischen *allen* Symbolen und *keinen*. Und
+mit „keine" verliert man auch die Stellplätze, also genau das, wofür die
+Symbole da sind.
+
+**Wo es steht.** Karten-Einstellungen (⚙️) → neuer Abschnitt **„Sonderziele"**.
+Dreizehn Kästchen, dazu „Alle an" und „Alle aus". Die Reihenfolge ist die der
+Karte, nicht das Alphabet: was bei Gedränge stehen bleibt, steht auch in der
+Liste oben.
+
+| | |
+|---|---|
+| Wohnmobilstellplatz | Campingplatz |
+| Entsorgungsstation | Frischwasser-Zapfstelle |
+| Tankstelle | Ladesäule |
+| Parkplatz | Einkaufen |
+| Essen und Trinken | Sehenswürdigkeit |
+| Müllentsorgung | Dusche |
+| Wasser und Entsorgung | |
+
+**„POI-Dichte" bleibt** — sie ist etwas anderes. Die Dichte ist eine Frage an
+das *Gerät* („wie viel Zeichenarbeit verträgt es"), und nur deshalb darf die
+Leistungsüberwachung sie bei niedriger Bildrate selbsttätig herunterdrehen.
+Welche Kategorien man sehen *will*, ist eine Frage an den Fahrer, und die
+beantwortet jetzt niemand mehr ungefragt mit.
+
+**Bestehende Einstellungen bleiben, wie sie sind.** Gespeichert wird, was
+*abgeschaltet* ist — nicht, was an ist. Wer bisher nichts eingestellt hat,
+sieht weiterhin alles. Und wenn eine spätere Fassung eine Kategorie
+hinzufügt, ist sie da und nicht weg: ein ungewolltes Symbol klickt man weg,
+ein fehlendes bemerkt man erst, wenn man daran vorbeigefahren ist.
+
+> **Vier der dreizehn brauchen den Suchindex.** Entsorgung, Frischwasser, Müll
+> und Dusche kennt das Kartenschema gar nicht; sie kommen aus
+> `lite_search-<region>.db`. Ohne gebauten Index bleiben sie leer — auch
+> eingeschaltet. Dieser Satz steht jetzt auch im Menü, denn ein Schalter ohne
+> Daten ist sonst von einem kaputten Schalter nicht zu unterscheiden.
+
+---
+
 ## 0.16.5
 
 **Das ESP-Display zeigt beim Fahren keine Tempolimit-Zahlen mehr. Zu schnell

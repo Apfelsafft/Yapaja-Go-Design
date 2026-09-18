@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { FEHLENDE_KLASSEN, FEHLENDE_KATEGORIEN, klasseFuer } from './fehlendeKlassen.js';
+import { FEHLENDE_KLASSEN, FEHLENDE_KATEGORIEN, klasseFuer } from '@yapaia/shared';
 import { POI_CATEGORIES } from '../../search/lite/poiCategories.js';
 
 /** Alle Kategorien, die der Suchindex beim Bau einsammelt. */
