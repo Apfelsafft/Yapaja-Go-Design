@@ -35,6 +35,13 @@ const TYPE_ICONS: Record<string, string> = {
   drinking_water: '🚰',
   sanitary_dump_station: '♻️',
   waste_disposal: '🗑️',
+  // Bewusst NICHT dasselbe Zeichen wie `drinking_water` (🚰): das eine ist
+  // ein Brunnen zum Trinken, das andere eine Zapfstelle für den Tank. In
+  // einer Trefferliste, in der beide untereinander stehen können, ist ein
+  // gemeinsames Zeichen die Aussage „dasselbe in grün" -- und das ist es
+  // für ein Wohnmobil gerade nicht.
+  water_point: '💧',
+  shower: '🚿',
   pharmacy: '💊',
   doctors: '🩺',
   hospital: '🏥',

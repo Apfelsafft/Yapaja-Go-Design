@@ -261,3 +261,69 @@ test('suspicious profile warning appears for height < 1.8 m AND weight > 3.0 t',
   expect(tracker.getForeignUrls()).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
+
+/**
+ * Ein Gewicht auf zehn Kilogramm genau — getippt, nicht geschoben.
+ *
+ * ─── DER GEMELDETE FALL ─────────────────────────────────────────────────────
+ * „Mein Womo wiegt 3,49to. Was man nur durch die schieberegler nicht
+ * einstellen kann. Man kann keine Werte über die Tastatur eingeben und die
+ * Regler gehen in 10er Schritten."
+ *
+ * Zwei Ursachen, und beide brauchen einen echten Browser, um sie zu zeigen:
+ *
+ *   1. Die Schrittweite war 0,1 t. Der Browser weist einen Wert dazwischen
+ *      auch im Zahlenfeld ab (`step`-Prüfung).
+ *   2. Das Feld formatierte bei JEDEM Tastendruck mit `toFixed(2)` neu. Wer
+ *      „3.49" tippt, erzeugt unterwegs „3." — das ergibt geparst 3, und das
+ *      Feld schrieb „3.00" zurück, mitten in die Eingabe hinein.
+ *
+ * Ein Strukturtest auf der Quelle fängt das nicht: beide Fehler entstehen
+ * erst im Zusammenspiel von React und der Browser-Eingabe.
+ *
+ * ─── WARUM AUSGERECHNET DIESE ZAHL ──────────────────────────────────────────
+ * Bei 3,5 t liegt die Grenze, an der sich die zulässigen
+ * Höchstgeschwindigkeiten ändern. Mit 0,1er-Schritten wählt jemand mit 3,55 t
+ * naheliegend 3,5 — und bekommt die Grenzen der LEICHTEREN Klasse. Das ist
+ * die gefährliche Richtung.
+ */
+test('das Gewicht lässt sich auf zehn Kilogramm genau eintippen', async ({ page }) => {
+  const pageErrors = collectPageErrors(page);
+
+  await page.goto(CORE_BASE_URL + '/');
+  await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
+
+  await page.getByTestId('profile-chip').click();
+  await page.getByTestId('create-profile-button').click();
+  await expect(page.locator('h2')).toContainText('Neues Profil');
+
+  const gewicht = page.getByTestId('weight-input-number');
+
+  // ─── ZEICHEN FÜR ZEICHEN, NICHT `fill` ────────────────────────────────────
+  // `fill` setzt den Wert in einem Zug und ginge auch dann durch, wenn das
+  // Feld bei jedem Tastendruck dazwischenformatiert. Genau das war der
+  // Fehler, also muss hier wirklich getippt werden.
+  await gewicht.click();
+  await gewicht.press('Control+a');
+  await gewicht.pressSequentially('3.49', { delay: 30 });
+  await expect(gewicht).toHaveValue('3.49');
+
+  // Der Regler daneben muss denselben Wert tragen — sonst stünde im Feld
+  // etwas anderes als im Profil.
+  await expect(page.getByTestId('weight-input-slider')).toHaveValue('3.49');
+
+  // Und der gefährliche Fall: 3,55 t. Mit 0,1er-Schritten gab es hier nur
+  // 3,5 (zu leicht eingestuft) oder 3,6 (zu schwer).
+  await gewicht.click();
+  await gewicht.press('Control+a');
+  await gewicht.pressSequentially('3.55', { delay: 30 });
+  await expect(gewicht).toHaveValue('3.55');
+
+  // ─── DIE GEGENPROBE ───────────────────────────────────────────────────────
+  // Die Durchschnittsgeschwindigkeit geht in ganzen km/h. Sie darf keine
+  // Hundertstel behaupten — „80.00" wäre eine Genauigkeit, die die Zahl
+  // nicht hat.
+  await expect(page.getByTestId('speed-input-number')).not.toHaveValue(/\.\d/);
+
+  expect(pageErrors).toEqual([]);
+});

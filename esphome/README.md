@@ -237,11 +237,61 @@ Abstufung auffiele, gibt es nicht.
 `esphome/test/puffer.test.ts` rechnet die Größe bei jedem Testlauf nach und
 schlägt an, wenn sie über 64 KB steigt.
 
-### Wenn „Kein Wert aus Home Assistant" auf dem Display steht
+### Wenn kein Wert aus Home Assistant ankommt
 
-Das Gerät ist verbunden — es bekommt nur keinen Wert. In ESPHome steht es dann
-als **Gerät online** mit IP-Adresse da, und trotzdem zeigt das Display diesen
-Satz. Beides stimmt.
+Zuerst: **das Display sagt es Ihnen selbst.** Kommt *gar kein* Wert an, zeigt
+es von allein eine Liste aller erwarteten Werte und dahinter, ob sie ankommen:
+
+```
+            Diagnose
+  Tempo                   --
+  Limit                   --
+  Limit Fzg               --
+  Entfernung              --
+  Zustand                 --
+  Anweisung               --
+  Neig L/R                --
+  Neig V/H                --
+        Nichts kommt an
+   ESPHome in HA einbinden
+```
+
+Diese Liste unterscheidet die zwei Ursachen, die vorher gleich aussahen:
+
+| Was dasteht | Was es heißt |
+|---|---|
+| **einzelne** Werte fehlen, andere stehen da | ein **Entitätsname** stimmt nicht → unten weiterlesen |
+| **nichts** kommt an (`Nichts kommt an`) | das Gerät ist in Home Assistant **nicht eingebunden** → nächster Abschnitt |
+
+Wollen Sie die Liste sehen, obwohl nur einzelne Werte fehlen, stellen Sie
+oben in `navi.yaml` `diagnose: "true"` ein und flashen neu. Danach wieder auf
+`"false"`.
+
+#### „Nichts kommt an" — das Gerät ist nicht in Home Assistant eingebunden
+
+**Hier ist die Falle: „Gerät online" im ESPHome-Dashboard heißt *nicht*, dass
+Home Assistant verbunden ist.** Das Dashboard spricht direkt mit dem Gerät.
+Die Zustände schiebt aber die **ESPHome-Integration** in Home Assistant — und
+wenn die das Gerät nicht kennt oder den falschen Schlüssel hat, bleibt es im
+Dashboard fröhlich „online" und bekommt trotzdem nie einen Wert.
+
+Dass gleichzeitig auch die **Neigungssensoren** nichts liefern, ist dabei das
+entscheidende Zeichen: die hängen an einem ganz anderen Gerät. Wenn *die*
+ebenfalls stumm sind, kann es nicht an Yapaias Entitätsnamen liegen.
+
+So prüfen Sie es:
+
+1. Home Assistant → **Einstellungen → Geräte & Dienste → ESPHome**
+2. Steht `navi` dort in der Liste?
+   * **Nein** → **Gerät hinzufügen**, Hostname `navi.local` (oder die
+     IP-Adresse). Home Assistant fragt dann nach dem
+     **Verschlüsselungsschlüssel** — das ist der Wert von `navi__api_key`
+     aus Ihrer `secrets.yaml`.
+   * **Ja, aber mit Fehler** („Verbindung fehlgeschlagen", „Ungültige
+     Authentifizierung") → der Schlüssel stimmt nicht. Eintrag löschen und
+     mit dem Wert aus `secrets.yaml` neu anlegen.
+
+#### Einzelne Werte fehlen — dann ist es der Entitätsname
 
 Der wahrscheinliche Grund: **Die Entität heißt in Home Assistant anders, als
 diese Konfiguration sie sucht.**
@@ -274,6 +324,58 @@ substitutions:
 **Findet der Filter gar nichts**, liegt es nicht am Namen: dann veröffentlicht
 Yapaia die Entitäten noch nicht. Prüfen Sie im Add-on, ob MQTT oder der
 HA-interne Kanal eingeschaltet ist.
+
+### Die Waage: zwei Ansichten und zwei Schalter
+
+Beim Parken wechselt die Anzeige auf eine Wasserwaage. Dafür gibt es zwei
+Darstellungen und zwei Schalter — beide erscheinen in Home Assistant als
+gewöhnliche Schalter und lassen sich damit auch aus einer **Automatisierung**
+heraus stellen.
+
+| Schalter | Was er tut |
+|---|---|
+| **Waage als Fahrzeug** | schaltet zwischen der **Libelle** (Blase im Kreis) und der **Fahrzeugansicht** (von der Seite und von hinten, mit Millimetern) um |
+| **Waage erzwingen** | öffnet die Waage **unabhängig vom Tempo** |
+
+#### Die Fahrzeugansicht
+
+Sie zeigt das Fahrzeug von der Seite (vorne/hinten) und von hinten
+(links/rechts), dazu jeweils den Höhenunterschied in **Millimetern** — denn
+ein Grad sagt niemandem, wie dick der Keil sein muss.
+
+Gerechnet wird über die Auflagepunkte. Tragen Sie Ihre Maße oben in
+`navi.yaml` ein:
+
+```yaml
+substitutions:
+  radstand_mm: "4035"     # für vorne/hinten
+  spurweite_mm: "1810"    # für links/rechts
+```
+
+> **Das Bild übertreibt, die Zahl nicht.** Bei 1,5 Grad wäre die Neigung über
+> neunzig Bildpunkte gerade zwei Punkte hoch — massstabsgetreu gezeichnet
+> sähe ein schiefes Fahrzeug aus wie ein gerades. Der *Bildwinkel* wird
+> deshalb gestreckt, genau wie bei der Libelle die Blase schon am Rand steht,
+> sobald `wasserwaage_bereich_grad` erreicht ist. Die **Zahlen daneben bleiben
+> exakt**.
+
+#### „Waage erzwingen" und der Rückwärtsgang
+
+Der Schalter wirkt **parallel** zur Geschwindigkeit, nicht an ihrer Stelle.
+Das ist wichtig fürs Rangieren: dabei *steht* das Fahrzeug nicht, es fährt
+langsam rückwärts.
+
+Wer die Waage **nur** beim Rangieren will, schaltet die Tempo-Automatik ab:
+
+```yaml
+substitutions:
+  wasserwaage_bei_stillstand: "false"
+```
+
+Dann öffnet allein der Schalter — und die Anzeige wechselt an einer roten
+Ampel nicht mehr mitten in der Navigation. Eine Automatisierung in Home
+Assistant kann `switch.navi_waage_erzwingen` dann an das Signal des
+Rückwärtsgangs hängen.
 
 ### Wenn das WLAN nicht zustande kommt
 

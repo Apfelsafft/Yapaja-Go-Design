@@ -10,6 +10,199 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.16.4
+
+**Das Gewicht lässt sich jetzt auf zehn Kilogramm genau eintragen — und
+eintippen.**
+
+Gemeldet:
+
+> „Mein Womo wiegt 3,49to. Was man nur durch die schieberegler nicht
+> einstellen kann. Man kann keine Werte über die Tastatur eingeben und die
+> Regler gehen in 10er Schritten."
+
+Zwei Ursachen, beide behoben:
+
+1. **Die Schrittweite war 0,1 t.** Jetzt 0,01 t — zehn Kilogramm, dieselbe
+   Feinheit, die Höhe, Breite und Länge schon immer hatten.
+2. **Das Zahlenfeld ließ sich nicht betippen.** Es formatierte bei *jedem*
+   Tastendruck neu: wer „3.49" tippt, erzeugt unterwegs „3." — daraus wurde
+   3, und das Feld schrieb „3.00" zurück, mitten in die Eingabe hinein. Jetzt
+   gilt beim Tippen das Getippte; formatiert wird erst beim Verlassen des
+   Feldes.
+
+**Warum das mehr ist als Bequemlichkeit.** Bei 3,5 t liegt die Grenze, an der
+sich die zulässigen Höchstgeschwindigkeiten ändern. Mit 0,1er-Schritten wählt
+jemand mit **3,55 t** naheliegend 3,5 — und bekommt damit die Grenzen der
+*leichteren* Klasse. Das ist die gefährliche Richtung: zu viel erlaubt.
+
+> Für 3,49 t war das Ergebnis übrigens nie falsch: 3,5 t zählt selbst noch zur
+> leichten Klasse („über 3,5 t" heißt über, nicht ab). Wer aufrundete, bekam
+> trotzdem die richtigen Limits. Ärgerlich war es dennoch — und für die
+> Nachbarn oberhalb der Grenze eben nicht nur ärgerlich.
+
+Nebenbei: Felder zeigen jetzt so viele Nachkommastellen, wie sie einstellen
+können. Bei der Durchschnittsgeschwindigkeit (ganze km/h) stand vorher
+„80.00" — eine Genauigkeit, die die Zahl nicht hat.
+
+---
+
+## 0.16.3
+
+**Zwei Schalter für die Wasserwaage — und eine zweite Ansicht.**
+
+Gewünscht, nachdem die Waage endlich lief:
+
+> „Könntest du bitte einen Schalter einfügen der zwischen zwei Anzeigen
+> umschalten kann. Der Wasserwaage und einer die das Auto von der Seite und
+> von hinten zeigt. […] Bitte füge noch einen weiteren Schalter ein der
+> zwischen der navigationsanzeige und der Waage umschaltet. Parallel zu der
+> Geschwindigkeit."
+
+Beide sind da. Sie erscheinen in Home Assistant als gewöhnliche Schalter und
+lassen sich damit auch aus einer **Automatisierung** heraus stellen:
+
+| Schalter | Was er tut |
+|---|---|
+| **Waage als Fahrzeug** | Libelle ⇄ Fahrzeugansicht |
+| **Waage erzwingen** | öffnet die Waage unabhängig vom Tempo |
+
+---
+
+**Die Fahrzeugansicht zeigt Millimeter, nicht nur Grad.**
+
+Von der Seite (vorne/hinten) und von hinten (links/rechts), dazu jeweils der
+Höhenunterschied in Millimetern. Das ist der eigentliche Zweck: **ein Grad
+sagt niemandem, wie dick der Keil sein muss.**
+
+Gerechnet wird über die Auflagepunkte. Die eigenen Maße gehören in die
+`navi.yaml`:
+
+```yaml
+substitutions:
+  radstand_mm: "4035"     # für vorne/hinten
+  spurweite_mm: "1810"    # für links/rechts
+```
+
+> **Das Bild übertreibt, die Zahl nicht.** Bei 1,5 Grad wäre die Neigung über
+> neunzig Bildpunkte gerade zwei Punkte hoch — massstabsgetreu gezeichnet sähe
+> ein schiefes Fahrzeug aus wie ein gerades. Der *Bildwinkel* wird deshalb
+> gestreckt, genau wie bei der Libelle die Blase schon am Rand steht, sobald
+> der eingestellte Bereich erreicht ist. Die **Zahlen bleiben exakt**.
+
+Gefunden wurde das übrigens nicht von einem Test, sondern beim Hinsehen: das
+neue Werkzeug `esphome/test/bild.mjs` zeichnet die Anzeige vergrössert als
+Text. Alle Prüfungen waren grün, die Zahlen stimmten — und die Anzeige war
+trotzdem nutzlos.
+
+---
+
+**„Waage erzwingen" wirkt parallel zur Geschwindigkeit, nicht an ihrer Stelle.**
+
+Das ist wichtig für den genannten Zweck — „diesen Schalter später mit einem
+Signal vom Rückwärtsgang koppeln": beim Rangieren *steht* das Fahrzeug nicht,
+es fährt langsam rückwärts.
+
+Dazu der Einwand aus derselben Rückmeldung: „Vielleicht ist das besser als nur
+die Geschwindigkeit damit die Anzeige an einer Ampel nicht umschaltet." Der
+stimmt, und er lässt sich nicht durch eine höhere Schwelle lösen — an einer
+roten Ampel steht das Fahrzeug wirklich. Wer die Waage nur beim Rangieren
+will:
+
+```yaml
+substitutions:
+  wasserwaage_bei_stillstand: "false"
+```
+
+Dann öffnet allein der Schalter. Vorgabe bleibt `true`, damit sich für
+bestehende Geräte nichts ändert.
+
+---
+
+## 0.16.2
+
+**Das ESP32-Display sagt jetzt selbst, ob überhaupt Werte ankommen.**
+
+Gemeldet, zum zweiten Mal: „Das Display vom esp zeigt immer noch kein Wert aus
+HA." — und dazu die richtige Rückfrage: „Oder kann es sein dass die Werte,
+obwohl sie in ha sind, [nicht] beim esp ankommen?"
+
+Genau das ließ sich bisher nicht nachsehen. Die alte Meldung nannte **eine**
+mögliche Ursache (den Entitätsnamen), sagte aber nicht, *welche* der Entitäten
+betroffen ist — und schon gar nicht, ob überhaupt eine ankommt.
+
+Das sind zwei sehr verschiedene Lagen, und sie waren nicht zu unterscheiden:
+
+| | |
+|---|---|
+| **einzelne** Werte fehlen | ein Entitätsname stimmt nicht |
+| **alle** fehlen | das Gerät ist in Home Assistant gar nicht eingebunden |
+
+Kommt gar nichts an, zeigt das Display jetzt **von allein** eine Liste aller
+erwarteten Werte und dahinter, ob sie ankommen — statt der alten Sackgasse.
+Darunter steht der Befund: „Nichts kommt an / ESPHome in HA einbinden".
+
+Wer die Liste sehen will, obwohl nur einzelne Werte fehlen, stellt in der
+`navi.yaml` `diagnose: "true"` ein. Dann steht dort zusätzlich, wie viele von
+acht Werten ankommen.
+
+> **Die Falle, um die es dabei geht:** „Gerät online" im ESPHome-Dashboard
+> heißt **nicht**, dass Home Assistant verbunden ist. Das Dashboard spricht
+> direkt mit dem Gerät; die Zustände schiebt die ESPHome-**Integration** in
+> Home Assistant. Kennt die das Gerät nicht oder hat den falschen Schlüssel,
+> bleibt es „online" und bekommt trotzdem nie einen Wert. Die README nennt
+> jetzt den Weg dorthin: Einstellungen → Geräte & Dienste → ESPHome.
+
+Ein Hinweis zum Lesen der Liste: sind auch die **Neigungswerte** leer, kann es
+nicht an Yapaias Entitätsnamen liegen — die Neigungssensoren hängen an einem
+ganz anderen Gerät.
+
+---
+
+## 0.16.1
+
+**Frischwasser-Zapfstellen und Duschen sind jetzt auf der Karte — und in der Suche.**
+
+Sie fehlten bisher an **beiden** Stellen, und das aus zwei verschiedenen
+Gründen.
+
+Das OpenMapTiles-Schema, aus dem die Kacheln gebaut werden, kennt
+`amenity=water_point` und `amenity=shower` nicht (nachgezählt in dessen
+`layers/poi/mapping.yaml`: beide **0×**). Sie können also in keiner Kachel
+stehen — genau wie die Entsorgungsstation, die seit 0.13.0 deshalb aus dem
+Suchindex kommt.
+
+Nur war bei diesen beiden auch der Suchindex leer: die Filterliste, mit der
+er gebaut wird, sammelte sie ebenfalls nicht ein. Es fehlte also nicht bloß
+ein Weg, sondern die Daten selbst.
+
+**Warum `water_point` neben `drinking_water` steht und nicht darin.** Die
+beiden sehen sich ähnlich und sind es nicht:
+
+| | |
+|---|---|
+| `drinking_water` | eine Stelle, an der man **trinkt** — ein Brunnen, ein Wasserhahn am Spielplatz |
+| `water_point` | eine Zapfstelle, die dafür gemacht ist, einen **Tank** zu füllen |
+
+Für ein Wohnmobil ist das der Unterschied zwischen „hier kann ich einen Becher
+füllen" und „hier kann ich weiterfahren". Beide unter einem Begriff zu führen
+hieße, den selteneren und wichtigeren im häufigeren verschwinden zu lassen.
+Deshalb heißt der neue Eintrag **„Frischwasser-Zapfstelle"** und nicht
+„Trinkwasser".
+
+Auf der Karte bekommen beide ein eigenes Symbol: ein Wasserhahn mit Tropfen
+für die Zapfstelle, eine Brause für die Dusche. Die Zapfstelle steht in der
+Rangfolge direkt hinter der Entsorgungsstation — nicht weil sie wichtiger
+wäre als eine Tankstelle, sondern weil es davon wenige gibt und beide meist
+zum selben Halt gehören.
+
+> **Wichtig für bestehende Installationen:** Ein bereits gebauter Suchindex
+> enthält diese Ziele **nicht**. Sie erscheinen erst, nachdem der Index neu
+> gebaut wurde — „Karten verwalten" (🗺️) öffnen und **„Alles bauen"**
+> drücken. Die Kacheln müssen dafür *nicht* neu gebaut werden.
+
+---
+
 ## 0.16.0
 
 **Die Karte zeigt jetzt immer alles, was installiert ist.**

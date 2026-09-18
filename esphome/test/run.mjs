@@ -96,6 +96,8 @@ export const ZEIGER_IDS = new Set([
   'yapaja_manoever_art', 'yapaja_fahrzustand', 'yapaja_ankunft',
   // Die digitale Wasserwaage.
   'neigung_lr', 'neigung_vh',
+  // Die beiden Schalter: Waage erzwingen, und Fahrzeug statt Libelle.
+  'waage_erzwingen', 'waage_fahrzeug',
 ]);
 
 export const WERT_IDS = new Set([
@@ -144,7 +146,18 @@ export function idsUmschreiben(rumpf) {
   });
 }
 
-export function lambdaRumpf(text) {
+/**
+ * @param {string} text  Die Konfiguration.
+ * @param {Record<string,string>} ueberschreiben
+ *   Substitutionen, die STATT der in der Datei stehenden gelten.
+ *
+ *   Gebraucht fuer `diagnose`: der Zweig, der bei erzwungener Diagnose
+ *   laeuft, ist sonst nicht erreichbar -- die Konfiguration liefert `false`
+ *   aus, und `${diagnose}` wird VOR dem Uebersetzen ersetzt. Ohne diesen
+ *   Weg waere genau der Zweig ungeprueft, den ein Betreiber einschaltet,
+ *   wenn ohnehin schon etwas nicht stimmt.
+ */
+export function lambdaRumpf(text, ueberschreiben = {}) {
   const zeilen = text.split('\n');
   const start = zeilen.findIndex((z) => /^\s*lambda:\s*\|-?\s*$/.test(z));
   if (start < 0) throw new Error('Kein "lambda: |-" in der Konfiguration gefunden');
@@ -165,7 +178,7 @@ export function lambdaRumpf(text) {
   // Dieselbe Ersetzung, die ESPHome vornimmt. Bleibt danach ein `${…}` übrig,
   // ist das ein Tippfehler in der Konfiguration — und der soll hier auffallen
   // und nicht erst beim Übersetzen auf dem Gerät.
-  const werte = substitutionen(text);
+  const werte = { ...substitutionen(text), ...ueberschreiben };
   const ersetzt = roh.replace(/\$\{([A-Za-z0-9_]+)\}/g, (ganz, name) => {
     if (!(name in werte)) throw new Error(`\${${name}} hat keine Entsprechung unter substitutions:`);
     return werte[name];
@@ -176,9 +189,15 @@ export function lambdaRumpf(text) {
   return idsUmschreiben(ohneKommentare(ersetzt));
 }
 
-function main() {
-  const rumpf = lambdaRumpf(readFileSync(YAML, 'utf-8'));
-  console.log(`Zeichenroutine: ${rumpf.split('\n').length} Zeilen\n`);
+/**
+ * Uebersetzt die Zeichenroutine und fuehrt sie aus.
+ *
+ * @param {Record<string,string>} ueberschreiben  Substitutionen fuer DIESEN Lauf.
+ * @param {string[]} defines  Zusaetzliche `-D`-Schalter fuer den Uebersetzer.
+ */
+function lauf(ueberschreiben, defines, ueberschrift) {
+  const rumpf = lambdaRumpf(readFileSync(YAML, 'utf-8'), ueberschreiben);
+  console.log(`${ueberschrift}: ${rumpf.split('\n').length} Zeilen\n`);
 
   const bau = mkdtempSync(join(tmpdir(), 'yapaja-esphome-'));
   writeFileSync(join(bau, 'lambda_body.inc'), rumpf);
@@ -187,7 +206,8 @@ function main() {
   try {
     execFileSync(
       'g++',
-      ['-std=c++17', '-O1', `-I${bau}`, join(HIER, 'zeichenpruefung.cpp'), '-o', programm],
+      ['-std=c++17', '-O1', ...defines, `-I${bau}`,
+       join(HIER, 'zeichenpruefung.cpp'), '-o', programm],
       { stdio: 'inherit' },
     );
   } catch {
@@ -204,6 +224,36 @@ function main() {
     console.error('\n::error::Die Zeichenroutine zeichnet etwas anderes als erwartet.');
     process.exit(1);
   }
+}
+
+function main() {
+  // Erster Lauf: die Konfiguration, wie sie ausgeliefert wird.
+  lauf({}, [], 'Zeichenroutine');
+
+  // ─── ZWEITER LAUF: DIE ERZWUNGENE DIAGNOSE ────────────────────────────────
+  // `diagnose: "true"` ist eine Substitution und wird VOR dem Uebersetzen
+  // ersetzt. Der Zweig dahinter ist im ersten Lauf deshalb gar nicht im
+  // erzeugten C++ enthalten -- er waere ungeprueft, und zwar ausgerechnet
+  // der, den ein Betreiber einschaltet, wenn ohnehin schon etwas nicht
+  // stimmt.
+  console.log('\n══ Zweiter Lauf: diagnose = true ══\n');
+  lauf({ diagnose: 'true' }, ['-DDIAGNOSE_ERZWUNGEN'], 'Zeichenroutine (Diagnose)');
+
+  // ─── DRITTER LAUF: OHNE DIE TEMPO-AUTOMATIK ───────────────────────────────
+  // `wasserwaage_bei_stillstand: "false"` laesst die Waage nur noch ueber den
+  // Schalter auf -- fuer alle, denen die Anzeige sonst an jeder roten Ampel
+  // umschaltet.
+  //
+  // Auch das ist eine Substitution und im ersten Lauf deshalb gar nicht im
+  // erzeugten C++. Eine Mutation, die den Schalter wirkungslos macht, hat den
+  // ersten Anlauf prompt ueberlebt: bei der Vorgabe `true` aendert sie
+  // schlicht nichts.
+  console.log('\n══ Dritter Lauf: wasserwaage_bei_stillstand = false ══\n');
+  lauf(
+    { wasserwaage_bei_stillstand: 'false' },
+    ['-DNUR_SCHALTER'],
+    'Zeichenroutine (nur Schalter)',
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

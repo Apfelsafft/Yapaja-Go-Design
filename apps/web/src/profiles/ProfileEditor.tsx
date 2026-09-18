@@ -11,8 +11,7 @@ import {
   validateProfile,
   assessSuspiciousProfile,
   shouldShowHeightDisclaimer,
-  RANGES,
-} from './validation.js';
+  RANGES, nachkommastellen } from './validation.js';
 import { ProfileApiError } from './client.js';
 import { useProfileStore } from './store.js';
 
@@ -429,6 +428,22 @@ function SliderInput({
   error,
   testId,
 }: SliderInputProps): React.ReactElement {
+  // ─── WARUM DAS ZAHLENFELD EINEN EIGENEN ENTWURF BRAUCHT ──────────────────
+  // Gemeldet: „Man kann keine Werte über die Tastatur eingeben."
+  //
+  // Das Feld hing direkt am Wert und zeigte ihn mit `toFixed(2)`. Damit
+  // wurde bei JEDEM Tastendruck neu formatiert: wer „3.49" tippen will,
+  // erzeugt unterwegs „3." -- das ergibt geparst 3, und das Feld schrieb
+  // daraufhin „3.00" zurueck, mitten in die Eingabe hinein. Die naechste
+  // Ziffer landete an der falschen Stelle.
+  //
+  // Ein Feld, das dem Tippenden ins Wort faellt, ist nicht bedienbar. Solange
+  // getippt wird, gilt deshalb der ENTWURF; erst beim Verlassen des Feldes
+  // wird wieder formatiert.
+  const [entwurf, setEntwurf] = React.useState<string | null>(null);
+  const stellen = nachkommastellen(step);
+  const angezeigt = entwurf ?? value.toFixed(stellen);
+
   return (
     <div>
       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -441,7 +456,12 @@ function SliderInput({
           max={max}
           step={step}
           value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
+          onChange={(e) => {
+            // Der Regler hat immer einen gueltigen Wert -- ein Entwurf aus
+            // dem Zahlenfeld daneben waere danach veraltet.
+            setEntwurf(null);
+            onChange(parseFloat(e.target.value));
+          }}
           aria-label={label}
           className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
           data-testid={`${testId}-slider`}
@@ -451,10 +471,21 @@ function SliderInput({
           min={min}
           max={max}
           step={step}
-          value={value.toFixed(2)}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
+          value={angezeigt}
+          onChange={(e) => {
+            const roh = e.target.value;
+            setEntwurf(roh);
+            const zahl = parseFloat(roh);
+            // Ein halb getippter Wert („3.", „-", leer) ergibt NaN. Ihn
+            // weiterzureichen hiesse, das Profil mit einer Unzahl zu fuellen;
+            // er bleibt deshalb im Entwurf stehen, bis er eine Zahl ist.
+            if (!Number.isNaN(zahl)) onChange(zahl);
+          }}
+          onBlur={() => setEntwurf(null)}
           aria-label={label}
-          className="w-16 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          // Breiter als vorher: „3.49" plus die Pfeilchen des Browsers
+          // passten in `w-16` nicht mehr.
+          className="w-20 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           data-testid={`${testId}-number`}
         />
       </div>

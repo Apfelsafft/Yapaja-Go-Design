@@ -58,9 +58,21 @@ export const POI_CATEGORIES: Readonly<Record<PoiTagKey, readonly PoiCategory[]>>
     { value: 'parking', label: 'Parkplatz', terms: ['parken', 'stellplatz'] },
     { value: 'toilets', label: 'Toilette', terms: ['wc', 'klo'] },
     { value: 'drinking_water', label: 'Trinkwasser', terms: ['wasser', 'frischwasser'] },
-    // Die drei Wohnmobil-Kernbedürfnisse neben Strom und Wasser.
+    // Die Wohnmobil-Kernbedürfnisse neben Strom.
     { value: 'sanitary_dump_station', label: 'Entsorgungsstation', terms: ['entsorgung', 'abwasser', 'chemietoilette', 'ver- und entsorgung'] },
     { value: 'waste_disposal', label: 'Müllentsorgung', terms: ['muell', 'müll', 'abfall'] },
+    // ─── WARUM `water_point` NEBEN `drinking_water` STEHT ────────────────────
+    // Sie sehen sich ähnlich und sind es nicht. `drinking_water` ist eine
+    // Stelle, an der man TRINKT -- ein Brunnen, ein Wasserhahn am Spielplatz.
+    // `water_point` ist eine Zapfstelle, die dafür gemacht ist, einen TANK zu
+    // füllen; in OSM ist sie ausdrücklich für Fahrzeuge und Boote gedacht.
+    //
+    // Für ein Wohnmobil ist der Unterschied der zwischen „hier kann ich einen
+    // Becher füllen" und „hier kann ich weiterfahren". Beide unter einem
+    // Begriff zu führen hiesse, den selteneren und wichtigeren im häufigeren
+    // verschwinden zu lassen.
+    { value: 'water_point', label: 'Frischwasser-Zapfstelle', terms: ['frischwasser', 'wasser', 'tanken', 'wassertank', 'auffuellen', 'auffüllen'] },
+    { value: 'shower', label: 'Dusche', terms: ['duschen', 'waschen', 'sanitaer', 'sanitär'] },
     { value: 'pharmacy', label: 'Apotheke', terms: ['medikamente', 'notdienst'] },
     { value: 'doctors', label: 'Arztpraxis', terms: ['arzt', 'aerztin', 'ärztin', 'hausarzt', 'praxis'] },
     { value: 'hospital', label: 'Krankenhaus', terms: ['klinik', 'notaufnahme', 'notfall'] },

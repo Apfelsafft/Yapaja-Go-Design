@@ -461,6 +461,59 @@ export const SONDERZIEL_MARKEN = [
     ],
   },
   {
+    id: 'poi-frischwasser',
+    // Helles Wasserblau. Bewusst ANDERS als das Petrol der Entsorgung: die
+    // beiden stehen auf der Karte oft nebeneinander (derselbe Halt), und
+    // genau dort muessen sie auf einen Blick auseinanderzuhalten sein.
+    farbe: [0x02, 0x77, 0xbd, 0xff],
+    // ─── ZWEI FORMEN, BEIDE GROSS ─────────────────────────────────────────
+    // Der erste Entwurf hatte vier Teile (Rohr, Auslauf, Handrad, Radachse)
+    // und war bei 18 Bildpunkten ein Krümelhaufen. Vergrössert angesehen
+    // zerfiel er in unzusammenhängende Flecken -- dasselbe, was beim
+    // Leitkegel und bei der Mülltonne schon schiefging.
+    //
+    // Die Marke ist 18 Punkte gross. Es passen ZWEI Formen hinein, nicht
+    // vier. Also: ein Hahn (Rohr plus Auslauf als ein Winkel gelesen) und
+    // ein Tropfen. Das Handrad ist gestrichen -- es war der Teil, der am
+    // wenigsten trug und am meisten Platz nahm.
+    formen: [
+      // Der Hahn als kräftiger Winkel: waagerechtes Rohr, kurzer Auslauf.
+      { typ: 'rechteck', x: 1.2, y: 1.0, b: 5.6, h: 2.2, r: 0.4 },
+      // Der Auslauf muss deutlich UNTER dem Rohr enden, sonst ist der Winkel
+      // keiner: im ersten Anlauf ragte er 0.6 Einheiten heraus und war bei
+      // 18 Punkten schlicht nicht zu sehen.
+      { typ: 'rechteck', x: 4.8, y: 1.0, b: 2.4, h: 4.0, r: 0.4 },
+      // Der Tropfen: Spitze oben, Bauch unten. Der Abstand zum Auslauf ist
+      // 1.6 Einheiten -- bei der Entsorgungsstation hat sich 1.4 als die
+      // Grenze erwiesen, unterhalb derer ein Zwischenraum nicht mehr als
+      // solcher gelesen wird, sondern die Form zerschneidet.
+      { typ: 'polygon', punkte: [[6.0, 6.6], [8.6, 9.8], [3.4, 9.8]] },
+      { typ: 'kreis', x: 6.0, y: 9.4, r: 2.5 },
+    ],
+  },
+  {
+    id: 'poi-dusche',
+    // Dasselbe Blau wie die Zapfstelle -- beides ist Wasser, und ein
+    // eigener Farbton fuer jede Kleinigkeit macht die Karte zum Farbkasten.
+    // Unterschieden werden sie durch die FORM, nicht durch den Ton.
+    farbe: [0x02, 0x77, 0xbd, 0xff],
+    // Der erste Entwurf sass ganz im rechten Drittel und hatte fadenduenne
+    // Strahlen -- vergroessert angesehen zerfiel der erste davon zu einem
+    // Fleck. Jetzt sitzt die Form mittig und die Striche sind kraeftig
+    // genug, um bei 18 Bildpunkten Striche zu bleiben.
+    formen: [
+      // Der Zulauf als Schraegstrich von links oben.
+      { typ: 'polygon', punkte: [[1.4, 0.8], [3.0, 0.8], [7.6, 3.4], [6.6, 4.8]] },
+      // Der Brausekopf: ein breiter Teller, mittig.
+      { typ: 'polygon', punkte: [[2.6, 3.6], [11.0, 3.6], [9.8, 5.6], [3.8, 5.6]] },
+      // Drei Strahlen. Unterschiedlich lang -- gleich lange Striche lesen
+      // sich als Gitter, nicht als fallendes Wasser.
+      { typ: 'rechteck', x: 4.0, y: 6.8, b: 1.3, h: 2.2, r: 0.5 },
+      { typ: 'rechteck', x: 6.1, y: 6.8, b: 1.3, h: 3.6, r: 0.5 },
+      { typ: 'rechteck', x: 8.2, y: 6.8, b: 1.3, h: 2.6, r: 0.5 },
+    ],
+  },
+  {
     id: 'poi-muell',
     // Schiefergrau. Muell ist das Nebenziel dieser beiden; die Farbe soll
     // nicht um Aufmerksamkeit ruhen, die der Entsorgungsstation gehoert.
