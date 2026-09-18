@@ -54,10 +54,41 @@ export interface JobSnapshot {
    * nach einem Neuladen wieder anhaengen.
    */
   region?: string;
-  /** `kacheln` | `routing` | `suche` — wofuer der Knopf gedrueckt wurde. */
+  /** `kacheln` | `routing` | `suche` | `gesamt` — wofuer der Knopf
+   *  gedrueckt wurde. */
   bauart?: string;
+  /**
+   * Beim Gesamtbau: wo im Ablauf er steht und wie lange es noch dauert.
+   *
+   * ─── WARUM DAS BEIM LESEN ENTSTEHT UND NICHT BEIM SCHREIBEN ─────────────
+   * Die Restzeit sinkt, WAEHREND ein Schritt laeuft -- das ist die Forderung
+   * „sollte sich entsprechend des Bau-Fortschritts aktualisieren". Ein Wert,
+   * der nur bei Schrittwechseln gesetzt wuerde, staende zwischen zwei
+   * Schritten minutenlang still und saehe aus wie ein Haenger.
+   *
+   * Deshalb rechnet ihn der Gesamtbau bei JEDER Abfrage neu aus (siehe
+   * `setGesamtstand`). Fehlt das Feld, ist es kein Gesamtbau.
+   */
+  gesamt?: Gesamtstand;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Wo ein Gesamtbau steht. Siehe `bauzeit.ts` fuer die Bedeutung von
+ *  `restGrund`. */
+export interface Gesamtstand {
+  /** Der laufende Schritt, 1-basiert. */
+  schritt: number;
+  /** Wie viele Schritte es insgesamt sind. */
+  schritte: number;
+  /** Was gerade gebaut wird, in Worten. */
+  schrittText: string;
+  /** Verbleibende Sekunden, oder `null`, wenn nichts zu sagen ist. */
+  restSekunden: number | null;
+  /** `geschaetzt` | `mindestens` | `ueberfaellig` | `unbekannt`. */
+  restGrund: string;
+  /** Der fertige Satz zur Restzeit, oder `null`. */
+  restText: string | null;
 }
 
 interface JobRecord extends JobSnapshot {
@@ -66,6 +97,9 @@ interface JobRecord extends JobSnapshot {
   /** Grobe Art des Jobs. Nur dafuer da, laufende Jobs derselben Art
    *  wiederzufinden -- siehe `findUnfinished`. */
   kind: string | null;
+  /** Liefert den Stand eines Gesamtbaus -- bei jeder Abfrage neu gerufen,
+   *  damit die Restzeit sinkt, waehrend ein Schritt laeuft. */
+  gesamtstand: (() => Gesamtstand) | null;
 }
 
 function nowIso(): string {
@@ -73,6 +107,18 @@ function nowIso(): string {
 }
 
 function toSnapshot(record: JobRecord): JobSnapshot {
+  // Der Gesamtstand wird hier GERUFEN, nicht gelesen: die Restzeit haengt an
+  // der Uhr, und eine, die nur bei Schrittwechseln neu entstuende, stuende
+  // dazwischen minutenlang still.
+  //
+  // Wirft er, faellt nur diese Angabe weg. Eine Fortschrittsanzeige darf
+  // eine Statusabfrage nicht zu Fall bringen.
+  let gesamt: Gesamtstand | undefined;
+  try {
+    gesamt = record.gesamtstand?.();
+  } catch {
+    gesamt = undefined;
+  }
   return {
     id: record.id,
     status: record.status,
@@ -83,6 +129,7 @@ function toSnapshot(record: JobRecord): JobSnapshot {
     note: record.note,
     region: record.region,
     bauart: record.bauart,
+    ...(gesamt ? { gesamt } : {}),
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -117,6 +164,7 @@ export class JobRegistry {
       cancelled: false,
       onCancel: null,
       kind,
+      gesamtstand: null,
       region: woran.region,
       bauart: woran.bauart,
       createdAt: timestamp,
@@ -160,6 +208,15 @@ export class JobRegistry {
 
   isCancelled(id: string): boolean {
     return this.jobs.get(id)?.cancelled ?? false;
+  }
+
+  /** Hinterlegt, wer den Stand eines Gesamtbaus ausrechnet. `null` entfernt
+   *  ihn wieder. */
+  setGesamtstand(id: string, gesamtstand: (() => Gesamtstand) | null): void {
+    const record = this.jobs.get(id);
+    if (record) {
+      record.gesamtstand = gesamtstand;
+    }
   }
 
   markRunning(id: string, totalBytes: number | null = null): void {

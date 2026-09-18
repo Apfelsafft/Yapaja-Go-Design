@@ -339,10 +339,18 @@ das Gerät selbst, auch eine HAOS-VM mit 8 GB.
 
 **Der normale Weg — in der Yapaia-Oberfläche, ohne Shell:**
 
-1. **„Kartenregionen verwalten"** (🗺️ rechts oben) öffnen.
-2. Bei der gewünschten Region auf **„Kacheln bauen"** drücken.
-3. Der Fortschritt erscheint direkt darunter; der Knopf lässt sich jederzeit
-   abbrechen.
+1. **„Karten verwalten"** (🗺️ rechts oben) öffnen.
+2. Bei der gewünschten Karte auf **„Installieren"** drücken. (Bei einer
+   bereits installierten Karte heißt derselbe Knopf **„Update"** — es ist
+   derselbe Vorgang, er ersetzt, was da ist.)
+3. Der Fortschritt erscheint direkt darunter.
+4. Danach **einmal „Alles bauen"** für Routing und Suche — siehe §C.3a.
+
+> **Seit 0.16.0 gibt es nur noch eine Kartenliste.** Vorher standen
+> installierte und verfügbare Karten in zwei getrennten Abschnitten, und eine
+> Karte wanderte beim Installieren von der einen in die andere. Ob hinter
+> „Installieren" ein Download oder ein Kachelbau steckt, entscheidet die
+> Quelle — für Sie ist es dieselbe Handlung, nur die Dauer unterscheidet sich.
 
 Liechtenstein braucht Minuten, ein Bundesland wie Rheinland-Pfalz deutlich
 länger. Beim **ersten** Bau lädt das Add-on einmalig `planetiler.jar`
@@ -387,16 +395,37 @@ genügt ein Reload.
 ### C.3a Routinggraph und Suchindex — auf dem Gerät, per Knopfdruck
 
 Für Routing und Suche braucht es zwei weitere Erzeugnisse aus **derselben**
-`.osm.pbf`. Beide werden **direkt auf dem Gerät gebaut**: „Kartenregionen
-verwalten" (🗺️ rechts oben) öffnen, dann bei der Region
+`.osm.pbf`. Beide werden **direkt auf dem Gerät gebaut**, und seit 0.16.0 mit
+**einem** Knopf: „Karten verwalten" (🗺️ rechts oben) öffnen und auf
+**„Alles bauen"** drücken.
 
-| Knopf | Erzeugnis | Ohne das … |
+| Erzeugnis | Ohne das … | Umfang |
 |---|---|---|
-| **Routing bauen** | Valhalla-Graph | keine Routenberechnung |
-| **Suche bauen** | Lite-Suchindex | Suche bleibt leer (Orte, Straßen, Sonderziele) |
+| Valhalla-Graph | keine Routenberechnung | **einmal** über alle installierten Karten |
+| Lite-Suchindex | Suche bleibt leer (Orte, Straßen, Sonderziele) | **je Karte** einer |
+
+Der Lauf zeigt, im wievielten Schritt er steht und woran er gerade arbeitet.
+Er zeigt **auch eine Restzeit** — aber nur, wenn es eine gibt: sie stammt aus
+der gemessenen Dauer des **letzten** Laufs derselben Schritte. Beim ersten Mal
+steht dort „Restzeit noch unbekannt", und das ist die ehrliche Auskunft. Eine
+Zahl, die aus nichts entsteht, sähe überprüfbar aus und wäre es nicht.
+
+Läuft ein Schritt zum ersten Mal, während andere schon gemessen sind, heißt es
+**„mindestens noch …"** statt „noch etwa …". Das ist keine Wortklauberei: eine
+Untergrenze fällt immer zu kurz aus, und wer sie für eine Schätzung hält,
+plant falsch.
+
+Bis 0.15.3 standen dafür zwei Knöpfe an **jeder** Karte („Routing bauen",
+„Suche bauen"). Die stellten die falsche Frage: welche Erzeugnisse es gibt,
+statt ob nach einer Installation alles wieder passt.
 
 Es läuft immer nur **ein** schwerer Bau gleichzeitig — zwei davon nebeneinander
 sprengen den Speicher einer 8-GB-VM, auf der auch Home Assistant läuft.
+
+> **Eine selbst abgelegte `.pmtiles`** (per Samba nach `/share/yapaja/tiles/`)
+> steht in keinem Katalog. Für sie gibt es keine OpenStreetMap-Quelle, also
+> lässt sich für sie weder Routing noch Suche bauen — der Lauf überspringt sie
+> und sagt es. Gezeichnet wird sie trotzdem.
 
 > **Korrektur (0.3.4).** Hier stand bis 0.3.3 das Gegenteil: beides lasse sich
 > „nicht auf dem Gerät bauen", der Routinggraph brauche einen Docker-Socket und

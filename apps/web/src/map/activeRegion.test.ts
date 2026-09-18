@@ -80,7 +80,6 @@ describe('pickActiveRegion', () => {
     const choice = pickActiveRegion({
       regions: [LIECHTENSTEIN, RHEINLAND_PFALZ],
       point: IN_MAINZ,
-      manual: null,
     });
     expect(choice.region?.region).toBe('rheinland-pfalz');
     expect(choice.reason).toBe('position');
@@ -91,7 +90,6 @@ describe('pickActiveRegion', () => {
     const choice = pickActiveRegion({
       regions: [LIECHTENSTEIN, RHEINLAND_PFALZ],
       point: IN_VADUZ,
-      manual: null,
     });
     expect(choice.region?.region).toBe('liechtenstein');
   });
@@ -104,7 +102,6 @@ describe('pickActiveRegion', () => {
       // waren. Die Karte sprang dann erst beim GPS-Fix um.
       regions: [LIECHTENSTEIN, RHEINLAND_PFALZ],
       point: null,
-      manual: null,
     });
     expect(choice.region?.region).toBe('rheinland-pfalz');
     expect(choice.reason).toBe('fallback');
@@ -112,32 +109,14 @@ describe('pickActiveRegion', () => {
     expect(choice.positionOutsideAllRegions).toBe(false);
   });
 
-  // Eine ausdrückliche Wahl ist eine Entscheidung, keine Empfehlung: sonst
-  // wäre die Umschaltung im Kartenmenü ein Knopf, den die Automatik beim
-  // nächsten Positions-Tick wieder umlegt.
-  it('lässt die ausdrückliche Wahl die Position schlagen', () => {
-    const choice = pickActiveRegion({
-      regions: [LIECHTENSTEIN, RHEINLAND_PFALZ],
-      point: IN_MAINZ,
-      manual: 'liechtenstein',
-    });
-    expect(choice.region?.region).toBe('liechtenstein');
-    expect(choice.reason).toBe('manual');
-    // ... meldet aber weiterhin, dass die Position dort nicht liegt.
-    expect(choice.positionOutsideAllRegions).toBe(false);
-  });
-
-  // Ein alter Wert (Region inzwischen gelöscht) darf nicht in eine leere
-  // Karte führen — gleiche Regel wie beim Stil-Fallback in styleClient.ts.
-  it('ignoriert eine ausdrückliche Wahl, die es nicht mehr gibt', () => {
-    const choice = pickActiveRegion({
-      regions: [RHEINLAND_PFALZ],
-      point: IN_MAINZ,
-      manual: 'liechtenstein',
-    });
-    expect(choice.region?.region).toBe('rheinland-pfalz');
-    expect(choice.reason).toBe('position');
-  });
+  // ─── HIER STANDEN ZWEI FÄLLE ZUR AUSDRÜCKLICHEN WAHL ────────────────────
+  // „lässt die ausdrückliche Wahl die Position schlagen" und „ignoriert eine
+  // ausdrückliche Wahl, die es nicht mehr gibt". Beide sind mit der Auswahl
+  // im Kartenmenü entfallen (0.16.0): gezeichnet wird immer alles
+  // Installierte, und damit gibt es nichts mehr zu wählen.
+  //
+  // Sie stehen nicht als übersprungene Tests da. Ein Test für einen Zustand,
+  // den nichts mehr erzeugen kann, liest sich wie eine offene Baustelle.
 
   // Genau dieser Fall sah vorher wie eine kaputte Karte aus. Er MUSS
   // unterscheidbar sein, sonst kann die Oberfläche ihn nicht erklären.
@@ -145,7 +124,6 @@ describe('pickActiveRegion', () => {
     const choice = pickActiveRegion({
       regions: [LIECHTENSTEIN, RHEINLAND_PFALZ],
       point: IN_PARIS,
-      manual: null,
     });
     expect(choice.positionOutsideAllRegions).toBe(true);
     // Trotzdem etwas Anzeigbares — eine Karte ohne Stil ist kein besserer
@@ -155,7 +133,7 @@ describe('pickActiveRegion', () => {
   });
 
   it('kommt ohne installierte Region ohne Absturz aus', () => {
-    const choice = pickActiveRegion({ regions: [], point: IN_MAINZ, manual: null });
+    const choice = pickActiveRegion({ regions: [], point: IN_MAINZ });
     expect(choice.region).toBeNull();
     expect(choice.reason).toBe('none');
     expect(choice.positionOutsideAllRegions).toBe(false);

@@ -83,6 +83,14 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     tags: ['Karten'],
   },
   'DELETE /api/v1/map/regions/:id': { summary: 'Installierte Region entfernen', tags: ['Karten'] },
+  'POST /api/v1/map/gesamtbau': {
+    // Der eine Knopf: Routinggraph (einmal, über alle Karten) und danach je
+    // Karte der Suchindex — alles in EINEM Job, damit die Oberfläche sich
+    // nach einem Seitenwechsel wieder anhängen kann. Der Job-Stand trägt
+    // dann `gesamt` mit Schritt, Gesamtzahl und Restzeit.
+    summary: 'Routing und Suche für ALLE installierten Karten neu bauen — 202 mit job_id',
+    tags: ['Karten'],
+  },
   'GET /api/v1/map/regions/laufender-bau': {
     // Damit sich die Oberfläche nach einem Neuladen wieder an einen laufenden
     // Bau hängen kann: der Job trägt seine Region selbst. Vorher lag diese

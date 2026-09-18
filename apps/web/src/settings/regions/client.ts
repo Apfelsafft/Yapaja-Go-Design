@@ -63,8 +63,35 @@ export interface JobSnapshot {
   /** Woran gearbeitet wird. Damit findet die Anzeige nach einem Neuladen
    *  wieder die Region, unter der sie den Fortschritt zeigen muss. */
   region?: string;
-  /** `kacheln` | `routing` | `suche`. */
+  /** `kacheln` | `routing` | `suche` | `gesamt`. */
   bauart?: string;
+  /** Nur beim Gesamtbau: wo er steht und wie lange es noch dauert. */
+  gesamt?: Gesamtstand;
+}
+
+/**
+ * Wo ein Gesamtbau steht.
+ *
+ * ─── WARUM `restGrund` MITKOMMT UND NICHT NUR DIE ZAHL ──────────────────────
+ * Eine Restzeit kann eine Schätzung sein oder eine Untergrenze, und für
+ * jemanden, der neben dem Wohnmobil steht und entscheidet, ob sich das Warten
+ * lohnt, sind das zwei sehr verschiedene Auskünfte. Der Kern rechnet beides
+ * aus (`apps/core/src/map/regions/bauzeit.ts`) und liefert mit `restText`
+ * schon den fertigen Satz — die Oberfläche soll die Unterscheidung nicht
+ * nachbauen und dabei verlieren.
+ */
+export interface Gesamtstand {
+  /** Der laufende Schritt, 1-basiert. */
+  schritt: number;
+  schritte: number;
+  /** Was gerade gebaut wird, in Worten. */
+  schrittText: string;
+  /** Verbleibende Sekunden, oder `null`, wenn nichts zu sagen ist. */
+  restSekunden: number | null;
+  /** `geschaetzt` | `mindestens` | `ueberfaellig` | `unbekannt`. */
+  restGrund: string;
+  /** Der fertige Satz, oder `null`. */
+  restText: string | null;
 }
 
 interface ApiErrorBody {
@@ -209,6 +236,30 @@ export async function startSearchIndexBuild(regionId: string): Promise<string> {
     apiUrl(`api/v1/map/regions/${encodeURIComponent(regionId)}/build-search-index`),
     { method: 'POST' },
   );
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+  const body = (await response.json()) as { job_id: string };
+  return body.job_id;
+}
+
+/**
+ * Startet den GESAMTBAU: Routinggraph einmal, danach je Karte der Suchindex.
+ *
+ * ─── DER EINE KNOPF ─────────────────────────────────────────────────────────
+ * Gewünscht: „Dann gibt es noch einen gemeinsamen Knopf der nach einer neuen
+ * Installation oder Update alles wieder neu baut für eine gemeinsame
+ * Anzeige."
+ *
+ * Alles in EINEM Job — damit sich die Anzeige nach einem Seitenwechsel wieder
+ * anhängen kann. Eine Kette aus fünf Jobs wäre von aussen nicht als ein
+ * Vorgang zu erkennen.
+ *
+ * Wirft RegionApiError bei 409 (NO_REGIONS / BUILD_IN_PROGRESS /
+ * INSUFFICIENT_MEMORY).
+ */
+export async function startGesamtbau(): Promise<string> {
+  const response = await fetch(apiUrl('api/v1/map/gesamtbau'), { method: 'POST' });
   if (!response.ok) {
     throw await toApiError(response);
   }

@@ -146,12 +146,12 @@ test.describe('Speed-Lock (E07-T4)', () => {
     await postSpeed(page, 5); // 18 km/h, locked
 
     // Store (RegionsPanel) -- the fixture region is installed (see
-    // globalSetup.ts), so its normal content includes `installed-region-
-    // fixture`; while locked, that's replaced by the overlay instead.
+    // globalSetup.ts), so its normal content includes `karte-fixture`;
+    // while locked, that's replaced by the overlay instead.
     await page.getByTestId('regions-panel-toggle').click();
     await expect(page.getByTestId('regions-panel')).toBeVisible();
     await expect(page.getByTestId('drive-lock-overlay')).toBeVisible();
-    await expect(page.getByTestId(`installed-region-${FIXTURE_REGION}`)).toHaveCount(0);
+    await expect(page.getByTestId(`karte-${FIXTURE_REGION}`)).toHaveCount(0);
 
     // Profile editor: open the profiles panel, create-new -> editor form is gated.
     await page.getByTestId('profile-chip').click();
@@ -163,7 +163,7 @@ test.describe('Speed-Lock (E07-T4)', () => {
 
     await postSpeed(page, 0);
     await expect(page.getByTestId('profile-name-input')).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByTestId(`installed-region-${FIXTURE_REGION}`)).toBeVisible();
+    await expect(page.getByTestId(`karte-${FIXTURE_REGION}`)).toBeVisible();
 
     expect(pageErrors).toEqual([]);
   });

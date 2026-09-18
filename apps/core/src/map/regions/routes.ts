@@ -4,6 +4,8 @@
  * - GET    /api/v1/map/regions/catalog   downloadable regions + `installed` flag
  * - POST   /api/v1/map/regions           starts a resumable download job (202)
  * - POST   /api/v1/map/regions/:id/build starts a tile BUILD job (202, B-04)
+ * - POST   /api/v1/map/gesamtbau         baut Routing + Suche für ALLE Karten
+ *                                        in EINEM Job (202, 0.16.0)
  * - DELETE /api/v1/map/regions/:id       removes an installed region (409 if last)
  * - GET    /api/v1/map/regions/laufender-bau  der gerade laufende schwere Bau
  * - GET    /api/v1/jobs/:id              job status (progress/bytes/error)
@@ -48,6 +50,8 @@ import {
   type BuildJobDeps,
 } from './build.js';
 import { JobRegistry, type JobSnapshot } from './jobs.js';
+import { gesamtplan, starteGesamtbau } from './gesamtbau.js';
+import { bauzeitenPfad } from './bauzeitSpeicher.js';
 
 export interface RegionsPluginOptions {
   /** Injectable for tests (simulates a near-full disk); defaults to the
@@ -547,6 +551,120 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
         LITE_INDEX_BUILD,
       );
       return reply.code(202).send({ job_id: jobId });
+    },
+  );
+
+  // POST /api/v1/map/gesamtbau -- ein Knopf, der alles wieder zusammenbaut.
+  //
+  // ─── WOFUER ───────────────────────────────────────────────────────────────
+  // Gewuenscht: „Dann gibt es noch einen gemeinsamen Knopf der nach einer
+  // neuen Installation oder Update alles wieder neu baut fuer eine gemeinsame
+  // Anzeige."
+  //
+  // Bis 0.15.3 standen an jeder Karte drei Bau-Knoepfe. Fuer jemanden, der
+  // gerade eine Karte installiert hat, ist das die falsche Frage: er will
+  // nicht wissen, WELCHE Erzeugnisse es gibt, sondern dass danach alles
+  // wieder passt.
+  //
+  // ─── WARUM HIER KEINE ABDECKUNGS-RUECKFRAGE STEHT ─────────────────────────
+  // Der Einzelbau fragt bei `COVERAGE_LOSS` nach. Hier waere das eine Frage,
+  // deren einzige Antworten „ja" und „aufgeben" sind: der Gesamtbau nimmt
+  // ohnehin JEDE installierte Karte mit, und was drausssen bleibt (eine von
+  // Hand abgelegte `.pmtiles` ohne OSM-Quelle), bleibt es unabhaengig von der
+  // Antwort. Genau diese Sorte Warnung ohne Ausweg war der Vorwurf an 0.10.1.
+  //
+  // Stattdessen steht die Abdeckung in der Antwort, und der Lauf benennt jede
+  // uebersprungene Karte in seiner Statuszeile.
+  fastify.post<{ Reply: (PostRegionsReply & { schritte?: number }) | ApiError }>(
+    '/api/v1/map/gesamtbau',
+    async (_request, reply) => {
+      let catalog: CatalogEntry[];
+      try {
+        catalog = await loadCatalog();
+      } catch (err) {
+        fastify.log.error({ error: (err as Error).message }, 'Failed to load regions catalog');
+        return reply
+          .code(500)
+          .send(createErrorResponse('CATALOG_UNAVAILABLE', 'Regions catalog could not be loaded'));
+      }
+
+      const installiert = (await listRegions(tilesDir, fastify.log)).map((r) => r.region);
+      if (installiert.length === 0) {
+        return reply
+          .code(409)
+          .send(
+            createErrorResponse(
+              'NO_REGIONS',
+              'Es ist keine Karte installiert. Installiere zuerst eine Karte — ' +
+                'ohne Karte gibt es nichts zu bauen.',
+            ),
+          );
+      }
+
+      // Dieselbe Sperre wie bei jedem schweren Bau.
+      const running = jobs.findUnfinished(BUILD_JOB_KIND);
+      if (running) {
+        return reply.code(409).send(
+          createErrorResponse(
+            'BUILD_IN_PROGRESS',
+            'Es läuft bereits ein Bau. Zwei schwere Bauten gleichzeitig überlasten ' +
+              'das Gerät — warten Sie das Ende ab oder brechen Sie den laufenden Bau ab.',
+            { jobId: running.id },
+          ),
+        );
+      }
+
+      const freeMemFn = opts.buildDeps?.freeMemFn ?? defaultFreeMem;
+      const requiredMemory = buildRequiredFreeMemory();
+      const freeMemory = freeMemFn();
+      if (freeMemory < requiredMemory) {
+        return reply.code(409).send(
+          createErrorResponse(
+            'INSUFFICIENT_MEMORY',
+            'Zu wenig freier Arbeitsspeicher für den Bau. Schalten Sie Photon in ' +
+              'der Add-on-Konfiguration ab („photon_enabled: false") und versuchen ' +
+              'Sie es erneut.',
+            { requiredBytes: requiredMemory, freeBytes: freeMemory },
+          ),
+        );
+      }
+
+      // Der Routingschritt braucht denselben Plan wie der Einzelbau: welche
+      // OSM-Extrakte fehlen und nachgeladen werden muessen.
+      const plan = gesamtplan(installiert);
+      const bauRegion = plan[0]?.region ?? installiert[0];
+      const graphPlan = graphBauPlan({
+        installiert,
+        mitExtrakt: regionenMitExtrakt(pbfLagerPfad(resolveGraphDir())),
+        katalog: catalog,
+        bauRegion,
+      });
+      const abdeckung = abdeckungNachBau({
+        installiert,
+        mitExtrakt: graphPlan.regionen,
+        bauRegion,
+        jetzt: graphRegionenJetzt(resolveGraphDir()),
+      });
+
+      const jobId = jobs.create(BUILD_JOB_KIND, { region: bauRegion, bauart: 'gesamt' });
+      fastify.log.info(
+        { installiert, schritte: plan.length, abdeckung },
+        `Gesamtbau: ${plan.length} Schritte über ${installiert.length} Karten.`,
+      );
+      starteGesamtbau({
+        jobId,
+        jobs,
+        regionen: installiert,
+        eintragFuer: (region) => catalog.find((c) => c.id === region && Boolean(c.pbfUrl)),
+        tilesDir,
+        bauzeitenPfad: bauzeitenPfad(tilesDir),
+        routingEnv: { [GRAPH_PLAN_ENV]: planAlsEnv(graphPlan) },
+        deps: {
+          ...opts.buildDeps,
+          logger: opts.buildDeps?.logger ?? ((line) => fastify.log.info(line)),
+        },
+      });
+      return reply.code(202).send({ job_id: jobId, schritte: plan.length, abdeckung });
     },
   );
 

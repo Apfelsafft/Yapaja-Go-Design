@@ -17,7 +17,6 @@ import {
   applyDegradationCaps,
   type StyleOptions,
 } from './styleClient';
-import { stilRegion } from './stilRegion.js';
 import { applyStyle, trackCoreStyle } from './styleSwitch';
 import { ensureMaplibreWorkerUrl } from './maplibreWorker';
 import { useStyleStore } from '../state/styleStore';
@@ -40,16 +39,22 @@ import PerfOverlay from '../perf/PerfOverlay';
 import { startPerfWatchdog } from '../perf/perfWatchdog';
 import SimulatorPanel from '../simulator/SimulatorPanel.js';
 
-/** Identifies which (styleId, options, region) combination is currently
- *  applied to the live map, so the live-switch effect can tell "this is the
- *  style we just initialized with" apart from "something new is needed".
+/** Identifies which (styleId, options) combination is currently applied to
+ *  the live map, so the live-switch effect can tell "this is the style we
+ *  just initialized with" apart from "something new is needed".
  *
- *  Die REGION gehoert mit in diesen Schluessel. Ohne sie war ein Wechsel der
- *  Region fuer diesen Vergleich unsichtbar: der Stil-Tausch wurde als
- *  „schon angewendet" uebersprungen, und die Karte behielt den alten
- *  Kachelsatz — also genau die leere Flaeche, die behoben werden soll. */
-function styleKey(styleId: string, options: StyleOptions, region: string | null): string {
-  return `${styleId}|${options.lang}|${options.labelScale}|${options.poi}|${region ?? ''}`;
+ *  ─── HIER STAND AUCH DIE REGION ──────────────────────────────────────────
+ *  Sie musste mit hinein, solange eine feste Wahl im Kartenmenue den
+ *  Kachelsatz umstellen konnte: ohne sie war ein Regionswechsel fuer diesen
+ *  Vergleich unsichtbar, der Stil-Tausch wurde als „schon angewendet"
+ *  uebersprungen, und die Karte behielt den alten Kachelsatz.
+ *
+ *  Seit 0.16.0 geht gar keine Region mehr in den Stil ein — die Karte zeigt
+ *  immer alles Installierte. Ein Parameter, der nur noch `null` sein kann,
+ *  gehoert dann weg und nicht auf `null` gesetzt: er laedt sonst dazu ein,
+ *  ihn wieder zu befuellen, und der Fehler waere derselbe wie in 0.9.1. */
+function styleKey(styleId: string, options: StyleOptions): string {
+  return `${styleId}|${options.lang}|${options.labelScale}|${options.poi}`;
 }
 
 // Register the `pmtiles://` protocol once per page load. MapLibre's protocol
@@ -115,8 +120,9 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
   // stattdessen ueber den Stil-Tausch in Schritt 3, der die Kamera behaelt.
   const [initialRegion, setInitialRegion] = useState<MapRegionSummary | null>(null);
   const [initialStyle, setInitialStyle] = useState<InitialStyle | null>(null);
-  const installedRegions = useRegionStore((state) => state.regions);
-  const manualRegion = useRegionStore((state) => state.manual);
+  // Nur SETZEN, nicht lesen: die installierten Regionen braucht `MapView`
+  // seit 0.16.0 selbst nicht mehr (es zeichnet ohnehin alle). Sie kommen
+  // hier trotzdem in den Zustand, weil `RegionCoverageNotice` sie liest.
   const setInstalledRegions = useRegionStore((state) => state.setRegions);
   const restoreViewMode = useViewModeStore((state) => state.restoreMode);
   const position = usePosition();
@@ -137,18 +143,15 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
   // right after mount (the map was just initialized with exactly this style).
   const appliedStyleKeyRef = useRef<string | null>(null);
 
-  // ─── WELCHE REGION GERADE GILT ────────────────────────────────────────────
-  // Wird bei jedem Rendern neu bestimmt, damit eine neue Position (oder eine
-  // Wahl im Kartenmenue) sofort zaehlt. Nur der NAME geht in die
-  // Abhaengigkeiten des Stil-Effekts: `pickActiveRegion` liefert bei jedem
-  // Aufruf ein neues Objekt, ein Objektvergleich wuerde also bei jedem
-  // Positions-Tick einen Stil-Neuaufbau ausloesen.
-  const activeChoice = pickActiveRegion({
-    regions: installedRegions,
-    point: position,
-    manual: manualRegion,
-  });
-  const activeRegionName = activeChoice.region?.region ?? null;
+  // ─── HIER WURDE DIE „AKTIVE REGION" BEI JEDEM RENDERN BESTIMMT ────────────
+  // Sie steuerte, welcher Kachelsatz gezeichnet wird. Seit 0.16.0 wird immer
+  // alles Installierte gezeichnet, und damit braucht `MapView` die Frage
+  // „in welcher Region stehe ich" gar nicht mehr:
+  //
+  //   * `RegionCoverageNotice` beantwortet sie sich selbst, aus demselben
+  //     Zustand -- es ist der einzige Ort, an dem sie noch zu etwas fuehrt;
+  //   * die Kartenmitte beim allerersten Start kommt aus `initialChoice`
+  //     weiter unten, EINMAL statt bei jedem Positions-Tick.
   // Reactively track the live Map instance from the store. All map-dependent
   // effects (view-mode restore, follow-me, bearing sync) depend on `[map]` so
   // they (re)attach their listeners as soon as the map is registered — never
@@ -179,7 +182,6 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
       const initialChoice = pickActiveRegion({
         regions,
         point: usePositionStore.getState().position,
-        manual: useRegionStore.getState().manual,
       });
       const initialRegion = initialChoice.region ?? regions[0];
       setInitialRegion(initialRegion);
@@ -191,24 +193,28 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
         poi: initialPoiCap,
         labelScale: initialLabelScaleCap,
       });
-      // ─── OHNE FESTE WAHL: ALLE REGIONEN ───────────────────────────────
+      // ─── IMMER ALLE REGIONEN ──────────────────────────────────────────
       // Bis 0.10.0 stand hier `initialRegion.region`, also IMMER eine. Der
       // Kern kann seit 0.9.1 mehrere Regionen gleichzeitig zeichnen -- diese
       // Zeile hat das verhindert, und zwar lautlos: gemeldet wurde „Ich habe
       // Deutschland, Liechtenstein und Schweiz Kacheln gebaut. Sehe aber nur
       // Deutschland."
       //
+      // Bis 0.15.3 blieb eine feste Wahl im Kartenmenue als Ausnahme. Seit
+      // 0.16.0 gibt es sie nicht mehr: gewuenscht ist, dass immer alles
+      // Heruntergeladene zu sehen ist. Deshalb geht hier GAR KEINE Region
+      // mehr mit -- und das ist der ganze Punkt, denn jede mitgeschickte
+      // Region verkleinert die Karte lautlos auf diese eine.
+      //
       // `initialRegion` bleibt fuer alles ANDERE noetig (leerer Zustand,
-      // Kartenmitte beim ersten Start). Nur der Stil bekommt keine mehr,
-      // solange niemand ausdruecklich eine gewaehlt hat.
-      const manuelleWahl = stilRegion({ manuell: useRegionStore.getState().manual });
-      const fetched = await fetchStyle(initialStyleId, initialOptions, manuelleWahl);
+      // Kartenmitte beim ersten Start).
+      const fetched = await fetchStyle(initialStyleId, initialOptions);
       if (cancelled) {
         return;
       }
       setInitialStyle({
         style: fetched ?? buildFallbackStyle(),
-        key: styleKey(initialStyleId, initialOptions, manuelleWahl ?? null),
+        key: styleKey(initialStyleId, initialOptions),
       });
       setStatus('ready');
     })();
@@ -291,17 +297,16 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
     if (!map) {
       return;
     }
-    // `manualRegion` und NICHT `activeRegionName`: ohne feste Wahl zeichnet
-    // der Kern alle installierten Regionen (siehe oben). `activeRegionName`
-    // wird weiterhin gebraucht -- aber fuer die Frage „in welcher Region
-    // stehe ich", nicht fuer „was wird gezeichnet".
-    const stilWahl = stilRegion({ manuell: manualRegion, aktiv: activeRegionName });
-    const key = styleKey(styleId, styleOptions, stilWahl ?? null);
+    // KEINE Region -- der Kern zeichnet dann alle installierten (siehe oben).
+    // `activeRegionName` wird weiterhin gebraucht, aber fuer die Frage „in
+    // welcher Region stehe ich", nicht fuer „was wird gezeichnet". Die beiden
+    // zu verwechseln hat 0.9.1 vollstaendig wirkungslos gemacht.
+    const key = styleKey(styleId, styleOptions);
     if (appliedStyleKeyRef.current === key) {
       return;
     }
     let cancelled = false;
-    void fetchStyle(styleId, styleOptions, stilWahl).then((style) => {
+    void fetchStyle(styleId, styleOptions).then((style) => {
       if (cancelled) {
         return;
       }
@@ -317,7 +322,10 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
     styleOptions.poi,
     styleOptions.labelScale,
     styleOptions.lang,
-    activeRegionName,
+    // `activeRegionName` steht hier BEWUSST NICHT mehr: seit 0.16.0 geht die
+    // Region nicht mehr in den Stil ein, also darf ein Regionswechsel auch
+    // keinen Neuaufbau mehr ausloesen. Bliebe es stehen, baute die Karte bei
+    // jeder Grenzueberfahrt ohne Grund neu auf.
   ]);
 
   // Restore persisted view mode once the map is registered. Depends on `[map]`
