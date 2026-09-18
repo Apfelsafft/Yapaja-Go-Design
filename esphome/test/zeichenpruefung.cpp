@@ -27,6 +27,9 @@ namespace sensor { struct Sensor {
 }; }
 namespace text_sensor { struct TextSensor { std::string state; }; }
 namespace binary_sensor { struct BinarySensor { bool state = false; }; }
+// `switch` ist in C++ ein Schluesselwort; ESPHome nennt den Namensraum
+// deshalb `switch_`. Fuer diese Pruefung zaehlt nur `.state`.
+namespace switch_ { struct Switch { bool state = false; }; }
 
 struct ESPTime {
   uint8_t second=0, minute=0, hour=0, day_of_week=0, day_of_month=0;
@@ -131,6 +134,8 @@ static sensor::Sensor s_tempo, s_limit, s_limit_fz, s_mdist, s_rest;
 static sensor::Sensor s_lr, s_vh;
 static binary_sensor::BinarySensor s_schnell;
 static text_sensor::TextSensor s_anweisung, s_art, s_zustand, s_ankunft;
+// Die beiden Schalter: Waage erzwingen, und Fahrzeug statt Libelle.
+static switch_::Switch s_erzwingen, s_fahrzeug;
 
 // ─── Die Variablen, die ESPHome erzeugt ────────────────────────────────────
 // KEIN `#define id(...)` mehr. ESPHome setzt `id(name)` in die C++-Variable
@@ -154,6 +159,7 @@ static sensor::Sensor *yapaja_tempo = &s_tempo, *yapaja_tempolimit = &s_limit,
                       *yapaja_manoever_entfernung = &s_mdist,
                       *yapaja_reststrecke = &s_rest;
 static sensor::Sensor *neigung_lr = &s_lr, *neigung_vh = &s_vh;
+static switch_::Switch *waage_erzwingen = &s_erzwingen, *waage_fahrzeug = &s_fahrzeug;
 static binary_sensor::BinarySensor *yapaja_zu_schnell = &s_schnell;
 static text_sensor::TextSensor *yapaja_anweisung = &s_anweisung,
                                *yapaja_manoever_art = &s_art,
@@ -174,28 +180,62 @@ struct Fall {
   // Neigung in Grad, fuer die Wasserwaage.
   float lr, vh; bool neigung_da;
   bool schnell;
+  // ─── DIE BEIDEN SCHALTER ─────────────────────────────────────────────────
+  // Sie gehoeren in den `Fall` und nicht in eine globale Variable daneben:
+  // `Fall` ist die vollstaendige Beschreibung dessen, was das Geraet sieht.
+  // Ein Zustand, der ausserhalb steht, wird beim naechsten Fall vergessen
+  // zurueckzusetzen -- und dann traegt ein Test den Schalter des vorigen mit
+  // sich, ohne dass es jemandem auffaellt.
+  bool erzwingen;
+  bool fahrzeug;
 };
 
 static int fehler = 0;
 
-static bool rund_pruefen = true;
-
-static void lauf(const Fall &f, int w, int h, bool zeige) {
+/**
+ * Setzt ALLE Bauteile aus einem `Fall`.
+ *
+ * ─── WARUM DAS EINE FUNKTION IST UND VIER WAREN ──────────────────────────
+ * Diese Datei hatte den Aufbau VIER MAL: in `lauf`, in `erwarte`, in `genau`
+ * und noch einmal im erzwungenen Diagnosemodus. Jede Erweiterung musste an
+ * allen vier nachgezogen werden.
+ *
+ * Beim Zufuegen der Fahrzeuggrenze wurde eine vergessen -- und die Folge war
+ * kein Fehler, sondern Stille: der Sensor blieb leer, die Zahl wurde nie
+ * gezeichnet, und der Test bestand trotzdem, weil auch er nichts erwartete.
+ * Das steht seither als Warnung in dieser Datei.
+ *
+ * Beim Zufuegen der beiden Schalter ist es GENAU WIEDER PASSIERT: drei
+ * Stellen nachgezogen, die vierte uebersehen. Diesmal fiel es auf, weil die
+ * neuen Faelle etwas erwarteten -- aber eine Warnung, die man liest und dann
+ * doch in dieselbe Falle laeuft, ist keine Loesung. Also gibt es den Aufbau
+ * ab jetzt nur noch hier.
+ *
+ * Was Home Assistant fuer „weiss ich nicht" schickt, ist NaN -- nicht 0. Mit
+ * 0 waere jede Pruefung auf die NaN-Absicherung wirkungslos.
+ */
+static void aufbauen(const Fall &f) {
   s_zustand.state = f.zustand; s_art.state = f.art;
   s_anweisung.state = f.anweisung; s_ankunft.state = f.ankunft;
-  // Was Home Assistant fuer "weiss ich nicht" schickt, ist NaN -- nicht 0.
-  // Mit 0 waere jede Pruefung auf die NaN-Absicherung wirkungslos gewesen.
   auto setze = [](sensor::Sensor &s, float wert, bool da) {
     s.has = da; s.state = da ? wert : NAN;
   };
-  setze(s_tempo, f.tempo, f.tempo_da);
-  setze(s_limit, f.limit, f.limit_da);
+  setze(s_tempo,    f.tempo,    f.tempo_da);
+  setze(s_limit,    f.limit,    f.limit_da);
   setze(s_limit_fz, f.limit_fz, f.limit_fz_da);
-  setze(s_lr, f.lr, f.neigung_da);
-  setze(s_vh, f.vh, f.neigung_da);
-  setze(s_mdist, f.mdist, f.mdist_da);
-  setze(s_rest,  f.rest,  f.rest_da);
-  s_schnell.state = f.schnell;
+  setze(s_lr,       f.lr,       f.neigung_da);
+  setze(s_vh,       f.vh,       f.neigung_da);
+  setze(s_mdist,    f.mdist,    f.mdist_da);
+  setze(s_rest,     f.rest,     f.rest_da);
+  s_schnell.state   = f.schnell;
+  s_erzwingen.state = f.erzwingen;
+  s_fahrzeug.state  = f.fahrzeug;
+}
+
+static bool rund_pruefen = true;
+
+static void lauf(const Fall &f, int w, int h, bool zeige) {
+  aufbauen(f);
 
   Display it(w, h);
   zeichne(it);
@@ -243,6 +283,66 @@ static void lauf(const Fall &f, int w, int h, bool zeige) {
 int main() {
   setenv("TZ", "Europe/Berlin", 1); tzset();
 
+#ifdef NUR_SCHALTER
+  // ══ Der dritte Lauf: `wasserwaage_bei_stillstand: "false"` ════════════════
+  // Ohne die Tempo-Automatik oeffnet allein der Schalter die Waage. Gedacht
+  // fuer den Fall, den der Betreiber genannt hat: „damit die Anzeige an einer
+  // Ampel nicht umschaltet."
+  {
+    auto genau = [&](const char *name, const Fall &f, int w, int h,
+                     std::vector<std::string> soll) {
+      aufbauen(f);
+      Display it(w,h); zeichne(it);
+      if (it.texte != soll) {
+        printf("  FEHL %-34s\n       soll:", name);
+        for (auto &t : soll) printf(" \"%s\"", t.c_str());
+        printf("\n       ist :");
+        for (auto &t : it.texte) printf(" \"%s\"", t.c_str());
+        printf("\n");
+        fehler++;
+      } else {
+        printf("  OK   %s\n", name);
+      }
+    };
+
+    printf("── Nur der Schalter oeffnet die Waage ──\n");
+
+    Fall ampel{};
+    ampel.name = "x";
+    ampel.zustand = "navigating"; ampel.art = "turn_left";
+    ampel.anweisung = "Links abbiegen"; ampel.ankunft = "2026-09-15T14:32:00.000Z";
+    ampel.tempo = 0; ampel.tempo_da = true;
+    ampel.mdist = 300; ampel.mdist_da = true;
+    ampel.lr = 1.0f; ampel.vh = -1.5f; ampel.neigung_da = true;
+
+    // ─── DER GEMELDETE FALL ─────────────────────────────────────────────
+    // Stillstand mitten in der Navigation. Mit der Automatik waere hier die
+    // Waage erschienen; ohne sie laeuft die Navigation weiter.
+    genau("Stillstand an der Ampel: die Navigation bleibt", ampel, 240,240,
+          {"Links abbiegen", "300 m", "0", "16:32"});
+
+    // Und die Gegenprobe: der Schalter oeffnet sie sehr wohl. Ohne diesen
+    // Fall waere die Abschaltung auch dann gruen, wenn die Waage GAR NICHT
+    // mehr erreichbar waere.
+    Fall rangiert = ampel; rangiert.erzwingen = true;
+    genau("derselbe Stillstand MIT Schalter: die Waage", rangiert, 240,240,
+          {"L/R +1.0\u00b0", "V/H -1.5\u00b0"});
+
+    // Auch der Weg ueber ein unbekanntes Tempo ist zu -- er gehoert zur
+    // selben Automatik. Uebrig bleibt die gewohnte Zustandsmeldung.
+    Fall ohne_tempo{};
+    ohne_tempo.name = "x";
+    ohne_tempo.zustand = "idle"; ohne_tempo.art = "turn_left";
+    ohne_tempo.anweisung = "unknown"; ohne_tempo.ankunft = "unknown";
+    ohne_tempo.lr = 1.0f; ohne_tempo.vh = -1.5f; ohne_tempo.neigung_da = true;
+    genau("kein Tempo, kein Schalter: keine Waage", ohne_tempo, 240,240,
+          {"Keine Route"});
+  }
+
+  printf("\n%d Fehler\n", fehler);
+  return fehler ? 1 : 0;
+#endif
+
 #ifdef DIAGNOSE_ERZWUNGEN
   // ══ Der zweite Lauf: `diagnose: "true"` ═══════════════════════════════════
   // `${diagnose}` wird VOR dem Uebersetzen ersetzt. Im ersten Lauf steht dort
@@ -256,16 +356,7 @@ int main() {
   {
     auto genau = [&](const char *name, const Fall &f, int w, int h,
                      std::vector<std::string> soll) {
-      s_zustand.state=f.zustand; s_art.state=f.art; s_anweisung.state=f.anweisung;
-      s_ankunft.state=f.ankunft;
-      s_tempo.has=f.tempo_da; s_tempo.state=f.tempo_da?f.tempo:NAN;
-      s_limit.has=f.limit_da; s_limit.state=f.limit_da?f.limit:NAN;
-      s_limit_fz.has=f.limit_fz_da; s_limit_fz.state=f.limit_fz_da?f.limit_fz:NAN;
-      s_lr.has=f.neigung_da; s_lr.state=f.neigung_da?f.lr:NAN;
-      s_vh.has=f.neigung_da; s_vh.state=f.neigung_da?f.vh:NAN;
-      s_mdist.has=f.mdist_da; s_mdist.state=f.mdist_da?f.mdist:NAN;
-      s_rest.has=f.rest_da;   s_rest.state=f.rest_da?f.rest:NAN;
-      s_schnell.state=f.schnell;
+      aufbauen(f);
       Display it(w,h); zeichne(it);
       if (it.texte != soll) {
         printf("  FEHL %-26s\n       soll:", name);
@@ -409,13 +500,7 @@ int main() {
   // Ohne sie druckt der Prueflauf nur und faellt nie durch.
   auto erwarte = [&](const char *name, const Fall &f, int w, int h,
                      std::vector<std::string> muss) {
-    s_zustand.state=f.zustand; s_art.state=f.art; s_anweisung.state=f.anweisung;
-    s_ankunft.state=f.ankunft; s_tempo.state=f.tempo; s_tempo.has=f.tempo_da;
-    s_limit.state=f.limit; s_limit.has=f.limit_da;
-    s_limit_fz.state=f.limit_fz; s_limit_fz.has=f.limit_fz_da;
-    s_mdist.state=f.mdist;
-    s_mdist.has=f.mdist_da; s_rest.state=f.rest; s_rest.has=f.rest_da;
-    s_schnell.state=f.schnell;
+    aufbauen(f);
     Display it(w,h); zeichne(it);
     for (auto &m : muss) {
       bool da = std::find(it.texte.begin(), it.texte.end(), m) != it.texte.end();
@@ -440,26 +525,7 @@ int main() {
   // ist. Genau so ueberlebten drei Mutationen den ersten Anlauf.
   auto genau = [&](const char *name, const Fall &f, int w, int h,
                    std::vector<std::string> soll) {
-    s_zustand.state=f.zustand; s_art.state=f.art; s_anweisung.state=f.anweisung;
-    s_ankunft.state=f.ankunft;
-    s_tempo.has=f.tempo_da; s_tempo.state=f.tempo_da?f.tempo:NAN;
-    s_limit.has=f.limit_da; s_limit.state=f.limit_da?f.limit:NAN;
-    // ─── DIESE ZEILE HAT GEFEHLT ──────────────────────────────────────────
-    // `genau` baut die Sensoren SELBST auf, statt `lauf` zu benutzen -- es
-    // ist die dritte Stelle in dieser Datei, die dasselbe tut. Beim Zufuegen
-    // der Fahrzeuggrenze war sie die einzige, die vergessen wurde, und die
-    // Folge war kein Fehler, sondern Stille: der Sensor blieb leer, die Zahl
-    // wurde nie gezeichnet, und der Test „Fahrzeuggrenze gleich dem Schild"
-    // bestand trotzdem -- weil auch er nichts erwartete.
-    //
-    // Ein Test, der aus dem falschen Grund gruen ist, sieht aus wie einer,
-    // der stimmt.
-    s_limit_fz.has=f.limit_fz_da; s_limit_fz.state=f.limit_fz_da?f.limit_fz:NAN;
-    s_lr.has=f.neigung_da; s_lr.state=f.neigung_da?f.lr:NAN;
-    s_vh.has=f.neigung_da; s_vh.state=f.neigung_da?f.vh:NAN;
-    s_mdist.has=f.mdist_da; s_mdist.state=f.mdist_da?f.mdist:NAN;
-    s_rest.has=f.rest_da;   s_rest.state=f.rest_da?f.rest:NAN;
-    s_schnell.state=f.schnell;
+    aufbauen(f);
     Display it(w,h); zeichne(it);
     if (it.texte != soll) {
       printf("  FEHL %-26s\n       soll:", name);
@@ -778,17 +844,110 @@ int main() {
         240,240,
         {"L/R +1.5\u00b0", "V/H -0.5\u00b0"});
 
+  // ─── DIE BEIDEN SCHALTER ────────────────────────────────────────────────
+  // Gewuenscht: einer, der zwischen Libelle und Fahrzeugansicht umschaltet,
+  // und einer, der die Waage unabhaengig vom Tempo oeffnet -- „parallel zu
+  // der Geschwindigkeit", um ihn spaeter an den Rueckwaertsgang zu haengen.
+  printf("\n── Die beiden Schalter ──\n");
+
+  Fall schalter_parkt{};
+  schalter_parkt.name = "x";
+  schalter_parkt.zustand = "idle"; schalter_parkt.art = "turn_left";
+  schalter_parkt.anweisung = "x"; schalter_parkt.ankunft = "2026-09-15T14:32:00.000Z";
+  schalter_parkt.tempo = 0; schalter_parkt.tempo_da = true;
+  schalter_parkt.lr = 1.0f; schalter_parkt.vh = -1.5f; schalter_parkt.neigung_da = true;
+
+  // Die Libelle ist die Vorgabe -- bestehende Geraete sollen sich nach dem
+  // Update nicht anders verhalten, als sie es vorher taten.
+  genau("Vorgabe bleibt die Libelle", schalter_parkt, 240,240,
+        {"L/R +1.0\u00b0", "V/H -1.5\u00b0"});
+
+  Fall als_fahrzeug = schalter_parkt; als_fahrzeug.fahrzeug = true;
+  genau("Schalter an: die Fahrzeugansicht mit Millimetern", als_fahrzeug, 240,240,
+        {"V/H -106 mm  -1.5\u00b0", "L/R +32 mm  +1.0\u00b0"});
+
+  // ─── WAS DIE MILLIMETER WERT SIND ───────────────────────────────────────
+  // Sie sind der eigentliche Zweck dieser Ansicht: ein Grad sagt niemandem,
+  // wie dick der Keil sein muss. Deshalb steht hier eine EXAKTE Zahl und
+  // keine Obergrenze -- eine Millimeterangabe, die nur ungefaehr stimmt,
+  // waere schlimmer als gar keine, weil man nach ihr greift.
+  //
+  //   -1.5 Grad ueber 4035 mm Radstand  ->  tan(1.5 Grad) * 4035 = -105.6
+  //   +1.0 Grad ueber 1810 mm Spurweite ->  tan(1.0 Grad) * 1810 = +31.6
+  //
+  // Faende jemand die Vorzeichen oder die Bezugsmasse vertauscht, faellt es
+  // genau hier auf und nicht erst neben dem Fahrzeug.
+
+  // Die Gegenprobe zur Rechnung: der doppelte Winkel ergibt rund die
+  // doppelte Hoehe. Ohne sie waeren die Zahlen oben auch dann gruen, wenn
+  // die Millimeter eine feste Zahl waeren.
+  Fall doppelt = als_fahrzeug; doppelt.vh = -3.0f;
+  genau("doppelter Winkel, doppelte Hoehe", doppelt, 240,240,
+        {"V/H -211 mm  -3.0\u00b0", "L/R +32 mm  +1.0\u00b0"});
+
+  // Steht es gerade, sagt es das -- in BEIDEN Ansichten. Ein Schalter, hinter
+  // dem dieselbe Lage anders beurteilt wird, waere eine Falle.
+  Fall eben_fz = als_fahrzeug; eben_fz.lr = 0.1f; eben_fz.vh = -0.2f;
+  genau("gerade: die Fahrzeugansicht sagt es auch", eben_fz, 240,240,
+        {"V/H -14 mm  -0.2\u00b0", "L/R +3 mm  +0.1\u00b0", "steht gerade"});
+  Fall eben_lib = eben_fz; eben_lib.fahrzeug = false;
+  genau("gerade: die Libelle sagt dasselbe", eben_lib, 240,240,
+        {"L/R +0.1\u00b0", "V/H -0.2\u00b0", "steht gerade"});
+
+  // ─── DER ERZWINGEN-SCHALTER ─────────────────────────────────────────────
+  // Er ist fuer das Rangieren gedacht, und beim Rangieren STEHT das Fahrzeug
+  // nicht -- es faehrt langsam rueckwaerts. Genau deshalb kommt er neben die
+  // Tempobedingung und nicht an ihre Stelle.
+  Fall faehrt{};
+  faehrt.name = "x";
+  faehrt.zustand = "navigating"; faehrt.art = "turn_left";
+  faehrt.anweisung = "Links abbiegen"; faehrt.ankunft = "2026-09-15T14:32:00.000Z";
+  faehrt.tempo = 8; faehrt.tempo_da = true;
+  faehrt.mdist = 300; faehrt.mdist_da = true;
+  faehrt.lr = 1.0f; faehrt.vh = -1.5f; faehrt.neigung_da = true;
+
+  // Ohne Schalter: die Navigation laeuft weiter. Das ist die Gegenprobe --
+  // ein Schalter, der nichts aendert, weil ohnehin immer die Waage kaeme,
+  // waere keiner.
+  genau("8 km/h ohne Schalter: Navigation", faehrt, 240,240,
+        {"Links abbiegen", "300 m", "8", "16:32"});
+
+  Fall rangiert = faehrt; rangiert.erzwingen = true;
+  genau("8 km/h MIT Schalter: trotzdem die Waage", rangiert, 240,240,
+        {"L/R +1.0\u00b0", "V/H -1.5\u00b0"});
+
+  // Und beide Schalter zusammen -- sie sind voneinander unabhaengig.
+  Fall rangiert_fz = rangiert; rangiert_fz.fahrzeug = true;
+  genau("beide Schalter: erzwungen UND als Fahrzeug", rangiert_fz, 240,240,
+        {"V/H -106 mm  -1.5\u00b0", "L/R +32 mm  +1.0\u00b0"});
+
   printf("\n── Welcher Pfeil bei welcher Manoeverart ──\n");
   // `ManeuverType` ist in types.ts ausdruecklich `| string`: Valhalla liefert
   // auch slight_/sharp_/ramp_. Wer auf genaue Gleichheit prueft, zeigt bei
   // all diesen einen Geradeaus-Pfeil -- also genau die falsche Richtung.
   auto pfeil = [&](const char *art, const char *soll_formen,
                    const char *soll_richtung) {
-    s_zustand.state="navigating"; s_art.state=art;
-    s_anweisung.state="x"; s_ankunft.state="2026-09-15T14:32:00.000Z";
-    s_tempo.has=s_limit.has=s_mdist.has=s_rest.has=true;
-    s_tempo.state=87; s_limit.state=80; s_mdist.state=1240; s_rest.state=42.5;
-    s_schnell.state=false;
+    // ─── DIE FUENFTE AUFBAU-STELLE, UND DIE GEFAEHRLICHSTE ──────────────
+    // Sie setzte die Bauteile selbst und liess dabei alles ungenannte
+    // stehen -- also den Zustand des VORIGEN Falls. Solange es nur Sensoren
+    // gab, fiel das nicht auf: der vorige Fall setzte sie ja auch.
+    //
+    // Mit den beiden Schaltern fiel es sofort auf: der letzte Fall davor
+    // liess „Waage als Fahrzeug" an, und jeder Pfeiltest zeichnete
+    // daraufhin ein Fahrzeug. Sechzehn Fehlschlaege auf einen Schlag --
+    // und zwar in Pruefungen, die mit Schaltern nichts zu tun haben.
+    //
+    // Deshalb geht auch diese Stelle jetzt ueber `aufbauen`: was ein Fall
+    // nicht nennt, ist danach aus und nicht „was zuletzt galt".
+    Fall f{};
+    f.name = "x";
+    f.zustand = "navigating"; f.art = art;
+    f.anweisung = "x"; f.ankunft = "2026-09-15T14:32:00.000Z";
+    f.tempo = 87;    f.tempo_da = true;
+    f.limit = 80;    f.limit_da = true;
+    f.mdist = 1240;  f.mdist_da = true;
+    f.rest = 42.5f;  f.rest_da = true;
+    aufbauen(f);
     Display it(240,240); zeichne(it);
     std::string vorne = it.pfeil_fertig ? it.pfeil_formen : it.formen;
     // Wohin zeigt er? Der Pfeilmittelpunkt ist B/5; ragt die Zeichnung

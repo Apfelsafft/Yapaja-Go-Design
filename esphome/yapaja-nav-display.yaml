@@ -118,6 +118,35 @@ substitutions:
   # traege, ein kleinerer liesse sie staendig am Rand kleben.
   wasserwaage_bereich_grad: "5"
 
+  # ─── DIE MASSE DES FAHRZEUGS ──────────────────────────────────────────────
+  # Aus einem Winkel wird erst dann eine Handlungsanweisung, wenn daneben
+  # steht, um wie viel MILLIMETER eine Seite hochmuss. Ein Grad sagt
+  # niemandem, wie dick der Keil sein muss.
+  #
+  # Gerechnet wird ueber die Auflagepunkte, nicht ueber die Aussenmasse: was
+  # zaehlt, ist der Abstand der Raeder (oder der Stuetzen), denn dazwischen
+  # wird angehoben.
+  #
+  #   vorne/hinten   ueber den RADSTAND
+  #   links/rechts   ueber die SPURWEITE
+  #
+  # Die Vorgaben passen zu einem Ducato L4. Bitte nachmessen oder aus dem
+  # Fahrzeugschein uebernehmen -- eine falsche Zahl hier ergibt eine
+  # Millimeterangabe, die genau und trotzdem falsch ist, und das ist die
+  # unangenehmere Sorte Fehler.
+  radstand_mm: "4035"
+  spurweite_mm: "1810"
+
+  # ─── AUTOMATISCH BEI STILLSTAND? ──────────────────────────────────────────
+  # `true` laesst die Waage erscheinen, sobald das Fahrzeug steht (siehe
+  # `wasserwaage_ab_kmh`). Bequem -- aber an einer roten Ampel schaltet die
+  # Anzeige dann mitten in der Navigation um.
+  #
+  # Auf `false` gestellt oeffnet nur noch der Schalter „Waage erzwingen" die
+  # Waage. Den kann eine Automatisierung in Home Assistant an den
+  # Rueckwaertsgang haengen -- dann erscheint sie beim Rangieren und sonst nie.
+  wasserwaage_bei_stillstand: "true"
+
   # ─── DIE VORZEICHEN ───────────────────────────────────────────────────────
   # `1` oder `-1`. Welches Vorzeichen welche Seite meint, haengt davon ab, wie
   # der Sensor im Fahrzeug EINGEBAUT ist -- das kann diese Datei nicht wissen,
@@ -281,6 +310,29 @@ sensor:
   - platform: homeassistant
     id: yapaja_manoever_entfernung
     entity_id: ${entity_praefix}_instruction_distance
+
+# ─── DIE BEIDEN SCHALTER ────────────────────────────────────────────────────
+# Beide erscheinen in Home Assistant als gewoehnliche Schalter und lassen sich
+# damit auch aus einer Automatisierung heraus stellen.
+#
+# `optimistic: true`, weil es nichts gibt, was den Zustand zurueckmelden
+# koennte: der Schalter IST der Zustand. `restore_mode` haelt ihn ueber einen
+# Neustart -- ein Geraet, das nach einem Stromausfall heimlich die Anzeige
+# wechselt, waere eine Ueberraschung im falschen Moment.
+switch:
+  - platform: template
+    name: "Waage erzwingen"
+    id: waage_erzwingen
+    icon: mdi:spirit-level
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: template
+    name: "Waage als Fahrzeug"
+    id: waage_fahrzeug
+    icon: mdi:van-utility
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
 
 binary_sensor:
   - platform: homeassistant
@@ -610,16 +662,42 @@ display:
       // Uebersetzen auf dem eigenen Geraet. Die Klammer nimmt beide Formen.
       const std::string zustand = id(yapaja_fahrzustand).state;
       const bool navigiert = zustand == "navigating";
-      const bool steht = hat(id(yapaja_tempo)) &&
+
+      // ─── DER DRITTE WEG: EIN SCHALTER ─────────────────────────────────
+      // Gewuenscht: „Bitte fuege noch einen weiteren Schalter ein der
+      // zwischen der navigationsanzeige und der Waage umschaltet. Parallel
+      // zu der Geschwindigkeit."
+      //
+      // Parallel heisst hier ODER: der Schalter nimmt der Geschwindigkeit
+      // nichts weg, er kommt daneben. Das ist wichtig fuer den genannten
+      // Zweck -- „diesen Schalter spaeter mit einem Signal vom
+      // Rueckwaertsgang koppeln": beim Rangieren steht das Fahrzeug nicht,
+      // es faehrt langsam rueckwaerts. Waere der Schalter ein Ersatz fuer
+      // die Tempobedingung, muesste man sich zwischen beidem entscheiden.
+      const bool erzwungen = id(waage_erzwingen).state;
+
+      // ─── UND DER AUSSCHALTER FUER DIE AMPEL ───────────────────────────
+      // Ebenfalls aus der Rueckmeldung: „Vielleicht ist das besser als nur
+      // die Geschwindigkeit damit die Anzeige an einer Ampel nicht
+      // umschaltet."
+      //
+      // Der Einwand stimmt, und er laesst sich nicht durch eine hoehere
+      // Schwelle loesen: an einer roten Ampel steht das Fahrzeug wirklich.
+      // Wer die Waage nur beim Rangieren will, stellt
+      // `wasserwaage_bei_stillstand` auf `false` -- dann oeffnet allein der
+      // Schalter. Vorgabe bleibt `true`, damit sich fuer bestehende Geraete
+      // nichts aendert.
+      const bool bei_stillstand = ${wasserwaage_bei_stillstand};
+      const bool steht = bei_stillstand && hat(id(yapaja_tempo)) &&
                          id(yapaja_tempo).state < (float) (${wasserwaage_ab_kmh});
-      const bool tempo_unbekannt = !hat(id(yapaja_tempo));
+      const bool tempo_unbekannt = bei_stillstand && !hat(id(yapaja_tempo));
 
       const bool neigung_da = hat(id(neigung_lr)) && hat(id(neigung_vh));
 
       // Der zweite Weg verlangt zusaetzlich, dass die Neigungswerte DA sind.
       // So bleibt die Bedingung die einzige Stelle, die entscheidet -- ein
       // Sprung aus dem Block heraus waere kuerzer und schwerer zu lesen.
-      if (steht || (tempo_unbekannt && !navigiert && neigung_da)) {
+      if (erzwungen || steht || (tempo_unbekannt && !navigiert && neigung_da)) {
         const float rr = r - 4;
 
         // ─── OHNE NEIGUNGSWERTE ─────────────────────────────────────────
@@ -649,6 +727,134 @@ display:
         const float bereich = (float) (${wasserwaage_bereich_grad});
         const float gerade  = (float) (${wasserwaage_gerade_grad});
         const bool steht_gerade = fabsf(lr) <= gerade && fabsf(vh) <= gerade;
+
+        // ═══ ZWEI DARSTELLUNGEN DERSELBEN LAGE ═════════════════════════
+        // Gewuenscht: „einen Schalter der zwischen zwei Anzeigen umschalten
+        // kann. Der Wasserwaage und einer die das Auto von der Seite und
+        // von hinten zeigt."
+        //
+        // ─── WARUM UNTEREINANDER UND NICHT NEBENEINANDER ────────────────
+        // Auf dem Vorbild (einer Dashboard-Karte) stehen die beiden
+        // Fahrzeuge nebeneinander. Dort ist Platz. Hier sind es 240 runde
+        // Bildpunkte: nebeneinander blieben je rund hundert, und an den
+        // Raendern schneidet das Glas zusaetzlich ab. Untereinander bekommt
+        // jede Ansicht die volle Breite an ihrer breitesten Stelle.
+        if (id(waage_fahrzeug).state) {
+          const float lr_f = id(neigung_lr).state * (float) (${neigung_lr_vorzeichen});
+          const float vh_f = id(neigung_vh).state * (float) (${neigung_vh_vorzeichen});
+          const float bogen = 3.14159265f / 180.0f;
+          const float gerade_f = (float) (${wasserwaage_gerade_grad});
+          const bool eben = fabsf(lr_f) <= gerade_f && fabsf(vh_f) <= gerade_f;
+
+          // ─── AUS DEM WINKEL WIRD EINE KEILDICKE ───────────────────────
+          // Ein Grad sagt niemandem, wie dick der Keil sein muss. Der
+          // Hoehenunterschied ueber die Auflagepunkte schon -- und das ist
+          // die Zahl, nach der man greift.
+          const float mm_vh = tanf(vh_f * bogen) * (float) (${radstand_mm});
+          const float mm_lr = tanf(lr_f * bogen) * (float) (${spurweite_mm});
+
+          // ─── DAS BILD UEBERTREIBT, DIE ZAHL NICHT ─────────────────────
+          // Vergroessert angesehen: bei 1,5 Grad ist die Neigung ueber
+          // neunzig Bildpunkte gerade zwei Punkte hoch. Massstabsgetreu
+          // gezeichnet sieht ein schiefes Fahrzeug also genauso aus wie ein
+          // gerades -- und ein Bild, das bei jeder Lage gleich aussieht,
+          // sagt nichts.
+          //
+          // Deshalb wird der BILDWINKEL gestreckt, genau wie bei der
+          // Libelle: dort steht die Blase am Rand, sobald
+          // `wasserwaage_bereich_grad` erreicht ist, und nicht erst bei 90
+          // Grad. Hier entspricht derselbe Bereich einer deutlich sichtbaren
+          // Schraeglage.
+          //
+          // Die ZAHLEN daneben bleiben exakt. Das Bild zeigt die Richtung,
+          // die Zahl das Mass -- und nur eines von beiden darf uebertreiben.
+          const float bild_bereich = 22.0f;
+          const float streckung = bild_bereich / (float) (${wasserwaage_bereich_grad});
+          auto bildwinkel = [&](float grad) {
+            float b = grad * streckung;
+            // Am Rand stehenbleiben statt sich zu ueberschlagen: jenseits des
+            // Bereichs ist „sehr schief" die ganze Aussage.
+            if (b > bild_bereich) b = bild_bereich;
+            if (b < -bild_bereich) b = -bild_bereich;
+            return b * bogen;
+          };
+
+          // Dreht einen Punkt um den Ursprung und legt ihn auf (ox, oy).
+          auto gedreht_x = [](float px, float py, float si, float co, int ox) {
+            return ox + (int) (px * co - py * si + (px * co - py * si >= 0 ? 0.5f : -0.5f));
+          };
+          auto gedreht_y = [](float px, float py, float si, float co, int oy) {
+            return oy + (int) (px * si + py * co + (px * si + py * co >= 0 ? 0.5f : -0.5f));
+          };
+
+          // Ein gedrehtes Rechteck aus zwei Dreiecken. `filled_rectangle`
+          // kann nicht drehen, und ein Fahrzeug, das waagerecht bleibt,
+          // waehrend die Zahlen daneben eine Neigung melden, waere die
+          // Anzeige, die sich selbst widerspricht.
+          auto kasten = [&](float x1, float y1, float x2, float y2,
+                            float si, float co, int ox, int oy, Color farbe) {
+            const int ax = gedreht_x(x1, y1, si, co, ox), ay = gedreht_y(x1, y1, si, co, oy);
+            const int bx2 = gedreht_x(x2, y1, si, co, ox), by2 = gedreht_y(x2, y1, si, co, oy);
+            const int cx2 = gedreht_x(x2, y2, si, co, ox), cy2 = gedreht_y(x2, y2, si, co, oy);
+            const int dx2 = gedreht_x(x1, y2, si, co, ox), dy2 = gedreht_y(x1, y2, si, co, oy);
+            it.filled_triangle(ax, ay, bx2, by2, cx2, cy2, farbe);
+            it.filled_triangle(ax, ay, cx2, cy2, dx2, dy2, farbe);
+          };
+
+          auto rad = [&](float px, float py, float si, float co, int ox, int oy, Color farbe) {
+            it.filled_circle(gedreht_x(px, py, si, co, ox),
+                             gedreht_y(px, py, si, co, oy), 5, farbe);
+          };
+
+          // ─── OBEN: VON DER SEITE, FRONT LINKS ─────────────────────────
+          // Ein positives `vh` hebt die FRONT -- dieselbe Aussage wie bei
+          // der Libelle, wo die Blase dann nach oben wandert. Beide
+          // Ansichten muessen dasselbe sagen, sonst ist der Schalter eine
+          // Falle.
+          {
+            const int ox = cx, oy = cy - 58;
+            const float w = bildwinkel(vh_f);
+            const float si = sinf(w), co = cosf(w);
+            const Color farbe = eben ? id(c_gut) : id(c_warnung);
+            // ─── DIE WAAGERECHTE ────────────────────────────────────────
+            // Sie wird NICHT mitgedreht -- sie ist der Bezug. Ohne sie ist
+            // eine Schraeglage kaum zu beurteilen: das Auge hat nichts, was
+            // es mit dem Fahrzeug vergleichen koennte, und eine leichte
+            // Neigung sieht dann aus wie gar keine.
+            it.line(ox - 52, oy + 18, ox + 52, oy + 18, id(c_gedaempft));
+            // Kasten hinten (hoch) und Haube vorn (flach) -- so ist von
+            // Weitem zu sehen, wo vorn ist, ohne einen Pfeil dazuzumalen.
+            kasten(-16, -14, 44, 8, si, co, ox, oy, farbe);
+            kasten(-44, -3, -16, 8, si, co, ox, oy, farbe);
+            rad(-28, 12, si, co, ox, oy, id(c_gedaempft));
+            rad(30, 12, si, co, ox, oy, id(c_gedaempft));
+          }
+          it.printf(cx, cy - 26, id(font_s), id(c_text), TextAlign::CENTER,
+                    "V/H %+d mm  %+.1f\u00b0", (int) (mm_vh + (mm_vh >= 0 ? 0.5f : -0.5f)), vh_f);
+
+          // ─── UNTEN: VON HINTEN ────────────────────────────────────────
+          // Ein positives `lr` hebt die RECHTE Seite -- wieder dieselbe
+          // Aussage wie bei der Libelle, deren Blase dann nach rechts geht.
+          // Das Vorzeichen im Bild ist deshalb umgekehrt: eine Drehung um
+          // einen positiven Winkel senkt rechts.
+          {
+            const int ox = cx, oy = cy + 24;
+            const float w = bildwinkel(-lr_f);
+            const float si = sinf(w), co = cosf(w);
+            const Color farbe = eben ? id(c_gut) : id(c_warnung);
+            it.line(ox - 52, oy + 18, ox + 52, oy + 18, id(c_gedaempft));
+            kasten(-26, -22, 26, 8, si, co, ox, oy, farbe);
+            rad(-22, 12, si, co, ox, oy, id(c_gedaempft));
+            rad(22, 12, si, co, ox, oy, id(c_gedaempft));
+          }
+          it.printf(cx, cy + 58, id(font_s), id(c_text), TextAlign::CENTER,
+                    "L/R %+d mm  %+.1f\u00b0", (int) (mm_lr + (mm_lr >= 0 ? 0.5f : -0.5f)), lr_f);
+
+          if (eben) {
+            it.print(cx, cy + 84, id(font_s), id(c_gut), TextAlign::CENTER, "steht gerade");
+          }
+          return;
+        }
 
         // ─── DIE LIBELLE ────────────────────────────────────────────────
         // Aussenring, ein Ring fuer „gerade genug", und ein Fadenkreuz. Die

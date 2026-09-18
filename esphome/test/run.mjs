@@ -96,6 +96,8 @@ export const ZEIGER_IDS = new Set([
   'yapaja_manoever_art', 'yapaja_fahrzustand', 'yapaja_ankunft',
   // Die digitale Wasserwaage.
   'neigung_lr', 'neigung_vh',
+  // Die beiden Schalter: Waage erzwingen, und Fahrzeug statt Libelle.
+  'waage_erzwingen', 'waage_fahrzeug',
 ]);
 
 export const WERT_IDS = new Set([
@@ -236,6 +238,22 @@ function main() {
   // stimmt.
   console.log('\n══ Zweiter Lauf: diagnose = true ══\n');
   lauf({ diagnose: 'true' }, ['-DDIAGNOSE_ERZWUNGEN'], 'Zeichenroutine (Diagnose)');
+
+  // ─── DRITTER LAUF: OHNE DIE TEMPO-AUTOMATIK ───────────────────────────────
+  // `wasserwaage_bei_stillstand: "false"` laesst die Waage nur noch ueber den
+  // Schalter auf -- fuer alle, denen die Anzeige sonst an jeder roten Ampel
+  // umschaltet.
+  //
+  // Auch das ist eine Substitution und im ersten Lauf deshalb gar nicht im
+  // erzeugten C++. Eine Mutation, die den Schalter wirkungslos macht, hat den
+  // ersten Anlauf prompt ueberlebt: bei der Vorgabe `true` aendert sie
+  // schlicht nichts.
+  console.log('\n══ Dritter Lauf: wasserwaage_bei_stillstand = false ══\n');
+  lauf(
+    { wasserwaage_bei_stillstand: 'false' },
+    ['-DNUR_SCHALTER'],
+    'Zeichenroutine (nur Schalter)',
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

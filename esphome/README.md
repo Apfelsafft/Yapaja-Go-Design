@@ -325,6 +325,58 @@ substitutions:
 Yapaia die Entitäten noch nicht. Prüfen Sie im Add-on, ob MQTT oder der
 HA-interne Kanal eingeschaltet ist.
 
+### Die Waage: zwei Ansichten und zwei Schalter
+
+Beim Parken wechselt die Anzeige auf eine Wasserwaage. Dafür gibt es zwei
+Darstellungen und zwei Schalter — beide erscheinen in Home Assistant als
+gewöhnliche Schalter und lassen sich damit auch aus einer **Automatisierung**
+heraus stellen.
+
+| Schalter | Was er tut |
+|---|---|
+| **Waage als Fahrzeug** | schaltet zwischen der **Libelle** (Blase im Kreis) und der **Fahrzeugansicht** (von der Seite und von hinten, mit Millimetern) um |
+| **Waage erzwingen** | öffnet die Waage **unabhängig vom Tempo** |
+
+#### Die Fahrzeugansicht
+
+Sie zeigt das Fahrzeug von der Seite (vorne/hinten) und von hinten
+(links/rechts), dazu jeweils den Höhenunterschied in **Millimetern** — denn
+ein Grad sagt niemandem, wie dick der Keil sein muss.
+
+Gerechnet wird über die Auflagepunkte. Tragen Sie Ihre Maße oben in
+`navi.yaml` ein:
+
+```yaml
+substitutions:
+  radstand_mm: "4035"     # für vorne/hinten
+  spurweite_mm: "1810"    # für links/rechts
+```
+
+> **Das Bild übertreibt, die Zahl nicht.** Bei 1,5 Grad wäre die Neigung über
+> neunzig Bildpunkte gerade zwei Punkte hoch — massstabsgetreu gezeichnet
+> sähe ein schiefes Fahrzeug aus wie ein gerades. Der *Bildwinkel* wird
+> deshalb gestreckt, genau wie bei der Libelle die Blase schon am Rand steht,
+> sobald `wasserwaage_bereich_grad` erreicht ist. Die **Zahlen daneben bleiben
+> exakt**.
+
+#### „Waage erzwingen" und der Rückwärtsgang
+
+Der Schalter wirkt **parallel** zur Geschwindigkeit, nicht an ihrer Stelle.
+Das ist wichtig fürs Rangieren: dabei *steht* das Fahrzeug nicht, es fährt
+langsam rückwärts.
+
+Wer die Waage **nur** beim Rangieren will, schaltet die Tempo-Automatik ab:
+
+```yaml
+substitutions:
+  wasserwaage_bei_stillstand: "false"
+```
+
+Dann öffnet allein der Schalter — und die Anzeige wechselt an einer roten
+Ampel nicht mehr mitten in der Navigation. Eine Automatisierung in Home
+Assistant kann `switch.navi_waage_erzwingen` dann an das Signal des
+Rückwärtsgangs hängen.
+
 ### Wenn das WLAN nicht zustande kommt
 
 Das ist **kein Fehler dieser Konfiguration**, aber der zweite Stolperstein

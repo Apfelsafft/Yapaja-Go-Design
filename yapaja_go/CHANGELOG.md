@@ -10,6 +10,78 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.16.3
+
+**Zwei Schalter für die Wasserwaage — und eine zweite Ansicht.**
+
+Gewünscht, nachdem die Waage endlich lief:
+
+> „Könntest du bitte einen Schalter einfügen der zwischen zwei Anzeigen
+> umschalten kann. Der Wasserwaage und einer die das Auto von der Seite und
+> von hinten zeigt. […] Bitte füge noch einen weiteren Schalter ein der
+> zwischen der navigationsanzeige und der Waage umschaltet. Parallel zu der
+> Geschwindigkeit."
+
+Beide sind da. Sie erscheinen in Home Assistant als gewöhnliche Schalter und
+lassen sich damit auch aus einer **Automatisierung** heraus stellen:
+
+| Schalter | Was er tut |
+|---|---|
+| **Waage als Fahrzeug** | Libelle ⇄ Fahrzeugansicht |
+| **Waage erzwingen** | öffnet die Waage unabhängig vom Tempo |
+
+---
+
+**Die Fahrzeugansicht zeigt Millimeter, nicht nur Grad.**
+
+Von der Seite (vorne/hinten) und von hinten (links/rechts), dazu jeweils der
+Höhenunterschied in Millimetern. Das ist der eigentliche Zweck: **ein Grad
+sagt niemandem, wie dick der Keil sein muss.**
+
+Gerechnet wird über die Auflagepunkte. Die eigenen Maße gehören in die
+`navi.yaml`:
+
+```yaml
+substitutions:
+  radstand_mm: "4035"     # für vorne/hinten
+  spurweite_mm: "1810"    # für links/rechts
+```
+
+> **Das Bild übertreibt, die Zahl nicht.** Bei 1,5 Grad wäre die Neigung über
+> neunzig Bildpunkte gerade zwei Punkte hoch — massstabsgetreu gezeichnet sähe
+> ein schiefes Fahrzeug aus wie ein gerades. Der *Bildwinkel* wird deshalb
+> gestreckt, genau wie bei der Libelle die Blase schon am Rand steht, sobald
+> der eingestellte Bereich erreicht ist. Die **Zahlen bleiben exakt**.
+
+Gefunden wurde das übrigens nicht von einem Test, sondern beim Hinsehen: das
+neue Werkzeug `esphome/test/bild.mjs` zeichnet die Anzeige vergrössert als
+Text. Alle Prüfungen waren grün, die Zahlen stimmten — und die Anzeige war
+trotzdem nutzlos.
+
+---
+
+**„Waage erzwingen" wirkt parallel zur Geschwindigkeit, nicht an ihrer Stelle.**
+
+Das ist wichtig für den genannten Zweck — „diesen Schalter später mit einem
+Signal vom Rückwärtsgang koppeln": beim Rangieren *steht* das Fahrzeug nicht,
+es fährt langsam rückwärts.
+
+Dazu der Einwand aus derselben Rückmeldung: „Vielleicht ist das besser als nur
+die Geschwindigkeit damit die Anzeige an einer Ampel nicht umschaltet." Der
+stimmt, und er lässt sich nicht durch eine höhere Schwelle lösen — an einer
+roten Ampel steht das Fahrzeug wirklich. Wer die Waage nur beim Rangieren
+will:
+
+```yaml
+substitutions:
+  wasserwaage_bei_stillstand: "false"
+```
+
+Dann öffnet allein der Schalter. Vorgabe bleibt `true`, damit sich für
+bestehende Geräte nichts ändert.
+
+---
+
 ## 0.16.2
 
 **Das ESP32-Display sagt jetzt selbst, ob überhaupt Werte ankommen.**
