@@ -43,6 +43,19 @@
  * Symbolkollision rechnet MapLibre selbst. Diese Liste hier ist bewusst KURZ
  * und soll es bleiben — sie ist der Notausgang für das, was durch das Schema
  * fällt, nicht ein zweiter Kartenaufbau daneben.
+ *
+ * ─── WAS 0.16.1 DAZUGELEGT HAT ──────────────────────────────────────────────
+ * `water_point` und `shower`. Die Messung oben führte sie von Anfang an als
+ * „0×" — sie standen also schon in dieser Datei als nicht darstellbar
+ * vermerkt, und trotzdem hat sie niemand eingesammelt. Sie fehlten damit
+ * zweifach: nicht in den Kacheln UND nicht im Suchindex, weil
+ * `search/lite/poiCategories.ts` sie ebenfalls nicht sammelte.
+ *
+ * Das ist der Unterschied zu 0.13.0: dort lagen die Daten bereits im Index
+ * und fanden nur nicht auf die Karte. Hier gab es sie nirgends. Wer den Index
+ * NEU baut, hat sie danach — ein bestehender Index enthält sie nicht, und
+ * genau das sagt die Schnittstelle über `befund.ohne_index` nicht aus. Der
+ * Hinweis gehört deshalb in den Changelog, nicht in eine stille Annahme.
  */
 
 /** Ein Sonderziel, das nur über den Suchindex auf die Karte kommt. */
@@ -98,10 +111,40 @@ export const FEHLENDE_KLASSEN: readonly FehlendeKlasse[] = [
     grund: NICHT_IM_SCHEMA,
   },
   {
+    // ─── DIE ANDERE HÄLFTE DESSELBEN HALTS ────────────────────────────────
+    // `water_point` ist NICHT `drinking_water`. Das eine ist eine Zapfstelle,
+    // die dafür gemacht ist, einen TANK zu füllen (in OSM ausdrücklich für
+    // Fahrzeuge und Boote); das andere ein Brunnen, an dem man trinkt.
+    //
+    // Die Kacheln kennen nur das häufigere von beiden — `drinking_water`
+    // steht 1× im Schema, `water_point` 0× (nachgezählt, siehe oben). Damit
+    // fiel ausgerechnet die seltenere und für ein Wohnmobil entscheidende
+    // Sorte durch: wer Wasser sucht, bekam Trinkbrunnen angeboten und keine
+    // Zapfstelle.
+    //
+    // Der Rang steht direkt hinter der Entsorgungsstation, aus demselben
+    // Grund wie dort: nicht weil es wichtiger wäre, sondern weil es davon
+    // wenige gibt. Beide gehören ohnehin meist zum selben Halt.
+    kategorie: 'water_point',
+    name: 'Frischwasser-Zapfstelle',
+    symbol: 'poi-frischwasser',
+    rang: 2.6,
+    grund: NICHT_IM_SCHEMA,
+  },
+  {
     kategorie: 'waste_disposal',
     name: 'Müllentsorgung',
     symbol: 'poi-muell',
     rang: 8.5,
+    grund: NICHT_IM_SCHEMA,
+  },
+  {
+    // Bequemlichkeit, kein Bedürfnis — deshalb hinter dem Müll und vor der
+    // Sammelkategorie „Wasser und Entsorgung" aus den Kacheln (Rang 9).
+    kategorie: 'shower',
+    name: 'Dusche',
+    symbol: 'poi-dusche',
+    rang: 8.6,
     grund: NICHT_IM_SCHEMA,
   },
 ];

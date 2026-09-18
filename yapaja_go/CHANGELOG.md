@@ -10,6 +10,50 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.16.1
+
+**Frischwasser-Zapfstellen und Duschen sind jetzt auf der Karte — und in der Suche.**
+
+Sie fehlten bisher an **beiden** Stellen, und das aus zwei verschiedenen
+Gründen.
+
+Das OpenMapTiles-Schema, aus dem die Kacheln gebaut werden, kennt
+`amenity=water_point` und `amenity=shower` nicht (nachgezählt in dessen
+`layers/poi/mapping.yaml`: beide **0×**). Sie können also in keiner Kachel
+stehen — genau wie die Entsorgungsstation, die seit 0.13.0 deshalb aus dem
+Suchindex kommt.
+
+Nur war bei diesen beiden auch der Suchindex leer: die Filterliste, mit der
+er gebaut wird, sammelte sie ebenfalls nicht ein. Es fehlte also nicht bloß
+ein Weg, sondern die Daten selbst.
+
+**Warum `water_point` neben `drinking_water` steht und nicht darin.** Die
+beiden sehen sich ähnlich und sind es nicht:
+
+| | |
+|---|---|
+| `drinking_water` | eine Stelle, an der man **trinkt** — ein Brunnen, ein Wasserhahn am Spielplatz |
+| `water_point` | eine Zapfstelle, die dafür gemacht ist, einen **Tank** zu füllen |
+
+Für ein Wohnmobil ist das der Unterschied zwischen „hier kann ich einen Becher
+füllen" und „hier kann ich weiterfahren". Beide unter einem Begriff zu führen
+hieße, den selteneren und wichtigeren im häufigeren verschwinden zu lassen.
+Deshalb heißt der neue Eintrag **„Frischwasser-Zapfstelle"** und nicht
+„Trinkwasser".
+
+Auf der Karte bekommen beide ein eigenes Symbol: ein Wasserhahn mit Tropfen
+für die Zapfstelle, eine Brause für die Dusche. Die Zapfstelle steht in der
+Rangfolge direkt hinter der Entsorgungsstation — nicht weil sie wichtiger
+wäre als eine Tankstelle, sondern weil es davon wenige gibt und beide meist
+zum selben Halt gehören.
+
+> **Wichtig für bestehende Installationen:** Ein bereits gebauter Suchindex
+> enthält diese Ziele **nicht**. Sie erscheinen erst, nachdem der Index neu
+> gebaut wurde — „Karten verwalten" (🗺️) öffnen und **„Alles bauen"**
+> drücken. Die Kacheln müssen dafür *nicht* neu gebaut werden.
+
+---
+
 ## 0.16.0
 
 **Die Karte zeigt jetzt immer alles, was installiert ist.**

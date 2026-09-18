@@ -158,8 +158,22 @@
     "height": 36,
     "pixelRatio": 2
   },
-  "poi-muell": {
+  "poi-frischwasser": {
     "x": 480,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
+  },
+  "poi-dusche": {
+    "x": 520,
+    "y": 34,
+    "width": 36,
+    "height": 36,
+    "pixelRatio": 2
+  },
+  "poi-muell": {
+    "x": 560,
     "y": 34,
     "width": 36,
     "height": 36,
