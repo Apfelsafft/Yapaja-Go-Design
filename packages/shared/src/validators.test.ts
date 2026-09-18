@@ -321,6 +321,66 @@ describe('Validators', () => {
       ).toBe(false);
     });
 
+    it('akzeptiert eine Route MIT `road_class` (0.14.0)', () => {
+      // ─── DER FEHLER, DEN DAS VERHINDERT ─────────────────────────────────
+      // `speedSegmentSchema` hat `additionalProperties: false`. Als
+      // `road_class` zum SpeedSegment kam, wurde das Schema zunächst NICHT
+      // mitgezogen. Die Folge sah man erst in der E2E-Prüfung:
+      //
+      //   POST /api/v1/navigation/start
+      //   {"error":{"code":"VALIDATION_ERROR",
+      //             "message":"Invalid \"route\" in request body"}}
+      //
+      // Also: jede frisch berechnete Route liess sich nicht mehr STARTEN.
+      // Die Unit-Tests blieben grün, weil keiner eine Route durch die
+      // Schnittstelle zurückschickte.
+      expect(
+        validateRoute({
+          ...validRoute,
+          speed_limits: [
+            { begin_shape_index: 0, end_shape_index: 10, kmh: 100, road_class: 'motorway' },
+          ],
+        }),
+      ).toBe(true);
+    });
+
+    it('akzeptiert eine Route OHNE `road_class` weiterhin', () => {
+      // Eine vor 0.14.0 berechnete und gespeicherte Route hat das Feld nicht.
+      // Sie muss gültig bleiben — sonst liesse sich nach einem Update keine
+      // laufende Fahrt fortsetzen.
+      expect(
+        validateRoute({
+          ...validRoute,
+          speed_limits: [{ begin_shape_index: 0, end_shape_index: 10, kmh: 100 }],
+        }),
+      ).toBe(true);
+    });
+
+    it('akzeptiert `road_class: null`', () => {
+      expect(
+        validateRoute({
+          ...validRoute,
+          speed_limits: [
+            { begin_shape_index: 0, end_shape_index: 10, kmh: 100, road_class: null },
+          ],
+        }),
+      ).toBe(true);
+    });
+
+    it('weist ein unbekanntes Zusatzfeld weiterhin ab', () => {
+      // Die Gegenprobe: `additionalProperties: false` soll WEITER greifen.
+      // Ohne diese Prüfung könnte man den Fehler oben auch „beheben", indem
+      // man das Schema ganz öffnet — und damit die Absicherung aufgibt.
+      expect(
+        validateRoute({
+          ...validRoute,
+          speed_limits: [
+            { begin_shape_index: 0, end_shape_index: 10, kmh: 100, erfunden: 'x' },
+          ],
+        }),
+      ).toBe(false);
+    });
+
     it('should accept Route with null speed limit', () => {
       expect(
         validateRoute({

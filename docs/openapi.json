@@ -3316,6 +3316,13 @@
                   "minimum": 5,
                   "maximum": 130,
                   "description": "Speed limit in km/h (5–130 or null for unknown)"
+                },
+                "road_class": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Valhalla's road class for this edge (motorway, trunk, primary, …) or null. Feeds the VEHICLE speed limit: a motorhome over 3.5 t may drive less than the posted sign allows, and how much less depends on whether this is a motorway. See routing/fahrzeugTempo.ts."
                 }
               },
               "required": [

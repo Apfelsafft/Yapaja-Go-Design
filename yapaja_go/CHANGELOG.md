@@ -10,6 +10,51 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.14.1
+
+**Das Tempolimit steht jetzt auch da, wenn keine Route läuft.**
+
+Von den zehn Yapaia-Entitäten war `speed_limit` die letzte, die ohne Route zu
+Unrecht leer blieb. Ankunftszeit und Abbiegehinweis gibt es ohne Ziel
+wirklich nicht — ein Tempolimit braucht aber kein Ziel, sondern nur eine
+Straße.
+
+Für ein fest verbautes Display ist das der Unterschied zwischen nützlich und
+Zierde: ohne Route fährt man die meiste Zeit. Das runde Verkehrszeichen war
+längst gezeichnet, es bekam nur nie einen Wert.
+
+Zusammen mit 0.13.1 (Tacho aus dem GPS) und 0.14.0 (Fahrzeuggrenze) heißt
+das: **Yapaia kann jetzt auch ohne Fahrt mit Ziel vor zu schnellem Fahren
+warnen.**
+
+### Wie es funktioniert
+
+Yapaia merkt sich die letzten Positionen als kurze Fahrtlinie und lässt sie
+von der Karte zuordnen. Eine Linie und kein einzelner Punkt — denn ein Punkt
+hat keine Richtung, und neben einer Autobahn verläuft oft eine Nebenstraße.
+
+### Wann Yapaia bewusst schweigt
+
+Ein **falsches** Tempolimit ist schlimmer als gar keines: ein leeres Schild
+sagt „weiß ich nicht", eine 100 auf einer Landstraße sagt etwas Falsches mit
+Nachdruck. Deshalb bleibt die Anzeige leer, wenn
+
+- das **GPS zu ungenau** ist (schlechter als 30 m). Aus Ihrem Gerät gemeldet
+  wurden 53 m — auf dieser Strecke liegen Autobahn, Auffahrt und
+  Parallelstraße nebeneinander;
+- das Fahrzeug **steht** (ohne Bewegung keine Richtung);
+- die letzte Auskunft **älter als 30 Sekunden** ist. Bei 100 km/h sind das
+  800 Meter — sie könnte von einer anderen Straße stammen;
+- die Karte diese Stelle **nicht kennt**, etwa auf einem Feldweg.
+
+Woran es gerade liegt, steht als Attribut `stand_ohne_route` an
+`binary_sensor.yapaja_speeding`. Ohne diese Angabe sähe „konnte nicht
+nachsehen" genauso aus wie „hier ist nichts ausgeschildert".
+
+Während einer Route gilt weiterhin der Wert aus der Route.
+
+---
+
 ## 0.14.0
 
 **Die Tempowarnung gilt jetzt für IHR Fahrzeug, nicht für einen PKW.**
