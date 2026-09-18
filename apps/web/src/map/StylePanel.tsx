@@ -14,11 +14,9 @@ import { useStyleStore } from '../state/styleStore';
 import { fetchStyleSummaries, type StyleLabelScale, type StyleLang, type StylePoiDensity, type StyleSummary } from './styleClient';
 import ThemeToggle from '../theme/ThemeToggle.js';
 import FaltAbschnitt from './FaltAbschnitt.js';
-import { REGIONEN_NOCH_OFFEN } from './panelAbschnitte.js';
 import DriveLockGate from '../drive/DriveLockGate.js';
 import HandednessToggle from '../shell/HandednessToggle.js';
 import { useOnboardingStore } from '../onboarding/store.js';
-import { useRegionStore } from './regionStore.js';
 import { bottomInsetPx } from '../shell/mapControlLayout.js';
 import { useSchmal } from '../shell/useSchmal.js';
 import { useNavStore } from '../drive/navStore.js';
@@ -53,9 +51,6 @@ export default function StylePanel(): React.ReactElement {
   const setLabelScale = useStyleStore((state) => state.setLabelScale);
   const setPoi = useStyleStore((state) => state.setPoi);
   const reopenOnboardingWizard = useOnboardingStore((state) => state.reopen);
-  const installedRegions = useRegionStore((state) => state.regions);
-  const manualRegion = useRegionStore((state) => state.manual);
-  const setManualRegion = useRegionStore((state) => state.setManual);
 
   useEffect(() => {
     if (!isOpen || styles.length > 0) {
@@ -118,64 +113,21 @@ export default function StylePanel(): React.ReactElement {
             </div>
           </FaltAbschnitt>
 
-          {/* ─── ANGEZEIGTE REGION ──────────────────────────────────────────
-              Sichtbar nur mit mehr als einer installierten Region — bei einer
-              einzigen gibt es nichts zu waehlen, und ein Bedienelement ohne
-              Wirkung ist schlimmer als keines.
+          {/* ─── HIER STAND „ANGEZEIGTE REGION" ────────────────────────────
+              Entfernt in 0.16.0. Gewünscht:
 
-              Seit 0.10.0 heisst die Vorgabe „Alle" und zeigt WIRKLICH alle
-              installierten Regionen gleichzeitig — vorher hiess sie
-              „Automatisch" und zeigte genau eine, naemlich die, in der man
-              sich befand. Fuer ein Wohnmobil ist eine Grenze der Normalfall;
-              gemeldet wurde „Sehe aber nur Deutschland".
+                „Der Anwender soll immer alles angezeigt bekommen was er
+                 runtergeladen hat. […] Auch die Auswahl der Region ist dann
+                 unnötig da ja immer alles angezeigt wird."
 
-              Die feste Wahl bleibt und heisst jetzt, was sie tut: NUR diese.
-              Sie ist fuer die Planung gedacht — eine Gegend aufschlagen, in
-              der man gerade nicht ist — und fuer schwache Geraete, denen
-              mehrere Quellen zu viel sind. Sie ueberlebt einen Neustart
-              absichtlich nicht (siehe regionStore.ts). */}
-          {installedRegions.length > 1 && (
-            <FaltAbschnitt
-              titel="Angezeigte Region"
-              offen={installedRegions.length <= REGIONEN_NOCH_OFFEN}
-              id="region"
-            >
-              <div className="flex flex-col gap-1">
-                <button
-                  onClick={() => setManualRegion(null)}
-                  aria-pressed={manualRegion === null}
-                  data-testid="region-option-auto"
-                  className={`text-left px-3 py-2 rounded-lg border text-xs ${
-                    manualRegion === null
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/40 font-semibold'
-                      : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  Alle
-                  {manualRegion === null && (
-                    <span className="block font-normal text-slate-500 dark:text-slate-400">
-                      {installedRegions.map((e) => e.region).join(', ')}
-                    </span>
-                  )}
-                </button>
-                {installedRegions.map((entry) => (
-                  <button
-                    key={entry.region}
-                    onClick={() => setManualRegion(entry.region)}
-                    aria-pressed={entry.region === manualRegion}
-                    data-testid={`region-option-${entry.region}`}
-                    className={`text-left px-3 py-2 rounded-lg border text-xs ${
-                      entry.region === manualRegion
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/40 font-semibold'
-                        : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    nur {entry.region}
-                  </button>
-                ))}
-              </div>
-            </FaltAbschnitt>
-          )}
+              Die Auswahl konnte nur eines: die Karte auf EINE Region
+              verkleinern. Ihr bester Zustand war „unberührt" — und ein
+              Bedienelement, für das das gilt, gehört weg und nicht in ein
+              Untermenü.
+
+              Ohne sie schickt `MapView` gar keine Region mehr mit, und der
+              Kern zeichnet alle installierten (siehe `rewriteToRegions`).
+              Dass das so bleibt, hält `alleRegionen.test.ts` fest. */}
 
           {/* ─── DARSTELLUNG: WAS MAN EINMAL EINSTELLT ─────────────────────
               Hell/Dunkel, Sprache, Schriftgroesse, POI-Dichte. Zusammen vier

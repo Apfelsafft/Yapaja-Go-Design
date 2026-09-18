@@ -26,11 +26,19 @@
  * sie hat die ANWESENHEIT eines Knopfes geprüft und daraus auf seine
  * Funktion geschlossen.
  *
- * Jetzt gilt: die mitgelieferten Regionen werden GEBAUT, nicht geladen, und
- * bekommen deshalb keinen Download-Knopf, sondern die Bau-Erklärung. Damit
- * das nicht bloß eine gestrichene Prüfung ist, weist der dritte Test die
- * Gegenrichtung nach -- ein Katalogeintrag MIT `url` bekommt sehr wohl
- * einen Download-Knopf.
+ * Jetzt gilt: die mitgelieferten Regionen werden GEBAUT, nicht geladen.
+ *
+ * ─── UMGEBAUT IN 0.16.0 ─────────────────────────────────────────────────
+ * Es gibt nur noch EINE Liste (`karte-<id>`) und je Karte höchstens zwei
+ * Knöpfe: „Installieren"/„Update" (`installieren-button-<id>`) und
+ * „Löschen". Ob dahinter ein Download oder ein Kachelbau steckt, entscheidet
+ * die Quelle und ist für den Bedienenden dieselbe Handlung — das war der
+ * Punkt der Änderung.
+ *
+ * Damit prüft diese Spec nicht mehr „welcher Knopf", sondern „ist der Weg
+ * da": ein Eintrag ohne jede Quelle bekommt KEINEN Knopf (er könnte nur
+ * scheitern), einer mit Quelle schon. Das ist dieselbe Aussage wie vorher,
+ * nur ohne die Verpackung.
  */
 
 import { test, expect } from '@playwright/test';
@@ -49,16 +57,25 @@ test('regions panel shows the installed region and refuses to delete the last on
   await page.getByTestId('regions-panel-toggle').click();
   await expect(page.getByTestId('regions-panel')).toBeVisible();
 
-  const installedEntry = page.getByTestId(`installed-region-${FIXTURE_REGION}`);
+  const installedEntry = page.getByTestId(`karte-${FIXTURE_REGION}`);
   await expect(installedEntry).toBeVisible();
   await expect(installedEntry).toContainText(FIXTURE_REGION);
 
-  // Catalog entries (from the bundled default catalog) render, not marked
-  // as installed. Sie haben KEINE fertige Datei zum Herunterladen, also
-  // steht dort die Bau-Erklärung statt eines Knopfes, der sicher scheitert.
-  await expect(page.getByTestId('catalog-region-liechtenstein')).toBeVisible();
-  await expect(page.getByTestId('download-button-liechtenstein')).toHaveCount(0);
-  await expect(page.getByTestId('build-button-liechtenstein')).toBeVisible();
+  // Die Fixture-Karte steht in keinem Katalog — sie ist eine von Hand
+  // abgelegte `.pmtiles`. Genau dieser Zustand hatte bis 0.15.3 keinen
+  // eigenen Namen und wurde vom Gesamtbau stumm übersprungen.
+  await expect(installedEntry).toHaveAttribute('data-zustand', 'fremd');
+  await expect(page.getByTestId(`karte-fremd-${FIXTURE_REGION}`)).toBeVisible();
+
+  // Katalogeinträge stehen in DERSELBEN Liste, nur weiter unten. Vorher
+  // waren es zwei Abschnitte, und eine Karte wechselte beim Installieren den
+  // Abschnitt — wer sie dort suchte, wo sie zuletzt stand, fand sie nicht.
+  await expect(page.getByTestId('karte-liechtenstein')).toBeVisible();
+  await expect(page.getByTestId('karte-liechtenstein')).toHaveAttribute(
+    'data-zustand',
+    'verfuegbar',
+  );
+  await expect(page.getByTestId('installieren-button-liechtenstein')).toHaveText('Installieren');
 
   // Deleting the only installed region must be refused (W-18-adjacent
   // "never half/zero map" rule) with a plain-language message, not a raw
@@ -70,7 +87,7 @@ test('regions panel shows the installed region and refuses to delete the last on
   await expect(errorText).not.toContainText('LAST_REGION');
 
   // The region must still be installed after the refused delete.
-  await expect(page.getByTestId(`installed-region-${FIXTURE_REGION}`)).toBeVisible();
+  await expect(page.getByTestId(`karte-${FIXTURE_REGION}`)).toBeVisible();
 
   await page.waitForTimeout(300);
   for (const url of tracker.getAllUrls()) {
@@ -89,10 +106,12 @@ test('regions panel is reachable and shows the catalog even with no map installe
 
   await page.getByTestId('regions-panel-toggle').click();
   await expect(page.getByTestId('regions-panel')).toBeVisible();
-  await expect(page.getByTestId('regions-installed-empty')).toBeVisible();
-  await expect(page.getByTestId('catalog-region-liechtenstein')).toBeVisible();
-  await expect(page.getByTestId('download-button-liechtenstein')).toHaveCount(0);
-  await expect(page.getByTestId('build-hint-liechtenstein')).toBeVisible();
+  // Ohne installierte Karte ist die Liste nicht leer — der Katalog steht
+  // darin. Was fehlt, ist etwas zu BAUEN, und das sagt der gemeinsame Knopf.
+  await expect(page.getByTestId('karte-liechtenstein')).toBeVisible();
+  await expect(page.getByTestId('installieren-button-liechtenstein')).toBeVisible();
+  await expect(page.getByTestId('gesamtbau-ohne-karte')).toBeVisible();
+  await expect(page.getByTestId('gesamtbau-button')).toBeDisabled();
 
   await page.waitForTimeout(300);
   for (const url of tracker.getAllUrls()) {
@@ -102,12 +121,14 @@ test('regions panel is reachable and shows the catalog even with no map installe
   expect(pageErrors).toEqual([]);
 });
 
-// Die Gegenprobe zu den beiden Tests oben. Ohne sie hätte ich nur eine
-// Prüfung gestrichen: „kein Download-Knopf" wäre auch dann grün, wenn die
-// Oberfläche NIE einen Download-Knopf zeigen könnte. Der Katalog wird hier
-// abgefangen und um einen Eintrag MIT `url` ergänzt -- der bekommt einen
-// Knopf, der danebenstehende ohne `url` nicht.
-test('ein Katalogeintrag MIT Download-Quelle bekommt weiterhin einen Download-Knopf', async ({
+// Die Gegenprobe: „kein Knopf" wäre auch dann grün, wenn die Oberfläche NIE
+// einen Knopf zeigen könnte. Der Katalog wird hier abgefangen und enthält
+// einen Eintrag MIT Quelle und einen komplett OHNE — der erste bekommt einen
+// Knopf, der zweite nicht.
+//
+// Ein Knopf, der nicht funktionieren KANN, ist schlimmer als kein Knopf: er
+// schickt den Betreiber auf die Fehlersuche in seiner eigenen Installation.
+test('nur ein Eintrag MIT Quelle bekommt einen Knopf', async ({
   page,
 }) => {
   await page.route('**/api/v1/map/regions/catalog', async (route) => {
@@ -125,12 +146,21 @@ test('ein Katalogeintrag MIT Download-Quelle bekommt weiterhin einen Download-Kn
             installed: false,
           },
           {
-            id: 'ohnequelle',
-            name: 'Ohne Quelle',
-            pbfUrl: 'http://127.0.0.1:9/ohnequelle.osm.pbf',
+            id: 'perbau',
+            name: 'Wird gebaut',
+            pbfUrl: 'http://127.0.0.1:9/perbau.osm.pbf',
             sizeBytes: 1024,
             bounds: [0, 0, 1, 1],
             buildEffort: 'small',
+            installed: false,
+          },
+          {
+            // Weder fertige Datei noch OSM-Extrakt. Für diesen Eintrag
+            // liesse sich nichts tun, also gibt es auch keinen Knopf.
+            id: 'ohnequelle',
+            name: 'Ohne jede Quelle',
+            sizeBytes: 1024,
+            bounds: [0, 0, 1, 1],
             installed: false,
           },
         ],
@@ -143,11 +173,17 @@ test('ein Katalogeintrag MIT Download-Quelle bekommt weiterhin einen Download-Kn
   await page.getByTestId('regions-panel-toggle').click();
   await expect(page.getByTestId('regions-panel')).toBeVisible();
 
-  await expect(page.getByTestId('download-button-mitquelle')).toBeVisible();
-  await expect(page.getByTestId('build-button-mitquelle')).toHaveCount(0);
+  // Beide Quellen ergeben DENSELBEN Knopf — das ist der Punkt: für den
+  // Bedienenden ist es dieselbe Handlung, nur die Dauer unterscheidet sich.
+  await expect(page.getByTestId('installieren-button-mitquelle')).toBeVisible();
+  await expect(page.getByTestId('installieren-button-perbau')).toBeVisible();
 
-  await expect(page.getByTestId('download-button-ohnequelle')).toHaveCount(0);
-  await expect(page.getByTestId('build-button-ohnequelle')).toBeVisible();
+  // Ohne jede Quelle: kein Knopf, aber ein Eintrag mit Begründung. Stumm
+  // wegzulassen wäre die Fehlerklasse, die dieses Projekt am längsten
+  // verfolgt.
+  await expect(page.getByTestId('karte-ohnequelle')).toBeVisible();
+  await expect(page.getByTestId('installieren-button-ohnequelle')).toHaveCount(0);
+  await expect(page.getByTestId('karte-ohne-quelle-ohnequelle')).toBeVisible();
 });
 
 /**
@@ -170,12 +206,16 @@ test('ein Katalogeintrag MIT Download-Quelle bekommt weiterhin einen Download-Kn
  * der Karte. Nur Deutschland ist zu sehen." Die Ursache war genau diese Zeile
  * in `MapView`, die 0.9.1 vollständig wirkungslos machte.
  *
- * Die Gegenrichtung — eine FESTE Wahl wird sehr wohl mitgeschickt — lässt
- * sich hier nicht prüfen: die Auswahl erscheint erst ab zwei installierten
- * Regionen, und diese Umgebung hat genau eine. Sie steht in
- * `src/map/stilRegion.test.ts`.
+ * ─── SEIT 0.16.0 GIBT ES GAR KEINE AUSNAHME MEHR ───────────────────────────
+ * Bis 0.15.3 durfte eine FESTE Wahl im Kartenmenü doch eine Region nennen.
+ * Diese Wahl ist entfallen — gewünscht war, dass immer alles Installierte zu
+ * sehen ist. Damit lautet die Regel schlicht: NIE eine Region.
+ *
+ * Die Quelltext-Wache dazu steht in `src/map/alleRegionen.test.ts`; sie fängt
+ * den Fall, dass `MapView` wieder eine durchreicht. Dieser Test hier prüft,
+ * was am Ende wirklich über die Leitung geht.
  */
-test('die Stil-Anfrage nennt ohne feste Wahl KEINE Region', async ({ page }) => {
+test('die Stil-Anfrage nennt NIE eine Region', async ({ page }) => {
   const tracker = await trackRequests(page, CORE_BASE_URL);
 
   await page.goto(CORE_BASE_URL + '/');
@@ -192,6 +232,115 @@ test('die Stil-Anfrage nennt ohne feste Wahl KEINE Region', async ({ page }) => 
         'wer mehrere Länder installiert hat, sieht nur eines davon.',
     ).toBeNull();
   }
+});
+
+/**
+ * Der gemeinsame Bau zeigt, wo er steht und wie lange es noch dauert.
+ *
+ * ─── WAS HIER GEPRÜFT WIRD UND WAS NICHT ────────────────────────────────────
+ * Nicht der Bau selbst — der dauert Stunden und braucht planetiler. Geprüft
+ * wird die ANZEIGE: dass Schritt und Restzeit ankommen und dass die
+ * Unterscheidung zwischen einer Schätzung und einer Untergrenze bis in den
+ * Browser durchhält.
+ *
+ * Genau diese Unterscheidung ist das, was bei einer Nachbau-Rechnung in der
+ * Oberfläche verloren ginge: eine Untergrenze, die wie eine Schätzung
+ * aussieht, fällt immer zu kurz aus.
+ */
+test('der gemeinsame Bau zeigt Schritt und Restzeit', async ({ page }) => {
+  const JOB = {
+    id: 'job-gesamt',
+    status: 'running',
+    progress: 0,
+    bytes: 0,
+    totalBytes: null,
+    error: null,
+    note: 'Routing bauen (2 Karten) …',
+    region: FIXTURE_REGION,
+    bauart: 'gesamt',
+    gesamt: {
+      schritt: 2,
+      schritte: 4,
+      schrittText: 'Suche bauen (liechtenstein)',
+      restSekunden: 900,
+      restGrund: 'mindestens',
+      restText: 'mindestens noch 15 Min. (ein Schritt läuft zum ersten Mal)',
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await page.route('**/api/v1/map/regions/laufender-bau', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: JOB }) }),
+  );
+  await page.route(`**/api/v1/jobs/${JOB.id}`, (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: JOB }) }),
+  );
+
+  await page.goto(CORE_BASE_URL + '/');
+  await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('regions-panel-toggle').click();
+  await expect(page.getByTestId('regions-panel')).toBeVisible();
+
+  // Der Gesamtbau steht an SEINER Stelle — nicht unter einer einzelnen Karte.
+  // Dort wäre er falsch einsortiert: er baut über alle.
+  await expect(page.getByTestId('gesamtbau-schritt')).toContainText('Schritt 2 von 4');
+  await expect(page.getByTestId('gesamtbau-schritt')).toContainText('Suche bauen (liechtenstein)');
+
+  // Und die Restzeit trägt ihre Einschränkung mit. „noch etwa 15 Min." wäre
+  // hier die gefährlichere Auskunft — sie fiele sicher zu kurz aus.
+  const rest = page.getByTestId('gesamtbau-restzeit');
+  await expect(rest).toContainText('mindestens noch 15 Min.');
+  await expect(rest).toContainText('zum ersten Mal');
+});
+
+/**
+ * Und ohne Erfahrungswerte steht dort KEINE Zahl.
+ *
+ * Beim ersten Bau einer Karte ist das der Normalfall. Eine erfundene Zahl
+ * wäre hier besonders teuer: sie sieht überprüfbar aus.
+ */
+test('ohne Erfahrungswerte nennt der Bau keine Restzeit', async ({ page }) => {
+  const JOB = {
+    id: 'job-erstmalig',
+    status: 'running',
+    progress: 0,
+    bytes: 0,
+    totalBytes: null,
+    error: null,
+    note: 'Routing bauen (1 Karte) …',
+    region: FIXTURE_REGION,
+    bauart: 'gesamt',
+    gesamt: {
+      schritt: 1,
+      schritte: 2,
+      schrittText: 'Routing bauen (fixture)',
+      restSekunden: null,
+      restGrund: 'unbekannt',
+      restText: null,
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await page.route('**/api/v1/map/regions/laufender-bau', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: JOB }) }),
+  );
+  await page.route(`**/api/v1/jobs/${JOB.id}`, (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: JOB }) }),
+  );
+
+  await page.goto(CORE_BASE_URL + '/');
+  await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('regions-panel-toggle').click();
+  await expect(page.getByTestId('regions-panel')).toBeVisible();
+
+  const rest = page.getByTestId('gesamtbau-restzeit');
+  await expect(rest).toContainText('noch unbekannt');
+  // Die Gegenprobe: kein „0 Min.", kein „noch etwa". Ein leeres Feld oder
+  // eine Null sähe aus wie „gleich fertig".
+  await expect(rest).not.toContainText('noch etwa');
+  await expect(rest).not.toContainText('0 Min.');
 });
 
 /**

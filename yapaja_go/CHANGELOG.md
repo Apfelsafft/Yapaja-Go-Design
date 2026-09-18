@@ -10,6 +10,99 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.16.0
+
+**Die Karte zeigt jetzt immer alles, was installiert ist.**
+
+Gewünscht:
+
+> „Der Anwender soll immer alles angezeigt bekommen was er runtergeladen hat.
+> Kacheln und Suche bezieht sich immer auf alles was runtergeladen wurde.
+> Weiße Flecken sind nur da wenn eine Karte nicht geladen wurde. Auch die
+> Auswahl der Region ist dann unnötig da ja immer alles angezeigt wird."
+
+Die **Auswahl „Angezeigte Region" im Kartenmenü ist entfallen.** Sie konnte
+nur eines: die Karte auf eine Region verkleinern. Ihr bester Zustand war
+„unberührt" — und ein Bedienelement, für das das gilt, gehört weg und nicht
+auf eine tiefere Menüebene.
+
+Damit ist eine weiße Fläche ab sofort **eindeutig**: dort ist keine Karte
+installiert. Vorher konnte sie auch heißen, dass eine Auswahl aktiv war, von
+der man nichts mehr wusste.
+
+Kacheln und Suche spannten schon vorher über alle Karten (seit 0.9.1 bzw.
+0.5.0) — es gab nur diese eine Zeile, die es wieder einschränken konnte.
+
+---
+
+**Eine Kartenliste statt zwei, und drei Knöpfe statt sechs.**
+
+> „Das bedeutet der Anwender klickt bei einer Karte nur noch auf
+> ‚installieren' (sofern nicht installiert), ‚Update' (bei installierten
+> Karten zum Update) oder ‚löschen' falls bereits installiert."
+
+Genau so ist es jetzt. Vorher gab es zwei Abschnitte („Installierte Regionen"
+und „Verfügbare Regionen") und bis zu vier Knöpfe je Eintrag. Eine Karte
+wanderte beim Installieren vom einen Abschnitt in den anderen und wechselte
+dabei ihre Knöpfe — wer sie dort suchte, wo sie zuletzt stand, fand sie nicht.
+
+Ob hinter **„Installieren"** ein Download oder ein Kachelbau steckt,
+entscheidet die Karte selbst. Für Sie ist es dieselbe Handlung; nur die Dauer
+unterscheidet sich (Minuten gegenüber Stunden).
+
+Eine **selbst nach `/share/yapaja/tiles/` gelegte Karte** wird jetzt als
+solche ausgewiesen. Sie wird gezeichnet, aber für sie lässt sich weder Routing
+noch Suche bauen — es gibt keine OpenStreetMap-Quelle. Das stand bisher
+nirgends, und der Bau übersprang sie stillschweigend.
+
+---
+
+**Ein Knopf, der alles wieder zusammenbaut — mit Restzeit.**
+
+> „Dann gibt es noch einen gemeinsamen Knopf der nach einer neuen Installation
+> oder Update alles wieder neu baut für eine gemeinsame Anzeige. […] Wenn
+> möglich mit einer geschätzten Zeit wann die Aktion fertig ist. Sollte sich
+> entsprechend des Bau-Fortschritts aktualisieren."
+
+**„Alles bauen"** ersetzt die früheren Knöpfe „Routing bauen" und „Suche
+bauen" an jeder einzelnen Karte. Er baut den Routinggraphen einmal über alle
+Karten und danach je Karte den Suchindex — alles in **einem** Vorgang, der
+auch einen Seitenwechsel übersteht.
+
+Die Anzeige sagt, im wievielten von wie vielen Schritten er steht und woran er
+gerade arbeitet.
+
+**Zur Restzeit, und warum sie manchmal fehlt.** Ein Kachel- oder Routingbau
+hat keinen messbaren Fortschritt: die Ausgabe von planetiler und Valhalla
+lässt sich nicht zuverlässig in eine Prozentzahl übersetzen. Eine Restzeit
+daraus zu rechnen wäre eine erfundene Zahl mit einer Einheit dahinter — also
+schlimmer als keine, weil sie überprüfbar aussieht.
+
+Was sich messen lässt, ist, **wie lange derselbe Schritt beim letzten Mal
+gedauert hat.** Genau daraus entsteht die Angabe. Deshalb:
+
+| Was dasteht | Was es heißt |
+|---|---|
+| „noch etwa 40 Min." | Jeder verbleibende Schritt wurde schon einmal gemessen. |
+| „mindestens noch 15 Min." | Ein Schritt läuft zum ersten Mal. Es dauert **länger**. |
+| „dauert länger als beim letzten Mal" | Der laufende Schritt hat seine gemessene Dauer überschritten. |
+| „Restzeit noch unbekannt" | Erster Lauf — es gibt nichts, woraus sich etwas ableiten ließe. |
+
+Die Unterscheidung zwischen einer Schätzung und einer **Untergrenze** ist
+dabei der Punkt. Eine Untergrenze fällt immer zu kurz aus; wer sie für eine
+Schätzung hält, plant falsch.
+
+Die Messwerte liegen in `bauzeiten.json` neben dem Kartenverzeichnis. Nach
+einem halben Jahr gelten sie nicht mehr — bis dahin hat sich meist etwas
+geändert, das die Dauer beeinflusst. Die Datei ist nie wichtig: fehlt sie oder
+ist sie kaputt, fehlt nur die Restzeitangabe.
+
+**„Löschen" ist während eines Baus absichtlich nicht gesperrt.** Ein Bau kann
+Stunden dauern und hängenbleiben; wäre Löschen dann blockiert, käme man an
+keine Karte mehr heran, bis das Add-on neu startet.
+
+---
+
 ## 0.15.3
 
 **Die Wasserwaage erscheint jetzt auch ohne Tempowert.**

@@ -23,29 +23,34 @@
  * Also nach HÄUFIGKEIT geteilt:
  *
  *   OFFEN     Kartenstil       der Grund, aus dem man dieses Menü öffnet
- *             Angezeigte Region  unterwegs im Grenzgebiet mehrmals am Tag
  *
  *   GEFALTET  Darstellung      Hell/Dunkel, Sprache, Schriftgröße, POI-Dichte
  *             Gerät            Links-/Rechtshänder, Setup-Assistent
  *
- * „Angezeigte Region" erscheint ohnehin nur bei mehr als einer installierten
- * Karte — bei einer einzigen gibt es nichts zu wählen.
+ * ─── „ANGEZEIGTE REGION" IST SEIT 0.16.0 WEG ────────────────────────────────
+ * Sie stand hier als der zweite offene Abschnitt, „unterwegs im Grenzgebiet
+ * mehrmals am Tag". Gewünscht wurde das Gegenteil:
+ *
+ *   „Der Anwender soll immer alles angezeigt bekommen was er runtergeladen
+ *    hat. […] Auch die Auswahl der Region ist dann unnötig da ja immer alles
+ *    angezeigt wird."
+ *
+ * Das ist richtig, und es macht diesen Abschnitt nicht nur überflüssig,
+ * sondern schädlich: seine einzige Wirkung war, die Karte auf eine Region zu
+ * VERKLEINERN. Ein Bedienelement, dessen bester Zustand „unberührt" ist,
+ * gehört weg — nicht auf eine tiefere Menüebene.
+ *
+ * Damit bleibt das Menü auch unabhängig von der Zahl der installierten
+ * Karten gleich hoch. Der ganze Grund für die Rechnung unten war dieser eine
+ * Abschnitt; sie bleibt trotzdem stehen, weil sie festhält, was sich nicht
+ * wieder verschlechtern soll.
  *
  * ─── WARUM DAS HIER STEHT UND NICHT IN DER KOMPONENTE ───────────────────────
  * Weil es eine ENTSCHEIDUNG ist und keine Darstellung. Sie gehört geprüft,
  * und in einer React-Komponente wäre sie nur noch im Browser zu erreichen.
  */
 
-export type AbschnittId = 'stil' | 'region' | 'darstellung' | 'geraet';
-
-/**
- * Bis zu wie vielen Karten die Regionsliste offen bleibt.
- *
- * Ein bis drei Nachbarländer sind der Normalfall; dort soll der Wechsel EIN
- * Tipp sein. Wer ein Dutzend Karten installiert hat, sucht ohnehin in einer
- * Liste — und dann darf sie nicht alles andere aus dem Bild schieben.
- */
-export const REGIONEN_NOCH_OFFEN = 4;
+export type AbschnittId = 'stil' | 'darstellung' | 'geraet';
 
 export interface Abschnitt {
   id: AbschnittId;
@@ -63,36 +68,17 @@ export interface Abschnitt {
 /**
  * Die Abschnitte in der Reihenfolge, in der sie stehen.
  *
- * @param regionen Zahl der installierten Karten
+ * Seit 0.16.0 hängen sie an gar nichts mehr — die Regionsliste war der
+ * einzige Teil, der mit den Daten wuchs. Die Funktion bleibt trotzdem eine
+ * Funktion und keine Konstante: sie ist die Stelle, an der diese Entscheidung
+ * steht, und die Rechnung unten soll sie weiter prüfen können.
  */
-export function panelAbschnitte(regionen: number): Abschnitt[] {
-  const abschnitte: Abschnitt[] = [
+export function panelAbschnitte(): Abschnitt[] {
+  return [
     { id: 'stil', titel: 'Kartenstil', offen: true },
-  ];
-  if (regionen > 1) {
-    abschnitte.push({
-      id: 'region',
-      titel: 'Angezeigte Region',
-      // ─── DER EINZIGE ABSCHNITT, DER MIT DEN DATEN WÄCHST ──────────────
-      // Stile, Sprachen und Schriftgrößen sind feste Listen. Die Regionen
-      // sind es nicht: wer quer durch Europa fährt, hat ein Dutzend.
-      //
-      // Ein erster Entwurf ließ diesen Abschnitt immer offen. Die Rechnung
-      // unten hat gezeigt, dass er damit bei sechs Regionen genau die Grenze
-      // reisst, die er einhalten sollte — also ausgerechnet auf der langen
-      // Fahrt, auf der man ihn am nötigsten braucht.
-      //
-      // Bis vier Karten bleibt er offen: das ist der Normalfall (ein bis
-      // drei Nachbarländer), und dort soll der Wechsel EIN Tipp sein.
-      // Darüber klappt er zu und kostet einen zweiten.
-      offen: regionen <= REGIONEN_NOCH_OFFEN,
-    });
-  }
-  abschnitte.push(
     { id: 'darstellung', titel: 'Darstellung', offen: false },
     { id: 'geraet', titel: 'Gerät', offen: false },
-  );
-  return abschnitte;
+  ];
 }
 
 /**
@@ -106,17 +92,18 @@ export function panelAbschnitte(regionen: number): Abschnitt[] {
  * ein Umschalter. Bildpunkte hingen an Schriftgrößen und Rändern und wären
  * eine Genauigkeit, die diese Rechnung nicht hat.
  *
- * @param stile    Zahl der Kartenstile
- * @param regionen Zahl der installierten Karten
+ * Seit 0.16.0 hängt die Höhe nicht mehr an der Zahl der Karten: der einzige
+ * Abschnitt, der mit ihnen wuchs, ist weg. Genau das hält diese Rechnung
+ * fest — ein Abschnitt, der wieder mit den Daten wüchse, fiele hier auf.
+ *
+ * @param stile Zahl der Kartenstile
  */
-export function zeilenBeimOeffnen(stile: number, regionen: number): number {
+export function zeilenBeimOeffnen(stile: number): number {
   let zeilen = 0;
-  for (const a of panelAbschnitte(regionen)) {
+  for (const a of panelAbschnitte()) {
     zeilen += 1; // die Überschrift, immer sichtbar
     if (!a.offen) continue;
     if (a.id === 'stil') zeilen += stile;
-    // „Alle" plus eine Zeile je Region.
-    if (a.id === 'region') zeilen += regionen + 1;
   }
   return zeilen;
 }

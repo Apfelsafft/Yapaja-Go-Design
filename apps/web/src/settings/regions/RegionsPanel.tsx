@@ -1,19 +1,40 @@
 /**
- * Region manager panel (E01-T5, docs/03-api-spec.md §2): lists installed
- * regions (delete) and the downloadable-regions catalog (download, with
- * live job-progress polling). Coverage is shown as a bounds text line
- * (W-09: "Region-Manager zeigt Abdeckung" -- a mini-map is optional per the
- * task spec, and a text line is simpler/more testable than embedding a
- * second MapLibre instance for this preliminary panel). Disk-full (409
- * INSUFFICIENT_SPACE) and last-region (409 LAST_REGION) errors are shown
- * with a plain-language message + the byte calculation, not a raw error
- * code.
+ * Kartenverwaltung — EINE Liste, drei Handlungen, ein gemeinsamer Bau-Knopf.
  *
- * Follows the same toggle-FAB + floating panel pattern as StylePanel
- * (E01-T4). Positioned top-right (below MapLibre's own NavigationControl,
- * which claims the very top of that corner) so it doesn't overlap
- * StylePanel (bottom-left) or the compass/view-mode/re-center FABs
- * (bottom-right).
+ * ─── WAS SICH IN 0.16.0 GEÄNDERT HAT ────────────────────────────────────────
+ * Gewünscht:
+ *
+ *   „Das bedeutet der Anwender klickt bei einer Karte nur noch auf
+ *    ‚installieren' (sofern nicht installiert), ‚Update' (bei installierten
+ *    Karten zum Update) oder ‚löschen' falls bereits installiert.
+ *    Dann gibt es noch einen gemeinsamen Knopf der nach einer neuen
+ *    Installation oder Update alles wieder neu baut für eine gemeinsame
+ *    Anzeige. Bitte hier dann ebenfalls mit Fortschrittsanzeige […] Wenn
+ *    möglich mit einer geschätzten Zeit wann die Aktion fertig ist."
+ *
+ * Vorher: zwei Listen („Installierte" / „Verfügbare"), bis zu vier Knöpfe je
+ * Eintrag (Herunterladen bzw. Kacheln bauen, Routing bauen, Suche bauen,
+ * Löschen), und eine Karte wechselte beim Installieren die Liste und dabei
+ * ihre Knöpfe.
+ *
+ * „Routing bauen" und „Suche bauen" sind ERZEUGNISSE, keine Handlungen. Wer
+ * eine Karte installiert, will nicht wissen, welche Nebenprodukte es gibt,
+ * sondern dass danach alles wieder passt. Dafür gibt es jetzt den einen
+ * Knopf — und er sagt, wie weit er ist und wie lange es noch dauert.
+ *
+ * Die Zusammenführung der beiden Listen steht in `kartenliste.ts`: es ist
+ * eine Entscheidung und keine Darstellung, und in einem React-Baustein wäre
+ * sie nur noch im Browser zu erreichen.
+ *
+ * ─── ZUR RESTZEIT ───────────────────────────────────────────────────────────
+ * Sie kommt fertig aus dem Kern (`bauzeit.ts`), samt der Unterscheidung
+ * zwischen einer Schätzung und einer Untergrenze. Diese Oberfläche baut sie
+ * NICHT nach: sie zeigt `restText`, wenn es einen gibt, und sagt sonst, dass
+ * es noch keine Erfahrungswerte gibt. Eine erfundene Zahl wäre hier
+ * besonders teuer — sie sieht überprüfbar aus.
+ *
+ * Positioniert wie StylePanel (E01-T4): Toggle-FAB oben rechts, unterhalb von
+ * MapLibres eigener NavigationControl.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -28,13 +49,19 @@ import {
   fetchLaufenderBau,
   startDownload,
   startBuild,
-  startGraphBuild,
-  startSearchIndexBuild,
+  startGesamtbau,
   RegionApiError,
   type CatalogRegion,
   type InstalledRegion,
   type JobSnapshot,
 } from './client';
+import {
+  kartenliste,
+  istInstalliert,
+  kannInstallieren,
+  installierenText,
+  type Karteneintrag,
+} from './kartenliste.js';
 
 import { TOP_RIGHT_INSET_PX, topRightSlotPx } from '../../shell/mapControlLayout.js';
 const JOB_POLL_INTERVAL_MS = 400;
@@ -171,21 +198,81 @@ function JobProgress({ regionId, job }: { regionId: string; job: JobSnapshot }):
   );
 }
 
+/**
+ * Der Schlüssel, unter dem der GESAMTBAU in der Job-Tabelle steht.
+ *
+ * Er gehört zu keiner einzelnen Karte — er baut über alle. Ihn unter einer
+ * Region einzusortieren wäre bequem und falsch: dann stünde der Fortschritt
+ * eines Laufs über fünf Länder ausgerechnet an einem davon.
+ */
+const GESAMT_SCHLUESSEL = '__gesamt__';
+
+/** Wo ein Gesamtbau steht — Schritt, Balken, Restzeit. */
+function GesamtFortschritt({ job }: { job: JobSnapshot }): React.ReactElement {
+  const gesamt = job.gesamt;
+  if (job.status === 'done') {
+    return (
+      <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400" data-testid="gesamtbau-fertig">
+        ✓ {job.note ?? 'Alles neu gebaut.'}
+      </p>
+    );
+  }
+  if (job.status === 'error') {
+    return (
+      <p className="mt-2 text-xs text-red-600 dark:text-red-400" data-testid="gesamtbau-fehler">
+        {job.error?.message ?? 'Der Bau ist fehlgeschlagen.'}
+      </p>
+    );
+  }
+
+  // ─── DER BALKEN ZEIGT DIE SCHRITTE, NICHT DEN LAUF ────────────────────────
+  // Innerhalb eines Schrittes gibt es keinen messbaren Fortschritt (siehe
+  // `build.ts`). Was es GIBT, ist die Zahl der erledigten Schritte — und das
+  // ist eine echte Zahl, keine erfundene. Der Balken zeigt deshalb genau sie.
+  const anteil = gesamt ? (gesamt.schritt - 1) / gesamt.schritte : 0;
+
+  return (
+    <div className="mt-2" data-testid="gesamtbau-fortschritt">
+      <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-blue-500 transition-[width]"
+          style={{ width: `${Math.round(anteil * 100)}%` }}
+        />
+      </div>
+      {gesamt && (
+        <div className="mt-1 text-xs text-slate-600 dark:text-slate-300" data-testid="gesamtbau-schritt">
+          Schritt {gesamt.schritt} von {gesamt.schritte}: {gesamt.schrittText}
+        </div>
+      )}
+      {/* ─── DIE RESTZEIT ───────────────────────────────────────────────────
+          `restText` kommt fertig aus dem Kern, samt der Unterscheidung
+          zwischen einer Schätzung („noch etwa") und einer Untergrenze
+          („mindestens noch"). Diese Oberfläche baut sie NICHT nach — dabei
+          ginge genau die Unterscheidung verloren, für die es sie gibt.
+
+          Gibt es keinen Satz, steht das auch so da. Beim ersten Bau einer
+          Karte ist das der Normalfall, und „unbekannt" ist dann die richtige
+          Auskunft — nicht eine Zahl, die aus nichts entstanden ist. */}
+      <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400" data-testid="gesamtbau-restzeit">
+        {gesamt?.restText ??
+          'Restzeit noch unbekannt — sie ergibt sich aus der Dauer des letzten Baus.'}
+      </div>
+      {job.note && (
+        <div className="mt-0.5 text-xs text-slate-400 dark:text-slate-500 break-words" data-testid="gesamtbau-notiz">
+          {job.note}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function RegionsPanel(): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
   const [installed, setInstalled] = useState<InstalledRegion[]>([]);
   const [catalog, setCatalog] = useState<CatalogRegion[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [downloads, setDownloads] = useState<Record<string, DownloadState>>({});
+  const [jobs, setJobs] = useState<Record<string, DownloadState>>({});
   const [errorByRegion, setErrorByRegion] = useState<Record<string, string>>({});
-  /**
-   * Die offene Rückfrage zur Routing-Abdeckung, je Region.
-   *
-   * BEWUSST getrennt von `errorByRegion`: ein Fehler sagt „es ging nicht",
-   * diese Meldung sagt „es geht, aber nicht ganz — willst du?". In derselben
-   * roten Zeile wäre sie eine Sackgasse, und genau das war sie in 0.10.1.
-   */
-  const [abdeckungsfrage, setAbdeckungsfrage] = useState<Record<string, string>>({});
 
   // E03-T6: Listen to UI store to open the panel from RoutingPanel
   const regionsPanelOpen = useUiStore((state) => state.regionsPanel.isOpen);
@@ -197,10 +284,10 @@ export default function RegionsPanel(): React.ReactElement {
 
   // Read inside the polling interval via a ref so the interval effect
   // doesn't need to restart every time a job's progress updates.
-  const downloadsRef = useRef<Record<string, DownloadState>>({});
+  const jobsRef = useRef<Record<string, DownloadState>>({});
   useEffect(() => {
-    downloadsRef.current = downloads;
-  }, [downloads]);
+    jobsRef.current = jobs;
+  }, [jobs]);
 
   const refresh = useCallback(async () => {
     const [installedRegions, catalogRegions, laufend] = await Promise.all([
@@ -217,24 +304,22 @@ export default function RegionsPanel(): React.ReactElement {
     // sichtbar." — und beim nächsten Druck auf „bauen": „Es läuft bereits ein
     // Bau."
     //
-    // Beides stimmte. Der Bau lief im Kern weiter; nur DIESE Zuordnung
-    // (welcher Job gehört zu welcher Region) lag im Speicher des Browsers und
-    // war beim Verlassen der Seite weg. Der Kern wusste alles und zeigte
-    // nichts.
+    // Beides stimmte. Der Bau lief im Kern weiter; nur DIESE Zuordnung lag im
+    // Speicher des Browsers und war beim Verlassen der Seite weg. Der Kern
+    // wusste alles und zeigte nichts.
     //
-    // Der Job trägt seine Region seit 0.10.4 selbst — die Anzeige kann sich
-    // deshalb einfach wieder anhängen, und das Abfragen läuft danach von
-    // allein weiter.
-    //
-    // Ein Job OHNE Region wird bewusst ignoriert statt irgendwo einsortiert:
-    // an der falschen Stelle wäre er schlimmer als gar nicht.
-    if (laufend?.region) {
-      const region = laufend.region;
-      setDownloads((prev) =>
-        // Ein gerade erst hier gestarteter Job hat Vorrang — er ist aktueller
-        // als das, was der Kern eine Netzrunde zuvor gemeldet hat.
-        prev[region] ? prev : { ...prev, [region]: { jobId: laufend.id, job: laufend } },
-      );
+    // Der Gesamtbau gehört dabei unter seinen eigenen Schlüssel: er baut über
+    // alle Karten, und unter einer einzelnen einsortiert stünde sein
+    // Fortschritt an der falschen Stelle.
+    if (laufend) {
+      const schluessel = laufend.bauart === 'gesamt' ? GESAMT_SCHLUESSEL : laufend.region;
+      if (schluessel) {
+        setJobs((prev) =>
+          // Ein gerade erst hier gestarteter Job hat Vorrang — er ist
+          // aktueller als das, was der Kern eine Netzrunde zuvor gemeldet hat.
+          prev[schluessel] ? prev : { ...prev, [schluessel]: { jobId: laufend.id, job: laufend } },
+        );
+      }
     }
 
     setLoaded(true);
@@ -252,17 +337,17 @@ export default function RegionsPanel(): React.ReactElement {
       return;
     }
     const interval = setInterval(() => {
-      const active = Object.entries(downloadsRef.current).filter(
+      const active = Object.entries(jobsRef.current).filter(
         ([, state]) => !state.job || (state.job.status !== 'done' && state.job.status !== 'error'),
       );
       if (active.length === 0) {
         return;
       }
       void Promise.all(
-        active.map(async ([regionId, state]) => {
+        active.map(async ([schluessel, state]) => {
           const job = await fetchJob(state.jobId);
-          setDownloads((prev) =>
-            prev[regionId] ? { ...prev, [regionId]: { jobId: state.jobId, job } } : prev,
+          setJobs((prev) =>
+            prev[schluessel] ? { ...prev, [schluessel]: { jobId: state.jobId, job } } : prev,
           );
           if (job && (job.status === 'done' || job.status === 'error')) {
             void refresh();
@@ -273,78 +358,49 @@ export default function RegionsPanel(): React.ReactElement {
     return () => clearInterval(interval);
   }, [isOpen, refresh]);
 
-  const handleDownload = useCallback(async (regionId: string) => {
-    setErrorByRegion((prev) => ({ ...prev, [regionId]: '' }));
+  /**
+   * Installieren ODER aktualisieren — dieselbe Handlung.
+   *
+   * Der Kachelbau ersetzt, was da ist; ein Download ebenso. Zwei Knöpfe
+   * daraus zu machen hiesse, denselben Vorgang zweimal zu erklären.
+   *
+   * Welcher Weg genommen wird, entscheidet die QUELLE und nicht der Zustand:
+   * gibt es eine fertige `.pmtiles`, wird sie geladen (Minuten), sonst aus dem
+   * OSM-Extrakt gebaut (bei einem grossen Land Stunden).
+   */
+  const handleInstallieren = useCallback(async (eintrag: Karteneintrag) => {
+    setErrorByRegion((prev) => ({ ...prev, [eintrag.id]: '' }));
     try {
-      const jobId = await startDownload(regionId);
-      setDownloads((prev) => ({ ...prev, [regionId]: { jobId, job: null } }));
-    } catch (err) {
-      const message =
-        err instanceof RegionApiError ? formatApiError(err) : 'Download konnte nicht gestartet werden.';
-      setErrorByRegion((prev) => ({ ...prev, [regionId]: message }));
-    }
-  }, []);
-
-  // B-04: der Bau nutzt DIESELBE Job-Maschinerie wie der Download --
-  // derselbe `downloads`-State, dasselbe Polling, dieselbe Fortschritts-
-  // anzeige. Nur der Auslöser ist ein anderer.
-  const handleBuild = useCallback(async (regionId: string) => {
-    setErrorByRegion((prev) => ({ ...prev, [regionId]: '' }));
-    try {
-      const jobId = await startBuild(regionId);
-      setDownloads((prev) => ({ ...prev, [regionId]: { jobId, job: null } }));
-    } catch (err) {
-      const message =
-        err instanceof RegionApiError ? formatApiError(err) : 'Bau konnte nicht gestartet werden.';
-      setErrorByRegion((prev) => ({ ...prev, [regionId]: message }));
-    }
-  }, []);
-
-  // Der Routinggraph ist ein EIGENES Erzeugnis aus derselben PBF. Er teilt
-  // sich Job-Maschinerie und Sperre mit dem Kachelbau -- zwei schwere Bauten
-  // nebeneinander sprengen den Speicher der 8-GB-VM.
-  //
-  // Seit 0.10.2 deckt EIN Bau alle installierten Karten ab — fehlende
-  // OSM-Extrakte werden dabei nachgeladen. Der Kern lehnt nur noch dann mit
-  // 409 `COVERAGE_LOSS` ab, wenn eine installierte Karte weder Extrakt noch
-  // Quelle hat (eine von Hand abgelegte `.pmtiles`). Dafür gibt es jetzt
-  // einen Knopf: eine Warnung, an der man nicht vorbeikommt, ist keine.
-  const handleGraphBuild = useCallback(async (regionId: string, bestaetigt = false) => {
-    setErrorByRegion((prev) => ({ ...prev, [regionId]: '' }));
-    setAbdeckungsfrage((prev) => ({ ...prev, [regionId]: '' }));
-    try {
-      const jobId = await startGraphBuild(regionId, bestaetigt);
-      setDownloads((prev) => ({ ...prev, [regionId]: { jobId, job: null } }));
-    } catch (err) {
-      if (err instanceof RegionApiError && err.code === 'COVERAGE_LOSS') {
-        // Kein Fehler, sondern eine Frage. Sie gehört deshalb nicht in die
-        // rote Fehlerzeile, aus der es keinen Weg gibt.
-        setAbdeckungsfrage((prev) => ({ ...prev, [regionId]: err.message }));
-        return;
-      }
-      const message =
-        err instanceof RegionApiError
-          ? formatApiError(err)
-          : 'Bau des Routinggraphen konnte nicht gestartet werden.';
-      setErrorByRegion((prev) => ({ ...prev, [regionId]: message }));
-    }
-  }, []);
-
-  // Dritter Bau-Weg neben Kacheln und Routinggraph. Bis 0.3.3 gab es ihn
-  // nicht -- die Oberflaeche sagte stattdessen, der Index lasse sich nur auf
-  // einem anderen Rechner bauen. Das war eine Verpackungsentscheidung, keine
-  // Grenze (siehe yapaja_go/Dockerfile, KORREKTUR 0.3.4).
-  const handleSearchIndexBuild = useCallback(async (regionId: string) => {
-    setErrorByRegion((prev) => ({ ...prev, [regionId]: '' }));
-    try {
-      const jobId = await startSearchIndexBuild(regionId);
-      setDownloads((prev) => ({ ...prev, [regionId]: { jobId, job: null } }));
+      const jobId =
+        eintrag.quelle === 'download'
+          ? await startDownload(eintrag.id)
+          : await startBuild(eintrag.id);
+      setJobs((prev) => ({ ...prev, [eintrag.id]: { jobId, job: null } }));
     } catch (err) {
       const message =
         err instanceof RegionApiError
           ? formatApiError(err)
-          : 'Bau des Suchindex konnte nicht gestartet werden.';
-      setErrorByRegion((prev) => ({ ...prev, [regionId]: message }));
+          : 'Der Vorgang konnte nicht gestartet werden.';
+      setErrorByRegion((prev) => ({ ...prev, [eintrag.id]: message }));
+    }
+  }, []);
+
+  /**
+   * Der eine Knopf: Routing und Suche für ALLE Karten.
+   *
+   * Er ersetzt „Routing bauen" und „Suche bauen" an jedem einzelnen Eintrag.
+   * Die waren nicht falsch, aber sie stellten die falsche Frage: welche
+   * Erzeugnisse es gibt, statt ob danach alles passt.
+   */
+  const handleGesamtbau = useCallback(async () => {
+    setErrorByRegion((prev) => ({ ...prev, [GESAMT_SCHLUESSEL]: '' }));
+    try {
+      const jobId = await startGesamtbau();
+      setJobs((prev) => ({ ...prev, [GESAMT_SCHLUESSEL]: { jobId, job: null } }));
+    } catch (err) {
+      const message =
+        err instanceof RegionApiError ? formatApiError(err) : 'Der Bau konnte nicht gestartet werden.';
+      setErrorByRegion((prev) => ({ ...prev, [GESAMT_SCHLUESSEL]: message }));
     }
   }, []);
 
@@ -365,7 +421,16 @@ export default function RegionsPanel(): React.ReactElement {
 
   const toggleOpen = useCallback(() => setIsOpen((open) => !open), []);
 
-  const downloadableCatalog = catalog.filter((entry) => !entry.installed);
+  const karten = kartenliste(installed, catalog);
+  const gesamtJob = jobs[GESAMT_SCHLUESSEL]?.job ?? null;
+  // Ein laufender Vorgang — gleich welcher — sperrt jeden weiteren. Das ist
+  // keine Bevormundung: zwei schwere Bauten nebeneinander teilen sich Platte
+  // und Arbeitsspeicher derselben Maschine, auf der auch Home Assistant
+  // laeuft. Der Kern lehnt es ohnehin mit 409 ab; die Knöpfe vorher
+  // auszugrauen erspart die Fehlermeldung.
+  const etwasLaeuft = Object.values(jobs).some(
+    (state) => !state.job || (state.job.status !== 'done' && state.job.status !== 'error'),
+  );
 
   return (
     <div className="fixed z-10" style={{ top: topRightSlotPx('regions'), right: TOP_RIGHT_INSET_PX }}>
@@ -379,232 +444,157 @@ export default function RegionsPanel(): React.ReactElement {
               threshold -- see StylePanel.tsx's identical gate for the
               reachable-FAB-while-locked rationale. */}
           <DriveLockGate controlId="store">
-          <section>
             <BuildStatusSection />
 
-            <h2 className="font-semibold mb-2 mt-4">Installierte Regionen</h2>
-            {installed.length === 0 && (
-              <p
-                className="text-slate-500 dark:text-slate-400 text-xs"
-                data-testid="regions-installed-empty"
-              >
-                Keine Karte installiert.
-              </p>
-            )}
-            <ul className="space-y-2">
-              {installed.map((region) => {
-                // Sobald die KACHELN installiert sind, verschwindet die Region
-                // aus „Verfuegbare Regionen" -- und damit verschwand auch der
-                // Knopf „Routing bauen", der dort stand. Der Routinggraph ist
-                // aber ein ZWEITES, unabhaengiges Erzeugnis: wer die Karte
-                // gebaut hat, hat noch lange kein Routing. Der Betreiber stand
-                // damit vor einer Oberflaeche ohne jeden Weg zum Graphen und
-                // versuchte, die Karte zu loeschen, um den Knopf
-                // zurueckzubekommen -- was die Letzte-Region-Regel (zu Recht)
-                // ebenfalls verweigert. Eine Sackgasse mit zwei Waenden.
-                //
-                // Deshalb steht der Knopf jetzt AUCH hier. `pbfUrl` kommt aus
-                // dem Katalog; ohne Quelle gibt es nichts zu bauen.
-                const catalogEntry = catalog.find((candidate) => candidate.id === region.region);
-                const state = downloads[region.region];
-                const job = state?.job ?? null;
-                const isActive = Boolean(state) && (!job || (job.status !== 'done' && job.status !== 'error'));
-                return (
-                <li
-                  key={region.region}
-                  className="border border-slate-200 dark:border-slate-700 rounded-lg p-2"
-                  data-testid={`installed-region-${region.region}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <div className="font-medium">{region.region}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {formatBytes(region.size_bytes)} · {formatBounds(region.bounds)}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {catalogEntry?.pbfUrl ? (
-                        <button
-                          onClick={() => void handleGraphBuild(region.region)}
-                          disabled={isActive}
-                          className="px-2 py-1 rounded-md border border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 text-xs hover:bg-emerald-50 dark:hover:bg-emerald-900/30 disabled:opacity-50"
-                          data-testid={`graph-build-button-${region.region}`}
-                        >
-                          {isActive ? 'Baut…' : 'Routing bauen'}
-                        </button>
-                      ) : null}
-                      {catalogEntry?.pbfUrl ? (
-                        <button
-                          onClick={() => void handleSearchIndexBuild(region.region)}
-                          disabled={isActive}
-                          className="px-2 py-1 rounded-md border border-sky-300 text-sky-700 dark:border-sky-700 dark:text-sky-400 text-xs hover:bg-sky-50 dark:hover:bg-sky-900/30 disabled:opacity-50"
-                          data-testid={`search-index-build-button-${region.region}`}
-                        >
-                          {isActive ? 'Baut…' : 'Suche bauen'}
-                        </button>
-                      ) : null}
-                      <button
-                        onClick={() => void handleDelete(region.region)}
-                        className="px-2 py-1 rounded-md border border-red-300 text-red-600 dark:border-red-700 dark:text-red-400 text-xs hover:bg-red-50 dark:hover:bg-red-900/30"
-                        data-testid={`delete-button-${region.region}`}
-                      >
-                        Löschen
-                      </button>
-                    </div>
+            {/* ─── DER GEMEINSAME KNOPF ──────────────────────────────────────
+                Er steht ÜBER der Liste und nicht darunter: nach einer
+                Installation ist er der nächste Schritt, und was als nächstes
+                zu tun ist, gehört nicht ans Ende einer Liste, die man dafür
+                erst durchscrollen muss. */}
+            <section className="mt-4 rounded-lg border border-slate-200 dark:border-slate-700 p-2">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="font-semibold">Routing und Suche bauen</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    Für alle installierten Karten gemeinsam.
                   </div>
-                  {job && <JobProgress regionId={region.region} job={job} />}
-                  {errorByRegion[region.region] && (
-                    <p
-                      className="mt-1 text-xs text-red-600 dark:text-red-400"
-                      data-testid={`region-error-${region.region}`}
-                    >
-                      {errorByRegion[region.region]}
-                    </p>
-                  )}
-                  {/* Eine Rückfrage, kein Fehler — deshalb gelb und MIT Knopf.
-                      Ohne den stand hier ein Satz, an dem es nicht weiterging. */}
-                  {abdeckungsfrage[region.region] && (
-                    <div
-                      className="mt-1 rounded border border-amber-400 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
-                      data-testid={`region-abdeckung-${region.region}`}
-                    >
-                      <p>{abdeckungsfrage[region.region]}</p>
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          type="button"
-                          className="rounded bg-amber-600 px-2 py-1 text-white hover:bg-amber-700"
-                          data-testid={`region-abdeckung-weiter-${region.region}`}
-                          onClick={() => void handleGraphBuild(region.region, true)}
-                        >
-                          Trotzdem bauen
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded border border-amber-400 px-2 py-1 hover:bg-amber-100 dark:hover:bg-amber-900"
-                          onClick={() =>
-                            setAbdeckungsfrage((prev) => ({ ...prev, [region.region]: '' }))
-                          }
-                        >
-                          Abbrechen
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </li>
-                );
-              })}
-            </ul>
-          </section>
+                </div>
+                <button
+                  onClick={() => void handleGesamtbau()}
+                  disabled={etwasLaeuft || installed.length === 0}
+                  className="shrink-0 px-2 py-1 rounded-md border border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 text-xs hover:bg-emerald-50 dark:hover:bg-emerald-900/30 disabled:opacity-50"
+                  data-testid="gesamtbau-button"
+                >
+                  {gesamtJob && gesamtJob.status !== 'done' && gesamtJob.status !== 'error'
+                    ? 'Baut…'
+                    : 'Alles bauen'}
+                </button>
+              </div>
+              {/* Nach einer Installation ist das der nächste Schritt — und
+                  ohne diesen Satz weiss niemand, dass er ihn tun muss. Eine
+                  frisch installierte Karte wird zwar sofort GEZEICHNET, aber
+                  Routing und Suche entstehen daraus nicht von allein. */}
+              {installed.length === 0 && loaded && (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400" data-testid="gesamtbau-ohne-karte">
+                  Erst eine Karte installieren — ohne Karte gibt es nichts zu bauen.
+                </p>
+              )}
+              {gesamtJob && <GesamtFortschritt job={gesamtJob} />}
+              {errorByRegion[GESAMT_SCHLUESSEL] && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400" data-testid="gesamtbau-startfehler">
+                  {errorByRegion[GESAMT_SCHLUESSEL]}
+                </p>
+              )}
+            </section>
 
-          <section>
-            <h2 className="font-semibold mb-2">Verfügbare Regionen</h2>
-            {loaded && downloadableCatalog.length === 0 && (
-              <p className="text-slate-500 dark:text-slate-400 text-xs" data-testid="regions-catalog-empty">
-                Alle Regionen aus dem Katalog sind bereits installiert.
-              </p>
-            )}
-            <ul className="space-y-2">
-              {downloadableCatalog.map((entry) => {
-                const download = downloads[entry.id];
-                const job = download?.job;
-                const isActive = !!download && (!job || (job.status !== 'done' && job.status !== 'error'));
-                return (
-                  <li
-                    key={entry.id}
-                    className="border border-slate-200 dark:border-slate-700 rounded-lg p-2"
-                    data-testid={`catalog-region-${entry.id}`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <div className="font-medium">{entry.name}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">
-                          {formatBytes(entry.sizeBytes)} · {formatBounds(entry.bounds)}
+            <section>
+              <h2 className="font-semibold mb-2 mt-4">Karten</h2>
+              {loaded && karten.length === 0 && (
+                <p className="text-slate-500 dark:text-slate-400 text-xs" data-testid="regions-installed-empty">
+                  Keine Karte installiert und keine im Katalog.
+                </p>
+              )}
+              <ul className="space-y-2">
+                {karten.map((eintrag) => {
+                  const state = jobs[eintrag.id];
+                  const job = state?.job ?? null;
+                  const laeuftHier =
+                    Boolean(state) && (!job || (job.status !== 'done' && job.status !== 'error'));
+                  return (
+                    <li
+                      key={eintrag.id}
+                      className="border border-slate-200 dark:border-slate-700 rounded-lg p-2"
+                      data-testid={`karte-${eintrag.id}`}
+                      data-zustand={eintrag.zustand}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">{eintrag.name}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {istInstalliert(eintrag) ? 'Installiert · ' : ''}
+                            {formatBytes(eintrag.groesseBytes)}
+                            {eintrag.bounds ? ` · ${formatBounds(eintrag.bounds)}` : ''}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {kannInstallieren(eintrag) && (
+                            <button
+                              onClick={() => void handleInstallieren(eintrag)}
+                              disabled={etwasLaeuft}
+                              className="px-2 py-1 rounded-md border border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50"
+                              data-testid={`installieren-button-${eintrag.id}`}
+                            >
+                              {laeuftHier ? 'Läuft…' : installierenText(eintrag)}
+                            </button>
+                          )}
+                          {/* ─── LÖSCHEN BLEIBT IMMER ERREICHBAR ──────────
+                              Bewusst OHNE `disabled={etwasLaeuft}`. Ein Bau
+                              dauert Stunden und kann hängen; wäre Löschen
+                              dann gesperrt, käme man an keine Karte mehr
+                              heran, bis das Add-on neu startet — und ein
+                              Add-on-Neustart ist genau die Art Ausweg, die
+                              auf dem vorgesehenen Bedienweg niemand finden
+                              soll. Dieselbe Falle hat schon einmal den Knopf
+                              „Kacheln bauen" blockiert (siehe `build.ts`).
+
+                              Wer währenddessen löscht, lässt den laufenden
+                              Gesamtbau an dieser Karte scheitern. Das ist
+                              laut und behebbar — anders als eine Oberfläche
+                              ohne jeden Knopf. */}
+                          {istInstalliert(eintrag) && (
+                            <button
+                              onClick={() => void handleDelete(eintrag.id)}
+                              className="px-2 py-1 rounded-md border border-red-300 text-red-600 dark:border-red-700 dark:text-red-400 text-xs hover:bg-red-50 dark:hover:bg-red-900/30"
+                              data-testid={`delete-button-${eintrag.id}`}
+                            >
+                              Löschen
+                            </button>
+                          )}
                         </div>
                       </div>
-                      {entry.url ? (
-                        <button
-                          onClick={() => void handleDownload(entry.id)}
-                          disabled={isActive}
-                          className="shrink-0 px-2 py-1 rounded-md border border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50"
-                          data-testid={`download-button-${entry.id}`}
-                        >
-                          Herunterladen
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => void handleBuild(entry.id)}
-                          disabled={isActive || !entry.pbfUrl}
-                          className="shrink-0 px-2 py-1 rounded-md border border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50"
-                          data-testid={`build-button-${entry.id}`}
-                        >
-                          {isActive ? 'Baut…' : 'Kacheln bauen'}
-                        </button>
+
+                      {/* ─── EINE VON HAND ABGELEGTE KARTE ──────────────────
+                          Sie steht in keinem Katalog, also gibt es für sie
+                          keine OSM-Quelle — der gemeinsame Bau überspringt
+                          sie. Das gehört gesagt: wer es nicht weiss, sucht
+                          den Fehler an einer ganz anderen Stelle. */}
+                      {eintrag.zustand === 'fremd' && (
+                        <p className="mt-1 text-xs text-amber-700 dark:text-amber-400" data-testid={`karte-fremd-${eintrag.id}`}>
+                          Selbst abgelegte Karte. Sie wird gezeichnet, aber Routing und Suche
+                          lassen sich für sie nicht bauen — dafür fehlt die
+                          OpenStreetMap-Quelle.
+                        </p>
                       )}
-                      {/* Der Routinggraph ist ein zweites Erzeugnis aus
-                          derselben PBF und wird SEPARAT gebaut: viele
-                          Betreiber wollen erst die Karte sehen, und der
-                          Graph kostet noch einmal Zeit und Speicher. */}
-                      {entry.pbfUrl ? (
-                        <button
-                          onClick={() => void handleGraphBuild(entry.id)}
-                          disabled={isActive}
-                          className="shrink-0 px-2 py-1 rounded-md border border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 text-xs hover:bg-emerald-50 dark:hover:bg-emerald-900/30 disabled:opacity-50"
-                          data-testid={`graph-build-button-${entry.id}`}
-                        >
-                          Routing bauen
-                        </button>
-                      ) : null}
-                      {/* Und der Suchindex als drittes -- ebenfalls aus
-                          derselben PBF, ebenfalls separat: er ist die
-                          Voraussetzung fuer die Adresssuche und sonst nichts.
-                          Wer nur zu angetippten Punkten und Favoriten faehrt,
-                          braucht ihn nie. */}
-                      {entry.pbfUrl ? (
-                        <button
-                          onClick={() => void handleSearchIndexBuild(entry.id)}
-                          disabled={isActive}
-                          className="shrink-0 px-2 py-1 rounded-md border border-sky-300 text-sky-700 dark:border-sky-700 dark:text-sky-400 text-xs hover:bg-sky-50 dark:hover:bg-sky-900/30 disabled:opacity-50"
-                          data-testid={`search-index-build-button-${entry.id}`}
-                        >
-                          Suche bauen
-                        </button>
-                      ) : null}
-                    </div>
-                    {/* Ein Eintrag ohne `url` hat keine fertige Datei zum
-                        Herunterladen -- die Kacheln entstehen aus dem
-                        OSM-Extrakt. Vorher stand hier trotzdem ein
-                        „Herunterladen"-Knopf, der sicher scheiterte: der
-                        Katalog nannte Geofabrik-`.pmtiles`-URLs, die es nie
-                        gab (404). Ein Knopf, der nicht funktionieren KANN,
-                        ist schlimmer als kein Knopf -- er schickt den
-                        Betreiber auf die Fehlersuche in seiner eigenen
-                        Installation. */}
-                    {!entry.url && (
-                      <p
-                        className="mt-1 text-xs text-slate-600 dark:text-slate-300"
-                        data-testid={`build-hint-${entry.id}`}
-                      >
-                        {entry.note ??
-                          (entry.buildEffort === 'large'
-                            ? 'Große Region: den Kachelbau nicht auf diesem Gerät ausführen.'
-                            : 'Die Kacheln für diese Region werden aus OpenStreetMap-Daten gebaut.')}{' '}
-                        Anleitung: <code>docs/installation.md</code> §C.
-                      </p>
-                    )}
-                    {job && <JobProgress regionId={entry.id} job={job} />}
-                    {errorByRegion[entry.id] && (
-                      <p
-                        className="mt-1 text-xs text-red-600 dark:text-red-400"
-                        data-testid={`region-error-${entry.id}`}
-                      >
-                        {errorByRegion[entry.id]}
-                      </p>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+
+                      {/* Ein Eintrag ohne jede Quelle bekommt keinen Knopf
+                          (siehe `kannInstallieren`). Ein Knopf, der nicht
+                          funktionieren KANN, ist schlimmer als keiner — er
+                          schickt den Betreiber auf die Fehlersuche in seiner
+                          eigenen Installation. */}
+                      {eintrag.zustand === 'ohne_quelle' && (
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300" data-testid={`karte-ohne-quelle-${eintrag.id}`}>
+                          {eintrag.hinweis ?? 'Für diese Karte ist keine Quelle hinterlegt.'}
+                        </p>
+                      )}
+
+                      {eintrag.zustand === 'verfuegbar' && eintrag.grosserBau && (
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300" data-testid={`karte-grosser-bau-${eintrag.id}`}>
+                          {eintrag.hinweis ??
+                            'Große Region: der Kachelbau dauert auf diesem Gerät mehrere Stunden.'}
+                        </p>
+                      )}
+
+                      {job && <JobProgress regionId={eintrag.id} job={job} />}
+                      {errorByRegion[eintrag.id] && (
+                        <p className="mt-1 text-xs text-red-600 dark:text-red-400" data-testid={`region-error-${eintrag.id}`}>
+                          {errorByRegion[eintrag.id]}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           </DriveLockGate>
         </div>
       )}
@@ -612,9 +602,9 @@ export default function RegionsPanel(): React.ReactElement {
       <button
         onClick={toggleOpen}
         className="w-12 h-12 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 text-lg"
-        aria-label="Kartenregionen verwalten"
+        aria-label="Karten verwalten"
         aria-expanded={isOpen}
-        title="Kartenregionen verwalten"
+        title="Karten verwalten"
         data-testid="regions-panel-toggle"
       >
         🗺️

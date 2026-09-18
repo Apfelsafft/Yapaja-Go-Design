@@ -16,6 +16,17 @@
  *
  * Er erscheint NICHT, solange keine Position vorliegt: dann ist die Karte auf
  * die erste Region gefittet und zeigt Daten — es gibt nichts zu erklaeren.
+ *
+ * ─── SEIT 0.16.0 GIBT ES NUR NOCH EINEN FALL ────────────────────────────────
+ * Bis 0.15.3 hatte dieser Hinweis zwei Gesichter. Das zweite hiess „Andere
+ * Region aufgeschlagen" und galt, wenn jemand im Kartenmenue eine feste
+ * Region gewaehlt hatte. Diese Wahl gibt es nicht mehr: gezeichnet wird immer
+ * alles Installierte.
+ *
+ * Damit bleibt genau die Lage, fuer die dieser Hinweis erfunden wurde — der
+ * weisse Fleck, fuer den KEINE Karte installiert ist. Und die ist jetzt sogar
+ * eindeutig: weisse Flaeche heisst ab hier zuverlaessig „nicht
+ * heruntergeladen" und nichts anderes mehr.
  */
 
 import React from 'react';
@@ -25,19 +36,13 @@ import { usePosition } from '../position/positionStore';
 
 export default function RegionCoverageNotice(): React.ReactElement | null {
   const regions = useRegionStore((state) => state.regions);
-  const manual = useRegionStore((state) => state.manual);
   const position = usePosition();
 
-  const choice = pickActiveRegion({ regions, point: position, manual });
+  const choice = pickActiveRegion({ regions, point: position });
 
   if (!choice.positionOutsideAllRegions) {
     return null;
   }
-
-  // Eine ausdrueckliche Wahl ist eine Entscheidung, keine Verwechslung: wer
-  // eine andere Region zum Planen aufgeschlagen hat, weiss, dass er nicht
-  // dort ist. Dann bleibt der Hinweis knapper und ohne Handlungsdruck.
-  const manualOverride = choice.reason === 'manual';
 
   return (
     <div
@@ -48,21 +53,13 @@ export default function RegionCoverageNotice(): React.ReactElement | null {
         className="pointer-events-auto rounded-lg bg-amber-50/95 dark:bg-amber-950/95 border border-amber-300 dark:border-amber-700 shadow-lg px-3 py-2 text-xs text-amber-900 dark:text-amber-100"
         data-testid="region-coverage-notice"
       >
-        {manualOverride ? (
-          <p>
-            <span className="font-semibold">Andere Region aufgeschlagen.</span> Angezeigt wird
-            „{choice.region?.region}"; Ihre aktuelle Position liegt dort nicht. Im Kartenmenü
-            (🗺️) zurück auf „Automatisch".
-          </p>
-        ) : (
-          <p>
-            <span className="font-semibold">Für Ihre Position gibt es keine Karte.</span> Die
-            aktuelle Position liegt außerhalb aller installierten Regionen
-            {regions.length > 0 && ` (${regions.map((r) => r.region).join(', ')})`} — die Karte
-            bleibt hier leer, obwohl mit ihr nichts nicht in Ordnung ist. Passende Region unter
-            „Kartenregionen verwalten" (🗺️) bauen.
-          </p>
-        )}
+        <p>
+          <span className="font-semibold">Für Ihre Position gibt es keine Karte.</span> Die
+          aktuelle Position liegt außerhalb aller installierten Regionen
+          {regions.length > 0 && ` (${regions.map((r) => r.region).join(', ')})`} — die Karte
+          bleibt hier leer, obwohl mit ihr nichts nicht in Ordnung ist. Passende Region unter
+          „Karten verwalten" (🗺️) installieren.
+        </p>
       </div>
     </div>
   );

@@ -406,9 +406,10 @@ async function checkTiles(tilesDir: string, listDir: ListDirFn): Promise<Preflig
   const remedy =
     'Für die mitgelieferten Regionen gibt es keine fertige Datei zum Herunterladen — ' +
     'die Kacheln werden aus OpenStreetMap-Daten gebaut. Das geht direkt hier: ' +
-    '„Kartenregionen verwalten" (🗺️ rechts oben) öffnen und bei der gewünschten Region ' +
-    'auf „Kacheln bauen" drücken. Liechtenstein braucht Minuten, ein Bundesland wie ' +
-    'Rheinland-Pfalz deutlich länger; der Fortschritt steht im Panel. ' +
+    '„Karten verwalten" (🗺️ rechts oben) öffnen und bei der gewünschten Karte auf ' +
+    '„Installieren" drücken. Liechtenstein braucht Minuten, ein Bundesland wie ' +
+    'Rheinland-Pfalz deutlich länger; der Fortschritt steht im Panel. Danach einmal ' +
+    '„Alles bauen" für Routing und Suche. ' +
     'Ganz Deutschland ist für dieses Gerät zu groß: auf einem anderen Rechner bauen und ' +
     'die fertige .pmtiles per „Samba share" nach /share/yapaja/tiles/ legen. ' +
     'Ausführlich: docs/installation.md §C.';
@@ -569,8 +570,9 @@ async function checkSearch(
     remedy:
       'Es gibt zwei Wege, und einer genügt. (1) Lite-Index (empfohlen auf einem ' +
       'Gerät mit 8 GB): braucht wenig Arbeitsspeicher und wird direkt hier ' +
-      'gebaut — „Kartenregionen verwalten" (🗺️ rechts oben) öffnen und bei der ' +
-      'Region auf „Suche bauen" drücken. Liechtenstein braucht Minuten, ein ' +
+      'gebaut — „Karten verwalten" (🗺️ rechts oben) öffnen und auf „Alles bauen" ' +
+      'drücken; das baut Routing und Suche für alle installierten Karten. ' +
+      'Liechtenstein braucht Minuten, ein ' +
       'Bundesland länger; der Fortschritt steht im Panel. (2) Photon: in der ' +
       'Add-on-Konfiguration einschalten und den Index importieren; rechnen Sie mit ' +
       'mehreren GB RAM. Ohne beides bleibt die Adresssuche leer — Navigieren zu ' +
@@ -903,8 +905,8 @@ async function checkDisk(
       'Region wie Deutschland (~4,5 GB fertige Kacheln, beim Bau zeitweise deutlich ' +
       'mehr) nicht. Vergrößern Sie die Platte der VM, oder entfernen Sie nicht mehr ' +
       // „Einstellungen → Kartenregionen" gab es nie als Menüpfad. Das Panel
-      // öffnet die Schaltfläche „Kartenregionen verwalten" (🗺️) rechts oben.
-      'benötigte Regionen über „Kartenregionen verwalten" (🗺️ rechts oben).',
+      // öffnet die Schaltfläche „Karten verwalten" (🗺️) rechts oben.
+      'benötigte Karten über „Karten verwalten" (🗺️ rechts oben).',
   };
 }
 

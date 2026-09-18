@@ -22,10 +22,24 @@
  * Region zur Zeit ist, muss es aber die RICHTIGE sein, und richtig heisst:
  * die, in der man sich befindet.
  *
- * Vorrang hat immer eine ausdrueckliche Wahl des Betreibers (Reiseplanung in
- * einer Region, in der man gerade nicht ist). Ohne sie entscheidet die
- * Position. Ohne Position bleibt die erste — das ist kein Rateversuch,
- * sondern der einzige Zustand, in dem jede Wahl gleich gut ist.
+ * ─── WAS DIESE DATEI SEIT 0.16.0 NICHT MEHR ENTSCHEIDET ─────────────────────
+ * Oben steht noch die Lage von damals: „Ein MapLibre-Stil hat GENAU EINE
+ * Vektorquelle." Das gilt seit 0.9.1 nicht mehr — der Kern zeichnet alle
+ * installierten Regionen gleichzeitig, und seit 0.16.0 gibt es dazu auch
+ * keine Ausnahme mehr. Die ausdrueckliche Wahl im Kartenmenue ist weg, weil
+ * sie nur eines konnte: die Karte verkleinern.
+ *
+ * Damit beantwortet diese Datei nur noch die Frage „in WELCHER Region stehe
+ * ich" — und die wird weiterhin gebraucht:
+ *
+ *   * fuer den Hinweis, wenn die eigene Position in KEINER installierten
+ *     Region liegt (`RegionCoverageNotice`) — genau der weisse Fleck, den
+ *     der Kopfkommentar oben beschreibt;
+ *   * fuer die Kartenmitte beim allerersten Start, solange es noch keine
+ *     Position gibt.
+ *
+ * Sie beantwortet NICHT mehr „was wird gezeichnet". Die beiden zu
+ * verwechseln hat 0.9.1 vollstaendig wirkungslos gemacht.
  */
 
 import type { MapRegionSummary } from './regions';
@@ -91,8 +105,6 @@ export interface PickActiveRegionInput {
   regions: MapRegionSummary[];
   /** Aktuelle Position, oder `null`, wenn es (noch) keine gibt. */
   point: LatLonLike | null;
-  /** Ausdrueckliche Wahl des Betreibers (Region-Name), oder `null`. */
-  manual: string | null;
 }
 
 export interface ActiveRegionChoice {
@@ -100,12 +112,15 @@ export interface ActiveRegionChoice {
   /**
    * Woher die Wahl kommt. Die Oberflaeche sagt es dem Betreiber, statt eine
    * Automatik zu verstecken:
-   *   `manual`    er hat sie selbst gewaehlt
    *   `position`  sie enthaelt die aktuelle Position
    *   `fallback`  keine Position, oder die Position liegt in keiner Region
    *   `none`      es ist gar keine Region installiert
+   *
+   * `manual` gab es bis 0.15.3 und ist mit der Auswahl im Kartenmenue
+   * verschwunden. Er steht hier nicht mehr als toter Zweig: ein Zustand, den
+   * nichts mehr erzeugen kann, liest sich wie eine Moeglichkeit.
    */
-  reason: 'manual' | 'position' | 'fallback' | 'none';
+  reason: 'position' | 'fallback' | 'none';
   /**
    * Wahr, wenn eine Position vorliegt, aber KEINE installierte Region sie
    * enthaelt. Genau dieser Fall sah vorher wie eine kaputte Karte aus und
@@ -115,17 +130,12 @@ export interface ActiveRegionChoice {
 }
 
 /**
- * Entscheidet, welche Region angezeigt wird. Wirft nie und liefert immer
- * etwas Anzeigbares, solange ueberhaupt eine Region installiert ist.
- *
- * Eine ausdrueckliche Wahl, die es nicht mehr gibt (Region geloescht, alter
- * Wert im localStorage), wird ignoriert statt zu einer leeren Karte zu
- * fuehren — dasselbe Prinzip wie beim Stil-Fallback in `styleClient.ts`.
+ * Entscheidet, in welcher Region das Fahrzeug steht. Wirft nie und liefert
+ * immer etwas Brauchbares, solange ueberhaupt eine Region installiert ist.
  */
 export function pickActiveRegion({
   regions,
   point,
-  manual,
 }: PickActiveRegionInput): ActiveRegionChoice {
   if (regions.length === 0) {
     return { region: null, reason: 'none', positionOutsideAllRegions: false };
@@ -133,13 +143,6 @@ export function pickActiveRegion({
 
   const covering = point ? regionsContaining(regions, point) : [];
   const positionOutsideAllRegions = point !== null && covering.length === 0;
-
-  if (manual !== null) {
-    const chosen = regions.find((region) => region.region === manual);
-    if (chosen) {
-      return { region: chosen, reason: 'manual', positionOutsideAllRegions };
-    }
-  }
 
   if (covering.length > 0) {
     return { region: covering[0], reason: 'position', positionOutsideAllRegions };

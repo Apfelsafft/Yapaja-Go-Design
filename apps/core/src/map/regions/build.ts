@@ -300,29 +300,53 @@ export function noteFromChunk(chunk: string): string | null {
 }
 
 /**
- * Startet den Bau im Hintergrund. Der Aufrufer (Route) hat den Job bereits
- * angelegt und mit 202 geantwortet; hier wird nichts mehr erwartet.
+ * Wie ein einzelner Bau-Lauf ausgegangen ist.
+ *
+ * ─── WARUM DAS EIN EIGENER TYP IST ──────────────────────────────────────────
+ * Bis zum Gesamtbau (0.16.0) fiel das Ende eines Laufs mit dem Ende des JOBS
+ * zusammen: ein Lauf, ein Job, fertig. Der Gesamtbau fährt mehrere Läufe
+ * nacheinander in EINEM Job — dort darf der erste Schritt enden, ohne dass
+ * der Job endet.
+ *
+ * Deshalb sagt ein Lauf jetzt, wie er ausging, statt es selbst in den Job zu
+ * schreiben. Wer ihn gestartet hat, entscheidet, was das bedeutet.
  */
-export function runBuildJob(
+export type BauErgebnis =
+  | { art: 'fertig' }
+  | { art: 'abgebrochen' }
+  | { art: 'fehler'; info: { code: string; message: string } };
+
+/**
+ * Ein einzelner Bau-Lauf. Meldet sein Ende über `onEnde`.
+ *
+ * ─── WARUM `onEnde` UND KEIN PROMISE ────────────────────────────────────────
+ * `onEnde` wird SYNCHRON aus dem `close`-Zweig gerufen. Ein Promise würde das
+ * Ende in eine Microtask verschieben — und der Abbruchweg unten verlässt sich
+ * darauf, dass der Job in DEMSELBEN Zug als beendet gilt, in dem der Knopf
+ * gedrückt wurde (siehe die Begründung bei `setOnCancel`).
+ *
+ * Wer ein Promise braucht, baut es sich darum herum; der Gesamtbau macht
+ * genau das.
+ */
+export function laufeBau(
   jobId: string,
   jobs: JobRegistry,
   entry: CatalogEntry,
   tilesDir: string,
-  deps: BuildJobDeps = {},
-  variant: BuildVariant = TILE_BUILD,
-  /**
-   * Zusätzliche Umgebung für genau diesen Lauf.
-   *
-   * Gebraucht vom Routingbau: er bekommt in `YAPAIA_GRAPH_EXTRAKTE` die
-   * Regionen mit, deren OSM-Extrakt noch fehlt (siehe `graphPlan.ts`). Das
-   * Skript sieht nur das Zwischenlager; welche Karten installiert sind und
-   * wo ihr Extrakt herkäme, weiß allein der Kern.
-   *
-   * Als Parameter und nicht in `BuildJobDeps`: `deps` ist das, was für einen
-   * TEST ausgetauscht wird, nicht das, was ein Lauf inhaltlich mitbringt.
-   */
-  zusatzEnv: Record<string, string> = {},
+  deps: BuildJobDeps,
+  variant: BuildVariant,
+  zusatzEnv: Record<string, string>,
+  onEnde: (ergebnis: BauErgebnis) => void,
 ): void {
+  // Ein Lauf endet GENAU EINMAL. Ohne diese Sperre meldete ein Abbruch, auf
+  // den der Kindprozess dann doch noch mit `close` reagiert, zweimal ein
+  // Ende — und der Gesamtbau spränge zwei Schritte weiter.
+  let beendet = false;
+  const ende = (ergebnis: BauErgebnis): void => {
+    if (beendet) return;
+    beendet = true;
+    onEnde(ergebnis);
+  };
   const logger = deps.logger;
   const spawnFn: SpawnBuildFn =
     deps.spawnFn ??
@@ -331,11 +355,14 @@ export function runBuildJob(
 
   const source = entry.pbfUrl;
   if (!source) {
-    jobs.markError(jobId, {
-      code: 'NO_BUILD_SOURCE',
-      message:
-        `Für die Region "${entry.id}" ist kein OSM-Extrakt hinterlegt (pbfUrl). ` +
-        'Ohne Quelle lässt sich nichts bauen.',
+    ende({
+      art: 'fehler',
+      info: {
+        code: 'NO_BUILD_SOURCE',
+        message:
+          `Für die Region "${entry.id}" ist kein OSM-Extrakt hinterlegt (pbfUrl). ` +
+          'Ohne Quelle lässt sich nichts bauen.',
+      },
     });
     return;
   }
@@ -351,11 +378,14 @@ export function runBuildJob(
       ...zusatzEnv,
     });
   } catch (err) {
-    jobs.markError(jobId, {
-      code: 'BUILD_START_FAILED',
-      message: `Der Bau konnte nicht gestartet werden: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
+    ende({
+      art: 'fehler',
+      info: {
+        code: 'BUILD_START_FAILED',
+        message: `Der Bau konnte nicht gestartet werden: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      },
     });
     return;
   }
@@ -375,12 +405,7 @@ export function runBuildJob(
   // `close`-Zweig unten darf also gefahrlos noch einmal dasselbe tun.
   jobs.setOnCancel(jobId, () => {
     child.kill('SIGTERM');
-    jobs.markError(jobId, {
-      code: 'CANCELLED',
-      message:
-        'Bau abgebrochen. Die bisherige Kartendatei ist unverändert — das Skript ' +
-        'wechselt erst nach vollständiger Prüfung ein (W-17).',
-    });
+    ende({ art: 'abgebrochen' });
   });
 
   // Die Ausgabe geht an ZWEI Stellen, und beide werden gebraucht:
@@ -412,27 +437,25 @@ export function runBuildJob(
   child.stderr?.on('data', forward);
 
   child.on('error', (err) => {
-    jobs.markError(jobId, {
-      code: 'BUILD_START_FAILED',
-      message:
-        `Der Bau konnte nicht gestartet werden: ${err.message}. ` +
-        `Erwartet wurde das Werkzeug ${variant.command} — es gehört zum Add-on-Image.`,
+    ende({
+      art: 'fehler',
+      info: {
+        code: 'BUILD_START_FAILED',
+        message:
+          `Der Bau konnte nicht gestartet werden: ${err.message}. ` +
+          `Erwartet wurde das Werkzeug ${variant.command} — es gehört zum Add-on-Image.`,
+      },
     });
   });
 
   child.on('close', (code) => {
     if (jobs.isCancelled(jobId)) {
-      jobs.markError(jobId, {
-        code: 'CANCELLED',
-        message:
-          'Bau abgebrochen. Die bisherige Kartendatei ist unverändert — das Skript ' +
-          'wechselt erst nach vollständiger Prüfung ein (W-17).',
-      });
+      ende({ art: 'abgebrochen' });
       return;
     }
     if (code === 0) {
       jobs.setNote(jobId, variant.doneNote);
-      jobs.markDone(jobId);
+      ende({ art: 'fertig' });
       return;
     }
     // Die letzte Ausgabezeile gehoert IN die Fehlermeldung. Sie steht zwar
@@ -440,14 +463,62 @@ export function runBuildJob(
     // Meldung -- wer nur dorthin schaut, saehe sonst „Code 1" und sonst
     // nichts.
     const lastLine = jobs.get(jobId)?.note;
-    jobs.markError(jobId, {
-      code: 'BUILD_FAILED',
-      message:
-        `${variant.humanName} ist mit Code ${code ?? 'unbekannt'} fehlgeschlagen. ` +
-        (lastLine ? `Zuletzt: „${lastLine}". ` : '') +
-        'Die vollständige Ausgabe steht im Add-on-Protokoll (Zeilen mit ' +
-        `„[${variant.logPrefix} ${entry.id}]"). Der bisherige Stand ist unverändert.`,
+    ende({
+      art: 'fehler',
+      info: {
+        code: 'BUILD_FAILED',
+        message:
+          `${variant.humanName} ist mit Code ${code ?? 'unbekannt'} fehlgeschlagen. ` +
+          (lastLine ? `Zuletzt: „${lastLine}". ` : '') +
+          'Die vollständige Ausgabe steht im Add-on-Protokoll (Zeilen mit ' +
+          `„[${variant.logPrefix} ${entry.id}]"). Der bisherige Stand ist unverändert.`,
+      },
     });
+  });
+}
+
+/** Der Wortlaut des Abbruchs. An einer Stelle, weil ihn jetzt zwei Aufrufer
+ *  brauchen — der Einzelbau und der Gesamtbau. */
+export const ABBRUCH_MELDUNG = {
+  code: 'CANCELLED',
+  message:
+    'Bau abgebrochen. Die bisherige Kartendatei ist unverändert — das Skript ' +
+    'wechselt erst nach vollständiger Prüfung ein (W-17).',
+} as const;
+
+/**
+ * Startet den Bau im Hintergrund. Der Aufrufer (Route) hat den Job bereits
+ * angelegt und mit 202 geantwortet; hier wird nichts mehr erwartet.
+ *
+ * Ein Lauf, ein Job: das Ende des Laufs ist hier das Ende des Jobs. Für
+ * mehrere Läufe in einem Job gibt es `gesamtbau.ts`.
+ */
+export function runBuildJob(
+  jobId: string,
+  jobs: JobRegistry,
+  entry: CatalogEntry,
+  tilesDir: string,
+  deps: BuildJobDeps = {},
+  variant: BuildVariant = TILE_BUILD,
+  /**
+   * Zusätzliche Umgebung für genau diesen Lauf.
+   *
+   * Gebraucht vom Routingbau: er bekommt in `YAPAIA_GRAPH_EXTRAKTE` die
+   * Regionen mit, deren OSM-Extrakt noch fehlt (siehe `graphPlan.ts`). Das
+   * Skript sieht nur das Zwischenlager; welche Karten installiert sind und
+   * wo ihr Extrakt herkäme, weiß allein der Kern.
+   *
+   * Als Parameter und nicht in `BuildJobDeps`: `deps` ist das, was für einen
+   * TEST ausgetauscht wird, nicht das, was ein Lauf inhaltlich mitbringt.
+   */
+  zusatzEnv: Record<string, string> = {},
+): void {
+  laufeBau(jobId, jobs, entry, tilesDir, deps, variant, zusatzEnv, (ergebnis) => {
+    if (ergebnis.art === 'fertig') {
+      jobs.markDone(jobId);
+      return;
+    }
+    jobs.markError(jobId, ergebnis.art === 'abgebrochen' ? ABBRUCH_MELDUNG : ergebnis.info);
   });
 }
 

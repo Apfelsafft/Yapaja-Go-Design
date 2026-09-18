@@ -46,10 +46,19 @@ test('zeigt ohne Karte die Installationsprüfung mit echten Befunden und Handlun
   // Formulierung. Hier stand einmal `toContainText('Kartenregionen')`; dieses
   // Wort stammte aus dem Menüpfad „Einstellungen → Kartenregionen", den es
   // nie gab, und der Test hatte damit ausgerechnet die erfundene Formulierung
-  // festgeschrieben. Seit B-04 ist der handlungsfähige Teil der Knopf im
-  // Regionen-Panel -- und `preflight.test.ts` erzwingt zusätzlich, dass jede
-  // in der Anweisung genannte Beschriftung im Frontend wirklich existiert.
-  await expect(page.getByTestId('preflight-remedy-tiles')).toContainText('Kacheln bauen');
+  // festgeschrieben. Seit B-04 ist der handlungsfähige Teil ein Knopf im
+  // Karten-Panel -- und `preflight.test.ts` erzwingt zusätzlich, dass jede in
+  // der Anweisung genannte Beschriftung im Frontend wirklich existiert.
+  //
+  // Bis 0.15.3 hiess dieser Knopf „Kacheln bauen". Seit 0.16.0 heisst er
+  // „Installieren" und macht beides, herunterladen oder bauen -- für den
+  // Bedienenden ist es dieselbe Handlung.
+  const anweisung = page.getByTestId('preflight-remedy-tiles');
+  await expect(anweisung).toContainText('Installieren');
+  // Und der zweite Schritt: eine installierte Karte allein ergibt weder
+  // Routing noch Suche. Wer das nicht weiss, hält die Installation für fertig
+  // und wundert sich, dass keine Route zustande kommt.
+  await expect(anweisung).toContainText('Alles bauen');
 
   // Alle sieben Prüfungen sind da, jede mit einem echten Status.
   await expect(page.locator('[data-testid^="preflight-check-"]')).toHaveCount(7);

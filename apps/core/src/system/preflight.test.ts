@@ -853,10 +853,15 @@ describe('Handlungsanweisungen verweisen nur auf real Vorhandenes', () => {
     }
   });
 
-  // Die Gegenprobe: seit B-04 GIBT es den Bau-Knopf, und die Anweisung soll
-  // ihn auch nennen -- sonst schickt sie den Betreiber weiter über eine
-  // Kommandozeile, obwohl der Weg in der Oberfläche existiert.
-  it('nennt den Bau-Knopf, jetzt wo es ihn gibt', async () => {
+  // Die Gegenprobe: seit B-04 GIBT es einen Weg in der Oberfläche, und die
+  // Anweisung soll ihn auch nennen -- sonst schickt sie den Betreiber weiter
+  // über eine Kommandozeile, obwohl der Weg in der App existiert.
+  //
+  // Bis 0.15.3 hiess der Knopf „Kacheln bauen" und stand an jeder Karte.
+  // Seit 0.16.0 heisst er „Installieren" (bei einer schon installierten
+  // Karte „Update") und macht beides -- herunterladen oder bauen, je nach
+  // Quelle. Der Test prüft weiter dasselbe: dass der Weg BENANNT ist.
+  it('nennt den Weg in der Oberfläche, statt auf eine Kommandozeile zu verweisen', async () => {
     const report = await runPreflight({
       env: {},
       listDir: async () => [],
@@ -868,6 +873,10 @@ describe('Handlungsanweisungen verweisen nur auf real Vorhandenes', () => {
     });
 
     const tiles = report.checks.find((c) => c.id === 'tiles');
-    expect(tiles?.remedy).toContain('Kacheln bauen');
+    expect(tiles?.remedy).toContain('Installieren');
+    // Und den zweiten Schritt: eine installierte Karte allein ergibt weder
+    // Routing noch Suche. Wer das nicht weiss, hält die Installation für
+    // fertig und wundert sich, dass keine Route zustande kommt.
+    expect(tiles?.remedy).toContain('Alles bauen');
   });
 });
