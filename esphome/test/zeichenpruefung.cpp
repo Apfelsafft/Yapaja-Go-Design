@@ -553,43 +553,94 @@ int main() {
   // Bildpunkten ist kein Platz fuer ein fuenftes Feld, und sie ist von den
   // fuenf das entbehrlichste.
   genau("volle Fahrt, MESZ", sommer, 240,240,
-        {"Links abbiegen auf B27","1.2 km","87","80","16:32"});
+        {"Links abbiegen auf B27","1.2 km","87","16:32"});
 
-  // ─── DIE FAHRZEUGGRENZE NEBEN DEM SCHILD (0.14.0) ────────────────────────
-  // Ein Wohnmobil ueber 3,5 t darf weniger, als das Schild erlaubt. Die Zahl
-  // steht DANEBEN und nicht im runden Zeichen: ein Verkehrszeichen behauptet,
-  // dass es draussen steht -- und dieses stuende dort nicht.
+  // ─── HIER STANDEN FUENF FAELLE ZUM TEMPOLIMIT-SCHILD ────────────────────
+  // Ein weisses Verkehrszeichen mit dem Limit, daneben klein die
+  // Fahrzeuggrenze -- und vier Faelle dazu, wann welche Zahl erscheint.
+  //
+  // Gewuenscht in 0.16.5:
+  //
+  //   „Bitte entferne bei der Navigationsanzeige das speedlimit als Zahl.
+  //    Es langt wenn es überschritten wird einen roten Ring am Displayrand
+  //    anzuzeigen."
+  //
+  // Damit ist die ganze Fallunterscheidung weg: es gibt keine zwei Zahlen
+  // mehr, die sich vergleichen liessen. Die Aussage geht trotzdem nicht
+  // verloren -- `binary_sensor.yapaja_speeding` warnt seit 0.14.0 an der
+  // NIEDRIGEREN der beiden Grenzen, und der Ring traegt beides.
+  //
+  // Die Faelle stehen deshalb nicht als uebersprungene Tests da. Sie pruefen
+  // jetzt das, was an ihre Stelle getreten ist: dass gar keine Grenze mehr
+  // als Zahl erscheint.
   Fall schwer = sommer; schwer.limit_fz = 60; schwer.limit_fz_da = true;
-  genau("Fahrzeuggrenze unter dem Schild: beide Zahlen", schwer, 240,240,
-        {"Links abbiegen auf B27","1.2 km","87","80","60","16:32"});
+  genau("Fahrzeuggrenze vorhanden: trotzdem keine Zahl", schwer, 240,240,
+        {"Links abbiegen auf B27","1.2 km","87","16:32"});
 
-  // Der wichtigste Fall: unbegrenzte Autobahn, gar kein Schild. Vorher stand
-  // hier NICHTS -- und `speeding` blieb bei 130 km/h aus.
   Fall autobahn = sommer;
   autobahn.limit_da = false;
   autobahn.limit_fz = 80; autobahn.limit_fz_da = true;
   autobahn.tempo = 130;
-  genau("unbegrenzte Autobahn: nur die Fahrzeuggrenze", autobahn, 240,240,
-        {"Links abbiegen auf B27","1.2 km","130","80","16:32"});
-
-  // Die Gegenprobe: sagt die Fahrzeuggrenze dasselbe wie das Schild oder
-  // mehr, bleibt sie weg. Eine Zahl, die dasselbe sagt wie das Zeichen
-  // daneben, ist auf 240 runden Bildpunkten verschenkter Platz.
-  Fall gleich = sommer; gleich.limit_fz = 80; gleich.limit_fz_da = true;
-  genau("Fahrzeuggrenze gleich dem Schild: nur das Schild", gleich, 240,240,
-        {"Links abbiegen auf B27","1.2 km","87","80","16:32"});
-
-  Fall hoeher = sommer; hoeher.limit_fz = 100; hoeher.limit_fz_da = true;
-  genau("Fahrzeuggrenze ueber dem Schild: nur das Schild", hoeher, 240,240,
-        {"Links abbiegen auf B27","1.2 km","87","80","16:32"});
+  genau("unbegrenzte Autobahn: nur das eigene Tempo", autobahn, 240,240,
+        {"Links abbiegen auf B27","1.2 km","130","16:32"});
 
   Fall winter = sommer; winter.ankunft = "2026-01-15T14:32:00.000Z";
   genau("dieselbe Fahrt, MEZ", winter, 240,240,
-        {"Links abbiegen auf B27","1.2 km","87","80","15:32"});
+        {"Links abbiegen auf B27","1.2 km","87","15:32"});
 
   Fall meter = sommer; meter.mdist = 483;
   genau("Meter, auf 10 gerundet", meter, 240,240,
-        {"Links abbiegen auf B27","480 m","87","80","16:32"});
+        {"Links abbiegen auf B27","480 m","87","16:32"});
+
+  // ─── DER ROTE RING STATT DER ZAHL ───────────────────────────────────────
+  // Er ist keine Schrift, also sieht ihn `genau` nicht. Geprueft wird die
+  // FORM: `filled_ring` hinterlaesst ein „O" in der Formenliste.
+  //
+  // Beide Richtungen, denn nur zusammen sagen sie etwas: ein Ring, der immer
+  // da ist, warnt nie -- und einer, der nie kommt, auch nicht.
+  auto ring_da = [&](const Fall &f) {
+    aufbauen(f);
+    Display it(240,240); zeichne(it);
+    return it.formen.find('O') != std::string::npos;
+  };
+
+  Fall zu_schnell = sommer; zu_schnell.schnell = true;
+  if (!ring_da(zu_schnell)) {
+    printf("  FEHL zu schnell: kein roter Ring am Rand\n"); fehler++;
+  } else {
+    printf("  OK   zu schnell: roter Ring am Rand\n");
+  }
+  if (ring_da(sommer)) {
+    printf("  FEHL nicht zu schnell: Ring trotzdem da\n"); fehler++;
+  } else {
+    printf("  OK   nicht zu schnell: kein Ring\n");
+  }
+
+  // ─── UND DASS ER DEN PFEIL NICHT VERWIRRT ───────────────────────────────
+  // Der Ring wird VOR allem anderen gezeichnet, damit er in jeder Ansicht
+  // gilt. Damit steht sein „O" ganz vorn in der Formenliste -- und genau
+  // daran erkennt die Pfeilpruefung weiter unten einen Kreisverkehr.
+  //
+  // Dass das gutgeht, liegt an `pfeil_fertig`: die Pfeilform wird erst
+  // eingefroren, wenn nach einer Form ein Text kommt. Der Ring allein friert
+  // sie nicht ein. Dieser Fall haelt das fest, statt sich darauf zu
+  // verlassen -- sonst faende jemand eines Tages einen Kreisverkehr-Pfeil
+  // bei einer Linksabbiegung und suchte lange.
+  {
+    Fall abbiegen = sommer;
+    abbiegen.art = "turn_left"; abbiegen.schnell = true;
+    aufbauen(abbiegen);
+    Display it(240,240); zeichne(it);
+    const std::string form = it.pfeil_fertig ? it.pfeil_formen : it.formen;
+    if (form.find('O') == 0) {
+      printf("  FEHL zu schnell: der Ring wird als Kreisverkehr gelesen (%s)\n",
+             form.c_str());
+      fehler++;
+    } else {
+      printf("  OK   zu schnell: der Pfeil bleibt ein Abbiegepfeil (%s)\n",
+             form.c_str());
+    }
+  }
 
   // Der wichtigste Fall: nichts bekannt. Es darf KEINE Zahl erscheinen --
   // kein Tempo, kein Tempolimit-Schild, keine Reststrecke.
@@ -711,7 +762,7 @@ int main() {
   // dann bleibt die Route stehen.
   Fall tempo_weg = parkt; tempo_weg.tempo_da = false;
   genau("Tempo unbekannt, aber navigierend: KEINE Wasserwaage", tempo_weg, 240,240,
-        {"Links abbiegen auf B27","1.2 km","80","16:32"});
+        {"Links abbiegen auf B27","1.2 km","16:32"});
 
   // ─── DER GEMELDETE FALL ─────────────────────────────────────────────────
   // Mit Foto: das Geraet zeigte „Kein Wert aus Home Assistant", obwohl die
@@ -744,7 +795,7 @@ int main() {
   // Die Gegenprobe zur Schwelle: knapp darueber laeuft die Navigation weiter.
   Fall rollt = parkt; rollt.tempo = 5.0f;
   genau("ueber der Schwelle: Navigation", rollt, 240,240,
-        {"Links abbiegen auf B27","1.2 km","5","80","16:32"});
+        {"Links abbiegen auf B27","1.2 km","5","16:32"});
 
   Fall ruhe = sommer; ruhe.zustand = "idle";
   genau("idle mit Tempo: Tacho gross, Lage klein", ruhe, 240,240,

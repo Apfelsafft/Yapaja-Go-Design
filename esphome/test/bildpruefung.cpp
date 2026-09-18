@@ -125,6 +125,29 @@ static void zeichne(Display &it) {
 #include "lambda_body.inc"
 }
 
+/** Die Fahransicht -- zum Ansehen der neuen Aufteilung. */
+static void fahrt(const char *titel, float tempo, bool zu_schnell) {
+  s_zustand.state="navigating"; s_art.state="turn_left";
+  s_anweisung.state="Links auf Willy-Brandt-Platz";
+  s_ankunft.state="2026-09-15T14:32:00.000Z";
+  s_tempo.has=true; s_tempo.state=tempo;
+  s_limit.has=true; s_limit.state=50;
+  s_limit_fz.has=true; s_limit_fz.state=80;
+  s_mdist.has=true; s_mdist.state=37;
+  s_rest.has=true; s_rest.state=299.3f;
+  s_lr.has=false; s_lr.state=NAN; s_vh.has=false; s_vh.state=NAN;
+  s_schnell.state=zu_schnell; s_erzwingen.state=false; s_fahrzeug.state=false;
+
+  Display it(240,240); zeichne(it);
+  printf("\n=== %s ===\n", titel);
+  for (int y=0; y<240; y+=4) {
+    std::string z;
+    for (int x=0; x<240; x+=2) z += it.feld[y*240+x];
+    while (!z.empty() && z.back()==' ') z.pop_back();
+    printf("%s\n", z.c_str());
+  }
+}
+
 static void zeige(const char *titel, float lr, float vh, bool fahrzeug) {
   s_zustand.state="idle"; s_art.state="turn_left";
   s_anweisung.state="x"; s_ankunft.state="2026-09-15T14:32:00.000Z";
@@ -149,6 +172,8 @@ static void zeige(const char *titel, float lr, float vh, bool fahrzeug) {
 
 int main() {
   setenv("TZ","Europe/Berlin",1); tzset();
+  fahrt("Fahrt: 48 km/h, im Limit", 48, false);
+  fahrt("Fahrt: 63 km/h, ZU SCHNELL (roter Ring)", 63, true);
   zeige("Fahrzeug: vorne tief (-1.5 Grad), rechts hoch (+1.0 Grad)", 1.0f, -1.5f, true);
   zeige("Fahrzeug: eben", 0.1f, -0.1f, true);
   return 0;

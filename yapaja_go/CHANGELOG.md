@@ -10,6 +10,47 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.16.5
+
+**Das ESP-Display zeigt beim Fahren keine Tempolimit-Zahlen mehr. Zu schnell
+ist jetzt ein roter Ring am Displayrand.**
+
+Gewünscht:
+
+> „Bitte entferne bei der Navigationsanzeige das speedlimit als Zahl. Es
+> langt wenn es überschritten wird einen roten Ring am Displayrand
+> anzuzeigen. Der braucht nicht zu dick zu sein aber eben gut wahrnehmbar.
+> Dafür könnte dann die km/h Anzeige mehr in die Mitte rutschen und etwas
+> größer werden."
+
+Was sich in der Fahransicht ändert:
+
+- **Das runde Verkehrszeichen ist weg**, und mit ihm die kleine Zahl daneben,
+  die die Grenze für das eigene Fahrzeug anzeigte.
+- **Bei Übertretung liegt ein roter Ring auf dem Displayrand**, vier
+  Bildpunkte dick.
+- **Das Tempo steht jetzt groß und mittig** statt klein am linken Rand. Die
+  Ankunftszeit rückt eine Schriftgröße herunter — sie ist die Nebenauskunft,
+  und bei dreistelligem Tempo bräuchten beide sonst denselben Platz.
+
+**Die Fahrzeuggrenze geht dabei nicht verloren.** Die Warnung schlägt seit
+0.14.0 an der *niedrigeren* der beiden Grenzen an — dem Schild und dem, was
+das eingestellte Fahrzeug darf. Der Ring trägt damit beides. Was verloren
+geht, ist die Auskunft „was darf ich hier eigentlich", und das ist der
+bewusst bezahlte Preis: auf einem 240 Punkte großen Glas stand diese Zahl
+neben einer zweiten, und wer sie wirklich braucht, findet sie im Dashboard.
+
+Der Ring erscheint **auch ohne laufende Route** — dort, wo man die meiste
+Zeit fährt.
+
+> **Keine Frage an das Display:** „Auf dem Display lese ich 40 m zur nächsten
+> Abbiegung, das Dashboard sagt 37 m." Das ist Absicht, kein Rundungsfehler.
+> Das Display rundet auf volle zehn Meter, weil „37 m" eine Genauigkeit
+> behauptet, die GPS nicht hat — und weil die letzte Ziffer sonst im
+> Sekundentakt flackert. Das Dashboard zeigt den Rohwert.
+
+---
+
 ## 0.16.4
 
 **Das Gewicht lässt sich jetzt auf zehn Kilogramm genau eintragen — und
