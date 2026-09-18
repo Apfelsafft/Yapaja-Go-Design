@@ -130,6 +130,30 @@ substitutions:
   neigung_lr_vorzeichen: "1"
   neigung_vh_vorzeichen: "1"
 
+  # ─── DIE DIAGNOSE-ANZEIGE ─────────────────────────────────────────────────
+  # `true` zeigt STATT der Navigationsanzeige eine Liste aller Werte, die aus
+  # Home Assistant kommen sollen -- und ob sie ankommen.
+  #
+  # ─── WOFUER ───────────────────────────────────────────────────────────────
+  # Gemeldet, zum zweiten Mal: „Das Display vom esp zeigt immer noch kein Wert
+  # aus HA." Und die richtige Rueckfrage dazu: „Oder kann es sein dass die
+  # Werte, obwohl sie in ha sind, [nicht] beim esp ankommen?"
+  #
+  # Genau das liess sich bisher nicht nachsehen. Die Anzeige sagte „Kein Wert
+  # aus Home Assistant" und nannte EINE moegliche Ursache (den Entitaetsnamen)
+  # -- aber nicht, welche der zehn Entitaeten betroffen ist, und schon gar
+  # nicht, ob ueberhaupt eine ankommt.
+  #
+  # ─── SIE ERSCHEINT AUCH VON ALLEIN ────────────────────────────────────────
+  # Kommt GAR KEIN Wert an, zeigt die Anzeige diese Liste von sich aus, ohne
+  # dass hier etwas umgestellt werden muss. Das ist der Zustand, in dem die
+  # alte Meldung eine Sackgasse war: sie beschrieb das Problem und liess den
+  # Betreiber damit allein.
+  #
+  # Auf `true` gestellt zeigt sie die Liste IMMER -- zum Nachsehen, auch wenn
+  # nur einzelne Werte fehlen. Danach wieder auf `false` und neu flashen.
+  diagnose: "false"
+
   # ─── PINS DES ESP32-2424S012 ──────────────────────────────────────────────
   # Fuer ein anderes Board anpassen; README.md nennt die gaengigen.
   pin_sck: GPIO6
@@ -446,6 +470,105 @@ display:
       auto hat = [](esphome::sensor::Sensor *s) {
         return s != nullptr && s->has_state() && !std::isnan(s->state);
       };
+
+      // Dasselbe fuer einen Textwert. Home Assistant schickt fuer „weiss ich
+      // nicht" die Zeichenketten "unknown" oder "unavailable" -- beide sind
+      // KEIN Wert, auch wenn `std::string` sie fuer voll nimmt.
+      auto hat_text = [](esphome::text_sensor::TextSensor *s) {
+        if (s == nullptr) return false;
+        const std::string &v = s->state;
+        return !v.empty() && v != "unknown" && v != "unavailable";
+      };
+
+      // ══ Diagnose: kommt ueberhaupt etwas an? ═══════════════════════════
+      // ─── DIE FRAGE, DIE SICH BISHER NICHT BEANTWORTEN LIESS ───────────
+      // Gemeldet: das Geraet zeigt „Kein Wert aus Home Assistant", waehrend
+      // in Home Assistant Werte stehen. Die Rueckfrage des Betreibers war
+      // die richtige: kommen sie ueberhaupt beim ESP an?
+      //
+      // Die alte Meldung nannte EINE moegliche Ursache -- den Namen der
+      // Entitaet. Sie sagte aber nicht, WELCHE der zehn betroffen ist, und
+      // vor allem nicht, ob ueberhaupt eine ankommt. Das ist der
+      // Unterschied zwischen zwei sehr verschiedenen Lagen:
+      //
+      //   einzelne fehlen   ein Name stimmt nicht -- oben nachtragen.
+      //   ALLE fehlen       das Geraet ist in Home Assistant gar nicht
+      //                     eingebunden. „Online" im ESPHome-Dashboard
+      //                     heisst das NICHT: das Dashboard spricht direkt
+      //                     mit dem Geraet, die Zustaende schiebt die
+      //                     ESPHome-Integration in Home Assistant.
+      //
+      // Die zweite Lage ist von aussen nicht zu erraten und war bisher von
+      // der ersten nicht zu unterscheiden.
+      const int diag_da =
+          (hat(id(yapaja_tempo))               ? 1 : 0) +
+          (hat(id(yapaja_tempolimit))          ? 1 : 0) +
+          (hat(id(yapaja_tempolimit_fahrzeug)) ? 1 : 0) +
+          (hat(id(yapaja_manoever_entfernung)) ? 1 : 0) +
+          (hat(id(neigung_lr))                 ? 1 : 0) +
+          (hat(id(neigung_vh))                 ? 1 : 0) +
+          (hat_text(id(yapaja_fahrzustand))    ? 1 : 0) +
+          (hat_text(id(yapaja_anweisung))      ? 1 : 0);
+      const int diag_gesamt = 8;
+
+      if (${diagnose} || diag_da == 0) {
+        // Eine Zeile: Beschriftung links, Wert rechts. Beide bleiben
+        // innerhalb des Kreises -- bei y = cy-72 ist die halbe Breite 86,
+        // die Anker liegen bei ±70.
+        auto zeile = [&](int y, const char *name, const std::string &wert,
+                         bool vorhanden) {
+          it.print(cx - 70, y, id(font_s), id(c_gedaempft), TextAlign::CENTER_LEFT, name);
+          it.print(cx + 70, y, id(font_s),
+                   vorhanden ? id(c_gut) : id(c_warnung), TextAlign::CENTER_RIGHT,
+                   wert.c_str());
+        };
+
+        // Eine Zahl als kurzer Text -- oder das Zeichen fuer „kommt nicht an".
+        auto zahl = [&](esphome::sensor::Sensor *s) -> std::string {
+          if (!hat(s)) return std::string("--");
+          char b[16];
+          snprintf(b, sizeof b, "%.1f", s->state);
+          return std::string(b);
+        };
+
+        // Ein Text, gekuerzt: „navigating" ist zehn Zeichen und passt, ein
+        // Strassenname nicht. Abgeschnitten wird nach BYTES, was bei Umlauten
+        // ein halbes Zeichen hinterlassen kann -- hier ist das hinnehmbar,
+        // weil diese Ansicht nur zeigt, OB etwas ankommt, und nicht was.
+        auto kurz = [&](esphome::text_sensor::TextSensor *s) -> std::string {
+          if (!hat_text(s)) return std::string("--");
+          std::string v = s->state;
+          if (v.size() > 10) v = v.substr(0, 10);
+          return v;
+        };
+
+        it.print(cx, cy - 96, id(font_s), id(c_text), TextAlign::CENTER, "Diagnose");
+
+        zeile(cy - 72, "Tempo",     zahl(id(yapaja_tempo)),               hat(id(yapaja_tempo)));
+        zeile(cy - 56, "Limit",     zahl(id(yapaja_tempolimit)),          hat(id(yapaja_tempolimit)));
+        zeile(cy - 40, "Limit Fzg", zahl(id(yapaja_tempolimit_fahrzeug)), hat(id(yapaja_tempolimit_fahrzeug)));
+        zeile(cy - 24, "Entfernung",zahl(id(yapaja_manoever_entfernung)), hat(id(yapaja_manoever_entfernung)));
+        zeile(cy -  8, "Zustand",   kurz(id(yapaja_fahrzustand)),         hat_text(id(yapaja_fahrzustand)));
+        zeile(cy +  8, "Anweisung", kurz(id(yapaja_anweisung)),           hat_text(id(yapaja_anweisung)));
+        zeile(cy + 24, "Neig L/R",  zahl(id(neigung_lr)),                 hat(id(neigung_lr)));
+        zeile(cy + 40, "Neig V/H",  zahl(id(neigung_vh)),                 hat(id(neigung_vh)));
+
+        // ─── DER BEFUND, NICHT NUR DIE LISTE ──────────────────────────────
+        // Eine Liste aus acht Strichen beantwortet die Frage noch nicht --
+        // sie zeigt sie nur. Der Satz darunter sagt, was daraus folgt.
+        if (diag_da == 0) {
+          it.print(cx, cy + 66, id(font_s), id(c_warnung), TextAlign::CENTER,
+                   "Nichts kommt an");
+          it.print(cx, cy + 84, id(font_s), id(c_gedaempft), TextAlign::CENTER,
+                   "ESPHome in HA einbinden");
+        } else {
+          it.printf(cx, cy + 66, id(font_s), id(c_text), TextAlign::CENTER,
+                    "%d von %d kommen an", diag_da, diag_gesamt);
+          it.print(cx, cy + 84, id(font_s), id(c_gedaempft), TextAlign::CENTER,
+                   "Fehlende: Namen pruefen");
+        }
+        return;
+      }
 
       // ══ Beim Parken: die digitale Wasserwaage ══════════════════════════
       // Steht das Wohnmobil gerade? Das ist beim Abstellen die einzige

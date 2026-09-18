@@ -10,6 +10,46 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.16.2
+
+**Das ESP32-Display sagt jetzt selbst, ob überhaupt Werte ankommen.**
+
+Gemeldet, zum zweiten Mal: „Das Display vom esp zeigt immer noch kein Wert aus
+HA." — und dazu die richtige Rückfrage: „Oder kann es sein dass die Werte,
+obwohl sie in ha sind, [nicht] beim esp ankommen?"
+
+Genau das ließ sich bisher nicht nachsehen. Die alte Meldung nannte **eine**
+mögliche Ursache (den Entitätsnamen), sagte aber nicht, *welche* der Entitäten
+betroffen ist — und schon gar nicht, ob überhaupt eine ankommt.
+
+Das sind zwei sehr verschiedene Lagen, und sie waren nicht zu unterscheiden:
+
+| | |
+|---|---|
+| **einzelne** Werte fehlen | ein Entitätsname stimmt nicht |
+| **alle** fehlen | das Gerät ist in Home Assistant gar nicht eingebunden |
+
+Kommt gar nichts an, zeigt das Display jetzt **von allein** eine Liste aller
+erwarteten Werte und dahinter, ob sie ankommen — statt der alten Sackgasse.
+Darunter steht der Befund: „Nichts kommt an / ESPHome in HA einbinden".
+
+Wer die Liste sehen will, obwohl nur einzelne Werte fehlen, stellt in der
+`navi.yaml` `diagnose: "true"` ein. Dann steht dort zusätzlich, wie viele von
+acht Werten ankommen.
+
+> **Die Falle, um die es dabei geht:** „Gerät online" im ESPHome-Dashboard
+> heißt **nicht**, dass Home Assistant verbunden ist. Das Dashboard spricht
+> direkt mit dem Gerät; die Zustände schiebt die ESPHome-**Integration** in
+> Home Assistant. Kennt die das Gerät nicht oder hat den falschen Schlüssel,
+> bleibt es „online" und bekommt trotzdem nie einen Wert. Die README nennt
+> jetzt den Weg dorthin: Einstellungen → Geräte & Dienste → ESPHome.
+
+Ein Hinweis zum Lesen der Liste: sind auch die **Neigungswerte** leer, kann es
+nicht an Yapaias Entitätsnamen liegen — die Neigungssensoren hängen an einem
+ganz anderen Gerät.
+
+---
+
 ## 0.16.1
 
 **Frischwasser-Zapfstellen und Duschen sind jetzt auf der Karte — und in der Suche.**

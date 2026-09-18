@@ -243,6 +243,117 @@ static void lauf(const Fall &f, int w, int h, bool zeige) {
 int main() {
   setenv("TZ", "Europe/Berlin", 1); tzset();
 
+#ifdef DIAGNOSE_ERZWUNGEN
+  // ══ Der zweite Lauf: `diagnose: "true"` ═══════════════════════════════════
+  // `${diagnose}` wird VOR dem Uebersetzen ersetzt. Im ersten Lauf steht dort
+  // `false`, und der Zweig dahinter ist im erzeugten C++ gar nicht enthalten
+  // -- ungeprueft waere also ausgerechnet der Modus, den jemand einschaltet,
+  // wenn ohnehin schon etwas nicht stimmt.
+  //
+  // `run.mjs` uebersetzt die Routine deshalb ein zweites Mal mit `true` und
+  // setzt dabei diesen Schalter. Hier laufen dann NUR die Faelle, die es nur
+  // in diesem Modus gibt.
+  {
+    auto genau = [&](const char *name, const Fall &f, int w, int h,
+                     std::vector<std::string> soll) {
+      s_zustand.state=f.zustand; s_art.state=f.art; s_anweisung.state=f.anweisung;
+      s_ankunft.state=f.ankunft;
+      s_tempo.has=f.tempo_da; s_tempo.state=f.tempo_da?f.tempo:NAN;
+      s_limit.has=f.limit_da; s_limit.state=f.limit_da?f.limit:NAN;
+      s_limit_fz.has=f.limit_fz_da; s_limit_fz.state=f.limit_fz_da?f.limit_fz:NAN;
+      s_lr.has=f.neigung_da; s_lr.state=f.neigung_da?f.lr:NAN;
+      s_vh.has=f.neigung_da; s_vh.state=f.neigung_da?f.vh:NAN;
+      s_mdist.has=f.mdist_da; s_mdist.state=f.mdist_da?f.mdist:NAN;
+      s_rest.has=f.rest_da;   s_rest.state=f.rest_da?f.rest:NAN;
+      s_schnell.state=f.schnell;
+      Display it(w,h); zeichne(it);
+      if (it.texte != soll) {
+        printf("  FEHL %-26s\n       soll:", name);
+        for (auto &t : soll) printf(" \"%s\"", t.c_str());
+        printf("\n       ist :");
+        for (auto &t : it.texte) printf(" \"%s\"", t.c_str());
+        printf("\n");
+        fehler++;
+      } else {
+        printf("  OK   %s\n", name);
+      }
+    };
+
+    printf("── Erzwungene Diagnose ──\n");
+
+    // ─── DER EIGENTLICHE ZWECK DIESES MODUS ───────────────────────────────
+    // Volle Fahrt: es kommt alles an, was zaehlt. Trotzdem steht die Liste
+    // da -- sonst liesse sich nicht nachsehen, WELCHE Werte ankommen, solange
+    // wenigstens einer davon da ist.
+    // ─── BENANNT UND NICHT NACH POSITION ──────────────────────────────────
+    // `Fall` hat neunzehn Felder, von denen viele `bool` und `float`
+    // nebeneinander sind. Eine Initialisierung nach Position ist dort nicht
+    // zu lesen und beim ersten Versuch prompt verrutscht -- `70` landete auf
+    // einem `bool`. Der Uebersetzer hat es gefangen; bei zwei `bool`
+    // nebeneinander haette er geschwiegen.
+    Fall voll{};
+    voll.name = "x";
+    voll.zustand = "navigating"; voll.art = "turn_left";
+    voll.anweisung = "Links abbiegen auf B27";
+    voll.ankunft = "2026-09-15T14:32:00.000Z";
+    voll.tempo = 87;    voll.tempo_da = true;
+    voll.limit = 80;    voll.limit_da = true;
+    voll.mdist = 1240;  voll.mdist_da = true;
+    voll.rest = 42.5f;  voll.rest_da = true;
+    voll.limit_fz = 70; voll.limit_fz_da = true;
+    voll.lr = 1.5f; voll.vh = -0.5f; voll.neigung_da = true;
+    voll.schnell = false;
+    genau("alles da: die Liste trotzdem, mit den Werten", voll, 240,240,
+          {"Diagnose",
+           "Tempo","87.0", "Limit","80.0", "Limit Fzg","70.0",
+           "Entfernung","1240.0",
+           "Zustand","navigating", "Anweisung","Links abbi",
+           "Neig L/R","1.5", "Neig V/H","-0.5",
+           "8 von 8 kommen an", "Fehlende: Namen pruefen"});
+
+    // ─── DIE LAGE, DIE DIESEN MODUS NOETIG MACHT ──────────────────────────
+    // Einzelne fehlen. Genau dann sagt die Zahl, wie viele -- und die
+    // Beschriftungen daneben, WELCHE. Das ist die Auskunft, die die alte
+    // Meldung „Kein Wert aus Home Assistant" nie gegeben hat.
+    Fall halb = voll;
+    halb.limit_da = false; halb.limit_fz_da = false; halb.neigung_da = false;
+    genau("einzelne fehlen: die Zahl sagt wie viele", halb, 240,240,
+          {"Diagnose",
+           "Tempo","87.0", "Limit","--", "Limit Fzg","--",
+           "Entfernung","1240.0",
+           "Zustand","navigating", "Anweisung","Links abbi",
+           "Neig L/R","--", "Neig V/H","--",
+           "4 von 8 kommen an", "Fehlende: Namen pruefen"});
+
+    // Die Gegenprobe zur Zahl: sie darf nicht fest sein. Ein Wert weniger,
+    // eine Zahl weniger -- sonst waere sie Zierde.
+    Fall halb_ohne_tempo = halb; halb_ohne_tempo.tempo_da = false;
+    genau("ein Wert weniger, eine Zahl weniger", halb_ohne_tempo, 240,240,
+          {"Diagnose",
+           "Tempo","--", "Limit","--", "Limit Fzg","--",
+           "Entfernung","1240.0",
+           "Zustand","navigating", "Anweisung","Links abbi",
+           "Neig L/R","--", "Neig V/H","--",
+           "3 von 8 kommen an", "Fehlende: Namen pruefen"});
+
+    // Und auch im erzwungenen Modus gilt: kommt NICHTS an, ist das der
+    // Befund und nicht „0 von 8". Die Zahl allein saehe aus wie ein Zaehler,
+    // der noch laeuft.
+    Fall gar_nichts{};
+    gar_nichts.name = "x";
+    gar_nichts.zustand = ""; gar_nichts.art = "turn_left";
+    gar_nichts.anweisung = "unknown"; gar_nichts.ankunft = "unknown";
+    genau("nichts kommt an: derselbe Befund wie von allein", gar_nichts, 240,240,
+          {"Diagnose",
+           "Tempo","--", "Limit","--", "Limit Fzg","--", "Entfernung","--",
+           "Zustand","--", "Anweisung","--", "Neig L/R","--", "Neig V/H","--",
+           "Nichts kommt an", "ESPHome in HA einbinden"});
+  }
+
+  printf("\n%d Fehler\n", fehler);
+  return fehler ? 1 : 0;
+#else
+
   // Alle ManeuverType-Werte aus mapping.ts PLUS die Valhalla-Werte, die der
   // Typ als `| string` ausdruecklich zulaesst.
   const char *arten[] = {
@@ -614,6 +725,59 @@ int main() {
   genau("unknown: kein Zustand, sondern ein fehlender Wert", nichts_bekannt, 240,240,
         {"Kein Wert aus Home Assistant", "Entitaet pruefen: Filter \"yapa\""});
 
+  // ─── WENN GAR NICHTS ANKOMMT ────────────────────────────────────────────
+  // Gemeldet, zum zweiten Mal: „Das Display vom esp zeigt immer noch kein
+  // Wert aus HA." -- waehrend in Home Assistant Werte standen.
+  //
+  // Die Rueckfrage des Betreibers war die richtige: kommen sie ueberhaupt
+  // beim ESP an? Genau das liess sich nicht nachsehen. Die alte Meldung
+  // nannte EINE moegliche Ursache (den Entitaetsnamen), sagte aber nicht,
+  // welche der Entitaeten betroffen ist -- und schon gar nicht, ob ueberhaupt
+  // eine ankommt.
+  //
+  // Das sind zwei sehr verschiedene Lagen: ein falscher Name betrifft EINE
+  // Entitaet, eine fehlende Einbindung in Home Assistant ALLE. Die zweite
+  // war von der ersten nicht zu unterscheiden.
+  printf("\n── Diagnose: kommt ueberhaupt etwas an? ──\n");
+
+  // Nichts kommt an: kein Zustand, kein Text, kein Zahlenwert, keine Neigung.
+  // Benannt und nicht nach Position: `Fall` hat neunzehn Felder, viele davon
+  // `bool` und `float` nebeneinander. Eine Zeile nach Position ist dort nicht
+  // zu lesen -- und beim Zufuegen des erzwungenen Modus ist genau das prompt
+  // verrutscht. Alles, was hier nicht genannt wird, ist null bzw. `false`,
+  // und das IST hier die Aussage: es kommt nichts an.
+  Fall taub{};
+  taub.name = "x";
+  taub.zustand = ""; taub.art = "turn_left";
+  taub.anweisung = "unknown"; taub.ankunft = "unknown";
+  genau("nichts kommt an: die Liste statt der Sackgasse", taub, 240,240,
+        {"Diagnose",
+         "Tempo","--", "Limit","--", "Limit Fzg","--", "Entfernung","--",
+         "Zustand","--", "Anweisung","--", "Neig L/R","--", "Neig V/H","--",
+         "Nichts kommt an", "ESPHome in HA einbinden"});
+
+  // ─── DIE GEGENPROBE ─────────────────────────────────────────────────────
+  // Sie ist hier das Wichtigere. Die Liste darf NICHT erscheinen, sobald
+  // irgendetwas ankommt -- sonst waere sie keine Diagnose, sondern die neue
+  // Dauer-Anzeige, und die Navigationsanzeige damit tot.
+  //
+  // `stumm` hat einen leeren Zustand, aber Tempo, Limit und Entfernung. Das
+  // ist der ALTE Fall, und er muss unveraendert die alte Meldung zeigen.
+  Fall stumm_aber_tempo = sommer; stumm_aber_tempo.zustand = "";
+  genau("ein Wert reicht: die alte Meldung, nicht die Liste", stumm_aber_tempo,
+        240,240,
+        {"Kein Wert aus Home Assistant", "Entitaet pruefen: Filter \"yapa\""});
+
+  // Und die Umkehrung: NUR die Neigung kommt an, sonst nichts. Auch das ist
+  // „etwas kommt an" -- die Neigungssensoren haengen an einem anderen Geraet,
+  // und dass DIE ankommen, ist die entscheidende Auskunft: dann ist die
+  // Einbindung in Ordnung und es liegt an Yapaias Entitaetsnamen.
+  Fall nur_neigung = taub; nur_neigung.neigung_da = true;
+  nur_neigung.lr = 1.5f; nur_neigung.vh = -0.5f;
+  genau("nur die Neigung kommt an: Wasserwaage, nicht Diagnose", nur_neigung,
+        240,240,
+        {"L/R +1.5\u00b0", "V/H -0.5\u00b0"});
+
   printf("\n── Welcher Pfeil bei welcher Manoeverart ──\n");
   // `ManeuverType` ist in types.ts ausdruecklich `| string`: Valhalla liefert
   // auch slight_/sharp_/ramp_. Wer auf genaue Gleichheit prueft, zeigt bei
@@ -652,4 +816,5 @@ int main() {
 
   printf("\n%d Fehler\n", fehler);
   return fehler ? 1 : 0;
+#endif
 }
