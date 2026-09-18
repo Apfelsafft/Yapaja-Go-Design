@@ -529,12 +529,40 @@ int main() {
   genau("ohne Neigungswerte: sagt WAS fehlt", ohne_neigung, 240,240,
         {"Keine Neigungswerte", "Sensoren pruefen"});
 
-  // ─── BEI UNBEKANNTEM TEMPO BLEIBT ES BEI DER NAVIGATION ─────────────────
-  // Unbekannt heisst NICHT „vermutlich steht es". Sonst erschiene die
-  // Wasserwaage mitten auf der Autobahn, sobald das GPS aussetzt.
+  // ─── BEI UNBEKANNTEM TEMPO WAEHREND DER NAVIGATION: KEINE LIBELLE ───────
+  // Faellt auf der Autobahn das GPS aus, laeuft die Navigation weiter -- und
+  // dann bleibt die Route stehen.
   Fall tempo_weg = parkt; tempo_weg.tempo_da = false;
-  genau("Tempo unbekannt: KEINE Wasserwaage", tempo_weg, 240,240,
+  genau("Tempo unbekannt, aber navigierend: KEINE Wasserwaage", tempo_weg, 240,240,
         {"Links abbiegen auf B27","1.2 km","80","16:32"});
+
+  // ─── DER GEMELDETE FALL ─────────────────────────────────────────────────
+  // Mit Foto: das Geraet zeigte „Kein Wert aus Home Assistant", obwohl die
+  // Neigungswerte anlagen. `sensor.yapaja_speed` hatte keinen Wert, und die
+  // erste Fassung verlangte ein BEKANNTES Tempo -- also fiel alles durch bis
+  // zur Fahrzustandsmeldung.
+  //
+  // Die Wasserwaage haengt an einem ganz anderen Geraet. Sie von Yapaias
+  // Tempowert abhaengig zu machen war die falsche Kopplung.
+  Fall geparkt_ohne_tempo = parkt;
+  geparkt_ohne_tempo.tempo_da = false;
+  geparkt_ohne_tempo.zustand = "";
+  genau("kein Tempo, keine Navigation, aber Neigung: WASSERWAAGE",
+        geparkt_ohne_tempo, 240,240, {"L/R -1.2°", "V/H -0.6°"});
+
+  // Dasselbe bei `idle` -- der Normalfall nach dem Abstellen.
+  Fall geparkt_idle = geparkt_ohne_tempo; geparkt_idle.zustand = "idle";
+  genau("idle ohne Tempo, mit Neigung: WASSERWAAGE", geparkt_idle, 240,240,
+        {"L/R -1.2°", "V/H -0.6°"});
+
+  // ─── UND DIE GEGENPROBE ─────────────────────────────────────────────────
+  // Ein Geraet OHNE Neigungssensoren darf bei unbekanntem Tempo nicht
+  // dauerhaft eine Meldung ueber Sensoren bringen, die es gar nicht hat.
+  // Dort gilt weiter die alte Anzeige.
+  Fall ohne_alles = geparkt_ohne_tempo; ohne_alles.neigung_da = false;
+  genau("kein Tempo, keine Neigung: die alte Meldung, nicht die Libelle",
+        ohne_alles, 240,240,
+        {"Kein Wert aus Home Assistant", "Entitaet pruefen: Filter \"yapa\""});
 
   // Die Gegenprobe zur Schwelle: knapp darueber laeuft die Navigation weiter.
   Fall rollt = parkt; rollt.tempo = 5.0f;

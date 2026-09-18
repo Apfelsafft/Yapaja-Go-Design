@@ -451,11 +451,30 @@ display:
       // Steht das Wohnmobil gerade? Das ist beim Abstellen die einzige
       // Frage, und sie geht jeder Navigationsanzeige vor.
       //
-      // ─── NUR BEI BEKANNTEM, LANGSAMEM TEMPO ───────────────────────────
-      // `hat(...)` ist hier keine Formsache. Ist das Tempo UNBEKANNT, wissen
-      // wir nicht, ob das Fahrzeug steht -- dann waere eine Wasserwaage
-      // mitten auf der Autobahn zu sehen. Unbekannt heisst also: weiter wie
-      // bisher, nicht „vermutlich steht es".
+      // ─── WANN SIE ERSCHEINT ───────────────────────────────────────────
+      // Zuerst stand hier NUR: „Tempo bekannt und unter der Schwelle". Das
+      // war zu eng und ist im Betrieb prompt aufgefallen -- gemeldet mit
+      // Foto: das Geraet zeigte die Fahrzustandsmeldung statt der Libelle.
+      //
+      // Der Grund: `sensor.yapaja_speed` hatte gar keinen Wert. Damit fiel
+      // die Pruefung durch, obwohl die Neigungswerte anlagen. Die
+      // Wasserwaage haengt aber an einem GANZ ANDEREN Geraet -- sie von
+      // Yapaias Tempowert abhaengig zu machen war die falsche Kopplung.
+      //
+      // Jetzt zwei Wege hinein:
+      //
+      //   1. Tempo bekannt und unter der Schwelle. So gewuenscht, und das
+      //      gilt auch waehrend einer Navigation: wer an der Ampel haelt,
+      //      sieht kurz die Libelle und beim Anfahren wieder die Route.
+      //
+      //   2. Tempo UNBEKANNT und es wird gerade nicht navigiert. Dann ist
+      //      „geparkt" die bei weitem wahrscheinlichste Lage -- und die
+      //      Anzeige haette sonst ohnehin nichts Besseres zu zeigen.
+      //
+      // Der Zusatz „nicht navigierend" im zweiten Weg ist der Schutz gegen
+      // den Fall, den die erste Fassung vermeiden wollte: faellt auf der
+      // Autobahn das GPS aus, laeuft die Navigation weiter, und dann bleibt
+      // die Route stehen.
       // ─── WARUM `(float) (...)` UND NICHT `...f` ───────────────────────
       // Eine Substitution wird als TEXT eingesetzt. Aus `2` wuerde mit
       // angehaengtem `f` die Zeichenfolge `2f` -- und das ist kein
@@ -466,14 +485,31 @@ display:
       // Mit `0.5` ginge es gut, mit `2` nicht. Wer oben also eine glatte
       // Zahl eintraegt, haette den Bau zerlegt -- und zwar erst beim
       // Uebersetzen auf dem eigenen Geraet. Die Klammer nimmt beide Formen.
-      if (hat(id(yapaja_tempo)) && id(yapaja_tempo).state < (float) (${wasserwaage_ab_kmh})) {
+      const std::string zustand = id(yapaja_fahrzustand).state;
+      const bool navigiert = zustand == "navigating";
+      const bool steht = hat(id(yapaja_tempo)) &&
+                         id(yapaja_tempo).state < (float) (${wasserwaage_ab_kmh});
+      const bool tempo_unbekannt = !hat(id(yapaja_tempo));
+
+      const bool neigung_da = hat(id(neigung_lr)) && hat(id(neigung_vh));
+
+      // Der zweite Weg verlangt zusaetzlich, dass die Neigungswerte DA sind.
+      // So bleibt die Bedingung die einzige Stelle, die entscheidet -- ein
+      // Sprung aus dem Block heraus waere kuerzer und schwerer zu lesen.
+      if (steht || (tempo_unbekannt && !navigiert && neigung_da)) {
         const float rr = r - 4;
 
-        // ─── OHNE NEIGUNGSWERTE KEINE BLASE ─────────────────────────────
+        // ─── OHNE NEIGUNGSWERTE ─────────────────────────────────────────
         // Eine Blase in der Mitte heisst „steht gerade". Fehlen die Werte,
         // waere genau das eine Behauptung -- und zwar die beruhigende, bei
-        // der niemand nachsieht. Also lieber schreiben, was fehlt.
-        if (!hat(id(neigung_lr)) || !hat(id(neigung_vh))) {
+        // der niemand nachsieht.
+        //
+        // Hierher kommt man ohne Neigungswerte nur ueber den ERSTEN Weg,
+        // also bei nachweislich stehendem Fahrzeug. Der zweite verlangt sie
+        // in der Bedingung -- sonst brachte jedes Geraet ohne
+        // Neigungssensoren dauerhaft eine Meldung ueber Sensoren, die es
+        // gar nicht hat.
+        if (!neigung_da) {
           it.circle(cx, cy, (int) rr, id(c_gedaempft));
           it.print(cx, cy - 10, id(font_s), id(c_warnung), TextAlign::CENTER,
                    "Keine Neigungswerte");
@@ -532,8 +568,8 @@ display:
       }
 
       // ══ Fahrzustand ════════════════════════════════════════════════════
-      const std::string zustand = id(yapaja_fahrzustand).state;
-      if (zustand != "navigating") {
+      // `zustand` ist oben schon gelesen -- die Wasserwaage braucht ihn.
+      if (!navigiert) {
         const char *text = "Keine Route";
         if (zustand == "routing")   text = "Route wird berechnet";
         if (zustand == "paused")    text = "Pausiert";

@@ -10,6 +10,54 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.15.3
+
+**Die Wasserwaage erscheint jetzt auch ohne Tempowert.**
+
+Gemeldet mit Foto: Das Display zeigte „Kein Wert aus Home Assistant", obwohl
+die Neigungssensoren Werte lieferten.
+
+Der Grund war eine falsche Kopplung von mir. Die erste Fassung verlangte ein
+**bekanntes** Tempo — und `sensor.yapaja_speed` hatte keines. Damit fiel alles
+durch bis zur Fahrzustandsmeldung. Die Wasserwaage hängt aber an einem ganz
+anderen Gerät; sie von Yapaias Tempowert abhängig zu machen war falsch.
+
+Jetzt gibt es zwei Wege hinein:
+
+1. **Tempo bekannt und unter der Schwelle** — wie bisher, auch während einer
+   Navigation. Wer an der Ampel hält, sieht kurz die Libelle.
+2. **Tempo unbekannt und es wird nicht navigiert** — dann ist „geparkt" die
+   bei weitem wahrscheinlichste Lage.
+
+Der Zusatz „nicht navigierend" im zweiten Weg schützt den Fall, den die erste
+Fassung vermeiden wollte: fällt auf der Autobahn das GPS aus, läuft die
+Navigation weiter, und dann bleibt die Route stehen.
+
+Ein Gerät **ohne** Neigungssensoren zeigt weiterhin die gewohnte Anzeige —
+nicht dauerhaft eine Meldung über Sensoren, die es gar nicht hat.
+
+---
+
+**Die Kartenliste sagt jetzt, welche Regionen wirklich gezeichnet werden.**
+
+Gemeldet: „Ich habe Deutschland neu bauen lassen aber Liechtenstein wird nicht
+auf der Karte angezeigt."
+
+Yapaia lässt eine Region weg, deren Ausdehnung vollständig in einer anderen
+liegt — sonst wäre jede Straße doppelt gezeichnet. Die Regel ist richtig. Sie
+war nur **stumm**: die Funktion, die darüber Auskunft gibt, existierte seit
+0.9.0 und wurde nie aufgerufen.
+
+`GET /api/v1/map/regions` liefert jetzt zusätzlich `gezeichnet` und `verdeckt`.
+
+> **Zu Liechtenstein konkret:** nachgerechnet liegt es **nicht** in
+> Deutschland — Deutschlands Südspitze ist 47,27°, Liechtenstein reicht von
+> 47,05° bis 47,27°. An dieser Regel kann es also nicht liegen. Fehlt es
+> trotzdem, ist die Karte entweder nicht installiert oder nicht gebaut. Genau
+> das lässt sich an der Liste jetzt ablesen, statt es zu raten.
+
+---
+
 ## 0.15.2
 
 **Das ESP32-Display heißt jetzt `navi`.**
