@@ -30,7 +30,20 @@
 # WLAN-Zugangsdaten stehen in `secrets.yaml`, nicht hier.
 
 substitutions:
-  geraetename: yapaja-nav-display
+  # ─── DER GERAETENAME ──────────────────────────────────────────────────────
+  # Das ist der Name, unter dem ESPHome das Geraet fuehrt -- und damit auch
+  # sein Hostname im Netz (`navi.local`) und der Name der Rueckfall-SSID.
+  #
+  # Kleinbuchstaben, Ziffern und Bindestriche; ESPHome laesst nichts anderes
+  # zu, weil daraus ein Hostname wird.
+  #
+  # ─── ER HAENGT MIT DEM SCHLUESSELNAMEN ZUSAMMEN ───────────────────────────
+  # Der API-Schluessel steht als `!secret navi__api_key` in der `secrets.yaml`
+  # (siehe unten bei `api:`). Der Device Builder benennt solche Eintraege nach
+  # dem GERAET. Wer den Namen hier aendert, sollte deshalb pruefen, ob der
+  # Eintrag in der `secrets.yaml` noch passt -- ESPHome merkt es nicht, es
+  # sucht schlicht nach dem Namen, der in der `key:`-Zeile steht.
+  geraetename: navi
   anzeigename: "Yapaia Navigationsanzeige"
 
   # ─── DIE ZEITZONE ─────────────────────────────────────────────────────────

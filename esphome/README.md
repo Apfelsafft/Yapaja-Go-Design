@@ -312,8 +312,13 @@ Hilft nichts davon, probieren Sie `fast_connect: true` im `wifi:`-Block: das
 Mesh-Aufbauten den Unterschied macht.
 
 Solange kein WLAN da ist, öffnet das Gerät nach kurzer Zeit den eigenen
-Zugangspunkt **„Yapaia Navi Fallback"** — darüber lässt es sich im Browser
-neu einrichten, ohne es wieder anzustöpseln.
+Zugangspunkt **„navi Fallback"** — darüber lässt es sich im Browser neu
+einrichten, ohne es wieder anzustöpseln.
+
+> Der Name folgt der Substitution `geraetename` (Vorgabe `navi`). Wer sie
+> ändert, findet den Zugangspunkt entsprechend unter dem neuen Namen — und
+> sollte dann auch prüfen, ob der Eintrag `navi__api_key` in der
+> `secrets.yaml` noch passt.
 
 ### Helligkeit bei Nacht
 

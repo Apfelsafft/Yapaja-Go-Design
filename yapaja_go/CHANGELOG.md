@@ -10,6 +10,26 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.15.2
+
+**Das ESP32-Display heißt jetzt `navi`.**
+
+Die Substitution `geraetename` steht auf `navi` statt `yapaja-nav-display`.
+Damit heißt das Gerät im Netz `navi.local` — so, wie es in der ESPHome-
+Installation ohnehin schon geführt wurde — und passt zum Schlüsselnamen
+`navi__api_key` aus 0.15.1.
+
+Zwei Dinge ändern sich sichtbar:
+
+- der **Hostname** (`navi.local`),
+- die **Rückfall-SSID**, die das Gerät ohne WLAN öffnet: jetzt „navi Fallback".
+
+Wer den Namen ändert, sollte prüfen, ob der Eintrag in der `secrets.yaml` noch
+passt. ESPHome sucht schlicht nach dem Namen, der in der `key:`-Zeile steht —
+findet es ihn nicht, bricht der Bau ab und sagt es.
+
+---
+
 ## 0.15.1
 
 **Der API-Schlüssel des ESP32-Displays steht jetzt in `secrets.yaml`.**
