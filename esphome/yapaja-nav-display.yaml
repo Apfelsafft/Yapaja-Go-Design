@@ -493,6 +493,38 @@ display:
 
       it.fill(id(c_hintergrund));
 
+      // ─── DER ROTE RING BEI ZU SCHNELL ─────────────────────────────────
+      // Gewuenscht: „Es langt wenn es überschritten wird einen roten Ring am
+      // Displayrand anzuzeigen. Der braucht nicht zu dick zu sein aber eben
+      // gut wahrnehmbar."
+      //
+      // Die Dicke ist eine Entscheidung und steht deshalb benannt da. Vier
+      // Bildpunkte auf 240: schmal genug, um nichts wegzunehmen, breit
+      // genug, um aus zwei Metern im Augenwinkel aufzufallen.
+      //
+      // ─── WARUM ER ZULETZT GEZEICHNET WIRD, NICHT ZUERST ───────────────
+      // Der erste Entwurf zeichnete ihn gleich nach dem Hintergrund -- eine
+      // Stelle, und damit gilt er in jeder Ansicht. Das hat die
+      // Pfeilerkennung zerlegt, und zwar lautlos:
+      //
+      // Die Pruefung erkennt den Manoeverpfeil an seiner FORMENFOLGE, und
+      // diese Folge wird eingefroren, sobald nach der ersten Form ein Text
+      // kommt. Der Ring ist eine Form (`filled_ring`). Stand er vorn, war
+      // die eingefrorene Folge „O" -- die Kennung des Kreisverkehrs. Jede
+      // Linksabbiegung waere bei zu hohem Tempo als Kreisverkehr gelesen
+      // worden.
+      //
+      // Zuletzt gezeichnet, liegt er ausserdem OBEN und kann von nichts
+      // uebermalt werden. Der Preis ist ein Aufruf je Ansicht statt einem
+      // insgesamt; er steht deshalb hier als benannte Funktion, damit die
+      // beiden Aufrufe nicht auseinanderlaufen koennen.
+      const int RING_DICKE = 4;
+      auto randwarnung = [&]() {
+        if (id(yapaja_zu_schnell).state) {
+          it.filled_ring(cx, cy, r, r - RING_DICKE, id(c_warnung));
+        }
+      };
+
       // Ist ein Wert ueberhaupt da? Home Assistant schickt fuer "weiss ich
       // nicht" NaN, und `NaN` ungeprueft zu drucken ergibt nicht "nan",
       // sondern "-2147483648".
@@ -964,6 +996,11 @@ display:
                     "%d", (int) (id(yapaja_tempo).state + 0.5f));
           it.print(cx, cy + 14, id(font_s), id(c_gedaempft), TextAlign::CENTER, "km/h");
           it.print(cx, cy + 36, id(font_s), id(c_gedaempft), TextAlign::CENTER, text);
+          // Auch OHNE Route kann man zu schnell sein -- seit 0.14.1 kennt
+          // Yapaia das Tempolimit an der aktuellen Stelle. Stuende der Ring
+          // nur in der Fahransicht, fehlte er ausgerechnet dort, wo man die
+          // meiste Zeit faehrt.
+          randwarnung();
           return;
         }
 
@@ -1069,47 +1106,43 @@ display:
         it.print(cx, dy_, id(font_xl), id(c_gedaempft), TextAlign::CENTER, "--");
       }
 
-      // ══ Unten: Tempo · Tempolimit · Ankunft ════════════════════════════
+      // ══ Unten: Tempo und Ankunft ═══════════════════════════════════════
       const int uy = cy + (r * 68) / 100;
       const int hb = halbbreite(uy);
 
       const bool zu_schnell = id(yapaja_zu_schnell).state;
-      if (hat(id(yapaja_tempo))) {
-        it.printf(cx - hb + 2, uy, id(font_l),
-                  zu_schnell ? id(c_warnung) : id(c_text), TextAlign::CENTER_LEFT,
-                  "%d", (int) (id(yapaja_tempo).state + 0.5f));
-      }
 
-      // Weisser Ring mit rotem Rand, wie das Verkehrszeichen. NUR wenn die
-      // Karte eines kennt -- ein leeres oder auf 0 stehendes Schild waere die
-      // Behauptung, hier gelte Tempo 0.
-      const int sr = std::min(15, r / 7);
-      if (hat(id(yapaja_tempolimit))) {
-        it.filled_circle(cx, uy, sr, id(c_warnung));
-        it.filled_circle(cx, uy, (sr * 72) / 100, id(c_schild));
-        it.printf(cx, uy, id(font_s), id(c_hintergrund), TextAlign::CENTER,
-                  "%d", (int) (id(yapaja_tempolimit).state + 0.5f));
-      }
-
-      // ─── DIE FAHRZEUGGRENZE, KLEIN UND OHNE SCHILD ────────────────────
-      // Ein Wohnmobil ueber 3,5 t darf weniger als das Schild erlaubt. Diese
-      // Zahl steht deshalb DANEBEN und NICHT im runden Zeichen: ein
-      // Verkehrszeichen behauptet, dass es draussen steht, und dieses stuende
-      // dort nicht.
+      // ─── HIER STANDEN ZWEI ZAHLEN ZUM TEMPOLIMIT ──────────────────────
+      // Ein weisses Verkehrszeichen mit rotem Rand in der Mitte, daneben
+      // klein die Fahrzeuggrenze. Gewuenscht:
       //
-      // Gezeigt nur, wenn sie ueberhaupt etwas Neues sagt -- also wenn sie
-      // NIEDRIGER ist als das Schild oder es gar keines gibt. Eine Zahl, die
-      // dasselbe sagt wie das Zeichen daneben, ist auf 240 runden
-      // Bildpunkten verschenkter Platz.
-      if (hat(id(yapaja_tempolimit_fahrzeug))) {
-        const int fz = (int) (id(yapaja_tempolimit_fahrzeug).state + 0.5f);
-        const bool sagt_etwas =
-            !hat(id(yapaja_tempolimit)) ||
-            fz < (int) (id(yapaja_tempolimit).state + 0.5f);
-        if (sagt_etwas) {
-          it.printf(cx + sr + 4, uy, id(font_s), id(c_warnung), TextAlign::CENTER_LEFT,
-                    "%d", fz);
-        }
+      //   „Bitte entferne bei der Navigationsanzeige das speedlimit als
+      //    Zahl. Es langt wenn es überschritten wird einen roten Ring am
+      //    Displayrand anzuzeigen."
+      //
+      // Der Einwand ist gut. Beim Fahren liest niemand zwei Zahlen und
+      // vergleicht sie mit einer dritten -- man will WISSEN, ob es passt.
+      // Die Antwort darauf ist ein Ja oder Nein, und dafuer ist ein Ring
+      // die bessere Form als drei Ziffern.
+      //
+      // ─── WARUM AUCH DIE FAHRZEUGGRENZE WEG IST ────────────────────────
+      // Sie war die zweite Zahl. Ihre Aussage geht nicht verloren:
+      // `binary_sensor.yapaja_speeding` warnt seit 0.14.0 an der NIEDRIGEREN
+      // der beiden Grenzen -- dem Schild und dem, was dieses Fahrzeug darf.
+      // Der Ring traegt damit beides.
+      //
+      // Was verloren geht, ist die Auskunft „was darf ich hier eigentlich".
+      // Das ist der Preis, und er ist bewusst bezahlt: die Zahl stand auf
+      // einem 240 Punkte grossen Glas neben einer zweiten, und wer sie
+      // wirklich braucht, hat sie im Dashboard.
+      if (hat(id(yapaja_tempo))) {
+        // ─── GROESSER UND MITTIG ────────────────────────────────────────
+        // Vorher stand das Tempo linksbuendig am Rand, klein, neben dem
+        // Schild. Ohne das Schild ist die Mitte frei -- und das Tempo ist
+        // die Zahl, die beim Fahren zaehlt.
+        it.printf(cx, uy, id(font_xl),
+                  zu_schnell ? id(c_warnung) : id(c_text), TextAlign::CENTER,
+                  "%d", (int) (id(yapaja_tempo).state + 0.5f));
       }
 
       // Yapaia liefert die Ankunft als ISO 8601 in UTC. Hier wird sie
@@ -1126,10 +1159,17 @@ display:
         // gerechnet wird aus dem Datum.
         t.recalc_timestamp_utc(false);
         auto lokal = esphome::ESPTime::from_epoch_local(t.timestamp);
-        it.printf(cx + hb - 2, uy, id(font_m), id(c_gut), TextAlign::CENTER_RIGHT,
+        // Kleinere Schrift als vorher: das Tempo in der Mitte ist gewachsen,
+        // und bei dreistelligem Tempo kaemen sich die beiden sonst in die
+        // Quere. Die Ankunft ist die Nebenauskunft.
+        it.printf(cx + hb - 2, uy, id(font_s), id(c_gut), TextAlign::CENTER_RIGHT,
                   "%02d:%02d", lokal.hour, lokal.minute);
       } else {
         // "unknown", "unavailable" oder leer -- dann steht hier nichts
         // Erfundenes.
-        it.print(cx + hb - 2, uy, id(font_m), id(c_gedaempft), TextAlign::CENTER_RIGHT, "--:--");
+        it.print(cx + hb - 2, uy, id(font_s), id(c_gedaempft), TextAlign::CENTER_RIGHT, "--:--");
       }
+
+      // Ganz zum Schluss, damit er ueber allem liegt und die Pfeilerkennung
+      // nicht stoert (siehe die Begruendung bei `randwarnung`).
+      randwarnung();
