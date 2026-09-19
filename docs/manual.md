@@ -184,9 +184,14 @@ Type into the search bar at the top. Search works offline and tolerates typos �
 `Müchen` will usually still find `München`. Results are biased towards where
 you are, so the nearest match comes first.
 
-You can also **tap anywhere on the map** to drop a destination pin — useful for
-a place with no address at all: a car park in the middle of nowhere, a spot
-someone showed you on their map.
+You can also **press and hold anywhere on the map** (right-click on a desktop)
+to drop a destination pin — useful for a place with no address at all: a car
+park in the middle of nowhere, a spot someone showed you on their map.
+
+A *short* tap deliberately does nothing here. A swipe that lands a couple of
+pixels off is a click as far as the browser is concerned, so plain taps used to
+replace the destination while you were simply panning around looking for
+something. If you tap by habit, Yapaia says so rather than sitting silent.
 
 ### "Not down that road"
 

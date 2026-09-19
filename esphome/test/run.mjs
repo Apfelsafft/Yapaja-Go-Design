@@ -98,6 +98,8 @@ export const ZEIGER_IDS = new Set([
   'neigung_lr', 'neigung_vh',
   // Die beiden Schalter: Waage erzwingen, und Fahrzeug statt Libelle.
   'waage_erzwingen', 'waage_fahrzeug',
+  // Ankunftszeit oder Restzeit -- und die Uhr, aus der die Restzeit faellt.
+  'eta_als_restzeit', 'ha_zeit',
 ]);
 
 export const WERT_IDS = new Set([

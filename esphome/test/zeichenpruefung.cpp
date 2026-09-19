@@ -48,6 +48,18 @@ struct ESPTime {
   }
 };
 
+// ─── DIE UHR AUS HOME ASSISTANT ────────────────────────────────────────────
+// `time:` mit `platform: homeassistant` liefert `id(ha_zeit).now()`. Fuer
+// diese Pruefung zaehlt allein `.timestamp`: daraus faellt die Restzeit.
+//
+// Sie ist SETZBAR und nicht die echte Uhr. Ein Test, der gegen `time(nullptr)`
+// rechnete, ergaebe bei jedem Lauf ein anderes Ergebnis -- und ein Test, der
+// morgen etwas anderes sagt als heute, sagt nichts.
+struct RealTimeClock {
+  ESPTime jetzt{};
+  ESPTime now() const { return jetzt; }
+};
+
 // Nimmt jede Zeichnung entgegen und merkt sich die aeussersten Punkte.
 struct Display {
   int w, h;
@@ -136,6 +148,9 @@ static binary_sensor::BinarySensor s_schnell;
 static text_sensor::TextSensor s_anweisung, s_art, s_zustand, s_ankunft;
 // Die beiden Schalter: Waage erzwingen, und Fahrzeug statt Libelle.
 static switch_::Switch s_erzwingen, s_fahrzeug;
+// Und der dritte: Restzeit statt Ankunftszeit.
+static switch_::Switch s_restzeit;
+static RealTimeClock s_uhr;
 
 // ─── Die Variablen, die ESPHome erzeugt ────────────────────────────────────
 // KEIN `#define id(...)` mehr. ESPHome setzt `id(name)` in die C++-Variable
@@ -159,7 +174,9 @@ static sensor::Sensor *yapaja_tempo = &s_tempo, *yapaja_tempolimit = &s_limit,
                       *yapaja_manoever_entfernung = &s_mdist,
                       *yapaja_reststrecke = &s_rest;
 static sensor::Sensor *neigung_lr = &s_lr, *neigung_vh = &s_vh;
-static switch_::Switch *waage_erzwingen = &s_erzwingen, *waage_fahrzeug = &s_fahrzeug;
+static switch_::Switch *waage_erzwingen = &s_erzwingen, *waage_fahrzeug = &s_fahrzeug,
+                       *eta_als_restzeit = &s_restzeit;
+static RealTimeClock *ha_zeit = &s_uhr;
 static binary_sensor::BinarySensor *yapaja_zu_schnell = &s_schnell;
 static text_sensor::TextSensor *yapaja_anweisung = &s_anweisung,
                                *yapaja_manoever_art = &s_art,
@@ -188,6 +205,11 @@ struct Fall {
   // sich, ohne dass es jemandem auffaellt.
   bool erzwingen;
   bool fahrzeug;
+  // Restzeit statt Ankunftszeit -- und WANN es gerade ist. Die Uhrzeit
+  // gehoert mit in den `Fall`, weil die Restzeit eine Differenz ist: ohne
+  // das „jetzt" daneben ist ein erwartetes Ergebnis nicht aufzuschreiben.
+  bool restzeit;
+  const char *jetzt;  // "YYYY-MM-DDThh:mm:ss" in UTC, oder nullptr
 };
 
 static int fehler = 0;
@@ -228,6 +250,18 @@ static void aufbauen(const Fall &f) {
   setze(s_mdist,    f.mdist,    f.mdist_da);
   setze(s_rest,     f.rest,     f.rest_da);
   s_schnell.state   = f.schnell;
+  s_restzeit.state  = f.restzeit;
+  // Die Uhr. Ohne Angabe bleibt sie auf 0 -- die Restzeit ist dann
+  // unsinnig gross, aber eben BERECHENBAR und nicht zufaellig.
+  s_uhr.jetzt = ESPTime{};
+  if (f.jetzt) {
+    int Y, Mo, D, h, mi, se;
+    if (sscanf(f.jetzt, "%4d-%2d-%2dT%2d:%2d:%2d", &Y, &Mo, &D, &h, &mi, &se) == 6) {
+      s_uhr.jetzt.year = Y; s_uhr.jetzt.month = Mo; s_uhr.jetzt.day_of_month = D;
+      s_uhr.jetzt.hour = h; s_uhr.jetzt.minute = mi; s_uhr.jetzt.second = se;
+      s_uhr.jetzt.recalc_timestamp_utc(false);
+    }
+  }
   s_erzwingen.state = f.erzwingen;
   s_fahrzeug.state  = f.fahrzeug;
 }
@@ -894,6 +928,83 @@ int main() {
   genau("nur die Neigung kommt an: Wasserwaage, nicht Diagnose", nur_neigung,
         240,240,
         {"L/R +1.5\u00b0", "V/H -0.5\u00b0"});
+
+  // ─── ANKUNFTSZEIT ODER RESTZEIT ─────────────────────────────────────────
+  // Gewuenscht: „Bitte baue einen Schalter in das yaml ein um die eta
+  // zwischen der Ankunftszeit und der verbleibenden Restzeit umzuschalten."
+  //
+  // Die Restzeit wird auf dem Geraet aus DERSELBEN Ankunftszeit gerechnet
+  // (`eta - jetzt`). Deshalb steht in jedem dieser Faelle ein `jetzt` --
+  // ohne das „wann" daneben ist eine Differenz nicht aufzuschreiben.
+  printf("\n── Ankunftszeit oder Restzeit ──\n");
+  {
+    // `sommer` kommt um 14:32:00 UTC an. Alle Faelle unten setzen nur die
+    // Uhrzeit davor unterschiedlich.
+    Fall rest = sommer;
+    rest.restzeit = true;
+    rest.anweisung = "Links";   // kuerzer, damit die Liste lesbar bleibt
+    rest.art = "straight";      // ein Pfeil ohne eigene Texte
+
+    // ─── DIE GEGENPROBE ZUERST ────────────────────────────────────────────
+    // Ohne Schalter bleibt es bei der Uhrzeit. Ein Update darf niemandem
+    // ungefragt die Anzeige umstellen -- und ohne diesen Fall waere nicht
+    // zu unterscheiden, ob der Schalter wirkt oder ob immer die Restzeit
+    // erscheint.
+    Fall uhr = rest; uhr.restzeit = false;
+    uhr.jetzt = "2026-09-15T14:00:00";
+    erwarte("Schalter aus: die Uhrzeit wie bisher", uhr, 320, 240, {"16:32"});
+
+    // 14:00 UTC -> 32 Minuten bis 14:32 UTC.
+    rest.jetzt = "2026-09-15T14:00:00";
+    erwarte("Schalter an: 32 Minuten statt 16:32", rest, 320, 240, {"32 min"});
+
+    // ─── DASSELBE ZIEL, ANDERE ZEITZONE, GLEICHE RESTZEIT ────────────────
+    // Die Uhrzeit haengt an `Europe/Berlin`, die Restzeit an gar keiner
+    // Zeitzone -- eine Differenz zweier Zeitstempel ist ueberall gleich.
+    // Waere die Restzeit versehentlich aus der ORTSZEIT gerechnet, stuende
+    // hier eine um zwei Stunden verschobene Zahl.
+    Fall winter = rest;
+    winter.ankunft = "2026-01-15T14:32:00.000Z";
+    winter.jetzt   = "2026-01-15T14:00:00";
+    erwarte("im Winter dieselben 32 Minuten", winter, 320, 240, {"32 min"});
+
+    // ─── DER FALL, DER DAS RUNDEN VOM ABSCHNEIDEN TRENNT ─────────────────
+    // 32 Minuten und 35 Sekunden. Gerundet sind das 33, abgeschnitten 32.
+    // Ohne diesen Fall waere `(rest_s + 30) / 60` durch `rest_s / 60` zu
+    // ersetzen, ohne dass ein Test es merkt -- alle uebrigen Faelle liegen
+    // auf glatten Minuten, und dort sind beide gleich.
+    //
+    // Gerundet ist richtig: eine Restzeit, die 59 Sekunden vor der Ankunft
+    // „0 min" sagt, ist um eine ganze Minute zu optimistisch.
+    Fall krumm = rest; krumm.jetzt = "2026-09-15T13:59:25";
+    erwarte("32:35 wird zu 33 min, nicht 32", krumm, 320, 240, {"33 min"});
+
+    // Ueber eine Stunde: als h:mm, weil „95 min" niemand im Kopf umrechnet.
+    Fall lange = rest; lange.jetzt = "2026-09-15T12:57:00";
+    erwarte("ueber eine Stunde: 1:35 h", lange, 320, 240, {"1:35 h"});
+
+    // Genau die Grenze. 60 Minuten sind „1:00 h" und nicht „60 min" --
+    // sonst haette die Anzeige zwei Schreibweisen fuer denselben Wert.
+    Fall grenze = rest; grenze.jetzt = "2026-09-15T13:32:00";
+    erwarte("genau eine Stunde: 1:00 h", grenze, 320, 240, {"1:00 h"});
+
+    // ─── DIE BEIDEN RAENDER, AN DENEN ES UNSINNIG WIRD ───────────────────
+    // Unter einer halben Minute: „0 min" saehe aus wie „angekommen".
+    Fall gleich = rest; gleich.jetzt = "2026-09-15T14:31:45";
+    erwarte("kurz davor: „gleich\" statt „0 min\"", gleich, 320, 240, {"gleich"});
+
+    // Und die Ankunft liegt ZURUECK -- es dauert laenger als gedacht. Eine
+    // negative Zahl waere schlicht falsch herum; „-3 min" liest sich wie
+    // drei Minuten frueher.
+    Fall drueber = rest; drueber.jetzt = "2026-09-15T14:35:00";
+    erwarte("Ankunft schon vorbei: kein Minuszeichen", drueber, 320, 240, {"gleich"});
+
+    // Und wenn gar keine Ankunft ankommt, bleibt es bei „--:--" -- in BEIDEN
+    // Modi. Der Schalter darf aus „weiss ich nicht" keine Zahl machen.
+    Fall ohne_eta = rest; ohne_eta.ankunft = "unknown";
+    erwarte("ohne Ankunftszeit: --:-- auch als Restzeit", ohne_eta, 320, 240,
+            {"--:--"});
+  }
 
   // ─── DIE BEIDEN SCHALTER ────────────────────────────────────────────────
   // Gewuenscht: einer, der zwischen Libelle und Fahrzeugansicht umschaltet,

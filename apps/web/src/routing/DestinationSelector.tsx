@@ -1,8 +1,14 @@
 /**
  * Destination Selector (E03-T3): a headless component that wires up map
  * gestures for routing:
- *  - Click on the map drops a destination pin and opens the bottom sheet
- *    (`RoutingPanel`).
+ *  - LANGER DRUCK auf die Karte setzt einen Zielpunkt und oeffnet das
+ *    Bodenblatt (`RoutingPanel`). Ein kurzer Tipper tut das seit 0.17.1
+ *    NICHT mehr -- gemeldet: „Oftmals passiert das wenn man auf der Karte
+ *    sucht, dass ein neues Ziel gewaehlt wird." Siehe `mapTapIntent.ts`
+ *    (die Regel) und `langerDruck.ts` (die Messung).
+ *  - Ein kurzer Tipper waehlt weiterhin eine Alternative aus und bestaetigt
+ *    weiterhin Start- und Zwischenziel, wenn deren Modus aktiv ist: das sind
+ *    Tipper auf etwas Sichtbares bzw. die zweite Handlung nach einem Knopf.
  *  - Tapping/clicking an already-displayed alternative route (the gray,
  *    tappable lines from `RouteLayer`) makes it the active route instead of
  *    picking a new destination -- handled here (not in `RouteLayer`, which
@@ -13,10 +19,8 @@
  *    touch long-press) on a RENDERED ROUTE (main or alternative) means
  *    "Diesen Abschnitt meiden": builds a small `exclude_polygon` around the
  *    clicked point and reroutes with it added to the session's temporary
- *    avoidances. A contextmenu/long-press that does NOT land on a rendered
- *    route falls back to the same behavior as a plain click (drop a new
- *    destination pin), preserving long-press-to-pick-destination for
- *    touch users away from any route.
+ *    avoidances. Ein langer Druck NEBEN jede gezeichnete Route setzt das
+ *    Ziel -- das ist seit 0.17.1 der einzige Weg dorthin.
  *
  * Follows the same map-ready reactive pattern as `PositionPuck`/`RouteLayer`
  * (`useMapStore((s) => s.map)`, `[map]` deps) -- attaching event listeners
@@ -32,7 +36,8 @@ import { useRoutingStore } from './store.js';
 import { useStyleStore } from '../state/styleStore.js';
 import { resolvePlaceName } from '../map/placeName.js';
 import { buildAvoidSquare } from './exclusionGeometry.js';
-import { mapTapIntent, ROUTE_TAP_RADIUS_PX } from './mapTapIntent.js';
+import { mapTapIntent, ROUTE_TAP_RADIUS_PX, type Geste } from './mapTapIntent.js';
+import { langerDruckUeberwachen } from './langerDruck.js';
 import { useNavStore } from '../drive/navStore.js';
 import {
   ALT_ROUTE_LAYER_ID,
@@ -86,13 +91,13 @@ export default function DestinationSelector(): null {
   useEffect(() => {
     if (!map) return;
 
-    const handlePick = (e: MapMouseEvent): void => {
+    const handlePick = (e: MapMouseEvent, geste: Geste = 'tipp'): void => {
       // `contextmenu`'s browser default (desktop right-click menu) must
       // never appear over the map.
       e.originalEvent?.preventDefault?.();
 
       // Was dieser Tipper bedeutet, entscheidet EINE reine Funktion --
-      // siehe `mapTapIntent.ts` fuer die beiden Fehler, die diese Trennung
+      // siehe `mapTapIntent.ts` fuer die drei Fehler, die diese Trennung
       // ausgeloest haben.
       //
       // Die Zustaende werden ueber `getState()` gelesen, nicht ueber Hooks:
@@ -103,6 +108,7 @@ export default function DestinationSelector(): null {
         tappedRouteId: pickRouteIdAtPoint(map, e),
         pickTarget: useRoutingStore.getState().pickTarget,
         navStatus: useNavStore.getState().navState?.status,
+        geste,
       });
 
       if (intent.kind === 'select-route') {
@@ -110,10 +116,20 @@ export default function DestinationSelector(): null {
         return;
       }
 
-      // Waehrend einer laufenden Fahrt bewirkt ein Tipper neben die Route
-      // NICHTS. Vorher ersetzte er die Route stillschweigend durch einen
-      // Zielpunkt -- auch bei einem verrutschten Schwenk.
       if (intent.kind === 'ignore') {
+        // ─── EIN VERWORFENER TIPPER SAGT, WARUM ──────────────────────────
+        // Waehrend der Fahrt bewirkt ein Tipper neben die Route nichts --
+        // dort ist Stille richtig, ein Hinweis ueber der Karte waere im
+        // Fahrzeug gefaehrlicher als der ignorierte Tipper.
+        //
+        // Ausserhalb der Fahrt ist Stille das Gegenteil von richtig: wer
+        // bisher getippt hat, um ein Ziel zu setzen, bekaeme ab jetzt
+        // ueberhaupt keine Antwort und muesste selbst darauf kommen, es
+        // laenger zu versuchen. Genau diese Sorte unerreichbarer Antwort
+        // zieht sich durch die halbe Fehlergeschichte dieses Projekts.
+        if (intent.reason === 'nur-langer-druck') {
+          useRoutingStore.getState().zeigeLangerDruckHinweis();
+        }
         return;
       }
 
@@ -175,10 +191,30 @@ export default function DestinationSelector(): null {
       );
     };
 
+    // ─── ZWEI MELDER, EINE HANDLUNG ────────────────────────────────────────
+    // Der lange Druck kommt auf zwei Wegen herein: als `contextmenu` vom
+    // Browser (Rechtsklick am Schreibtisch, auf vielen Geraeten auch der
+    // Fingerdruck) und aus der eigenen Messung in `langerDruck.ts`. Welcher
+    // zuerst kommt, ist geraeteabhaengig -- also gewinnt schlicht der erste,
+    // und der zweite faellt in dieses Fenster.
+    //
+    // Ohne das setzte ein Fingerdruck auf Geraeten, die BEIDES melden, das
+    // Ziel zweimal und rechnete die Route zweimal.
+    let zuletztLangMs = 0;
+    const ENTPRELLUNG_MS = 900;
+    const istWiederholung = (): boolean => {
+      const jetzt = Date.now();
+      if (jetzt - zuletztLangMs < ENTPRELLUNG_MS) return true;
+      zuletztLangMs = jetzt;
+      return false;
+    };
+
     const handleContextMenu = (e: MapMouseEvent): void => {
       e.originalEvent?.preventDefault?.();
 
       if (isOnRenderedRoute(map, e)) {
+        // Der Abschnitt-meiden-Weg bleibt unangetastet und zaehlt NICHT als
+        // langer Druck: er setzt kein Ziel, es gibt also nichts zu entprellen.
         const center = { lat: e.lngLat.lat, lon: e.lngLat.lng };
         addSectionAvoidance(buildAvoidSquare(center), {
           origin: 'current',
@@ -187,13 +223,23 @@ export default function DestinationSelector(): null {
         return;
       }
 
-      handlePick(e);
+      if (istWiederholung()) return;
+      handlePick(e, 'lang');
     };
+
+    const abmelden = langerDruckUeberwachen(map, (ort) => {
+      if (istWiederholung()) return;
+      // Der eigene Melder liefert kein Browser-Ereignis. `handlePick` braucht
+      // davon nur `lngLat` und `point`; `originalEvent` fehlt, und der
+      // optionale Aufruf darauf faengt das ab.
+      handlePick(ort as unknown as MapMouseEvent, 'lang');
+    });
 
     map.on('click', handlePick);
     map.on('contextmenu', handleContextMenu);
 
     return () => {
+      abmelden();
       map.off('click', handlePick);
       map.off('contextmenu', handleContextMenu);
     };

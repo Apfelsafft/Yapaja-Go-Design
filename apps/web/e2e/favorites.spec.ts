@@ -24,6 +24,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { Route, SearchResult } from '@yapaia/shared';
 import { FAVORITES_CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors, trackRequests } from './support/network.js';
+import { zielAufKartenmitte } from './support/zielGeste.js';
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
@@ -105,13 +106,6 @@ async function createAndActivateProfile(page: Page, overrides: Partial<ProfileFi
   return created.data.id;
 }
 
-async function clickMapCenter(page: Page): Promise<void> {
-  const box = await page.locator('canvas.maplibregl-canvas').boundingBox();
-  if (!box) {
-    throw new Error('Canvas has no bounding box');
-  }
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-}
 
 /**
  * Opens the favorites drawer (if not already open) and switches to `tab`.
@@ -170,7 +164,7 @@ test('[Flow 6] create favorite via destination sheet -> reload -> route via the 
   await expect(page.getByTestId('destination-sheet')).not.toBeVisible();
 
   // 1. Pick a destination (map click, E03-T3 flow) -> "Als Favorit speichern".
-  await clickMapCenter(page);
+  await zielAufKartenmitte(page);
   await expect(page.getByTestId('destination-sheet')).toBeVisible();
 
   await page.getByTestId('save-as-favorite-button').click();
@@ -252,7 +246,7 @@ test('active-profile invariant (e2e): tapping a favorite uses the profile active
   await waitForMapReady(page);
 
   // Create the favorite while Profile A is active.
-  await clickMapCenter(page);
+  await zielAufKartenmitte(page);
   await page.getByTestId('save-as-favorite-button').click();
   await page.getByTestId('save-favorite-name-input').fill('Invarianten-Favorit');
   await page.getByTestId('save-favorite-confirm-button').click();

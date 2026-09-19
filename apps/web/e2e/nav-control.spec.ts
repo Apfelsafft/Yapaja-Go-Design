@@ -31,6 +31,7 @@ import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { NAV_CONTROL_CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors, trackRequests } from './support/network.js';
+import { zielAufKartenmitte } from './support/zielGeste.js';
 
 const BASE_LAT = 47.3;
 const BASE_LON = 9.9;
@@ -118,11 +119,6 @@ async function waitForMapReady(page: Page): Promise<void> {
   });
 }
 
-async function clickMapCenter(page: Page): Promise<void> {
-  const box = await page.locator('canvas.maplibregl-canvas').boundingBox();
-  if (!box) throw new Error('Canvas has no bounding box');
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-}
 
 function browserFixBody(progressM: number, speedMs: number): Record<string, unknown> {
   return {
@@ -209,7 +205,7 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
     await expect.poll(() => readPitch(page)).toBeLessThan(1);
 
     // 1. Destination -> "Route hierhin".
-    await clickMapCenter(page);
+    await zielAufKartenmitte(page);
     await expect(page.getByTestId('destination-sheet')).toBeVisible();
     await expect(page.getByTestId('route-here-button')).toBeEnabled({ timeout: 10_000 });
     await page.getByTestId('route-here-button').click();

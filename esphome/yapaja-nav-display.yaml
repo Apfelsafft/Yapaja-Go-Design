@@ -334,6 +334,30 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
 
+  # ─── ANKUNFTSZEIT ODER RESTZEIT ───────────────────────────────────────────
+  # Gewuenscht: „Bitte baue einen Schalter in das yaml ein um die eta zwischen
+  # der Ankunftszeit und der verbleibenden Restzeit umzuschalten."
+  #
+  # Vorgeschichte: „Auch die eta ist unterschiedlich zwischen den Anzeigen."
+  # Beide Anzeigen lesen DENSELBEN Wert -- es gibt im Kern nur eine Rechnung
+  # (`navigation/service.ts`, `buildState()`), und daraus entsteht
+  # `sensor.yapaja_eta`. Was sich unterscheidet, ist die DARSTELLUNG: der
+  # Sensor traegt `device_class: timestamp`, und Home Assistant zeigt so
+  # etwas als Countdown („in 13 Minuten"). Das Display zeigte eine Uhrzeit.
+  #
+  # Zwei verschiedene Groessen nebeneinander lassen sich nicht vergleichen,
+  # auch wenn sie denselben Augenblick meinen. Dieser Schalter macht sie
+  # vergleichbar.
+  #
+  # AUS ist die Uhrzeit -- das war es bisher, und ein Update soll niemandem
+  # ungefragt die Anzeige umstellen.
+  - platform: template
+    name: "Restzeit statt Ankunft"
+    id: eta_als_restzeit
+    icon: mdi:timer-sand
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
 binary_sensor:
   - platform: homeassistant
     id: yapaja_zu_schnell
@@ -1158,12 +1182,54 @@ display:
         // `false`: die Nummer des Tages im Jahr ist oben nicht gesetzt,
         // gerechnet wird aus dem Datum.
         t.recalc_timestamp_utc(false);
-        auto lokal = esphome::ESPTime::from_epoch_local(t.timestamp);
         // Kleinere Schrift als vorher: das Tempo in der Mitte ist gewachsen,
         // und bei dreistelligem Tempo kaemen sich die beiden sonst in die
         // Quere. Die Ankunft ist die Nebenauskunft.
-        it.printf(cx + hb - 2, uy, id(font_s), id(c_gut), TextAlign::CENTER_RIGHT,
-                  "%02d:%02d", lokal.hour, lokal.minute);
+        if (id(eta_als_restzeit).state) {
+          // ─── DIE RESTZEIT WIRD HIER GERECHNET, NICHT GEHOLT ───────────
+          // Home Assistant hat gar keinen Sensor dafuer -- es gibt
+          // `sensor.yapaja_eta` (Zeitstempel) und
+          // `sensor.yapaja_distance_remaining`, sonst nichts. Einen dritten
+          // anzulegen waere der naheliegende Weg und der schlechtere:
+          //
+          //  1. Er braeuchte ein Add-on-Update. Aus DERSELBEN Ankunftszeit
+          //     gerechnet, wirkt dieser Schalter mit jedem Yapaia, das
+          //     `eta` liefert -- also mit jedem.
+          //
+          //  2. Er koennte der Uhrzeit WIDERSPRECHEN. Zwei Sensoren, die
+          //     getrennt aktualisiert werden, stehen zwangslaeufig mal
+          //     verschieden -- und genau darum geht es hier ja gerade.
+          //     Abgeleitet ist ein Widerspruch unmoeglich.
+          //
+          //  3. Er stuende still zwischen zwei Meldungen. Der ESP hat eine
+          //     eigene Uhr (aus Home Assistant), also laeuft die Anzeige
+          //     weiter, auch wenn gerade nichts ankommt.
+          const int32_t rest_s = (int32_t) (t.timestamp - id(ha_zeit).now().timestamp);
+          if (rest_s < 30) {
+            // Unter einer halben Minute. „0 min" sieht aus wie „angekommen",
+            // und eine negative Zahl -- die Ankunft liegt zurueck, weil es
+            // laenger dauert als gedacht -- waere schlicht falsch herum.
+            it.print(cx + hb - 2, uy, id(font_s), id(c_gut), TextAlign::CENTER_RIGHT, "gleich");
+          } else {
+            // Auf Minuten gerundet, und zwar mit Absicht: `eta` ist ein
+            // Zeitpunkt, der sich bei jeder Meldung um ein paar Sekunden
+            // verschiebt. Sekundengenau gezeigt zappelte die letzte Ziffer
+            // dauernd -- derselbe Grund, aus dem die Entfernung auf zehn
+            // Meter gerundet wird.
+            const int min = (rest_s + 30) / 60;
+            if (min < 60) {
+              it.printf(cx + hb - 2, uy, id(font_s), id(c_gut), TextAlign::CENTER_RIGHT,
+                        "%d min", min);
+            } else {
+              it.printf(cx + hb - 2, uy, id(font_s), id(c_gut), TextAlign::CENTER_RIGHT,
+                        "%d:%02d h", min / 60, min % 60);
+            }
+          }
+        } else {
+          auto lokal = esphome::ESPTime::from_epoch_local(t.timestamp);
+          it.printf(cx + hb - 2, uy, id(font_s), id(c_gut), TextAlign::CENTER_RIGHT,
+                    "%02d:%02d", lokal.hour, lokal.minute);
+        }
       } else {
         // "unknown", "unavailable" oder leer -- dann steht hier nichts
         // Erfundenes.
