@@ -156,6 +156,17 @@ substitutions:
   # So pruefen Sie es: eine Seite anheben (oder sich auf eine Seite stellen).
   # Wandert die Blase zur ANGEHOBENEN Seite, stimmt es -- wie bei einer
   # echten Libelle. Wandert sie zur anderen, hier auf `-1` stellen.
+  #
+  # ─── DIESE BEIDEN `1` SIND NACHGEPRUEFT ───────────────────────────────────
+  # Mit 0.17.1 am echten Fahrzeug bestaetigt („Die Vorzeichen passen"), mit
+  # dem Verfahren von oben und dem MPU6050 in der Einbaulage aus diesem
+  # Blatt. Das steht hier, weil es sonst nirgends stuende: eine `1` sieht wie
+  # eine unbesehene Vorgabe aus, und wer spaeter eine spiegelverkehrte Waage
+  # vermutet, koennte sie versuchsweise umdrehen -- und damit eine geprueft
+  # richtige Anzeige kaputtmachen.
+  #
+  # Wer den Sensor ANDERS einbaut, stellt sie weiterhin um. Die Bestaetigung
+  # gilt der Rechnung, nicht dem Schraubenloch.
   neigung_lr_vorzeichen: "1"
   neigung_vh_vorzeichen: "1"
 
