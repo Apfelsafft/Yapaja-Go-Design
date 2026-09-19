@@ -156,6 +156,17 @@ substitutions:
   # So pruefen Sie es: eine Seite anheben (oder sich auf eine Seite stellen).
   # Wandert die Blase zur ANGEHOBENEN Seite, stimmt es -- wie bei einer
   # echten Libelle. Wandert sie zur anderen, hier auf `-1` stellen.
+  #
+  # ─── DIESE BEIDEN `1` SIND NACHGEPRUEFT ───────────────────────────────────
+  # Mit 0.17.1 am echten Fahrzeug bestaetigt („Die Vorzeichen passen"), mit
+  # dem Verfahren von oben und dem MPU6050 in der Einbaulage aus diesem
+  # Blatt. Das steht hier, weil es sonst nirgends stuende: eine `1` sieht wie
+  # eine unbesehene Vorgabe aus, und wer spaeter eine spiegelverkehrte Waage
+  # vermutet, koennte sie versuchsweise umdrehen -- und damit eine geprueft
+  # richtige Anzeige kaputtmachen.
+  #
+  # Wer den Sensor ANDERS einbaut, stellt sie weiterhin um. Die Bestaetigung
+  # gilt der Rechnung, nicht dem Schraubenloch.
   neigung_lr_vorzeichen: "1"
   neigung_vh_vorzeichen: "1"
 
@@ -1085,24 +1096,65 @@ display:
       const int d = s / 3;
       auto C = id(c_pfeil);
 
+      // ─── EIN RECHTECK, DAS AUCH NACH LINKS GEHT ─────────────────────────
+      // ESPHome zeichnet bei NEGATIVER Breite gar nichts, und zwar lautlos:
+      //
+      //   for (int i = x; i < x + width; i++) draw_pixel_at(i, y, c);
+      //
+      // Bei `width < 0` ist `x + width < x`, die Schleife laeuft kein
+      // einziges Mal. Kein Fehler, kein Protokoll, nur ein fehlendes Stueck.
+      //
+      // ─── WAS DAS GEKOSTET HAT ───────────────────────────────────────────
+      // Die Pfeile bekommen ihren waagerechten Arm mit `seite * ...` -- bei
+      // einer LINKSabbiegung also negativ. Auf dem Geraet fehlte der Arm
+      // deshalb vollstaendig: das Dreieck stand abgesetzt neben einem
+      // einzelnen Balken, waehrend die Rechtsabbiegung einen sauberen Winkel
+      // zeigte. Gemeldet nach einer Probefahrt, mit Foto: „Links und rechts
+      // Pfeil auf dem Display sind unterschiedlich. Der rechts Pfeil ist
+      // besser, so sollte der linke auch aussehen."
+      //
+      // Betroffen waren VIER Pfeilarten (turn_left, slight_left, ramp_left,
+      // uturn_left) und der linke Kreisverkehr -- ueberall dieselbe Ursache.
+      //
+      // Statt an jeder Stelle die Vorzeichen von Hand zu drehen, wird hier
+      // einmal normalisiert: negative Breite heisst „nach links ab x", und
+      // genau so ist sie an den Aufrufstellen auch gemeint.
+      auto rechteck = [&](int x, int y, int w, int h) {
+        if (w < 0) { x += w; w = -w; }
+        if (h < 0) { y += h; h = -h; }
+        if (w <= 0 || h <= 0) return;
+        it.filled_rectangle(x, y, w, h, C);
+      };
+
       if (enthaelt("uturn")) {
         const int seite = enthaelt("uturn_right") ? 1 : -1;
-        it.filled_rectangle(cx - d / 2, py - s / 3, d, s + s / 3, C);
-        it.filled_rectangle(cx - d / 2, py - s, d + seite * s, d, C);
+        rechteck(cx - d / 2, py - s / 3, d, s + s / 3);
+        // Wie beim Abbiegepfeil: bis genau auf `ex`, von der abgewandten
+        // Stielkante aus. `d + seite * s` traf das nur rechts.
+        rechteck(cx - seite * d / 2, py - s, seite * (s + d / 2), d);
         const int ex = cx + seite * s;
-        it.filled_rectangle(ex - d / 2, py - s, d, s / 2, C);
+        rechteck(ex - d / 2, py - s, d, s / 2);
         it.filled_triangle(ex - s / 2, py - s / 2, ex + s / 2, py - s / 2, ex, py + s / 4, C);
       } else if (enthaelt("roundabout")) {
         it.filled_ring(cx, py, (s * 2) / 3, (s * 2) / 5, C);
-        it.filled_rectangle(cx - d / 2, py, d, s, C);
+        rechteck(cx - d / 2, py, d, s);
         const int seite = enthaelt("left") ? -1 : 1;
         const int ax = cx + (seite * s * 2) / 3;
-        it.filled_rectangle(cx, py - (s * 2) / 3 - d / 2, (seite * s * 2) / 3, d, C);
+        rechteck(cx, py - (s * 2) / 3 - d / 2, (seite * s * 2) / 3, d);
         it.filled_triangle(ax, py - s, ax, py - s / 3, ax + seite * s / 2, py - (s * 2) / 3, C);
       } else if (enthaelt("left") || enthaelt("right")) {
         const int seite = enthaelt("right") ? 1 : -1;
-        it.filled_rectangle(cx - d / 2, py, d, s, C);
-        it.filled_rectangle(cx - d / 2, py, (seite * s * 2) / 3, d, C);
+        rechteck(cx - d / 2, py, d, s);
+        // ─── DER ARM REICHT BIS AN DIE DREIECKSBASIS ──────────────────
+        // Vorher endete er `d/2` davor, und zwar nur auf der RECHTEN Seite:
+        // links verschob die Normalisierung die Kante zufaellig in die
+        // andere Richtung. Die beiden Pfeile waren damit auch nach dem
+        // eigentlichen Fehler noch nicht spiegelgleich -- rechts mit
+        // sichtbarer Luecke zur Spitze, links ohne.
+        //
+        // `+ d/2` schliesst sie auf beiden Seiten: der Arm beginnt an der
+        // ABGEWANDTEN Stielkante und endet genau auf `ex`.
+        rechteck(cx - seite * d / 2, py, seite * ((s * 2) / 3 + d / 2), d);
         const int ex = cx + (seite * s * 2) / 3;
         it.filled_triangle(ex, py - s / 2, ex, py + s / 2 + d, ex + seite * s / 2, py + d / 2, C);
       } else {

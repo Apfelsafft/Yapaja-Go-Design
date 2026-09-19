@@ -15,7 +15,20 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { NavState } from '@yapaia/shared';
 
-const mockMap = { getZoom: vi.fn(() => 11) };
+const mockMap = {
+  getZoom: vi.fn(() => 11),
+  // ─── BEIDES HAT DIE ECHTE KARTE, ALSO HAT ES AUCH DIE NACHBILDUNG ────────
+  // Seit 0.17.2 rechnet `autoZoomFor` die Stufe aus, bei der der
+  // Abbiegepunkt gerade ins Bild passt -- und dafuer braucht es die Hoehe der
+  // Anzeige und die geografische Breite. Fehlten sie hier, praefte dieser
+  // Test eine Karte, die es so nicht gibt.
+  //
+  // 725 ist die Hoehe, mit der in `drivePadding.ts` gerechnet wurde (Tablet
+  // quer). Sie steht hier als Zahl und nicht als Import: der Test soll eine
+  // KONKRETE Anzeige nachstellen, nicht die Annahme des Prueflings teilen.
+  getContainer: vi.fn(() => ({ clientHeight: 725 })),
+  getCenter: vi.fn(() => ({ lat: 48.1, lng: 2.3 })),
+};
 
 vi.mock('../state/mapStore', () => ({
   mapController: {

@@ -498,11 +498,33 @@ test.describe('Eine laengere Testfahrt', () => {
 
         // Und die Karte zeigt wirklich dorthin -- der Vergleich waere sonst
         // auch dadurch zu erfuellen, dass gar nicht mehr gedreht wird.
-        const gelesen = await page.evaluate(
-          () => window.__yapaiaMapController!.getMap!()!.getBearing(),
-        );
-        const abstand = Math.abs(((kurs - gelesen + 540) % 360) - 180);
-        expect(abstand, `Kartenwinkel bei Kurs ${kurs}: ${gelesen}`).toBeLessThan(1);
+        //
+        // ─── WARUM HIER GEWARTET WIRD ────────────────────────────────────
+        // Bis 0.17.1 wurde der Winkel unmittelbar nach der Meldung gelesen.
+        // Das ging gut, solange die Kamerafahrt MapLibres Vorgabekurve
+        // benutzte: die bremst zum Ende hin so stark ab, dass die letzten
+        // Grad in Bruchteilen der Zeit zurueckgelegt sind -- gemessen war die
+        // Drehung beim Ablesen praktisch fertig.
+        //
+        // Seit 0.17.2 laeuft die Fahrt beim Folgen GLEICHFOERMIG (gegen das
+        // gemeldete Pulsieren der Karte). Damit ist sie nach der halben Zeit
+        // auch erst halb fertig, und das Ablesen traf sie mitten in der
+        // Bewegung: 86,2 Grad statt 90.
+        //
+        // Die Zusicherung bleibt dieselbe -- die Karte zeigt am ENDE dorthin.
+        // Nur gewartet wird jetzt darauf, statt sich auf die Form einer
+        // Beschleunigungskurve zu verlassen.
+        await expect
+          .poll(
+            async () => {
+              const gelesen = await page.evaluate(
+                () => window.__yapaiaMapController!.getMap!()!.getBearing(),
+              );
+              return Math.abs(((kurs - gelesen + 540) % 360) - 180);
+            },
+            { message: `Kartenwinkel erreicht Kurs ${kurs} nicht`, timeout: 5_000 },
+          )
+          .toBeLessThan(1);
       }
 
       await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible();
