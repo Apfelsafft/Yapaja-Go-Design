@@ -135,9 +135,10 @@ static void zeichne(Display &it) {
 
 /** Die Fahransicht -- zum Ansehen der neuen Aufteilung. */
 static void fahrt(const char *titel, float tempo, bool zu_schnell,
-                  bool restzeit = false, const char *jetzt = "2026-09-15T12:57:00") {
-  s_zustand.state="navigating"; s_art.state="turn_left";
-  s_anweisung.state="Links auf Willy-Brandt-Platz";
+                  bool restzeit = false, const char *jetzt = "2026-09-15T12:57:00",
+                  const char *art = "turn_left") {
+  s_zustand.state="navigating"; s_art.state=art;
+  s_anweisung.state="Abbiegen";
   s_ankunft.state="2026-09-15T14:32:00.000Z";
   s_tempo.has=true; s_tempo.state=tempo;
   s_limit.has=true; s_limit.state=50;
@@ -199,6 +200,8 @@ int main() {
   // merkt sich Texte, keine Textbreiten.
   fahrt("Fahrt: 130 km/h, Ankunftszeit (16:32)", 130, false, false);
   fahrt("Fahrt: 130 km/h, Restzeit (1:35 h)", 130, false, true);
+  fahrt("PFEIL turn_left", 50, false, false, "2026-09-15T12:57:00", "turn_left");
+  fahrt("PFEIL turn_right", 50, false, false, "2026-09-15T12:57:00", "turn_right");
   zeige("Fahrzeug: vorne tief (-1.5 Grad), rechts hoch (+1.0 Grad)", 1.0f, -1.5f, true);
   zeige("Fahrzeug: eben", 0.1f, -0.1f, true);
   return 0;

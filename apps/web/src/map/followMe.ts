@@ -310,7 +310,12 @@ export function updateFollowMePosition(): void {
       ...(zoom === null ? {} : { zoom }),
       ...(bearing === null ? {} : { bearing }),
     },
-    dauer === null ? undefined : { animate: true, duration: dauer },
+    // `stetig`: gleichfoermig statt sanft an- und abschwellend. Beim Folgen
+    // reiht sich eine Bewegung an die naechste -- mit MapLibres Vorgabe
+    // bremste jede am Ende auf null ab und die naechste beschleunigte wieder
+    // aus dem Stand, was die Karte im Sekundentakt pulsieren liess. Siehe
+    // `mapStore.ts#SetCameraOptions.stetig`.
+    dauer === null ? undefined : { animate: true, duration: dauer, stetig: true },
   );
 }
 
@@ -380,11 +385,19 @@ function nextAutoZoom(): number | null {
   const navState = useNavStore.getState().navState;
   if (!isDriveActive(navState?.status)) return null;
 
+  // ─── BILDHOEHE UND BREITE GEHOEREN DAZU ──────────────────────────────────
+  // Ohne sie kann `autoZoomFor` nur die alten Schwellen anwenden. Beides ist
+  // hier ohne Umweg zu haben -- die Karte weiss, wie gross sie ist und wo sie
+  // steht -- und genau deshalb gehoert die Rechnung nicht hierher, sondern in
+  // die pruefbare Funktion: hier waere sie nur im Browser zu pruefen.
+  const map = mapController.getMap();
   const target = autoZoomFor({
     speedKmh: navState?.speed_kmh,
     distanceToManeuverM: navState?.distance_to_maneuver_m,
+    mapHeightPx: map?.getContainer()?.clientHeight ?? null,
+    lat: map?.getCenter()?.lat ?? null,
   });
   if (target === null) return null;
 
-  return shouldApplyZoom(mapController.getMap()?.getZoom(), target) ? target : null;
+  return shouldApplyZoom(map?.getZoom(), target) ? target : null;
 }

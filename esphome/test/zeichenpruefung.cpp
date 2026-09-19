@@ -105,9 +105,36 @@ struct Display {
   void vertical_line(int x,int y,int height,Color c=COLOR_ON){punkt(x,y);punkt(x,y+height-1);}
   void rectangle(int x,int y,int width,int height,Color c=COLOR_ON){spunkt(x,y);spunkt(x+width,y+height);}
   void filled_rectangle(int x,int y,int width,int height,Color c=COLOR_ON){
+    // ─── HIER STAND EINE FALSCHE BEHAUPTUNG ────────────────────────────────
+    // Woertlich: „Negative Breite/Hoehe sind erlaubt (ESPHome zeichnet dann
+    // nach links/oben)". Das stimmt NICHT. ESPHome:
+    //
+    //   void Display::filled_rectangle(int x1, int y1, int w, int h, Color c) {
+    //     for (int i = y1; i < y1 + h; i++) this->horizontal_line(x1, i, w, c);
+    //   }
+    //   void Display::horizontal_line(int x, int y, int w, Color c) {
+    //     for (int i = x; i < x + w; i++) this->draw_pixel_at(i, y, c);
+    //   }
+    //
+    // Bei negativer Breite ist `x + w < x`, die Schleife laeuft kein einziges
+    // Mal, und es wird NICHTS gezeichnet. Lautlos.
+    //
+    // ─── WAS DIESE ZEILE GEKOSTET HAT ──────────────────────────────────────
+    // Der Abbiegepfeil bekam seinen waagerechten Arm mit `seite * s * 2 / 3`
+    // -- bei einer LINKSabbiegung also negativ. Auf dem Geraet fehlte der Arm
+    // damit vollstaendig: das Dreieck stand abgesetzt neben einem einzelnen
+    // Balken. Gemeldet nach einer Probefahrt, mit Foto: „Links und rechts
+    // Pfeil auf dem Display sind unterschiedlich."
+    //
+    // Diese Pruefung hat es NICHT gefunden, obwohl sie den Pfeil abfragt --
+    // weil sie ein 'R' vermerkte, sobald der Aufruf geschah, statt sobald
+    // etwas entstand. Sie hat die Annahme geprueft, nicht die Wirklichkeit.
+    //
+    // Jetzt bildet sie ab, was das Geraet tut: nichts. Die Formenfolge einer
+    // Linksabbiegung faellt damit von „RRT" auf „RT", und der bestehende
+    // Pfeiltest schlaegt von selbst an.
+    if (width <= 0 || height <= 0) return;
     formen+='R';
-    // Negative Breite/Hoehe sind erlaubt (ESPHome zeichnet dann nach links/oben),
-    // fuer die Randpruefung zaehlen beide Ecken.
     spunkt(x,y); spunkt(x+width,y+height);
   }
   void circle(int cx,int cy,int r,Color c=COLOR_ON){spunkt(cx-r,cy-r);spunkt(cx+r,cy+r);}
@@ -1134,6 +1161,70 @@ int main() {
   pfeil("straight", GERADE, "gerade");      pfeil("continue", GERADE, "gerade");
   pfeil("merge", GERADE, "gerade");         pfeil("destination", GERADE, "gerade");
   pfeil("", GERADE, "gerade");              pfeil("voellig_unbekannt", GERADE, "gerade");
+  pfeil("exit_roundabout_left", KREISEL, "links");
+
+  // ─── LINKS UND RECHTS MUESSEN SPIEGELGLEICH SEIN ─────────────────────────
+  // Gemeldet nach einer Probefahrt, mit Foto: „Links und rechts Pfeil auf dem
+  // Display sind unterschiedlich. Der rechts Pfeil ist besser, so sollte der
+  // linke auch aussehen."
+  //
+  // Die Formenfolge allein faengt das nicht. Sie sagt „Rechteck, Rechteck,
+  // Dreieck" -- und das galt fuer beide, auch als der linke Arm gar nicht
+  // gezeichnet wurde und das Dreieck abgesetzt neben einem Balken stand.
+  //
+  // Diese Pruefung vergleicht stattdessen die AUSDEHNUNG: wie weit ragt der
+  // Pfeil ueber die Mitte hinaus, und zwar auf seiner jeweiligen Seite. Bei
+  // einem Spiegelpaar muss das dieselbe Zahl sein.
+  //
+  // ─── WAS SIE NICHT FAENGT, UND WARUM DAS SO BLEIBT ───────────────────────
+  // Die Aussenweite bestimmt das DREIECK. Ein Arm, der ein paar Bildpunkte zu
+  // kurz ist und eine Luecke zur Spitze laesst, aendert sie nicht -- eine
+  // Mutation, die genau das tut, ueberlebt diese Pruefung nachweislich.
+  //
+  // Das bleibt bewusst so. Um es zu fangen, muesste diese Pruefung einzelne
+  // Formen samt Koordinaten mitschreiben und daraus Beruehrung ableiten --
+  // ein zweiter, schlechterer Pixelrechner neben dem, den es schon gibt.
+  // Fuer „sieht das aus wie ein Pfeil" ist `bild.mjs` das Werkzeug, und dort
+  // ist die geschlossene Luecke nachgesehen worden.
+  //
+  // Der FEHLENDE Arm -- der gemeldete Fall -- faellt dagegen doppelt auf:
+  // hier an der Aussenweite nicht, aber an der Formenfolge oben („RT" statt
+  // „RRT"), seit der Stub nicht mehr behauptet, ESPHome zeichne negative
+  // Breiten.
+  printf("\n── Linker und rechter Pfeil sind spiegelgleich ──\n");
+  {
+    auto weite = [&](const char *art) {
+      Fall f{};
+      f.name = "x"; f.zustand = "navigating"; f.art = art;
+      f.anweisung = "x"; f.ankunft = "2026-09-15T14:32:00.000Z";
+      f.tempo = 87;   f.tempo_da = true;
+      f.limit = 80;   f.limit_da = true;
+      f.mdist = 1240; f.mdist_da = true;
+      f.rest = 42.5f; f.rest_da = true;
+      aufbauen(f);
+      Display it(240,240); zeichne(it);
+      const int px = 240 / 2;
+      // Der Betrag nach aussen -- links gemessen nach links, rechts nach
+      // rechts. Gleiche Zahl heisst gleiche Form, nur gespiegelt.
+      return std::pair<int,int>{px - it.pminx, it.pmaxx - px};
+    };
+
+    auto spiegel = [&](const char *links, const char *rechts) {
+      auto l = weite(links);
+      auto r = weite(rechts);
+      // Aussenweite des linken nach LINKS gegen die des rechten nach RECHTS.
+      const bool gut = l.first == r.second;
+      printf("  %s %-20s %3d  <->  %-20s %3d\n", gut ? "OK  " : "FEHL",
+             links, l.first, rechts, r.second);
+      if (!gut) fehler++;
+    };
+
+    spiegel("turn_left", "turn_right");
+    spiegel("slight_left", "slight_right");
+    spiegel("ramp_left", "ramp_right");
+    spiegel("uturn_left", "uturn_right");
+    spiegel("exit_roundabout_left", "exit_roundabout_right");
+  }
 
   printf("\n%d Fehler\n", fehler);
   return fehler ? 1 : 0;

@@ -24,7 +24,46 @@ export interface SetCameraOptions {
   animate?: boolean;
   /** Animation duration in ms, only used when `animate` is true. */
   duration?: number;
+  /**
+   * Gleichmaessig bewegen statt sanft an- und abschwellen.
+   *
+   * ─── DIE MELDUNG ────────────────────────────────────────────────────────
+   * „Auch die Führung der Route ist noch irgendwie hakelig. Der blaue Punkt
+   * folgt der blauen Linie aber es läuft nicht unbedingt smooth. Schwer zu
+   * beschreiben."
+   *
+   * ─── DIE URSACHE ────────────────────────────────────────────────────────
+   * `easeTo` ohne `easing` nimmt MapLibres Vorgabe, und die ist eine
+   * Ein-/Ausblendkurve (langsam los, schnell in der Mitte, langsam ans Ziel).
+   * Fuer EINE Bewegung ist das genau richtig -- man sieht, dass sie anfaengt
+   * und aufhoert.
+   *
+   * Beim Folgen waehrend der Fahrt ist es falsch. Dort reiht sich eine
+   * Bewegung an die naechste, eine je Positionsmeldung. Jede bremst am Ende
+   * auf null ab, und die naechste beschleunigt wieder aus dem Stand: die
+   * Karte PULSIERT im Sekundentakt, obwohl das Fahrzeug gleichmaessig faehrt.
+   *
+   * Das ist nicht dasselbe wie das Springen, das `followAnimationMs` behoben
+   * hat -- die Bewegung war danach durchgehend, aber eben ungleichmaessig.
+   * Genau dieser Rest ist „schwer zu beschreiben".
+   *
+   * ─── WARUM ES NICHT DIE VORGABE IST ─────────────────────────────────────
+   * Weil es nur fuers Folgen stimmt. Ein Sprung zur Position nach der Suche
+   * oder ueber den Zurueck-Knopf SOLL abbremsen; linear sieht er aus, als
+   * haette jemand die Karte gerissen.
+   */
+  stetig?: boolean;
 }
+
+/**
+ * Gleichfoermig: der Fortschritt ist die Zeit.
+ *
+ * Steht als benannte Konstante da und nicht als `t => t` im Aufruf, damit sie
+ * bei jedem Aufruf DIESELBE Funktion ist -- MapLibre vergleicht
+ * Animationsoptionen an mehreren Stellen, und eine jedes Mal neu erzeugte
+ * Funktion ist nie gleich.
+ */
+const GLEICHFOERMIG = (t: number): number => t;
 
 export type MapEventListener<T extends keyof MapEventType> = (event: MapEventType[T]) => void;
 
@@ -65,7 +104,11 @@ export const useMapStore = create<MapControllerState>((set, get) => ({
       return;
     }
     if (options?.animate) {
-      map.easeTo({ ...camera, duration: options.duration });
+      map.easeTo({
+        ...camera,
+        duration: options.duration,
+        ...(options.stetig ? { easing: GLEICHFOERMIG } : {}),
+      });
     } else {
       map.jumpTo(camera);
     }

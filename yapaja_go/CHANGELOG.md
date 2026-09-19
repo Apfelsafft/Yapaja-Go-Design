@@ -10,6 +10,78 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.17.2
+
+**Nach der ersten echten Probefahrt: der linke Abbiegepfeil war kaputt, der
+Zoom zeigt die Abbiegung jetzt rechtzeitig, und die Karte pulsiert nicht mehr.**
+
+### Der linke Pfeil auf dem ESP-Display
+
+Gemeldet, mit Foto:
+
+> „Links und rechts Pfeil auf dem Display sind unterschiedlich. Der rechts
+> Pfeil ist besser, so sollte der linke auch aussehen."
+
+Dem linken Pfeil fehlte der **waagerechte Arm** — Dreieck und Balken standen
+unverbunden nebeneinander. Betroffen waren vier Pfeilarten (links abbiegen,
+leicht links, Auffahrt links, Wenden links) und der linke Kreisverkehr.
+
+Ursache: ESPHome zeichnet bei negativer Breite **gar nichts**, lautlos. Die
+Arme werden mit einem Vorzeichen gezeichnet — bei Linksabbiegern also negativ.
+
+Beide Pfeile sind jetzt exakte Spiegelbilder, und die Lücke zwischen Arm und
+Spitze ist auf beiden Seiten geschlossen.
+
+> Die Prüfung hatte das nie gesehen, obwohl sie die Pfeile abfragt: in ihr
+> stand die Behauptung, ESPHome zeichne negative Breiten „nach links". Das ist
+> falsch. Sie bildet jetzt ab, was das Gerät wirklich tut — und findet den
+> Fehler damit von selbst.
+
+### Der Zoom zeigt die Abbiegung rechtzeitig
+
+> „Der Zoom ist nicht smart genug. Man kann die nächste Abbiegung nicht gut
+> erkennen. […] in Abhängigkeit der Entfernung, nicht wenn man noch 10km vor
+> sich hat. Aber wenn man recht nah ist."
+
+Bisher gab es zwei feste Schwellen (250 m, 150 m); dazwischen und darüber
+entschied allein das Tempo. Auf der Autobahn hieß das: weit herausgezoomt, bis
+die Abfahrt auf 250 m heran war — bei 120 km/h siebeneinhalb Sekunden vorher.
+
+Jetzt wird die Frage umgedreht: **welche Stufe holt die Abbiegung gerade ins
+Bild?** Das lässt sich ausrechnen, aus Bildhöhe, geografischer Breite und der
+Lage des Fahrzeugs im unteren Bilddrittel.
+
+| Lage | vorher | jetzt |
+|---|---|---|
+| Abfahrt in 800 m, 120 km/h | Stufe 14 – Abfahrt außer Sicht | Stufe 14,5 – Abfahrt bei 2/3 Höhe |
+| Abbiegung in 200 m | Stufe 17 – klebt am oberen Rand (95 %) | Stufe 16,5 – bei 67 %, mit Strecke dahinter |
+| Abbiegung in 10 km | Stufe 14 | Stufe 14 – **unverändert** |
+
+Die Rechnung kann nur **heranholen, nie heraus**: ist die Abbiegung weit,
+entscheidet weiter das Tempo. Genau der Halbsatz „nicht wenn man noch 10 km vor
+sich hat".
+
+Nebenbei passt sich der Zoom damit auch an die **Größe der Anzeige** an — auf
+einem Telefon hochkant wird gröber gezoomt als auf einem Tablet quer, weil
+weniger Strecke ins Bild passt.
+
+### Die Karte pulsiert nicht mehr
+
+> „Auch die Führung der Route ist noch irgendwie hakelig. Der blaue Punkt folgt
+> der blauen Linie aber es läuft nicht unbedingt smooth. Schwer zu beschreiben."
+
+Die Kamerafahrt lief mit einer Ein-/Ausblendkurve: langsam los, schnell in der
+Mitte, langsam ans Ziel. Für **eine** Bewegung richtig — beim Folgen reiht sich
+aber eine Bewegung je Positionsmeldung an die nächste. Jede bremste am Ende auf
+null ab, die nächste beschleunigte wieder aus dem Stand: die Karte **pulsierte
+im Sekundentakt**, obwohl das Fahrzeug gleichmäßig fuhr.
+
+Beim Folgen läuft sie jetzt gleichförmig. Ein einzelner Sprung — der
+Zurück-zur-Position-Knopf, ein Ziel aus der Suche — bremst weiterhin ab; dort
+soll man sehen, dass die Bewegung ankommt.
+
+---
+
 ## 0.17.1
 
 **Ein Ziel auf der Karte braucht jetzt einen langen Druck — und das ESP-Display
