@@ -54,17 +54,17 @@ describe('waehrend einer laufenden Fahrt (Meldung 1)', () => {
   });
 });
 
-describe('ohne laufende Fahrt bleibt alles wie bisher', () => {
-  it.each(NOT_DRIVING)('ein Tipper setzt das Ziel (%s)', (status) => {
-    expect(mapTapIntent(ctx({ navStatus: status })).kind).toBe('set-destination');
+describe('ohne laufende Fahrt setzt der LANGE DRUCK das Ziel', () => {
+  it.each(NOT_DRIVING)('ein langer Druck setzt das Ziel (%s)', (status) => {
+    expect(mapTapIntent(ctx({ navStatus: status, geste: 'lang' })).kind).toBe('set-destination');
   });
 
-  it('ohne bekannten Navigationszustand setzt ein Tipper das Ziel', () => {
-    // Beim Start ist `navState` noch `null`. Ein Tipper darf dann NICHT
-    // stumm bleiben -- sonst waere die App vor dem ersten WS-Ereignis
-    // scheinbar kaputt.
-    expect(mapTapIntent(ctx({ navStatus: null })).kind).toBe('set-destination');
-    expect(mapTapIntent(ctx({ navStatus: undefined })).kind).toBe('set-destination');
+  it('ohne bekannten Navigationszustand setzt ein langer Druck das Ziel', () => {
+    // Beim Start ist `navState` noch `null`. Ein langer Druck darf dann
+    // NICHT stumm bleiben -- sonst waere die App vor dem ersten
+    // WS-Ereignis scheinbar kaputt.
+    expect(mapTapIntent(ctx({ navStatus: null, geste: 'lang' })).kind).toBe('set-destination');
+    expect(mapTapIntent(ctx({ navStatus: undefined, geste: 'lang' })).kind).toBe('set-destination');
   });
 
   it('der Startpunkt-Modus gewinnt gegen das Ziel', () => {
@@ -76,6 +76,68 @@ describe('ohne laufende Fahrt bleibt alles wie bisher', () => {
       kind: 'select-route',
       routeId: 'r3',
     });
+  });
+});
+
+describe('der kurze Tipper setzt KEIN Ziel mehr (Meldung 3)', () => {
+  // Gemeldet: „Oftmals passiert das wenn man auf der Karte sucht, dass ein
+  // neues Ziel gewaehlt wird."
+  it.each(NOT_DRIVING)('ein Tipper wird verworfen (%s)', (status) => {
+    expect(mapTapIntent(ctx({ navStatus: status, geste: 'tipp' }))).toEqual({
+      kind: 'ignore',
+      reason: 'nur-langer-druck',
+    });
+  });
+
+  it('auch ohne bekannten Navigationszustand', () => {
+    expect(mapTapIntent(ctx({ navStatus: null, geste: 'tipp' })).kind).toBe('ignore');
+  });
+
+  it('eine fehlende Geste gilt als Tipper, nicht als Druck', () => {
+    // ─── DIE RICHTUNG, IN DIE EIN VERGESSENES FELD FALLEN MUSS ──────────
+    // Ein Aufrufer, der `geste` vergisst, setzt damit KEIN Ziel. Andersherum
+    // -- fehlende Angabe gilt als langer Druck -- waere der alte Fehler
+    // durch die Hintertuer wieder da, und zwar an genau der Stelle, an der
+    // ihn niemand suchen wuerde.
+    expect(mapTapIntent(ctx({})).kind).toBe('ignore');
+  });
+
+  it('der verworfene Tipper nennt einen anderen Grund als die laufende Fahrt', () => {
+    // Die beiden Gruende fuehren zu verschiedenem Verhalten: waehrend der
+    // Fahrt bleibt es still, sonst erscheint der Hinweis. Waeren sie
+    // ununterscheidbar, muesste der Aufrufer raten -- und ein Hinweis ueber
+    // der Karte ist waehrend der Fahrt genau das, was Meldung 1 vermeiden
+    // wollte.
+    const fahrend = mapTapIntent(ctx({ navStatus: 'navigating', geste: 'tipp' }));
+    const stehend = mapTapIntent(ctx({ navStatus: 'idle', geste: 'tipp' }));
+    expect(fahrend).toEqual({ kind: 'ignore', reason: 'drive-active' });
+    expect(stehend).toEqual({ kind: 'ignore', reason: 'nur-langer-druck' });
+  });
+});
+
+describe('was der kurze Tipper WEITERHIN tut', () => {
+  // Die Huerde gilt nur fuer das freie Zielsetzen. Alles andere bliebe sonst
+  // ohne Not schwerer zu bedienen -- und drei der vier Faelle sind bereits
+  // die zweite bewusste Handlung.
+  it('eine Alternative auswaehlen', () => {
+    expect(mapTapIntent(ctx({ tappedRouteId: 'r2', geste: 'tipp' }))).toEqual({
+      kind: 'select-route',
+      routeId: 'r2',
+    });
+  });
+
+  it('den Startpunkt setzen, wenn dessen Modus laeuft', () => {
+    expect(mapTapIntent(ctx({ pickTarget: 'origin', geste: 'tipp' })).kind).toBe('set-origin');
+  });
+
+  it('ein Zwischenziel setzen, wenn dessen Modus laeuft', () => {
+    expect(mapTapIntent(ctx({ pickTarget: 'waypoint', geste: 'tipp' })).kind).toBe('set-waypoint');
+  });
+
+  it('ein Zwischenziel auch waehrend der Fahrt', () => {
+    expect(
+      mapTapIntent(ctx({ pickTarget: 'waypoint', navStatus: 'navigating', geste: 'tipp' })).kind,
+    ).toBe('set-waypoint');
   });
 });
 

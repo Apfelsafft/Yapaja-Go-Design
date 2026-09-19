@@ -158,9 +158,38 @@ describe('Map / style routes integration', () => {
       it('invalid option values are ignored (200, default behavior), never 400/500', async () => {
         const response = await server.inject({
           method: 'GET',
-          url: '/api/v1/map/styles/yapaja-light?lang=xx&labelScale=abc&poi=lots',
+          url: '/api/v1/map/styles/yapaja-light?lang=xx&labelScale=abc&poi=lots&poiAus=quatsch',
         });
         expect(response.statusCode).toBe(200);
+      });
+
+      // ─── DIE ABGESCHALTETEN KATEGORIEN, UEBER DIE ECHTE SCHNITTSTELLE ───
+      // `poiAus.test.ts` prueft die Umformung als Funktion. Hier geht es um
+      // die Strecke davor: dass der Parameter ueberhaupt bis dorthin kommt.
+      // `StyleDetailQuery` erweitert `RawStyleQuery`, damit das von selbst
+      // geschieht -- und genau solche Selbstverstaendlichkeiten sind es, die
+      // ein Umbau still kappt.
+      it('?poiAus= filtert die abgeschaltete Kategorie aus der POI-Ebene', async () => {
+        const antwort = await server.inject({
+          method: 'GET',
+          url: '/api/v1/map/styles/yapaja-light?poiAus=poi-tanken',
+        });
+        expect(antwort.statusCode).toBe(200);
+        const stil = antwort.json() as { layers: Array<{ id: string; filter?: unknown }> };
+        const poi = stil.layers.find((l) => l.id === 'poi-labels');
+        expect(JSON.stringify(poi?.filter)).toContain('poi-tanken');
+      });
+
+      it('ohne ?poiAus= steht kein Kategorie-Filter im Stil', async () => {
+        // Die Gegenprobe: ohne sie bliebe unbemerkt, wenn der Filter immer
+        // gesetzt wuerde und der Test oben ihn nur wiederfindet.
+        const antwort = await server.inject({
+          method: 'GET',
+          url: '/api/v1/map/styles/yapaja-light',
+        });
+        const stil = antwort.json() as { layers: Array<{ id: string; filter?: unknown }> };
+        const poi = stil.layers.find((l) => l.id === 'poi-labels');
+        expect(JSON.stringify(poi?.filter ?? null)).not.toContain('poi-tanken');
       });
     });
   });

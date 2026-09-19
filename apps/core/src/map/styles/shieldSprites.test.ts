@@ -42,8 +42,7 @@ function bildnamen(ausdruck: unknown): string[] {
   );
 }
 import { listStyleSummaries, getStyleDocument } from './registry';
-import { POI_KATEGORIEN } from './poiKategorien';
-import { FEHLENDE_KLASSEN } from '../sonderziele/fehlendeKlassen';
+import { POI_KATEGORIEN, FEHLENDE_KLASSEN } from '@yapaia/shared';
 
 /** Muss zu `SPRITE_NAME` in `scripts/generate-sprites.mjs` passen.
  *  Der Abgleich gegen den Erzeuger steht in `scripts/shield-sprites.test.ts`

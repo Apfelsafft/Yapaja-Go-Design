@@ -18,7 +18,12 @@ describe('styleStore', () => {
 
   it('starts with the default style id and options', () => {
     expect(useStyleStore.getState().styleId).toBe('yapaja-light');
-    expect(useStyleStore.getState().options).toEqual({ lang: 'name', labelScale: '1.0', poi: 'full' });
+    expect(useStyleStore.getState().options).toEqual({
+      lang: 'name',
+      labelScale: '1.0',
+      poi: 'full',
+      poiAus: [],
+    });
   });
 
   it('setStyleId updates the selected style', () => {
@@ -29,7 +34,12 @@ describe('styleStore', () => {
   it('setLang updates only the lang option, leaving others untouched', () => {
     useStyleStore.getState().setLabelScale('1.2');
     useStyleStore.getState().setLang('name_de');
-    expect(useStyleStore.getState().options).toEqual({ lang: 'name_de', labelScale: '1.2', poi: 'full' });
+    expect(useStyleStore.getState().options).toEqual({
+      lang: 'name_de',
+      labelScale: '1.2',
+      poi: 'full',
+      poiAus: [],
+    });
   });
 
   it('setLabelScale updates only the labelScale option', () => {
@@ -63,10 +73,18 @@ describe('styleStore', () => {
   });
 
   it('laesst die uebrigen gespeicherten Optionen dabei unangetastet', () => {
-    expect(normalizeStoredOptions({ lang: 'name:de' as never, labelScale: '1.2', poi: 'off' })).toEqual({
+    expect(
+      normalizeStoredOptions({
+        lang: 'name:de' as never,
+        labelScale: '1.2',
+        poi: 'off',
+        poiAus: ['poi-tanken'],
+      }),
+    ).toEqual({
       lang: 'name_de',
       labelScale: '1.2',
       poi: 'off',
+      poiAus: ['poi-tanken'],
     });
   });
 

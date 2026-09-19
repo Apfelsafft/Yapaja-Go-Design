@@ -54,7 +54,13 @@ import SimulatorPanel from '../simulator/SimulatorPanel.js';
  *  gehoert dann weg und nicht auf `null` gesetzt: er laedt sonst dazu ein,
  *  ihn wieder zu befuellen, und der Fehler waere derselbe wie in 0.9.1. */
 function styleKey(styleId: string, options: StyleOptions): string {
-  return `${styleId}|${options.lang}|${options.labelScale}|${options.poi}`;
+  // `poiAus` gehoert dazu: die abgeschalteten Kategorien gehen in den Stil
+  // ein, also ist ein Stil mit anderen Schaltern ein ANDERER Stil. Fehlte er
+  // hier, waere der erste Klick auf eine Kategorie wirkungslos -- der
+  // Vergleich haelte den neuen Stil fuer den schon angewendeten und spraenge
+  // heraus, bevor er ihn holt. Genau diese Sorte stiller Wirkungslosigkeit
+  // hat 0.9.1 die Regionswahl gekostet.
+  return `${styleId}|${options.lang}|${options.labelScale}|${options.poi}|${options.poiAus.join(',')}`;
 }
 
 // Register the `pmtiles://` protocol once per page load. MapLibre's protocol
@@ -322,6 +328,10 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
     styleOptions.poi,
     styleOptions.labelScale,
     styleOptions.lang,
+    // Als Zeichenkette und nicht als Array: ein neues Array mit gleichem
+    // Inhalt ist fuer React ein neuer Wert und loeste bei jedem Rendern einen
+    // Stil-Abruf aus.
+    styleOptions.poiAus.join(','),
     // `activeRegionName` steht hier BEWUSST NICHT mehr: seit 0.16.0 geht die
     // Region nicht mehr in den Stil ein, also darf ein Regionswechsel auch
     // keinen Neuaufbau mehr ausloesen. Bliebe es stehen, baute die Karte bei

@@ -22,7 +22,7 @@ import {
   resolveLiteSearchDir,
 } from '../../search/lite/paths.js';
 import { basename } from 'node:path';
-import { FEHLENDE_KATEGORIEN, FEHLENDE_KLASSEN, klasseFuer } from './fehlendeKlassen.js';
+import { FEHLENDE_KATEGORIEN, FEHLENDE_KLASSEN, klasseFuer } from '@yapaia/shared';
 
 /**
  * Wie viele Einträge je Index höchstens gelesen werden.

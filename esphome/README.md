@@ -336,6 +336,30 @@ heraus stellen.
 |---|---|
 | **Waage als Fahrzeug** | schaltet zwischen der **Libelle** (Blase im Kreis) und der **Fahrzeugansicht** (von der Seite und von hinten, mit Millimetern) um |
 | **Waage erzwingen** | öffnet die Waage **unabhängig vom Tempo** |
+| **Restzeit statt Ankunft** | zeigt unten rechts die **verbleibende Fahrzeit** (`32 min`, `1:35 h`, `gleich`) statt der **Ankunftszeit** (`16:32`) |
+
+#### „Restzeit statt Ankunft"
+
+Gedacht für den Vergleich mit dem Dashboard. Home Assistant zeigt
+`sensor.yapaja_eta` als Countdown an („in 13 Minuten"), weil der Sensor ein
+Zeitstempel ist; das Display zeigte eine Uhrzeit. Beide meinen denselben
+Augenblick, aber zwei verschiedene Größen nebeneinander lassen sich nicht
+vergleichen.
+
+Die Restzeit wird dabei **auf dem Gerät aus derselben Ankunftszeit gerechnet**
+(`eta − jetzt`) und nicht als eigener Sensor geholt. Das hat drei Gründe:
+
+- Es gibt in Home Assistant gar keinen solchen Sensor — nur `eta` und
+  `distance_remaining`.
+- Zwei getrennt aktualisierte Sensoren stünden zwangsläufig irgendwann
+  verschieden. Abgeleitet ist ein Widerspruch unmöglich.
+- Das Display hat eine eigene Uhr (aus Home Assistant), die Anzeige läuft also
+  auch zwischen zwei Meldungen weiter.
+
+Angezeigt wird auf volle Minuten gerundet — `eta` verschiebt sich bei jeder
+Meldung um ein paar Sekunden, und sekundengenau würde die letzte Ziffer
+dauernd zappeln. Dasselbe Argument wie bei der auf zehn Meter gerundeten
+Entfernung zur nächsten Abbiegung.
 
 #### Die Fahrzeugansicht
 

@@ -28,6 +28,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { CONTROL_OVERLAP_CORE_BASE_URL } from './support/constants.js';
+import { langDruecken } from './support/zielGeste.js';
 
 const BASE_LAT = 47.2;
 const BASE_LON = 9.6;
@@ -391,8 +392,10 @@ test.describe('Das Ziel-Fenster', () => {
       expect(canvas).not.toBeNull();
       const mitteY = canvas!.y + canvas!.height / 2;
 
-      // Ein Tipper auf die Karte oeffnet das Fenster (Ziel setzen).
-      await page.mouse.click(canvas!.x + canvas!.width / 2, mitteY);
+      // Ein LANGER DRUCK auf die Karte oeffnet das Fenster (Ziel setzen).
+      // Seit 0.17.1 tut ein kurzer Tipper das nicht mehr -- siehe
+      // `support/zielGeste.ts`.
+      await langDruecken(page, canvas!.x + canvas!.width / 2, mitteY);
       await expect(page.getByTestId('destination-sheet')).toBeVisible({ timeout: 10_000 });
 
       const sheet = await page.getByTestId('destination-sheet').boundingBox();

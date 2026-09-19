@@ -7,7 +7,7 @@
  * - GET /api/v1/map/styles           available styles (id, name, preview?)
  * - GET /api/v1/map/styles/:id       style JSON (source URL(s) rewritten to
  *                                    the active region's real tile URL;
- *                                    ?lang=/?labelScale=/?poi= transform it)
+ *                                    ?lang=/?labelScale=/?poi=/?poiAus= transform it)
  *
  * Region manager (E01-T5, see ./regions/routes.ts, registered below):
  * - GET    /api/v1/map/regions/catalog   downloadable regions + installed flag
@@ -262,7 +262,7 @@ export const mapPlugin: FastifyPluginAsync = async (fastify) => {
 
   // GET /api/v1/map/styles/:id -- MapLibre style JSON. Source URL(s) are
   // rewritten to the active region's real (relative) tile URL, and
-  // ?lang=/?labelScale=/?poi= (if present) transform the served JSON.
+  // ?lang=/?labelScale=/?poi=/?poiAus= (if present) transform the served JSON.
   fastify.get<{ Params: StyleDetailParams; Querystring: StyleDetailQuery; Reply: MapStyleDocument | ApiError }>(
     '/api/v1/map/styles/:id',
     async (request, reply) => {

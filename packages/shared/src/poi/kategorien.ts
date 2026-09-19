@@ -58,6 +58,23 @@
  * Seit 0.13.0 gibt es ihn: `map/sonderziele/` liest sie aus
  * `lite_search-<region>.db` und legt sie als eigene Ebene auf die Karte. Die
  * Liste hier bleibt, was sie ist -- was die KACHELN hergeben.
+ *
+ * ─── WARUM DIESE LISTE SEIT 0.17.0 IN `shared` LIEGT ────────────────────────
+ * Sie stand bis dahin in `apps/core/src/map/styles/poiKategorien.ts` -- am
+ * richtigen Ort, solange nur der Kern sie brauchte.
+ *
+ * Mit den einzelnen Kategorie-Schaltern braucht sie auch die Oberflaeche:
+ * dreizehn Schalter brauchen dreizehn Namen. Aus `apps/web` ist `@yapaia/core`
+ * NICHT aufloesbar (der Alias steht in `vitest.config.ts`, aber nicht in
+ * `apps/web/vite.config.ts` -- ein solcher Import besteht jeden Test und
+ * zerbricht den Browser-Bau).
+ *
+ * Der bequeme Ausweg waere eine ZWEITE Liste in `apps/web`, dazu ein Test, der
+ * beide vergleicht. Genau das war der `supermarket`-Fehler: zwei Listen, eine
+ * davon still abgedriftet. Behoben wurde er damals nicht durch einen Test,
+ * sondern indem die zweite Liste aus der ersten ABGELEITET wurde. Dieselbe
+ * Antwort gilt hier, und dafuer muss die erste dort liegen, wo beide
+ * hinsehen koennen.
  */
 
 /** Eine Kategorie, wie Yapaia sie auf der Karte zeigt. */
@@ -174,7 +191,7 @@ export const POI_KATEGORIEN: readonly PoiKategorie[] = [
     name: 'Wasser und Entsorgung',
     // Was die Kacheln hergeben. Eine echte Entsorgungsstation ist NICHT
     // dabei -- sie kommt seit 0.13.0 aus dem Suchindex, siehe Kopf und
-    // `map/sonderziele/fehlendeKlassen.ts`.
+    // `./fehlendeKlassen.ts`.
     klassen: ['drinking_water', 'toilets', 'recycling'],
     rang: 9,
   },

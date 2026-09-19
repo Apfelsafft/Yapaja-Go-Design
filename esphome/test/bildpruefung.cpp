@@ -45,6 +45,11 @@ struct ESPTime {
   }
 };
 
+// Die Uhr aus Home Assistant. Setzbar, damit ein Bild bei jedem Lauf
+// dasselbe zeigt -- gegen `time(nullptr)` gerechnet waere die Restzeit
+// jedes Mal eine andere Zahl.
+struct RealTimeClock { ESPTime jetzt{}; ESPTime now() const { return jetzt; } };
+
 struct Display {
   int w,h; std::vector<char> feld;
   Display(int w_,int h_):w(w_),h(h_),feld(w_*h_,' ') {}
@@ -109,14 +114,17 @@ static Color k_h{0,0,0}, k_t{255,255,255}, k_g{128,128,128}, k_p{0,0,255},
 static sensor::Sensor s_tempo, s_limit, s_limit_fz, s_mdist, s_rest, s_lr, s_vh;
 static binary_sensor::BinarySensor s_schnell;
 static text_sensor::TextSensor s_anweisung, s_art, s_zustand, s_ankunft;
-static switch_::Switch s_erzwingen, s_fahrzeug;
+static switch_::Switch s_erzwingen, s_fahrzeug, s_restzeit;
+static RealTimeClock s_uhr;
 static BaseFont *font_xl=&f_xl,*font_l=&f_l,*font_m=&f_m,*font_s=&f_s;
 static Color &c_hintergrund=k_h,&c_text=k_t,&c_gedaempft=k_g,&c_pfeil=k_p,
              &c_warnung=k_w,&c_gut=k_gut,&c_schild=k_s;
 static sensor::Sensor *yapaja_tempo=&s_tempo,*yapaja_tempolimit=&s_limit,
   *yapaja_tempolimit_fahrzeug=&s_limit_fz,*yapaja_manoever_entfernung=&s_mdist,
   *yapaja_reststrecke=&s_rest,*neigung_lr=&s_lr,*neigung_vh=&s_vh;
-static switch_::Switch *waage_erzwingen=&s_erzwingen,*waage_fahrzeug=&s_fahrzeug;
+static switch_::Switch *waage_erzwingen=&s_erzwingen,*waage_fahrzeug=&s_fahrzeug,
+  *eta_als_restzeit=&s_restzeit;
+static RealTimeClock *ha_zeit=&s_uhr;
 static binary_sensor::BinarySensor *yapaja_zu_schnell=&s_schnell;
 static text_sensor::TextSensor *yapaja_anweisung=&s_anweisung,*yapaja_manoever_art=&s_art,
   *yapaja_fahrzustand=&s_zustand,*yapaja_ankunft=&s_ankunft;
@@ -126,7 +134,8 @@ static void zeichne(Display &it) {
 }
 
 /** Die Fahransicht -- zum Ansehen der neuen Aufteilung. */
-static void fahrt(const char *titel, float tempo, bool zu_schnell) {
+static void fahrt(const char *titel, float tempo, bool zu_schnell,
+                  bool restzeit = false, const char *jetzt = "2026-09-15T12:57:00") {
   s_zustand.state="navigating"; s_art.state="turn_left";
   s_anweisung.state="Links auf Willy-Brandt-Platz";
   s_ankunft.state="2026-09-15T14:32:00.000Z";
@@ -137,6 +146,16 @@ static void fahrt(const char *titel, float tempo, bool zu_schnell) {
   s_rest.has=true; s_rest.state=299.3f;
   s_lr.has=false; s_lr.state=NAN; s_vh.has=false; s_vh.state=NAN;
   s_schnell.state=zu_schnell; s_erzwingen.state=false; s_fahrzeug.state=false;
+  s_restzeit.state=restzeit;
+  {
+    int Y,Mo,D,h,mi,se;
+    s_uhr.jetzt = ESPTime{};
+    if (sscanf(jetzt, "%4d-%2d-%2dT%2d:%2d:%2d", &Y,&Mo,&D,&h,&mi,&se) == 6) {
+      s_uhr.jetzt.year=Y; s_uhr.jetzt.month=Mo; s_uhr.jetzt.day_of_month=D;
+      s_uhr.jetzt.hour=h; s_uhr.jetzt.minute=mi; s_uhr.jetzt.second=se;
+      s_uhr.jetzt.recalc_timestamp_utc(false);
+    }
+  }
 
   Display it(240,240); zeichne(it);
   printf("\n=== %s ===\n", titel);
@@ -174,6 +193,12 @@ int main() {
   setenv("TZ","Europe/Berlin",1); tzset();
   fahrt("Fahrt: 48 km/h, im Limit", 48, false);
   fahrt("Fahrt: 63 km/h, ZU SCHNELL (roter Ring)", 63, true);
+  // ─── DIE BEIDEN ETA-MODI NEBENEINANDER ──────────────────────────────────
+  // Die eigentliche Frage an dieses Bild: passt „1:35 h" noch neben ein
+  // dreistelliges Tempo? Gemessen wird das nirgends -- die Zeichenpruefung
+  // merkt sich Texte, keine Textbreiten.
+  fahrt("Fahrt: 130 km/h, Ankunftszeit (16:32)", 130, false, false);
+  fahrt("Fahrt: 130 km/h, Restzeit (1:35 h)", 130, false, true);
   zeige("Fahrzeug: vorne tief (-1.5 Grad), rechts hoch (+1.0 Grad)", 1.0f, -1.5f, true);
   zeige("Fahrzeug: eben", 0.1f, -0.1f, true);
   return 0;

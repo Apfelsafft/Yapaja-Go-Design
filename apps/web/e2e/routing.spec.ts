@@ -19,6 +19,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { Route } from '@yapaia/shared';
 import { CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors } from './support/network.js';
+import { langDruecken, zielAufKartenmitte } from './support/zielGeste.js';
 import { formatDistance, formatDuration } from '../src/routing/format.js';
 
 async function waitForMapReady(page: Page): Promise<void> {
@@ -140,13 +141,6 @@ async function createAndActivateProfile(page: Page): Promise<void> {
   expect(activateResponse.ok()).toBe(true);
 }
 
-async function clickMapCenter(page: Page): Promise<void> {
-  const box = await page.locator('canvas.maplibregl-canvas').boundingBox();
-  if (!box) {
-    throw new Error('Canvas has no bounding box');
-  }
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-}
 
 /**
  * Finds a page-space point over the map canvas that (a) projects onto one of
@@ -247,7 +241,7 @@ test('click destination -> request route -> tap alternative -> style switch surv
   await waitForMapReady(page);
 
   // 1. Click on the map -> destination pin + bottom sheet with "Route hierhin".
-  await clickMapCenter(page);
+  await zielAufKartenmitte(page);
   await expect(page.getByTestId('destination-sheet')).toBeVisible();
   await expect(page.getByTestId('destination-coords')).toBeVisible();
   // Coordinates are shown with 5 decimals, e.g. "49.12345, 8.12345".
@@ -335,7 +329,7 @@ test('destination pin appears even before the route is requested, and "Abbrechen
   await page.goto(CORE_BASE_URL + '/');
   await waitForMapReady(page);
 
-  await clickMapCenter(page);
+  await zielAufKartenmitte(page);
   await expect(page.getByTestId('destination-sheet')).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => Boolean(window.__yapaiaMapController?.getMap()?.getLayer('route-dest-marker'))))
@@ -385,7 +379,7 @@ test('OUT_OF_COVERAGE error (E03-T6): shows coverage message + "Regionen verwalt
   await waitForMapReady(page);
 
   // Click on the map to set a destination
-  await clickMapCenter(page);
+  await zielAufKartenmitte(page);
   await expect(page.getByTestId('destination-sheet')).toBeVisible();
 
   // Request the route
@@ -439,7 +433,7 @@ test('NO_ROUTE error (E03-T6): shows different message than OUT_OF_COVERAGE', as
   await waitForMapReady(page);
 
   // Click on the map to set a destination
-  await clickMapCenter(page);
+  await zielAufKartenmitte(page);
   await expect(page.getByTestId('destination-sheet')).toBeVisible();
 
   // Request the route
@@ -484,7 +478,7 @@ test('ein Tipper knapp neben die Alternative waehlt sie trotzdem aus', async ({ 
   await page.goto(CORE_BASE_URL + '/');
   await waitForMapReady(page);
 
-  await clickMapCenter(page);
+  await zielAufKartenmitte(page);
   await expect(page.getByTestId('route-here-button')).toBeEnabled({ timeout: 10_000 });
   await page.getByTestId('route-here-button').click();
   await expect(page.getByTestId('route-summary-panel')).toBeVisible({ timeout: 10_000 });
@@ -510,4 +504,100 @@ test('ein Tipper knapp neben die Alternative waehlt sie trotzdem aus', async ({ 
     await page.evaluate(() => window.__yapaiaRoutingStore?.getState().routes?.length ?? 0),
   ).toBe(3);
   await expect(page.getByTestId('route-summary-panel')).toBeVisible();
+});
+
+/**
+ * Der lange Druck — die Verdrahtung, die kein Unit-Test zeigen kann.
+ *
+ * ─── WARUM DAS HIER STEHEN MUSS ─────────────────────────────────────────────
+ * Die REGEL steht in `mapTapIntent.test.ts`, die MESSUNG in
+ * `langerDruck.test.ts`. Beide bleiben grün, wenn die Kette dazwischen
+ * reisst — und dann gäbe es überhaupt keinen Weg mehr, aus der Karte heraus
+ * ein Ziel zu setzen. Ein stiller Totalausfall der Zielwahl.
+ *
+ * Genau diese Lücke ist in diesem Projekt schon zweimal aufgetreten:
+ * `verdeckteRegionen` war ab 0.9.0 tot, weil die Oberfläche den Wert nie
+ * mitschickte, und die Regionswahl in 0.9.1 wirkungslos, weil der Vergleich
+ * in `MapView` den neuen Zustand für den alten hielt. Beide Male stimmte
+ * jede einzelne Stufe für sich.
+ */
+test.describe('Ziel setzen braucht einen langen Druck', () => {
+  /** Das Ziel im Speicher, oder `null`. */
+  async function ziel(page: Page): Promise<unknown> {
+    return page.evaluate(() => window.__yapaiaRoutingStore?.getState().destination ?? null);
+  }
+
+  async function kartenMitte(page: Page): Promise<{ x: number; y: number }> {
+    const box = await page.locator('canvas.maplibregl-canvas').boundingBox();
+    expect(box).not.toBeNull();
+    // Ein Viertel/Dreiviertel statt genau der Mitte: dort liegt bei einem
+    // laufenden Test nichts anderes im Weg.
+    return { x: box!.x + box!.width * 0.25, y: box!.y + box!.height * 0.7 };
+  }
+
+  test('ein kurzer Tipper setzt KEIN Ziel und sagt warum', async ({ page }) => {
+    await page.goto(CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+
+    const p = await kartenMitte(page);
+    await page.mouse.click(p.x, p.y);
+    // Wäre der alte Fehler noch da, bräuchte er nur einen Tick.
+    await page.waitForTimeout(400);
+
+    expect(await ziel(page)).toBeNull();
+
+    // ─── UND DER TIPPER BLEIBT NICHT STUMM ────────────────────────────────
+    // Ohne diese Hälfte wäre die Änderung aus Sicht des Bedienenden nicht
+    // von einem Defekt zu unterscheiden.
+    await expect(page.getByTestId('langer-druck-hinweis')).toBeVisible();
+  });
+
+  test('ein langer Druck setzt das Ziel', async ({ page }) => {
+    await page.goto(CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+
+    const p = await kartenMitte(page);
+    await langDruecken(page, p.x, p.y);
+
+    await expect
+      .poll(() => ziel(page), { timeout: 5_000 })
+      .not.toBeNull();
+
+    // Und das Bodenblatt geht auf -- ein Ziel ohne Weg zur Route wäre nur
+    // ein roter Punkt.
+    await expect(page.getByTestId('destination-sheet')).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('ein Druck, der zum Schwenk wird, setzt kein Ziel', async ({ page }) => {
+    // ─── DER EIGENTLICH GEMELDETE FALL ────────────────────────────────────
+    // „Oftmals passiert das wenn man auf der Karte sucht" -- also beim
+    // Wischen. Ein Wischer, der um zwei Bildpunkte danebengeht, IST für den
+    // Browser ein Klick.
+    await page.goto(CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+
+    const p = await kartenMitte(page);
+    await page.mouse.move(p.x, p.y);
+    await page.mouse.down();
+    await page.waitForTimeout(150);
+    // Ziehen -- weit über `WACKEL_PX` (10).
+    await page.mouse.move(p.x + 120, p.y - 60, { steps: 10 });
+    await page.waitForTimeout(800);
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+
+    expect(await ziel(page)).toBeNull();
+  });
+
+  test('der Hinweis verschwindet von allein', async ({ page }) => {
+    // Er liegt über der Karte, auf der man gerade sucht. Bliebe er stehen,
+    // wäre die Behebung eines Ärgernisses das nächste.
+    await page.goto(CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+
+    const p = await kartenMitte(page);
+    await page.mouse.click(p.x, p.y);
+    await expect(page.getByTestId('langer-druck-hinweis')).toBeVisible();
+    await expect(page.getByTestId('langer-druck-hinweis')).toBeHidden({ timeout: 6_000 });
+  });
 });

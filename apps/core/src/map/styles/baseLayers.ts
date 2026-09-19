@@ -35,7 +35,7 @@
 import { REGION_SOURCE_ID } from './constants.js';
 import { FONT_BOLD, FONT_REGULAR } from './fonts.js';
 import { SHIELD_ICONS, SHIELD_TEXT_COLORS } from './sprites.js';
-import { rangNachKategorie, symbolNachKategorie } from './poiKategorien.js';
+import { rangNachKategorie, symbolNachKategorie } from '@yapaia/shared';
 import type { MapPalette } from './palette.js';
 import type { StyleLayer } from './types.js';
 

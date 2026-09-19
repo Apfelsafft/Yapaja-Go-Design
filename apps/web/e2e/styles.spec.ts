@@ -379,8 +379,18 @@ test.describe('style options', () => {
       lang: string;
       labelScale: string;
       poi: string;
+      poiAus: string[];
     };
-    expect(parsedOptions).toEqual({ lang: 'name_en', labelScale: '1.2', poi: 'off' });
+    // `poiAus` steht seit 0.17.0 mit im Gespeicherten. Die Zusicherung
+    // bleibt bewusst ein `toEqual` ueber die GANZE Menge: sie soll auch
+    // auffallen lassen, wenn etwas Neues dazukommt, das hier noch niemand
+    // bedacht hat.
+    expect(parsedOptions).toEqual({
+      lang: 'name_en',
+      labelScale: '1.2',
+      poi: 'off',
+      poiAus: [],
+    });
 
     await page.reload();
     await waitForMapReady(page);
@@ -567,5 +577,127 @@ test.describe('das Kartenmenü ist nicht mehr überfrachtet', () => {
     // Finger.
     expect(box!.width).toBeGreaterThan(120);
     expect(box!.height).toBeGreaterThanOrEqual(28);
+  });
+});
+
+/**
+ * Die Schalter für die einzelnen Sonderziele.
+ *
+ * ─── WARUM DAS IM ECHTEN BROWSER STEHEN MUSS ────────────────────────────────
+ * Die Umformung von „abgeschaltet" zu einem Kartenfilter ist an drei Stellen
+ * geprüft: als Funktion (`poi/auswahl.test.ts`), im Zustandsspeicher
+ * (`poiSchalter.test.ts`) und an der Schnittstelle (`styleRoutes.test.ts`).
+ * Alle drei bleiben grün, wenn die Kette dazwischen reisst.
+ *
+ * Genau das ist in diesem Projekt schon passiert: `verdeckteRegionen` war ab
+ * 0.9.0 tot, weil die Oberfläche den Wert nie mitschickte, und die
+ * Regionswahl in 0.9.1 wirkungslos, weil der Vergleich in `MapView` den
+ * neuen Zustand für den alten hielt. Beide Male stimmte jede einzelne Stufe
+ * für sich.
+ *
+ * Deshalb steht hier die eine Frage, die nur ein echter Browser beantwortet:
+ * Legt ein Klick auf das Kästchen den Filter in die LEBENDE Karte?
+ */
+test.describe('einzelne Sonderziele an- und abschalten', () => {
+  /** Der Filter, der gerade auf der Kachel-POI-Ebene liegt — als Text. */
+  async function poiFilter(page: Page): Promise<string> {
+    return page.evaluate(() => {
+      const layer = window.__yapaiaMapController
+        ?.getMap()
+        ?.getStyle()
+        ?.layers?.find((l) => l.id === 'poi-labels');
+      return JSON.stringify((layer as { filter?: unknown } | undefined)?.filter ?? null);
+    });
+  }
+
+  test('ein Klick auf „Tankstelle" legt den Filter in die lebende Karte', async ({ page }) => {
+    await page.goto(CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    await openStylePanel(page);
+    await oeffneAbschnitt(page, 'sonderziele');
+
+    const tanken = page.getByTestId('poi-kategorie-poi-tanken');
+    await expect(tanken).toBeVisible({ timeout: 5_000 });
+    // Vorher ist nichts abgeschaltet -- die Gegenprobe, ohne die der Test
+    // auch dann grün wäre, wenn der Filter immer dastünde.
+    expect(await poiFilter(page)).not.toContain('poi-tanken');
+    await expect(tanken).toBeChecked();
+
+    await tanken.uncheck();
+    await expect.poll(() => poiFilter(page), { timeout: 10_000 }).toContain('poi-tanken');
+
+    // Und wieder zurück: ein Schalter, der nur in eine Richtung wirkt, wäre
+    // schlimmer als keiner.
+    await tanken.check();
+    await expect.poll(() => poiFilter(page), { timeout: 10_000 }).not.toContain('poi-tanken');
+  });
+
+  test('die Wahl übersteht einen Neuladen der Seite', async ({ page }) => {
+    await page.goto(CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    await openStylePanel(page);
+    await oeffneAbschnitt(page, 'sonderziele');
+
+    await page.getByTestId('poi-kategorie-poi-dusche').uncheck();
+    await expect.poll(() => poiFilter(page), { timeout: 10_000 }).toContain('poi-dusche');
+
+    await page.reload();
+    await waitForMapReady(page);
+    // Erst die Karte: eine Einstellung, die nur im Menü überlebt und nicht
+    // auf der Karte, wäre die unangenehmere Hälfte.
+    await expect.poll(() => poiFilter(page), { timeout: 10_000 }).toContain('poi-dusche');
+
+    await openStylePanel(page);
+    await oeffneAbschnitt(page, 'sonderziele');
+    await expect(page.getByTestId('poi-kategorie-poi-dusche')).not.toBeChecked();
+  });
+
+  test('„Alle aus" und „Alle an" wirken auf jedes Kästchen', async ({ page }) => {
+    await page.goto(CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    await openStylePanel(page);
+    await oeffneAbschnitt(page, 'sonderziele');
+
+    await page.getByTestId('poi-kategorie-keine').click();
+    // Stichproben aus beiden Quellen: der Stellplatz kommt aus den Kacheln,
+    // die Dusche aus dem Suchindex. Hätte nur eine Hälfte einen Schalter,
+    // fiele das ohne diese Auswahl nicht auf.
+    await expect(page.getByTestId('poi-kategorie-poi-wohnmobil')).not.toBeChecked();
+    await expect(page.getByTestId('poi-kategorie-poi-dusche')).not.toBeChecked();
+
+    await page.getByTestId('poi-kategorie-alle').click();
+    await expect(page.getByTestId('poi-kategorie-poi-wohnmobil')).toBeChecked();
+    await expect(page.getByTestId('poi-kategorie-poi-dusche')).toBeChecked();
+  });
+
+  test('eine abgeschaltete Index-Kategorie verschwindet auch aus ihrer eigenen Ebene', async ({
+    page,
+  }) => {
+    // ─── DIE ZWEITE EBENE, DIE MAN LEICHT VERGISST ───────────────────────
+    // Entsorgung, Frischwasser, Müll und Dusche stehen in KEINER Kachel; sie
+    // kommen aus dem Suchindex und liegen als eigene GeoJSON-Ebene auf der
+    // Karte. Sie filtert der Browser selbst, der Kern sieht davon nichts.
+    //
+    // Ein Schalter, der nur die Kachel-Hälfte träfe, wäre auf einer Karte
+    // mit gebautem Index sichtbar wirkungslos -- und auf einer ohne Index
+    // von einem funktionierenden nicht zu unterscheiden.
+    await page.goto(CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    await openStylePanel(page);
+    await oeffneAbschnitt(page, 'sonderziele');
+
+    await page.getByTestId('poi-kategorie-poi-entsorgung').uncheck();
+
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const map = window.__yapaiaMapController?.getMap();
+            if (!map?.getLayer('yapaja-sonderziele-marken')) return null;
+            return JSON.stringify(map.getFilter('yapaja-sonderziele-marken') ?? null);
+          }),
+        { timeout: 10_000 },
+      )
+      .toContain('poi-entsorgung');
   });
 });

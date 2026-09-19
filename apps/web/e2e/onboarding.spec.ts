@@ -34,6 +34,7 @@ import {
   ONBOARDING_REGION_ID,
 } from './support/constants.js';
 import { collectPageErrors } from './support/network.js';
+import { zielAufKartenmitte } from './support/zielGeste.js';
 
 const REGION_FILE = join(ONBOARDING_TILES_DIR, `${ONBOARDING_REGION_ID}.pmtiles`);
 const REGION_PART_FILE = `${REGION_FILE}.part`;
@@ -110,11 +111,6 @@ async function waitForMapReady(page: Page): Promise<void> {
   });
 }
 
-async function clickMapCenter(page: Page): Promise<void> {
-  const box = await page.locator('canvas.maplibregl-canvas').boundingBox();
-  if (!box) throw new Error('Canvas has no bounding box');
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-}
 
 async function navStatus(page: Page): Promise<string | null> {
   return page.evaluate(() => window.__yapaiaNavStore?.getState().navState?.status ?? null);
@@ -214,7 +210,7 @@ test.describe('Onboarding wizard (E08-T5)', () => {
 
     // Acceptance #1, closing the loop: navigation is genuinely startable now
     // (disclaimer consent was recorded, region installed, profile active).
-    await clickMapCenter(page);
+    await zielAufKartenmitte(page);
     await expect(page.getByTestId('route-here-button')).toBeEnabled({ timeout: 10_000 });
     await page.getByTestId('route-here-button').click();
     await expect(page.getByTestId('route-summary-panel')).toBeVisible({ timeout: 10_000 });
@@ -295,7 +291,7 @@ test.describe('Onboarding wizard (E08-T5)', () => {
     await expect(page.getByTestId('onboarding-wizard')).toHaveCount(0);
     await waitForMapReady(page);
 
-    await clickMapCenter(page);
+    await zielAufKartenmitte(page);
     await expect(page.getByTestId('route-here-button')).toBeEnabled({ timeout: 10_000 });
     await page.getByTestId('route-here-button').click();
     await expect(page.getByTestId('route-summary-panel')).toBeVisible({ timeout: 10_000 });

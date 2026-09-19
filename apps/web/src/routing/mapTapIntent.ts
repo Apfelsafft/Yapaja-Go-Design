@@ -46,6 +46,27 @@ export const ROUTE_TAP_RADIUS_PX = 18;
 // ManeuverPanel.tsx". Zwei Kopien laufen frueher oder spaeter auseinander --
 // jetzt gibt es nur noch eine (`drive/driveActive.ts`).
 
+/**
+ * Wie die Karte berührt wurde.
+ *
+ * ─── DIE DRITTE MELDUNG DERSELBEN SORTE ─────────────────────────────────────
+ * „Wenn man auf die Karte tippt übernimmt er ja die Position und markiert sie
+ *  als roten Punkt. Bspw als nächstes Ziel. Kannst du das bitte ändern dass
+ *  das nur mit einem Long press der Fall ist? Oftmals passiert das wenn man
+ *  auf der Karte sucht, dass ein neues Ziel gewählt wird."
+ *
+ * Dieselbe Sorte Fehler wie die beiden oben, nur ausserhalb der Fahrt: eine
+ * Handlung mit grossen Folgen, ausgeloest, ohne dass jemand sie gemeint hat.
+ * Meldung 1 hat sie waehrend der Fahrt abgestellt; beim Suchen auf der Karte
+ * -- also genau dann, wenn man viel wischt und zoomt -- blieb sie.
+ *
+ * Ein Wischer, der um zwei Bildpunkte danebengeht, IST fuer den Browser ein
+ * Klick. Gegen eine Bewegungsschwelle allein ist das nicht zu trennen; gegen
+ * die DAUER schon, und eine absichtliche Zielwahl ein halbe Sekunde zu halten
+ * kostet nichts.
+ */
+export type Geste = 'tipp' | 'lang';
+
 export type MapTapIntent =
   /** Diese Alternative wird zur aktiven Route. */
   | { kind: 'select-route'; routeId: string }
@@ -56,7 +77,7 @@ export type MapTapIntent =
   /** Der Tipper setzt ein Zwischenziel (Zwischenziel-Modus ist aktiv). */
   | { kind: 'set-waypoint' }
   /** Der Tipper bewirkt nichts. */
-  | { kind: 'ignore'; reason: 'drive-active' };
+  | { kind: 'ignore'; reason: 'drive-active' | 'nur-langer-druck' };
 
 export interface MapTapContext {
   /** Die Route unter dem Finger, oder `null`. Bereits MIT Toleranz ermittelt. */
@@ -65,6 +86,13 @@ export interface MapTapContext {
   pickTarget: 'origin' | 'destination' | 'waypoint';
   /** Der Status aus `useNavStore`, oder `null`/`undefined` wenn unbekannt. */
   navStatus: NavState['status'] | null | undefined;
+  /**
+   * Kurz getippt oder lange gedrueckt.
+   *
+   * Ohne Angabe gilt `tipp` -- der vorsichtigere der beiden Werte. Ein
+   * vergessenes Feld setzt damit kein Ziel, statt eines zu setzen.
+   */
+  geste?: Geste;
 }
 
 /**
@@ -91,6 +119,20 @@ export interface MapTapContext {
  *     verlangt.
  *
  *  4. Sonst gilt der Startpunkt-Modus, dann das Ziel -- wie bisher.
+ *
+ *  5. Ein NEUES Ziel verlangt den langen Druck. Das ist die Behebung von
+ *     Meldung 3, und es gilt bewusst NUR hier:
+ *
+ *     - Die Alternative (1) ist ein Tipper auf eine sichtbare Linie. Wer
+ *       darauf zielt, meint sie.
+ *     - Start- und Zwischenziel-Modus (3, 4) betritt man ueber einen eigenen
+ *       Knopf. Das Antippen ist dort bereits die ZWEITE bewusste Handlung,
+ *       und einen halben Sekundendruck zusaetzlich zu verlangen waere
+ *       Schikane -- diese Modi sind ausserdem an einem sichtbaren Zustand
+ *       erkennbar, das freie Zielsetzen nicht.
+ *
+ *     Das freie Zielsetzen ist die einzige Handlung, die JEDERZEIT aus einem
+ *     verrutschten Wischer entstehen kann. Nur sie bekommt die Huerde.
  */
 export function mapTapIntent(ctx: MapTapContext): MapTapIntent {
   if (ctx.tappedRouteId !== null) {
@@ -104,6 +146,13 @@ export function mapTapIntent(ctx: MapTapContext): MapTapIntent {
   }
   if (ctx.pickTarget === 'origin') {
     return { kind: 'set-origin' };
+  }
+  // Fehlt die Angabe, gilt `tipp`: ein vergessenes Feld setzt dann kein Ziel,
+  // statt eines zu setzen. Die unauffaelligere Richtung ist hier die
+  // richtige -- ein ausbleibendes Ziel merkt man sofort, ein ungewolltes
+  // erst, wenn die Route weg ist.
+  if ((ctx.geste ?? 'tipp') !== 'lang') {
+    return { kind: 'ignore', reason: 'nur-langer-druck' };
   }
   return { kind: 'set-destination' };
 }

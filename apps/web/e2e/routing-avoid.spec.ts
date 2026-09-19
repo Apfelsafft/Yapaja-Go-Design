@@ -18,6 +18,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { Route, RouteRequest } from '@yapaia/shared';
 import { CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors } from './support/network.js';
+import { zielAufKartenmitte } from './support/zielGeste.js';
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
@@ -95,11 +96,6 @@ async function createAndActivateProfile(page: Page): Promise<void> {
   expect(activateResponse.ok()).toBe(true);
 }
 
-async function clickMapCenter(page: Page): Promise<void> {
-  const box = await page.locator('canvas.maplibregl-canvas').boundingBox();
-  if (!box) throw new Error('Canvas has no bounding box');
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-}
 
 /** Finds a page-space point that projects onto a point strictly between MAIN_ROUTE's two endpoints AND isn't covered by another DOM element (e.g. the bottom sheet). */
 async function findPointOnMainRoute(page: Page): Promise<{ x: number; y: number }> {
@@ -154,7 +150,7 @@ test.describe('E03-T4 avoid-chip toggle', () => {
     await page.goto(CORE_BASE_URL + '/');
     await waitForMapReady(page);
 
-    await clickMapCenter(page);
+    await zielAufKartenmitte(page);
     await expect(page.getByTestId('destination-sheet')).toBeVisible();
     await expect(page.getByTestId('route-here-button')).toBeEnabled({ timeout: 10_000 });
 
@@ -208,7 +204,7 @@ test.describe('E03-T4 "Diesen Abschnitt meiden"', () => {
     await page.goto(CORE_BASE_URL + '/');
     await waitForMapReady(page);
 
-    await clickMapCenter(page);
+    await zielAufKartenmitte(page);
     await expect(page.getByTestId('route-here-button')).toBeEnabled({ timeout: 10_000 });
     await page.getByTestId('route-here-button').click();
     await expect(page.getByTestId('route-summary-panel')).toBeVisible({ timeout: 10_000 });

@@ -13,6 +13,7 @@
  * intact unless a caller explicitly overrides them.
  */
 
+import { nichtAbgeschaltet, parseAbgeschaltet, symbolNachKategorie } from '@yapaia/shared';
 import { POI_LAYER_ID_PREFIX, REDUCED_POI_CLASSES } from './constants.js';
 import type { MapStyleDocument, StyleLayer, SymbolLayer } from './types.js';
 
@@ -55,6 +56,21 @@ export interface StyleOptions {
   lang?: StyleLang;
   labelScale?: StyleLabelScale;
   poi?: StylePoiDensity;
+  /**
+   * Sonderziel-Kategorien, die NICHT gezeichnet werden sollen — als
+   * Sprite-Namen, siehe `@yapaia/shared`'s `poi/auswahl.ts`.
+   *
+   * ─── WARUM NEBEN `poi` UND NICHT STATT DESSEN ─────────────────────────────
+   * Die beiden beantworten verschiedene Fragen. `poi` ist eine Frage an das
+   * GERÄT („wie viel Zeichenarbeit verträgt es"), und nur deshalb darf die
+   * Leistungsüberwachung sie herunterdrehen (`applyDegradationCaps` in
+   * `apps/web`). Diese Liste ist eine Frage an den FAHRER („was interessiert
+   * mich"), und die darf niemand anders beantworten.
+   *
+   * Sie sind deshalb zwei Achsen und wirken nacheinander: erst was die
+   * Dichte übrig lässt, davon dann alles, was nicht abgeschaltet ist.
+   */
+  poiAus?: readonly string[];
 }
 
 const VALID_LANG: readonly StyleLang[] = ['name', 'name_de', 'name_en'];
@@ -66,6 +82,7 @@ export interface RawStyleQuery {
   lang?: unknown;
   labelScale?: unknown;
   poi?: unknown;
+  poiAus?: unknown;
 }
 
 function firstValue(value: unknown): string | undefined {
@@ -100,6 +117,16 @@ export function parseStyleOptions(query: RawStyleQuery): StyleOptions {
   const poi = firstValue(query.poi);
   if (poi && (VALID_POI as readonly string[]).includes(poi)) {
     options.poi = poi as StylePoiDensity;
+  }
+
+  // ─── NUR SETZEN, WENN WIRKLICH ETWAS ABGESCHALTET IST ────────────────────
+  // `parseAbgeschaltet` wirft unbekannte Schlüssel weg. `?poiAus=` oder
+  // `?poiAus=quatsch` ergibt damit eine leere Liste — und die ist dasselbe
+  // wie „nicht mitgeschickt". Sie trotzdem zu setzen hiesse, den Stil ohne
+  // Not umzuschreiben und den Zwischenspeicher zu verfehlen.
+  const poiAus = parseAbgeschaltet(firstValue(query.poiAus));
+  if (poiAus.length > 0) {
+    options.poiAus = poiAus;
   }
 
   return options;
@@ -165,7 +192,34 @@ function applyLabelScale(layer: StyleLayer, scale: StyleLabelScale): StyleLayer 
   return { ...layer, layout: { ...layer.layout, 'text-size': nextSize } };
 }
 
-function applyPoi(layer: StyleLayer, poi: StylePoiDensity): StyleLayer {
+/**
+ * Die beiden POI-Achsen in einem Durchgang: Dichte und abgeschaltete
+ * Kategorien.
+ *
+ * ─── WARUM BEIDE HIER UND NICHT NACHEINANDER ────────────────────────────────
+ * Weil sie sich denselben `filter` teilen. Zwei getrennte Durchläufe müssten
+ * jeweils lesen, was der andere hinterlassen hat, und beim zweiten Aufruf
+ * wüsste keiner mehr, welcher Teil des Ausdrucks wem gehört. Zusammengesetzt
+ * wird der Filter deshalb an genau einer Stelle — hier — und immer von vorn.
+ *
+ * ─── WORAN DIE KATEGORIE ERKANNT WIRD ───────────────────────────────────────
+ * An `symbolNachKategorie()` — DERSELBEN Funktion, die weiter oben im Stil
+ * auch das `icon-image` bestimmt (`baseLayers.ts`). Nicht an einer eigenen
+ * Klassenliste.
+ *
+ * Das ist der Kern der Sache: ein Filter, der die Kategorien noch einmal
+ * selbst zusammensucht, kann von den Symbolen abweichen. Dann verschwände
+ * beim Abschalten von „Tankstelle" etwas anderes als die Zapfsäulen, oder es
+ * bliebe etwas stehen — und beides fiele niemandem auf, weil ein POI weniger
+ * auf einer Karte nun einmal nicht auffällt. Indem der Filter die
+ * Symbolzuordnung AUFRUFT, ist „was als Tankstelle gezeichnet wird" und „was
+ * beim Abschalten von Tankstellen verschwindet" per Bauart dasselbe.
+ */
+function applyPoi(
+  layer: StyleLayer,
+  poi: StylePoiDensity | undefined,
+  poiAus: readonly string[],
+): StyleLayer {
   if (!isPoiLayer(layer)) {
     return layer;
   }
@@ -173,16 +227,46 @@ function applyPoi(layer: StyleLayer, poi: StylePoiDensity): StyleLayer {
     const { filter: _filter, ...rest } = layer;
     return { ...rest, layout: { ...layer.layout, visibility: 'none' } };
   }
+
+  // ─── `poi` UNGESETZT HEISST „NICHT ANFASSEN" ──────────────────────────────
+  // Und zwar auch hier, wo es verlockend wäre, `full` einzusetzen, um einen
+  // Sonderfall zu sparen. Das wäre falsch, und der Kopf dieser Datei sagt
+  // warum: `yapaja-contrast` bringt seine reduzierte POI-Auswahl selbst mit.
+  // Wer nur eine Kategorie abschaltet und die Dichte nie angefasst hat,
+  // schickt kein `?poi=` -- und bekäme mit `full` als Vorgabe plötzlich MEHR
+  // Symbole als vorher. Ein Schalter, der Dinge einschaltet, ist die
+  // unangenehmste Sorte Überraschung.
+  //
+  // Deshalb: bei ungesetztem `poi` bleibt der mitgelieferte Filter stehen,
+  // und die abgeschalteten Kategorien kommen UNTEN DRAN.
+  const bedingungen: unknown[][] = [];
+  let sichtbarkeit = layer.layout.visibility;
   if (poi === 'reduced') {
-    return {
-      ...layer,
-      layout: { ...layer.layout, visibility: 'visible' },
-      filter: ['in', ['get', 'class'], ['literal', REDUCED_POI_CLASSES]],
-    };
+    bedingungen.push(['in', ['get', 'class'], ['literal', REDUCED_POI_CLASSES]]);
+    sichtbarkeit = 'visible';
+  } else if (poi === 'full') {
+    sichtbarkeit = 'visible';
+  } else if (layer.filter !== undefined) {
+    bedingungen.push(layer.filter);
   }
-  // 'full': visible, no class filter.
+
+  const ohneAbgeschaltete = nichtAbgeschaltet(symbolNachKategorie(), poiAus);
+  if (ohneAbgeschaltete) {
+    bedingungen.push(ohneAbgeschaltete);
+  }
+
   const { filter: _filter, ...rest } = layer;
-  return { ...rest, layout: { ...layer.layout, visibility: 'visible' } };
+  const layout = { ...layer.layout, ...(sichtbarkeit ? { visibility: sichtbarkeit } : {}) };
+  if (bedingungen.length === 0) {
+    // Kein Filter ist etwas anderes als ein Filter, der alles durchlässt:
+    // MapLibre muss ihn dann gar nicht erst je Punkt auswerten.
+    return { ...rest, layout };
+  }
+  return {
+    ...rest,
+    layout,
+    filter: bedingungen.length === 1 ? bedingungen[0] : ['all', ...bedingungen],
+  };
 }
 
 /** Applies every explicitly-provided style option to the style's layers. */
@@ -197,9 +281,16 @@ export function applyStyleOptions(style: MapStyleDocument, options: StyleOptions
     const labelScale = options.labelScale;
     layers = layers.map((layer) => applyLabelScale(layer, labelScale));
   }
-  if (options.poi) {
+  // ─── AUCH OHNE `poi`, WENN EINZELNE KATEGORIEN AUS SIND ──────────────────
+  // Hier stand `if (options.poi)`. Das war richtig, solange es nur die Dichte
+  // gab. Mit den Kategorie-Schaltern hätte es eine lautlose Lücke ergeben:
+  // wer die Dichte nie angefasst hat -- also fast jeder --, schickt kein
+  // `?poi=` mit, und seine abgeschalteten Kategorien wären still ohne Wirkung
+  // geblieben.
+  const poiAus = options.poiAus ?? [];
+  if (options.poi || poiAus.length > 0) {
     const poi = options.poi;
-    layers = layers.map((layer) => applyPoi(layer, poi));
+    layers = layers.map((layer) => applyPoi(layer, poi, poiAus));
   }
 
   return { ...style, layers };

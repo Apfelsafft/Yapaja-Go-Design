@@ -10,6 +10,122 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.17.1
+
+**Ein Ziel auf der Karte braucht jetzt einen langen Druck — und das ESP-Display
+kann die Ankunft als Restzeit anzeigen.**
+
+### Ein kurzer Tipper setzt kein Ziel mehr
+
+Gemeldet:
+
+> „Wenn man auf die Karte tippt übernimmt er ja die Position und markiert sie
+> als roten Punkt. Bspw als nächstes Ziel. Kannst du das bitte ändern dass das
+> nur mit einem Long press der Fall ist? Oftmals passiert das wenn man auf der
+> Karte sucht, dass ein neues Ziel gewählt wird."
+
+Ein Wischer, der um zwei Bildpunkte danebengeht, ist für den Browser ein Klick.
+Gegen eine Bewegungsschwelle allein ist das nicht zu trennen; gegen die **Dauer**
+schon. Ein Ziel setzt jetzt, wer **eine halbe Sekunde auf die Karte drückt**.
+
+Wer trotzdem kurz tippt, bekommt keine Stille, sondern den Satz
+**„Ziel setzen: lange auf die Karte drücken"**. Ohne ihn wäre die Änderung aus
+Sicht des Bedienenden von einem Defekt nicht zu unterscheiden.
+
+**Was ein kurzer Tipper weiterhin tut**, weil er dort schon die zweite bewusste
+Handlung ist:
+
+- eine **Alternativroute** auswählen (man zielt auf eine sichtbare Linie),
+- **Startpunkt** und **Zwischenziel** bestätigen, wenn deren Modus über den
+  jeweiligen Knopf läuft.
+
+Am Schreibtisch tut es weiterhin auch der **Rechtsklick**.
+
+> **Warum nicht einfach auf den Browser gehört?** Viele Geräte melden einen
+> langen Fingerdruck von selbst als „Kontextmenü". Ob sie das tun, wann, und ob
+> der Browser stattdessen seine eigene Textauswahl aufmacht, entscheidet das
+> Gerät. Hätte Yapaia sich allein darauf verlassen, gäbe es auf einem Tablet,
+> das es nicht meldet, überhaupt keinen Weg mehr zu einem Ziel. Der Druck wird
+> deshalb selbst gemessen; das Kontextmenü zählt daneben weiter.
+
+### Das ESP-Display: Ankunftszeit oder Restzeit
+
+Gewünscht:
+
+> „Bitte baue einen Schalter in das yaml ein um die eta zwischen der
+> Ankunftszeit und der verbleibenden Restzeit umzuschalten."
+
+Neuer Schalter **„Restzeit statt Ankunft"** (in Home Assistant beim Display-Gerät,
+neben „Waage erzwingen" und „Waage als Fahrzeug"). Aus bleibt die Uhrzeit — ein
+Update stellt niemandem ungefragt die Anzeige um.
+
+Angezeigt wird `32 min`, über einer Stunde `1:35 h`, kurz vor dem Ziel `gleich`.
+
+> **Zur Meldung „die eta ist unterschiedlich zwischen den Anzeigen":** Beide
+> Anzeigen lesen denselben Wert — im Kern gibt es nur **eine** Rechnung, und
+> daraus entsteht `sensor.yapaja_eta`. Unterschiedlich ist die **Darstellung**:
+> Home Assistant zeigt einen Zeitstempel-Sensor als Countdown („in 13 Minuten"),
+> das Display zeigte eine Uhrzeit. Zwei verschiedene Größen nebeneinander lassen
+> sich nicht vergleichen, auch wenn sie denselben Augenblick meinen. Mit dem
+> Schalter auf „Restzeit" stehen auf beiden Anzeigen dieselben Minuten.
+>
+> Die Restzeit wird dabei auf dem Display **aus derselben Ankunftszeit gerechnet**
+> und nicht getrennt geholt. Damit kann sie der Uhrzeit nie widersprechen, sie
+> läuft auch zwischen zwei Meldungen weiter, und der Schalter wirkt mit jeder
+> Yapaia-Fassung, die `eta` liefert.
+
+---
+
+## 0.17.0
+
+**Jede Sonderziel-Kategorie lässt sich einzeln an- und abschalten.**
+
+Gewünscht:
+
+> „Kann ich die einzelnen sonderziele auch an und abschalten? Zapfstellen
+> brauche ich eher selten und dann stören sie bspw."
+
+Bisher gab es dafür genau einen Schalter — „POI-Dichte" mit den Stufen voll /
+reduziert / aus. Der beantwortet die Frage nicht: wer nur die Zapfstellen
+loswerden wollte, hatte die Wahl zwischen *allen* Symbolen und *keinen*. Und
+mit „keine" verliert man auch die Stellplätze, also genau das, wofür die
+Symbole da sind.
+
+**Wo es steht.** Karten-Einstellungen (⚙️) → neuer Abschnitt **„Sonderziele"**.
+Dreizehn Kästchen, dazu „Alle an" und „Alle aus". Die Reihenfolge ist die der
+Karte, nicht das Alphabet: was bei Gedränge stehen bleibt, steht auch in der
+Liste oben.
+
+| | |
+|---|---|
+| Wohnmobilstellplatz | Campingplatz |
+| Entsorgungsstation | Frischwasser-Zapfstelle |
+| Tankstelle | Ladesäule |
+| Parkplatz | Einkaufen |
+| Essen und Trinken | Sehenswürdigkeit |
+| Müllentsorgung | Dusche |
+| Wasser und Entsorgung | |
+
+**„POI-Dichte" bleibt** — sie ist etwas anderes. Die Dichte ist eine Frage an
+das *Gerät* („wie viel Zeichenarbeit verträgt es"), und nur deshalb darf die
+Leistungsüberwachung sie bei niedriger Bildrate selbsttätig herunterdrehen.
+Welche Kategorien man sehen *will*, ist eine Frage an den Fahrer, und die
+beantwortet jetzt niemand mehr ungefragt mit.
+
+**Bestehende Einstellungen bleiben, wie sie sind.** Gespeichert wird, was
+*abgeschaltet* ist — nicht, was an ist. Wer bisher nichts eingestellt hat,
+sieht weiterhin alles. Und wenn eine spätere Fassung eine Kategorie
+hinzufügt, ist sie da und nicht weg: ein ungewolltes Symbol klickt man weg,
+ein fehlendes bemerkt man erst, wenn man daran vorbeigefahren ist.
+
+> **Vier der dreizehn brauchen den Suchindex.** Entsorgung, Frischwasser, Müll
+> und Dusche kennt das Kartenschema gar nicht; sie kommen aus
+> `lite_search-<region>.db`. Ohne gebauten Index bleiben sie leer — auch
+> eingeschaltet. Dieser Satz steht jetzt auch im Menü, denn ein Schalter ohne
+> Daten ist sonst von einem kaputten Schalter nicht zu unterscheiden.
+
+---
+
 ## 0.16.5
 
 **Das ESP-Display zeigt beim Fahren keine Tempolimit-Zahlen mehr. Zu schnell

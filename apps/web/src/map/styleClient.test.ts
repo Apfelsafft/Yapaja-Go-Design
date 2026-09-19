@@ -81,6 +81,46 @@ describe('fetchStyle', () => {
     expect(requestedUrl).not.toMatch(/^https?:\/\//);
   });
 
+  describe('die abgeschalteten Kategorien in der Anfrage', () => {
+    async function urlFuer(opts: Parameters<typeof fetchStyle>[1]): Promise<string> {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ version: 8, sources: {}, layers: [] }));
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+      await fetchStyle('yapaja-light', opts);
+      return fetchMock.mock.calls[0][0] as string;
+    }
+
+    it('nennt `poiAus`, wenn etwas abgeschaltet ist', async () => {
+      const url = await urlFuer({ ...options, poiAus: ['poi-tanken', 'poi-dusche'] });
+      // `decodeURIComponent`, weil das Komma in einer Anfrage als `%2C`
+      // steht -- die Zusicherung soll die Kategorien pruefen und nicht die
+      // Schreibweise von URLSearchParams.
+      expect(decodeURIComponent(url)).toContain('poiAus=poi-tanken,poi-dusche');
+    });
+
+    it('lässt `poiAus` ganz weg, wenn nichts abgeschaltet ist', async () => {
+      // Ein leeres `poiAus=` waere eine zweite Adresse fuer dieselbe Karte:
+      // zwei Abrufe und zwei Eintraege im Zwischenspeicher fuer denselben
+      // Zustand.
+      expect(await urlFuer({ ...options, poiAus: [] })).not.toContain('poiAus');
+    });
+
+    it('lässt unbekannte Schlüssel weg, statt sie mitzuschicken', async () => {
+      const url = await urlFuer({ ...options, poiAus: ['gibtsnicht'] });
+      expect(url).not.toContain('poiAus');
+    });
+
+    it('holt die Karte auch dann, wenn `poiAus` ganz fehlt', async () => {
+      // ─── WARUM DAS EINE ZUSICHERUNG WERT IST ─────────────────────────
+      // Die Typangabe sagt, dass das Feld da ist. Fehlt es trotzdem -- ein
+      // aelterer gespeicherter Zustand, ein von Hand gebauter Aufruf --,
+      // darf das hoechstens einen fehlenden Parameter kosten und nicht die
+      // ganze Karte. Genau diesen Absturz hat der Test darueber gefunden,
+      // bevor er jemandem im Fahrerhaus passieren konnte.
+      const ohne = { lang: 'name', labelScale: '1.0', poi: 'full' } as never;
+      await expect(urlFuer(ohne)).resolves.toContain('api/v1/map/styles/yapaja-light');
+    });
+  });
+
   it('falls back to DEFAULT_STYLE_ID if the requested id 404s', async () => {
     const fallbackDoc = { version: 8, sources: {}, layers: [{ id: 'background', type: 'background' }] };
     const fetchMock = vi

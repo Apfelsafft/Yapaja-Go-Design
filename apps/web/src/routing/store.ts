@@ -68,6 +68,14 @@ export interface TempAvoidance {
   polygon: LatLng[];
 }
 
+/**
+ * Wie lange der Hinweis „Ziel setzen: lange druecken" stehen bleibt.
+ *
+ * Lang genug, um ihn im Vorbeisehen zu lesen, kurz genug, um nicht im Weg zu
+ * stehen -- er liegt ueber der Karte, auf der man gerade sucht.
+ */
+export const LANGER_DRUCK_HINWEIS_MS = 2600;
+
 export interface RoutingState {
   destination: LatLng | null;
   /**
@@ -90,6 +98,18 @@ export interface RoutingState {
    *  Startpunkts faellt es auf `'destination'` zurueck -- ein Modus, in dem
    *  man versehentlich haengen bleibt, ist schlimmer als ein Klick zu viel. */
   pickTarget: 'destination' | 'origin' | 'waypoint';
+  /**
+   * Bis wann der Hinweis „Ziel setzen: lange druecken" steht (Zeitstempel in
+   * Millisekunden), oder `null`.
+   *
+   * ─── WARUM EIN ZEITPUNKT UND KEIN `boolean` ───────────────────────────
+   * Weil ein `boolean` jemanden braeuchte, der ihn wieder ausschaltet. Der
+   * Hinweis soll von allein verschwinden, und der einzige Ort, an dem er
+   * sichtbar ist, weiss am besten, wann er das tut -- ein Zeitpunkt laesst
+   * sich von dort ablesen, ohne dass der Speicher einen Zeitgeber halten
+   * muss, der einen Abbau ueberlebt.
+   */
+  langerDruckHinweisBis: number | null;
   /**
    * E05-T2 addition: the human-readable name of the destination, when it was
    * picked via search (`SearchResult.name`) rather than a raw map click/tap
@@ -127,6 +147,8 @@ export interface RoutingState {
   /** Setzt (oder loescht, mit `null`) den ausdruecklichen Startpunkt. */
   setStartPoint: (startPoint: LatLng | null, name?: string | null) => void;
   setPickTarget: (target: 'destination' | 'origin' | 'waypoint') => void;
+  /** Zeigt kurz an, dass ein Ziel einen langen Druck braucht. */
+  zeigeLangerDruckHinweis: () => void;
   /** Haengt ein Zwischenziel ans Ende an und berechnet neu, wenn schon eine Route steht. */
   addWaypoint: (latlng: LatLng, name: string | null, params: RequestRouteParams | null) => void;
   /** Entfernt ein Zwischenziel und berechnet neu, wenn schon eine Route steht. */
@@ -220,6 +242,7 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
   startPoint: null,
   startPointName: null,
   pickTarget: 'destination',
+  langerDruckHinweisBis: null,
   routes: [],
   activeRouteId: null,
   status: 'idle',
@@ -254,6 +277,13 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
 
   setPickTarget: (pickTarget) => {
     set({ pickTarget });
+  },
+
+  zeigeLangerDruckHinweis: () => {
+    // Jeder weitere Tipper verlaengert das Fenster, statt ein zweites
+    // aufzumachen. Wer dreimal hintereinander tippt, soll den Satz
+    // durchgehend lesen koennen und nicht dreimal ein Aufblitzen sehen.
+    set({ langerDruckHinweisBis: Date.now() + LANGER_DRUCK_HINWEIS_MS });
   },
 
   // ─── ZWISCHENZIELE ────────────────────────────────────────────────────────

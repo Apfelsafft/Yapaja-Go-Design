@@ -7,6 +7,7 @@
  */
 
 import { create } from 'zustand';
+import { parseAbgeschaltet } from '@yapaia/shared';
 import {
   DEFAULT_STYLE_ID,
   DEFAULT_STYLE_OPTIONS,
@@ -68,6 +69,18 @@ export function normalizeStoredOptions(parsed: Partial<StyleOptions>): StyleOpti
     poi: (VALID_POI as readonly string[]).includes(parsed.poi ?? '')
       ? (parsed.poi as StylePoiDensity)
       : DEFAULT_STYLE_OPTIONS.poi,
+    // ─── UNBEKANNTE SCHLUESSEL FALLEN WEG ──────────────────────────────────
+    // `parseAbgeschaltet` kennt nur, was im Katalog steht. Eine Kategorie,
+    // die es nicht mehr gibt, verschwindet damit aus der Einstellung, statt
+    // ewig darin zu liegen -- und zwar in die Richtung, in der nichts
+    // verborgen bleibt: die Kategorie ist dann eben da.
+    //
+    // Der `Array.isArray`-Test davor faengt den anderen Fall: im
+    // localStorage kann alles stehen, auch eine Zahl oder `null`, und
+    // `.filter` daran waere ein Absturz beim Start.
+    poiAus: parseAbgeschaltet(
+      Array.isArray(parsed.poiAus) ? parsed.poiAus.filter((w) => typeof w === 'string').join(',') : '',
+    ),
   };
 }
 
@@ -105,6 +118,10 @@ interface StyleStoreState {
   setLang: (lang: StyleLang) => void;
   setLabelScale: (labelScale: StyleLabelScale) => void;
   setPoi: (poi: StylePoiDensity) => void;
+  /** Eine einzelne Kategorie an- (`an: true`) oder abschalten. */
+  setPoiKategorie: (schluessel: string, an: boolean) => void;
+  /** Alle auf einmal — `[]` heisst „alle an". */
+  setPoiAus: (poiAus: readonly string[]) => void;
 }
 
 export const useStyleStore = create<StyleStoreState>((set, get) => ({
@@ -130,6 +147,24 @@ export const useStyleStore = create<StyleStoreState>((set, get) => ({
 
   setPoi: (poi) => {
     const options = { ...get().options, poi };
+    set({ options });
+    persist(STYLE_OPTIONS_KEY, JSON.stringify(options));
+  },
+
+  setPoiKategorie: (schluessel, an) => {
+    const bisher = get().options.poiAus;
+    const naechste = an ? bisher.filter((s) => s !== schluessel) : [...bisher, schluessel];
+    // Ueber `parseAbgeschaltet`, nicht roh: das wirft Doppelte weg und bringt
+    // die Liste in die Katalogreihenfolge. Ohne das waere `poiAus` von der
+    // Klickreihenfolge abhaengig -- derselbe Zustand ergaebe zwei
+    // verschiedene Stil-Adressen und damit zwei Abrufe statt einem.
+    const options = { ...get().options, poiAus: parseAbgeschaltet(naechste.join(',')) };
+    set({ options });
+    persist(STYLE_OPTIONS_KEY, JSON.stringify(options));
+  },
+
+  setPoiAus: (poiAus) => {
+    const options = { ...get().options, poiAus: parseAbgeschaltet(poiAus.join(',')) };
     set({ options });
     persist(STYLE_OPTIONS_KEY, JSON.stringify(options));
   },

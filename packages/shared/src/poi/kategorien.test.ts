@@ -19,8 +19,7 @@ import {
   POI_KLASSEN_MIT_SYMBOL,
   rangNachKategorie,
   symbolNachKategorie,
-} from './poiKategorien';
-import { REDUCED_POI_CLASSES } from './constants';
+} from './kategorien';
 
 /**
  * Unterklassen, die `FieldMappings.Class` auf eine ANDERE Klasse abbildet.
@@ -108,12 +107,6 @@ describe('POI-Kategorien gegen das Kachelschema', () => {
   it('zeigt Supermärkte — über `grocery`, nicht über `supermarket`', () => {
     expect(POI_KLASSEN_MIT_SYMBOL).toContain('grocery');
     expect(POI_KLASSEN_MIT_SYMBOL).not.toContain('supermarket');
-  });
-
-  it('die reduzierte Dichte benutzt GENAU diese Liste', () => {
-    // Zwei von Hand gepflegte Listen driften auseinander. Deshalb ist es
-    // dieselbe -- und diese Zusicherung hält fest, dass es dabei bleibt.
-    expect(REDUCED_POI_CLASSES).toBe(POI_KLASSEN_MIT_SYMBOL);
   });
 
   // ─── STELLPLATZ IST NICHT CAMPINGPLATZ ────────────────────────────────────
