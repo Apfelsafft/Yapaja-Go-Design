@@ -32,6 +32,9 @@ ausgeblendet**. Beim Suchen und Planen ist alles wie bisher da.
 - **Zwischenstopp einschieben:** eure Favoriten und die letzten Ziele. Ein
   Tipp, und der Ort wird der **nächste** Halt — der Parkplatz oder die
   Tankstelle, bevor es weitergeht.
+- **Fahrzeug:** das Profil wechseln — mit derselben Rückfrage „Mit '…' neu
+  berechnen?" wie bisher. (Die Fahrzeugwahl in der Kopfzeile ist während der
+  Fahrt ausgeblendet.)
 
 Ist die Fahrt pausiert, steht **▶ Fortsetzen** direkt auf der Karte.
 

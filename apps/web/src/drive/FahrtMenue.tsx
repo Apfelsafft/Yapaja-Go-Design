@@ -15,6 +15,9 @@
  *
  *   Pause · Stopp · Ansagen an/aus
  *   Zwischenstopp einschieben — aus Favoriten und zuletzt angefahrenen Zielen
+ *   Fahrzeug — das Profil wechseln (die Kopfzeile mit der Fahrzeugwahl ist
+ *   waehrend der Fahrt ausgeblendet; der Wechsel mit Neuberechnung ist aber
+ *   eine Fahrfunktion, siehe `profiles/ProfileChangeBanner.tsx`)
  *
  * Vorher standen Pause, Stopp und „Ansagen an" als drei grosse Knöpfe
  * dauerhaft im Bild, und die Favoriten-Schublade lag über den Fahrtdaten.
@@ -93,11 +96,21 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
   const favoriten = useFavoritesStore((s) => s.favorites);
   const verlauf = useFavoritesStore((s) => s.history);
   const zwischenstoppVorn = useRoutingStore((s) => s.zwischenstoppVorn);
+  const profile = useProfileStore((s) => s.profiles);
+  const aktivesProfil = useProfileStore((s) => s.activeProfile);
+  const profilAktivieren = useProfileStore((s) => s.activateProfile);
+  const profileLaden = useProfileStore((s) => s.fetchProfiles);
 
   const [offen, setOffen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eingeschoben, setEingeschoben] = useState<string | null>(null);
+
+  // Die Profilliste frisch holen, sobald das Menue aufgeht -- wie die
+  // Fahrzeugwahl in der Kopfzeile es beim Aufklappen tut.
+  useEffect(() => {
+    if (offen) void profileLaden();
+  }, [offen, profileLaden]);
 
   // Die Bestätigung „… als nächster Halt" verschwindet von selbst.
   useEffect(() => {
@@ -259,6 +272,43 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
               </ul>
             )}
           </section>
+
+          {profile.length > 1 && (
+            <section aria-labelledby="fahrt-menue-fahrzeug">
+              <h2 id="fahrt-menue-fahrzeug" className="mb-2 font-semibold">
+                Fahrzeug
+              </h2>
+              <ul className="flex flex-wrap gap-2">
+                {profile.map((p) => {
+                  const aktiv = p.id === aktivesProfil?.id;
+                  return (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        aria-pressed={aktiv}
+                        disabled={aktiv}
+                        onClick={() => {
+                          // Die Rueckfrage „Mit '…' neu berechnen?" stellt
+                          // `ProfileChangeBanner` -- derselbe Weg wie ueber die
+                          // Kopfzeile.
+                          void profilAktivieren(p.id).catch(() => {});
+                          setOffen(false);
+                        }}
+                        className={`min-h-[48px] rounded-full px-3 py-2 ${
+                          aktiv
+                            ? 'bg-blue-600 font-semibold text-white'
+                            : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600'
+                        }`}
+                        data-testid={`fahrt-menue-profil-${p.id}`}
+                      >
+                        🚐 {p.name}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
         </div>
       )}
 

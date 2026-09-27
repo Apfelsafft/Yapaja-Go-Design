@@ -290,6 +290,8 @@ and planning, so Drive mode hides them. What you only need occasionally sits
 - In the same menu, **Zwischenstopp einschieben** lists your favourites and
   recent destinations. Tap one and it becomes your **next** stop — the car
   park or fuel station you want to pull into before carrying on.
+- **Fahrzeug** switches the vehicle profile, with the usual "recalculate
+  with …?" question.
 - When the trip is paused, **▶ Fortsetzen** stands directly on the map, since
   that is the next thing you will want.
 
