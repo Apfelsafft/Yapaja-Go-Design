@@ -452,6 +452,9 @@ Die Ergebnisse lassen sich weiterhin per **„Samba share"**- oder
 | Valhalla-Graph | `/share/yapaja/valhalla/tiles/` |
 | `lite_search.db` | `/share/yapaja/lite-search/` |
 
+Welche Formate genau passen — auch für Karten, die Bekannte selbst gebaut
+haben — und wie man sie ablegt: [Eigene Karten, Routen und Suche](eigene-karten.md).
+
 Ohne Routinggraph funktionieren Karte, Position und Favoriten weiterhin — nur
 das **Berechnen von Routen** nicht. Ohne Suchindex bleibt die Adresssuche leer;
 Navigieren zu Koordinaten und Favoriten geht trotzdem.

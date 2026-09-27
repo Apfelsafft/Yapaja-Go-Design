@@ -277,8 +277,31 @@ Tap **Start navigation** and the app switches to Drive mode.
   ![The manoeuvre panel](media/anweisung.png)
 
 - **The current speed limit**, with a warning if you exceed it.
-- **ETA, remaining distance, altitude** in the bottom bar.
+- **ETA, remaining time and distance** in the bottom bar.
 - **Automatic rerouting** if you miss a turn — typically within three seconds.
+
+**What you no longer see while driving.** The search bar, the vehicle
+selector, the favourites drawer and the settings buttons belong to searching
+and planning, so Drive mode hides them. What you only need occasionally sits
+**one tap away, behind the bottom bar**:
+
+- **Tap the ETA bar** to open the trip menu: **⏸ Pause**, **⏹ Stopp** and
+  **🔊 Ansagen an/aus**.
+- In the same menu, **Zwischenstopp einschieben** lists your favourites and
+  recent destinations. Tap one and it becomes your **next** stop — the car
+  park or fuel station you want to pull into before carrying on.
+- When the trip is paused, **▶ Fortsetzen** stands directly on the map, since
+  that is the next thing you will want.
+
+**Your position sits in the lower quarter on the driver's side** — lower left
+for a left-hand-drive vehicle, lower right for right-hand drive — so most of
+the screen shows the road ahead. Set the side under **Lenkrad (LHD/RHD)** in
+the map settings.
+
+**Traffic notes are brief.** A note like "traffic data for A5 is about 17
+minutes old" shows for ten seconds and then gets out of the way; it comes back
+only if a different road is affected. A warning that data is *missing* for a
+road stays until you tap it away.
 
 ### Losing GPS
 
@@ -289,7 +312,8 @@ instead of freezing. When the signal comes back it snaps to the real position.
 ### Spoken announcements
 
 Yapaia speaks the next manoeuvre at 2000 m, 500 m, 200 m and at the turn
-itself. The **🔊 Ansagen an** button in drive mode switches them on and off.
+itself. The **🔊 Ansagen an** button in the trip menu (tap the ETA bar)
+switches them on and off.
 
 **They only happen while you are moving.** The announcement is triggered by the
 distance to the next turn falling below a threshold — standing still, nothing
@@ -342,7 +366,7 @@ not the one moving at 80 km/h in the driver's line of sight.
 
 ### Pausing and resuming
 
-Pause and stop live at the bottom right of Drive mode. If the app is reloaded
+Pause and stop live in the trip menu — tap the ETA bar at the bottom. If the app is reloaded
 mid-trip — a browser crash, a tablet reboot — it offers to resume where you
 left off.
 
@@ -502,9 +526,9 @@ is full of "entity not found", the answer is in there.
 mode, then drag widgets between slots and choose their size (S/M/L). "Reset to
 default" is in the same menu.
 
-**Left- or right-hand drive.** The main buttons sit bottom-right by default.
-Switch to LHD and they mirror to the bottom-left — for a tablet mounted on the
-side where the driver's free hand naturally falls.
+**Left- or right-hand drive.** Under **Lenkrad (LHD/RHD)** in the map
+settings. It decides which lower quarter your position sits in while driving:
+lower left for LHD, lower right for RHD (the default).
 
 **Day and night.** The interface and the map switch together. Under **Design**
 there are four modes:
