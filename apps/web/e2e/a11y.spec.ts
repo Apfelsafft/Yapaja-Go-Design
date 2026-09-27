@@ -16,6 +16,7 @@ import AxeBuilder from '@axe-core/playwright';
 import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { A11Y_CORE_BASE_URL } from './support/constants.js';
+import { oeffneFahrtMenue } from './support/fahrtMenue.js';
 
 const BASE_LAT = 47.25;
 const BASE_LON = 9.35;
@@ -84,8 +85,11 @@ async function enterDriveMode(page: Page): Promise<void> {
     data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'A11y Ziel' } },
   });
   expect(startResponse.ok()).toBe(true);
-  await postSpeed(page, 15, 50); // real speed -> maneuver panel + drive controls render
-  await expect(page.getByTestId('drive-controls')).toBeVisible({ timeout: 5_000 });
+  await postSpeed(page, 15, 50); // real speed -> maneuver panel + trip info render
+  await expect(page.getByTestId('trip-info-panel')).toBeVisible({ timeout: 5_000 });
+  // Pause/Stopp liegen im Fahrtmenue -- offen mitpruefen, damit sie im
+  // Barrierefreiheits-Lauf nicht unbemerkt herausfallen.
+  await oeffneFahrtMenue(page);
 }
 
 async function setDarkTheme(page: Page): Promise<void> {

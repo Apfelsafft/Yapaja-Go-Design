@@ -68,6 +68,23 @@ export function addWaypoint(
   return [...waypoints, { id: nextWaypointId(), latlng, name }];
 }
 
+/**
+ * Ein Zwischenziel VOR alle anderen -- der naechste Halt.
+ *
+ * Fuer das Fahrtmenue: wer waehrend der Fahrt einen Parkplatz oder eine
+ * Tankstelle einschiebt, will DORT als Naechstes hin, nicht nach allen
+ * anderen Zwischenzielen. Hinten angehaengt (wie `addWaypoint`) fuehre die
+ * Route erst alle uebrigen Halte ab.
+ */
+export function addWaypointVorn(
+  waypoints: readonly Waypoint[],
+  latlng: LatLng,
+  name: string | null = null,
+): Waypoint[] {
+  if (!canAddWaypoint(waypoints)) return [...waypoints];
+  return [{ id: nextWaypointId(), latlng, name }, ...waypoints];
+}
+
 export function removeWaypoint(waypoints: readonly Waypoint[], id: string): Waypoint[] {
   return waypoints.filter((w) => w.id !== id);
 }

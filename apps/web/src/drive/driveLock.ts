@@ -77,7 +77,7 @@ export interface DriveLockContext {
  *
  * SAFETY INVARIANT (do NOT violate -- task's explicit "Plausibilität"): the
  * Stop-Navigation control (`data-testid="drive-stop-button"`,
- * `apps/web/src/drive/DriveControls.tsx`) is NEVER locked/disabled/covered
+ * `apps/web/src/drive/FahrtMenue.tsx`) is NEVER locked/disabled/covered
  * by the Speed-Lock overlay, at ANY speed. This is expressed here as an
  * UNCONDITIONAL early return -- `'drive-stop'` never even reaches the
  * speed/override logic below, so it can never become locked "by accident"

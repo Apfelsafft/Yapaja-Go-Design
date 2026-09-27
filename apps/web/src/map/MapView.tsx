@@ -38,6 +38,7 @@ import PreflightPanel from '../settings/preflight/PreflightPanel';
 import PerfOverlay from '../perf/PerfOverlay';
 import { startPerfWatchdog } from '../perf/perfWatchdog';
 import SimulatorPanel from '../simulator/SimulatorPanel.js';
+import { useFahrtAnsicht } from '../drive/useFahrtAnsicht.js';
 
 /** Identifies which (styleId, options) combination is currently applied to
  *  the live map, so the live-switch effect can tell "this is the style we
@@ -119,6 +120,7 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
   const mapRef = useRef<maplibregl.Map | null>(null);
   const setMap = useMapStore((state) => state.setMap);
   const [status, setStatus] = useState<MapViewStatus>('loading');
+  const fahrt = useFahrtAnsicht();
   // NUR die Region, mit der die Karte ERZEUGT wurde (fuer `bounds`). Sie wird
   // nach dem ersten Setzen nie wieder veraendert — sie steckt in den
   // Abhaengigkeiten von Schritt 2, und ein Wechsel dort wuerde die Karte
@@ -469,10 +471,22 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
           <CompassButton />
           <ViewModeButton />
           <ReCenterButton />
-          <StylePanel />
-          <RegionsPanel />
-          <StorePanel />
-          <PreflightPanel />
+          {/* ─── WAEHREND DER FAHRT NICHT ────────────────────────────────
+              Karteneinstellungen, Regionen, Store und Installationspruefung
+              sind Dinge fuer den Stand, nicht fuer die Fahrt -- und die
+              Einstellungen, der Store und das Profil waren waehrend der Fahrt
+              ohnehin gesperrt (`drive/driveLock.ts`). Stehen blieb eine Reihe
+              Knoepfe, die Platz kostet und nichts anbietet. Gemeldet: „wir
+              haben so viele tolle Informationen dass man während der Fahrt zu
+              viele Dinge sieht." */}
+          {!fahrt && (
+            <>
+              <StylePanel />
+              <RegionsPanel />
+              <StorePanel />
+              <PreflightPanel />
+            </>
+          )}
           {/* Nur auf der laufenden Karte: der Testfahrer faehrt eine geplante
               Route ab, und ohne Karte gibt es keine. Der Knopf erscheint
               ausserdem nur, wenn der Simulator ueberhaupt freigeschaltet ist

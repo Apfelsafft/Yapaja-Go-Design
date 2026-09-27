@@ -34,8 +34,7 @@ import { useProfileStore } from '../profiles/store.js';
 import { useRoutingStore } from '../routing/store.js';
 import { useSearchStore } from '../search/store.js';
 import { favoritesDrawerBottomPx } from '../shell/mapControlLayout.js';
-import { useNavStore } from '../drive/navStore.js';
-import { isDriveActive } from '../drive/driveActive.js';
+import { useFahrtAnsicht } from '../drive/useFahrtAnsicht.js';
 import { useFavoritesStore } from './store.js';
 import { navigateToFavorite } from './navigate.js';
 import { iconForFavoriteCategory } from './icons.js';
@@ -51,7 +50,7 @@ function historyEntryLabel(entry: HistoryEntry): string {
 
 export default function FavoritesDrawer(): React.ReactElement | null {
   const destination = useRoutingStore((s) => s.destination);
-  const driveActive = isDriveActive(useNavStore((s) => s.navState)?.status);
+  const fahrt = useFahrtAnsicht();
   const routingSetDestination = useRoutingStore((s) => s.setDestination);
   const requestRoute = useRoutingStore((s) => s.requestRoute);
   const setSearchQuery = useSearchStore((s) => s.setQuery);
@@ -182,14 +181,17 @@ export default function FavoritesDrawer(): React.ReactElement | null {
   if (destination) {
     return null;
   }
+  // Waehrend der Fahrt liegen Favoriten und Verlauf im Fahrtmenue, hinter den
+  // Fahrtdaten (`drive/FahrtMenue.tsx`) -- dort als ZWISCHENSTOPP, denn das
+  // ist es, wofuer man sie unterwegs braucht: „Außer man will einen
+  // Parkplatz oder Tankstelle als zwischenziel aussuchen."
+  if (fahrt) {
+    return null;
+  }
 
   return (
     <div
-      // Waehrend der Fahrt liegen unten die Fahrtdaten -- auf JEDER Breite,
-      // beide sind mittig. Die Schublade gehoert darueber: sie ist waehrend
-      // der Fahrt der EINZIGE Weg zu einem Ziel, weil die Suche gesperrt ist,
-      // und die Fahrtdaten wiederum will man ablesen, ohne etwas zuzuklappen.
-      style={{ bottom: favoritesDrawerBottomPx(driveActive) }}
+      style={{ bottom: favoritesDrawerBottomPx() }}
       className="fixed left-1/2 -translate-x-1/2 z-20 w-[min(92vw,28rem)] rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl text-sm text-slate-800 dark:text-slate-100"
       data-testid="favorites-drawer"
     >

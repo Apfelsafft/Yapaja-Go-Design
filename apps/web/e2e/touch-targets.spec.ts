@@ -1,12 +1,11 @@
 /**
  * Touch-target measurement e2e (E07-T4, docs/06 §4: "Touchziele ... im
  * Drive-Modus ≥ 64 px; Abstände ≥ 8 px"): automated bounding-box measurement
- * of the drive-mode-ONLY interactive elements -- the ones the task's own
- * text explicitly calls out (`DriveControls.tsx`'s
- * drive-stop-button/drive-pause-button/drive-resume-button, inside
- * `drive-controls`), plus the TTS toggle (`DriveOverlay.tsx`'s
- * `tts-toggle`), which is the only OTHER control rendered exclusively while
- * a drive session is active (`DriveOverlay.tsx`'s `active` gate).
+ * of the drive-mode-ONLY interactive elements: the trip-info bar (seit
+ * 0.18.0 ein Knopf -- er oeffnet das Fahrtmenue) and, inside that menu
+ * (`FahrtMenue.tsx`), drive-stop-button/drive-pause-button and the TTS
+ * toggle; plus drive-resume-button, which stands directly on the map while
+ * a drive is paused.
  *
  * SCOPING DECISION (documented, matches the task's "be pragmatic, document
  * what you scope out" guidance): the always-present map FABs
@@ -26,11 +25,16 @@ import { test, expect, type Page } from '@playwright/test';
 import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { TOUCH_TARGETS_CORE_BASE_URL } from './support/constants.js';
+import { oeffneFahrtMenue } from './support/fahrtMenue.js';
 import { collectPageErrors } from './support/network.js';
 
 /** The exact drive-mode-only controls this test measures -- see the
  *  file-level scoping comment above for why the list stops here. */
 const MEASURED_TESTIDS = ['drive-stop-button', 'drive-pause-button', 'tts-toggle'] as const;
+/** Die Fahrtdaten-Leiste: jetzt selbst ein Tippziel. Gemessen fuer sich --
+ *  zu den Menueknoepfen hat sie keinen Nachbarschaftsabstand einzuhalten,
+ *  das Menue steht per Konstruktion ueber ihr. */
+const TRIP_BAR_TESTID = 'trip-info-panel';
 
 const MIN_SIZE_PX = 64;
 const MIN_GAP_PX = 8;
@@ -147,7 +151,12 @@ test.describe('Touch-target audit (E07-T4, drive-mode-only controls)', () => {
     expect(startResponse.ok()).toBe(true);
     await postSpeed(page, 3, 50); // any real speed so `active` gates render + the panel is visible
 
-    await expect(page.getByTestId('drive-controls')).toBeVisible({ timeout: 5_000 });
+    const leiste = page.getByTestId(TRIP_BAR_TESTID);
+    await expect(leiste).toBeVisible({ timeout: 5_000 });
+    const leistenBox = (await leiste.boundingBox()) as Box;
+    expect(leistenBox.height, 'Fahrtdaten-Leiste Hoehe').toBeGreaterThanOrEqual(MIN_SIZE_PX);
+
+    await oeffneFahrtMenue(page);
     await expect(page.getByTestId('tts-toggle')).toBeVisible();
 
     const boxes: Record<string, Box> = {};
@@ -191,6 +200,7 @@ test.describe('Touch-target audit (E07-T4, drive-mode-only controls)', () => {
     expect(startResponse.ok()).toBe(true);
     await postSpeed(page, 3, 50);
 
+    await oeffneFahrtMenue(page);
     await page.getByTestId('drive-pause-button').click();
     const resumeButton = page.getByTestId('drive-resume-button');
     await expect(resumeButton).toBeVisible({ timeout: 5_000 });
@@ -199,9 +209,10 @@ test.describe('Touch-target audit (E07-T4, drive-mode-only controls)', () => {
     expect((box as Box).width).toBeGreaterThanOrEqual(MIN_SIZE_PX);
     expect((box as Box).height).toBeGreaterThanOrEqual(MIN_SIZE_PX);
 
-    // Stop is still on screen alongside Resume, with an adequate gap.
-    const stopBox = (await page.getByTestId('drive-stop-button').boundingBox()) as Box;
-    expect(gapPx(box as Box, stopBox)).toBeGreaterThanOrEqual(MIN_GAP_PX);
+    // Direkt darunter die Fahrtdaten-Leiste (der Weg zu Stopp) -- mit
+    // ausreichendem Abstand, sonst traefe ein Tipp das Falsche.
+    const leistenBox = (await page.getByTestId(TRIP_BAR_TESTID).boundingBox()) as Box;
+    expect(gapPx(box as Box, leistenBox)).toBeGreaterThanOrEqual(MIN_GAP_PX);
 
     expect(pageErrors).toEqual([]);
   });

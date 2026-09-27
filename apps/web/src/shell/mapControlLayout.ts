@@ -31,10 +31,13 @@
  */
 
 /* ─── RECHTER RAND, VON UNTEN ──────────────────────────────────────────────
- * Eine Spalte, in der sich alles stapelt: waehrend der Fahrt zuunterst die
- * Fahrt-Bedienung, darueber die Ansagen-Taste, darueber die drei
- * Karten-Knoepfe. Ohne Fahrt faellt der untere Teil weg und die Knoepfe
- * ruecken nach.
+ * Eine Spalte, in der sich die drei Karten-Knoepfe stapeln.
+ *
+ * Bis 0.17.3 lagen waehrend der Fahrt darunter noch Pause/Stopp und die
+ * Ansagen-Taste. Die sind seit 0.18.0 im Fahrtmenue hinter den Fahrtdaten
+ * (`drive/FahrtMenue.tsx`) -- gewuenscht: „Pause und Stopp der Navigation
+ * dar gerne über 2 Klicks erreichbar sein und hinter dieses Menü
+ * verschachtelt werden."
  */
 
 /** Abstand zum unteren Rand. */
@@ -43,16 +46,6 @@ export const EDGE_INSET_PX = 16;
 export const STACK_GAP_PX = 12;
 /** Kantenlaenge der runden Karten-Knoepfe (`w-12 h-12`). */
 export const FAB_SIZE_PX = 48;
-/** Hoehe der Ansagen-Taste (`min-h-[64px]`). */
-export const TTS_HEIGHT_PX = 64;
-/**
- * Hoehe des Fahrt-Bedienblocks (Pause/Stopp).
- *
- * Die Knoepfe sind `min-h-[64px]` und stehen in einer Spalte mit `gap-2`.
- * Zwei davon waeren 136 -- gerechnet wird mit dem Platz fuer ZWEI, weil
- * „Pause" und „Stopp" beide da sind, sobald gefahren wird.
- */
-export const DRIVE_CONTROLS_HEIGHT_PX = 64 + 8;
 
 /* ─── SCHMALE BILDSCHIRME ──────────────────────────────────────────────────
  * Gemeldet mit Bildschirmfoto vom iPhone: „Bisher habe ich immer auf einem
@@ -141,10 +134,15 @@ export function tripInfoBottomPx(): number {
   return ATTRIBUTION_RESERVE_PX;
 }
 
-/** Unterkante der Favoriten-Schublade -- direkt ueber den Fahrtdaten. */
-export function favoritesDrawerBottomPx(driveActive: boolean): number {
-  const basis = tripInfoBottomPx();
-  return driveActive ? basis + TRIP_BAR_HEIGHT_PX + STACK_GAP_PX : basis;
+/**
+ * Unterkante der Favoriten-Schublade.
+ *
+ * Sie teilt sich den Platz NICHT mehr mit den Fahrtdaten: waehrend der Fahrt
+ * ist sie weg (die Favoriten liegen dann im Fahrtmenue), ausserhalb der
+ * Fahrt gibt es keine Fahrtdaten. Beide stehen deshalb auf derselben Hoehe.
+ */
+export function favoritesDrawerBottomPx(): number {
+  return tripInfoBottomPx();
 }
 
 /**
@@ -156,7 +154,10 @@ export function favoritesDrawerBottomPx(driveActive: boolean): number {
  */
 export function bottomInsetPx(schmal: boolean, driveActive: boolean): number {
   if (!schmal) return EDGE_INSET_PX;
-  return favoritesDrawerBottomPx(driveActive) + FAVORITES_BAR_HEIGHT_PX + STACK_GAP_PX;
+  // Waehrend der Fahrt liegt unten die Fahrtdaten-Leiste, sonst die
+  // Schublade -- nie beide.
+  const mitteHoehe = driveActive ? TRIP_BAR_HEIGHT_PX : FAVORITES_BAR_HEIGHT_PX;
+  return tripInfoBottomPx() + mitteHoehe + STACK_GAP_PX;
 }
 
 /**
@@ -171,31 +172,26 @@ export function rightColumnBottomPx(schmal: boolean, driveActive: boolean): numb
 
 
 /** Ein Platz in der rechten Spalte, von unten nach oben. */
-export type RightStackSlot = 'drive-controls' | 'tts' | 'viewmode' | 'compass' | 'recenter';
+export type RightStackSlot = 'viewmode' | 'compass' | 'recenter';
 
 interface StackEntry {
   slot: RightStackSlot;
   heightPx: number;
-  /** Nur waehrend einer laufenden Fahrt vorhanden. */
-  driveOnly: boolean;
 }
 
 /** Die Reihenfolge von unten nach oben. Wer hier etwas einfuegt, verschiebt
  *  automatisch alles darueber -- das ist der ganze Zweck. */
 const RIGHT_STACK: readonly StackEntry[] = [
-  { slot: 'drive-controls', heightPx: DRIVE_CONTROLS_HEIGHT_PX, driveOnly: true },
-  { slot: 'tts', heightPx: TTS_HEIGHT_PX, driveOnly: true },
-  { slot: 'viewmode', heightPx: FAB_SIZE_PX, driveOnly: false },
-  { slot: 'compass', heightPx: FAB_SIZE_PX, driveOnly: false },
-  { slot: 'recenter', heightPx: FAB_SIZE_PX, driveOnly: false },
+  { slot: 'viewmode', heightPx: FAB_SIZE_PX },
+  { slot: 'compass', heightPx: FAB_SIZE_PX },
+  { slot: 'recenter', heightPx: FAB_SIZE_PX },
 ];
 
 /**
  * Der Abstand dieses Platzes zum unteren Rand, in Bildpunkten.
  *
- * Waehrend der Fahrt zaehlen alle Eintraege, sonst nur die, die es ohne Fahrt
- * gibt -- so ruecken die Karten-Knoepfe nach unten, statt eine Luecke zu
- * lassen, wo die Fahrt-Bedienung waere.
+ * `driveActive` zaehlt nur noch fuer den Sockel: auf schmalen Schirmen
+ * beginnt die Spalte waehrend der Fahrt ueber der Fahrtdaten-Leiste.
  */
 export function rightStackBottomPx(
   slot: RightStackSlot,
@@ -204,12 +200,10 @@ export function rightStackBottomPx(
 ): number {
   let bottom = rightColumnBottomPx(schmal, driveActive);
   for (const entry of RIGHT_STACK) {
-    if (entry.driveOnly && !driveActive) continue;
     if (entry.slot === slot) return bottom;
     bottom += entry.heightPx + STACK_GAP_PX;
   }
-  // Ein Platz, den es in diesem Zustand nicht gibt (etwa `tts` ohne Fahrt):
-  // der Aufrufer rendert dann ohnehin nichts.
+  /* istanbul ignore next -- der Typ laesst nichts anderes zu */
   return bottom;
 }
 
@@ -218,7 +212,7 @@ export function rightStackRects(
   driveActive: boolean,
   schmal = false,
 ): { slot: RightStackSlot; bottom: number; top: number }[] {
-  return RIGHT_STACK.filter((e) => driveActive || !e.driveOnly).map((entry) => {
+  return RIGHT_STACK.map((entry) => {
     const bottom = rightStackBottomPx(entry.slot, driveActive, schmal);
     return { slot: entry.slot, bottom, top: bottom + entry.heightPx };
   });

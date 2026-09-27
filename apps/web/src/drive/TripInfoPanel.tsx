@@ -86,36 +86,50 @@ function Field({ label, value, testId }: FieldProps): React.ReactElement {
 
 export interface TripInfoPanelProps {
   navState: NavState | null | undefined;
+  /** Ob das Fahrtmenue darueber offen ist (`FahrtMenue.tsx`). */
+  offen?: boolean;
+  /** Antippen oeffnet und schliesst das Fahrtmenue. */
+  onToggle?: () => void;
 }
 
-export default function TripInfoPanel({ navState }: TripInfoPanelProps): React.ReactElement {
+/**
+ * ─── DIE FAHRTDATEN SIND AUCH DER GRIFF ZUM MENUE ──────────────────────────
+ * Gewuenscht: „Wenn das vielleicht hinter den aktuellen fahrtdaten (eta,
+ * Uhrzeit, restkilometer) verschachtelt. Also beim klicken auf die Anzeige
+ * wird diese Aktion möglich. Analog auch Pause und Stopp der Navigation dar
+ * gerne über 2 Klicks erreichbar sein."
+ *
+ * Deshalb ist die Leiste ein KNOPF. Sie war vorher `pointer-events-none` --
+ * eine reine Anzeige, durch die ein Tipp auf die Karte fiel.
+ */
+export default function TripInfoPanel({ navState, offen = false, onToggle }: TripInfoPanelProps): React.ReactElement {
   const labels = tripInfoLabels(navState);
   const schmal = useSchmal();
 
-  // ─── AUF DEM TELEFON EINE LEISTE, SONST EINE KACHEL ────────────────────────
-  // Gemessen bei 390 Bildpunkten: die zentrierte Kachel war 273 breit und lag
-  // damit gleichzeitig ueber der Tempoanzeige links (16..91) und ueber
-  // Pause/Stopp rechts (177..378). Drei Dinge auf einem Streifen, der 390
-  // breit ist -- das geht nicht auf, egal wie man schiebt.
-  //
-  // Deshalb unten eine Leiste ueber die ganze Breite, und alles andere darueber
-  // (`bottomInsetPx`). Das ist zugleich die Anordnung, die man aus jeder
-  // Navigation auf einem Telefon kennt.
   return (
-    <div
+    <button
+      type="button"
       data-testid="trip-info-panel"
+      aria-expanded={offen}
+      aria-controls="fahrt-menue"
+      aria-label={`Fahrtmenü ${offen ? 'schließen' : 'öffnen'} — Ankunft ${labels.eta}, Restzeit ${labels.duration}, Entfernung ${labels.distance}`}
+      onClick={onToggle}
       style={{ bottom: tripInfoBottomPx() }}
-      // `pointer-events-none`: eine reine Ablesehilfe darf keine Kartengeste
-      // abfangen. Waehrend der Fahrt zaehlt jeder Wisch, der ankommt.
       className={
-        schmal
-          ? 'pointer-events-none absolute inset-x-2 z-20 flex items-center justify-around gap-2 rounded-2xl bg-slate-900/90 px-2 py-2 text-white shadow-lg'
-          : 'pointer-events-none absolute left-1/2 z-20 flex -translate-x-1/2 items-center gap-6 rounded-2xl bg-slate-900/90 px-5 py-2 text-white shadow-lg'
+        (schmal
+          ? 'absolute inset-x-2 z-20 flex min-h-[64px] items-center justify-around gap-2 rounded-2xl bg-slate-900/90 px-2 py-2 text-white shadow-lg'
+          : 'absolute left-1/2 z-20 flex min-h-[64px] -translate-x-1/2 items-center gap-6 rounded-2xl bg-slate-900/90 px-5 py-2 text-white shadow-lg') +
+        (offen ? ' ring-2 ring-blue-400' : '')
       }
     >
       <Field label="Ankunft" value={labels.eta} testId="trip-info-eta" />
       <Field label="Restzeit" value={labels.duration} testId="trip-info-duration" />
       <Field label="Entfernung" value={labels.distance} testId="trip-info-distance" />
-    </div>
+      {/* Der Hinweis, dass hier mehr ist -- ohne ihn waere die Leiste von
+          der reinen Anzeige vorher nicht zu unterscheiden. */}
+      <span aria-hidden="true" className="text-sm text-slate-300">
+        {offen ? '▾' : '▴'}
+      </span>
+    </button>
   );
 }
