@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { DRIVE_VEHICLE_Y, drivePaddingTop } from './drivePadding.js';
+import { DRIVE_VEHICLE_Y, drivePaddingTop, driveRaender } from './drivePadding.js';
 
 describe('das Fahrzeug sitzt unten, nicht in der Mitte', () => {
   it('das ist der ganze Punkt', () => {
@@ -60,5 +60,38 @@ describe('unten bleibt Bild uebrig', () => {
         hoehe * 0.2,
       );
     }
+  });
+});
+
+describe('waagerecht: die Mitte des unteren Viertels auf der Fahrerseite', () => {
+  // „Können wir den aus dem Zentrum mehr in die Mitte des linken unteren
+  // Quadranten legen - bzw, je nach LHD oder RHD rechten unteren Quadranten."
+  const mitte = (breite: number, links: number, rechts: number) =>
+    (links + (breite - links - rechts) / 2) / breite;
+
+  it('Linkslenker: bei einem Viertel der Breite, von links', () => {
+    for (const breite of [390, 1024, 1280]) {
+      const r = driveRaender(breite, 725, 'lhd')!;
+      expect(mitte(breite, r.left, r.right), `bei ${breite} px`).toBeCloseTo(0.25, 2);
+    }
+  });
+
+  it('Rechtslenker: gespiegelt, bei drei Vierteln', () => {
+    for (const breite of [390, 1024, 1280]) {
+      const r = driveRaender(breite, 725, 'rhd')!;
+      expect(mitte(breite, r.left, r.right), `bei ${breite} px`).toBeCloseTo(0.75, 2);
+    }
+  });
+
+  it('die Hoehe bleibt dieselbe wie ohne Seitenverschiebung', () => {
+    // Daran haengt `autoZoom.ts#passtInsBildZoom`.
+    expect(driveRaender(1024, 725, 'lhd')!.top).toBe(drivePaddingTop(725));
+    expect(driveRaender(1024, 725, 'rhd')!.top).toBe(drivePaddingTop(725));
+  });
+
+  it('ohne bekannte Breite keine Verschiebung', () => {
+    expect(driveRaender(null, 725, 'lhd')).toBeNull();
+    expect(driveRaender(0, 725, 'rhd')).toBeNull();
+    expect(driveRaender(1024, null, 'lhd')).toBeNull();
   });
 });
