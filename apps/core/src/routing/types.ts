@@ -201,6 +201,12 @@ export interface ValhallaManeuver {
   sign?: ValhallaSign;
   /** Spurfuehrung. Kommt NUR, wenn die Anfrage `turn_lanes: true` setzt. */
   lanes?: ValhallaLane[];
+  /** Nur an der Kreisel-Einfahrt: „The spoke to exit roundabout after entering." */
+  roundabout_exit_count?: number;
+  /** Fahrtrichtung unmittelbar VOR dem Manoever, Grad im Uhrzeigersinn ab Nord. */
+  bearing_before?: number;
+  /** Fahrtrichtung unmittelbar NACH dem Manoever, Grad im Uhrzeigersinn ab Nord. */
+  bearing_after?: number;
 }
 
 export interface ValhallaLeg {

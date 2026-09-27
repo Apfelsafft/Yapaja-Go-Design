@@ -385,6 +385,14 @@ text_sensor:
     id: yapaja_manoever_art
     entity_id: ${entity_praefix}_instruction
     attribute: type
+  # Der Kreisel: "<Ausfahrt>|<Drehung in Grad>", z. B. "2|90". Leer, wenn
+  # das naechste Manoever kein Kreisel ist -- und zwar wirklich leer und
+  # nicht fehlend: ein fehlendes Attribut schickt Home Assistant gar nicht,
+  # dann bliebe hier die Ausfahrt des LETZTEN Kreisels stehen.
+  - platform: homeassistant
+    id: yapaja_kreisel
+    entity_id: ${entity_praefix}_instruction
+    attribute: roundabout
   # idle | routing | navigating | paused | arrived | off_route
   - platform: homeassistant
     id: yapaja_fahrzustand
@@ -1136,12 +1144,90 @@ display:
         rechteck(ex - d / 2, py - s, d, s / 2);
         it.filled_triangle(ex - s / 2, py - s / 2, ex + s / 2, py - s / 2, ex, py + s / 4, C);
       } else if (enthaelt("roundabout")) {
-        it.filled_ring(cx, py, (s * 2) / 3, (s * 2) / 5, C);
-        rechteck(cx - d / 2, py, d, s);
-        const int seite = enthaelt("left") ? -1 : 1;
-        const int ax = cx + (seite * s * 2) / 3;
-        rechteck(cx, py - (s * 2) / 3 - d / 2, (seite * s * 2) / 3, d);
-        it.filled_triangle(ax, py - s, ax, py - s / 3, ax + seite * s / 2, py - (s * 2) / 3, C);
+        // ─── DER KREISEL: DER BOGEN, DEN MAN FAEHRT, UND DIE AUSFAHRT ──────
+        // Gemeldet: „wenn ich auf einen Kreisel zu fahre zeigt der ESP
+        // komische Symbole an. Besser wären sowas wie ein viertelkreis,
+        // Halbkreis etc. oder eine zusätzliche Nummerierung wann man den
+        // Kreisel wieder verlassen muss."
+        //
+        // Bis 0.17.3 stand hier fuer JEDEN Kreisel dasselbe Bild -- Ring,
+        // Stiel und ein Pfeil oben rechts --, weil das Display nichts weiter
+        // wusste als „roundabout". Jetzt schickt der Kern im Attribut
+        // `roundabout` zwei Zahlen: die wievielte Ausfahrt und um wie viel
+        // Grad sich die Fahrtrichtung dreht (`"2|90"`, rechts positiv; siehe
+        // `apps/core/src/routing/kreisel.ts`).
+        //
+        // Gezeichnet wird, was man faehrt: blass der ganze Kreisel, kraeftig
+        // der Bogen von der Einfahrt (unten) bis zur Ausfahrt -- ein Viertel
+        // fuer rechts, die Haelfte fuer geradeaus, drei Viertel fuer links --,
+        // und von dort ein Pfeil in die Richtung, in die es weitergeht. In
+        // der Mitte die Nummer der Ausfahrt.
+        //
+        // ─── GEGEN DEN UHRZEIGERSINN ────────────────────────────────────────
+        // So faehrt man bei Rechtsverkehr, also ueberall auf dem Kontinent.
+        // In Grossbritannien und Irland liefe der Bogen andersherum; die
+        // Ausfahrt und ihre Nummer stimmen dort trotzdem.
+        int nummer = 0;
+        int grad = 0;
+        bool hat_grad = false;
+        {
+          const std::string k = id(yapaja_kreisel).state;
+          const size_t strich = k.find('|');
+          if (strich != std::string::npos) {
+            nummer = atoi(k.substr(0, strich).c_str());
+            const std::string g = k.substr(strich + 1);
+            if (!g.empty()) { grad = atoi(g.c_str()); hat_grad = true; }
+          }
+        }
+        const int rm = s / 2;                // Mittellinie des Rings
+        const int rs = (s * 3) / 4;          // wo der Ausfahrtsarm endet
+        // Blass und genauso breit wie der Bogen darueber: der Bogen deckt
+        // den Ring genau ab, statt an einer Seite ueberzustehen.
+        it.filled_ring(cx, py, rm + d / 2, rm - d / 2, id(c_gedaempft));
+        // Der Stiel: von unten an den Ring heran.
+        rechteck(cx - d / 2, py + rm, d, s - rm);
+        // Ein Punkt auf einem Kreis um die Mitte. `phi` in Grad, 0 = oben,
+        // im Uhrzeigersinn -- dieselbe Zaehlung wie eine Kompassrichtung,
+        // damit die Drehung aus dem Kern ohne Umrechnung hineinpasst.
+        auto auf_kreis = [&](float phi, int rad, int &x, int &y) {
+          const float b = phi * 3.14159265f / 180.0f;
+          x = cx + (int) lroundf(rad * sinf(b));
+          y = py - (int) lroundf(rad * cosf(b));
+        };
+        if (hat_grad) {
+          // Vom Eintritt (unten, 180°) GEGEN den Uhrzeigersinn bis zur
+          // Ausfahrt. Rechts (90°) ist ein Viertel, geradeaus (0°) die
+          // Haelfte, links (-90°) drei Viertel, Wenden (180°) der ganze Kreis.
+          int bogen = 180 - grad;
+          if (bogen <= 0) bogen += 360;
+          for (int a = 0; a <= bogen; a += 6) {
+            int x, y;
+            auf_kreis(180.0f - a, rm, x, y);
+            it.filled_circle(x, y, d / 2, C);
+          }
+          // Der Arm, in Richtung der Ausfahrt nach aussen, und die Spitze.
+          int ax, ay, bx, by, tx, ty_, lx, ly, qx, qy;
+          auf_kreis((float) grad, rm, ax, ay);
+          auf_kreis((float) grad, rs, bx, by);
+          for (int t = 0; t <= 4; t++) {
+            it.filled_circle(ax + (bx - ax) * t / 4, ay + (by - ay) * t / 4, d / 2, C);
+          }
+          auf_kreis((float) grad, s + s / 8, tx, ty_);
+          // Die Grundlinie der Spitze steht quer zum Arm: bei `rs`, um
+          // ±90° versetzt, aber mit dem Hebel `s/3` statt des Radius.
+          const float b = grad * 3.14159265f / 180.0f;
+          lx = bx + (int) lroundf((s / 3) * cosf(b));
+          ly = by + (int) lroundf((s / 3) * sinf(b));
+          qx = bx - (int) lroundf((s / 3) * cosf(b));
+          qy = by - (int) lroundf((s / 3) * sinf(b));
+          it.filled_triangle(lx, ly, qx, qy, tx, ty_, C);
+        }
+        // Die Nummer der Ausfahrt, mitten im Ring. Ohne Nummer nichts -- eine
+        // geratene Zahl im Kreisel ist genau die Sorte Hilfe, die in die
+        // falsche Ausfahrt schickt.
+        if (nummer > 0) {
+          it.printf(cx, py, id(font_m), id(c_text), TextAlign::CENTER, "%d", nummer);
+        }
       } else if (enthaelt("left") || enthaelt("right")) {
         const int seite = enthaelt("right") ? 1 : -1;
         rechteck(cx - d / 2, py, d, s);

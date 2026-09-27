@@ -294,6 +294,21 @@ export interface Maneuver {
   // consumers (apps/core/src/navigation/eta.ts) fall back to a
   // distance-proportional estimate when it's missing on ANY maneuver.
   duration_s?: number;
+  /**
+   * Nur am Kreisel (Ein- und Ausfahrt): die wievielte Ausfahrt, ab der
+   * Einfahrt gezaehlt, 1 = die erste. Valhallas `roundabout_exit_count`.
+   */
+  roundabout_exit_count?: number;
+  /**
+   * Nur am Kreisel: um wie viel Grad sich die Fahrtrichtung zwischen Einfahrt
+   * und Ausfahrt dreht, im Uhrzeigersinn positiv. 90 = man verlaesst den
+   * Kreisel nach rechts, 0 = geradeaus, -90 = nach links, ±180 = zurueck.
+   *
+   * Daraus zeichnet das Display den Bogen, den man im Kreisel faehrt -- ein
+   * Viertelkreis fuer rechts, ein halber fuer geradeaus. Siehe
+   * `apps/core/src/routing/kreisel.ts`.
+   */
+  roundabout_turn_deg?: number;
 }
 
 // Complete route

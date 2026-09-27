@@ -113,7 +113,7 @@ static Color k_h{0,0,0}, k_t{255,255,255}, k_g{128,128,128}, k_p{0,0,255},
              k_w{255,0,0}, k_gut{0,255,0}, k_s{255,255,255};
 static sensor::Sensor s_tempo, s_limit, s_limit_fz, s_mdist, s_rest, s_lr, s_vh;
 static binary_sensor::BinarySensor s_schnell;
-static text_sensor::TextSensor s_anweisung, s_art, s_zustand, s_ankunft;
+static text_sensor::TextSensor s_anweisung, s_art, s_zustand, s_ankunft, s_kreisel;
 static switch_::Switch s_erzwingen, s_fahrzeug, s_restzeit;
 static RealTimeClock s_uhr;
 static BaseFont *font_xl=&f_xl,*font_l=&f_l,*font_m=&f_m,*font_s=&f_s;
@@ -127,7 +127,7 @@ static switch_::Switch *waage_erzwingen=&s_erzwingen,*waage_fahrzeug=&s_fahrzeug
 static RealTimeClock *ha_zeit=&s_uhr;
 static binary_sensor::BinarySensor *yapaja_zu_schnell=&s_schnell;
 static text_sensor::TextSensor *yapaja_anweisung=&s_anweisung,*yapaja_manoever_art=&s_art,
-  *yapaja_fahrzustand=&s_zustand,*yapaja_ankunft=&s_ankunft;
+  *yapaja_fahrzustand=&s_zustand,*yapaja_ankunft=&s_ankunft,*yapaja_kreisel=&s_kreisel;
 
 static void zeichne(Display &it) {
 #include "lambda_body.inc"
@@ -136,8 +136,8 @@ static void zeichne(Display &it) {
 /** Die Fahransicht -- zum Ansehen der neuen Aufteilung. */
 static void fahrt(const char *titel, float tempo, bool zu_schnell,
                   bool restzeit = false, const char *jetzt = "2026-09-15T12:57:00",
-                  const char *art = "turn_left") {
-  s_zustand.state="navigating"; s_art.state=art;
+                  const char *art = "turn_left", const char *kreisel = "") {
+  s_zustand.state="navigating"; s_art.state=art; s_kreisel.state=kreisel;
   s_anweisung.state="Abbiegen";
   s_ankunft.state="2026-09-15T14:32:00.000Z";
   s_tempo.has=true; s_tempo.state=tempo;
@@ -202,6 +202,14 @@ int main() {
   fahrt("Fahrt: 130 km/h, Restzeit (1:35 h)", 130, false, true);
   fahrt("PFEIL turn_left", 50, false, false, "2026-09-15T12:57:00", "turn_left");
   fahrt("PFEIL turn_right", 50, false, false, "2026-09-15T12:57:00", "turn_right");
+  // Der Kreisel: Viertel, Haelfte, drei Viertel -- und ohne Angaben.
+  const char *T = "2026-09-15T12:57:00";
+  fahrt("KREISEL 1. Ausfahrt rechts (1|90)", 50, false, false, T, "roundabout_enter", "1|90");
+  fahrt("KREISEL 2. Ausfahrt geradeaus (2|0)", 50, false, false, T, "roundabout_enter", "2|0");
+  fahrt("KREISEL 3. Ausfahrt links (3|-90)", 50, false, false, T, "roundabout_enter", "3|-90");
+  fahrt("KREISEL 2. Ausfahrt halbrechts (2|35)", 50, false, false, T, "roundabout_enter", "2|35");
+  fahrt("KREISEL wenden (4|180)", 50, false, false, T, "roundabout_enter", "4|180");
+  fahrt("KREISEL ohne Angaben", 50, false, false, T, "roundabout_enter", "");
   zeige("Fahrzeug: vorne tief (-1.5 Grad), rechts hoch (+1.0 Grad)", 1.0f, -1.5f, true);
   zeige("Fahrzeug: eben", 0.1f, -0.1f, true);
   return 0;
