@@ -9,6 +9,8 @@ export type {
   RouteLeg,
   SpeedSegment,
   LaneInfo,
+  ManeuverSign,
+  ManeuverSignElement,
   RouteWarning,
   Maneuver,
   ManeuverType,
@@ -25,6 +27,10 @@ export type {
   AddonManifestMapLayer,
   AddonManifestService,
 } from './types';
+
+// Die Spur-Bitmaske ist ein WERT und kein Typ: sie wird gerechnet, nicht
+// nur beschrieben (`directions & SPUR.LINKS`).
+export { SPUR } from './types';
 
 // Schemas (as const for validation)
 export { latLngSchema } from './schemas/latlng';

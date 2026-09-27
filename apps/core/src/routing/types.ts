@@ -111,6 +111,25 @@ export interface ValhallaRouteRequestBody {
   directions_options: { units: 'kilometers'; language: string };
   /** number of alternative routes requested (Valhalla naming: "alternates"). */
   alternates: number;
+  /**
+   * Spurfuehrung anfordern. NICHT optional -- aus demselben Grund wie
+   * `directions_options` darueber.
+   *
+   * ─── DIE FALLE ────────────────────────────────────────────────────────────
+   * Valhalla liefert `lanes` NUR, wenn diese Option gesetzt ist. Aus der
+   * API-Referenz: „When present and `true`, each maneuver in the route
+   * response can include a `lanes` array describing lane-level guidance."
+   * Standard ist AUS.
+   *
+   * Ohne sie waere die ganze Spurfuehrung gebaut, geprueft und lautlos leer:
+   * der Kern bildet ab, was nicht kommt, die Anzeige zeigt nichts, und nichts
+   * schlaegt fehl. Genau die Sorte Fehler, die dieses Projekt seit Monaten
+   * verfolgt -- eine Antwort, die es gibt, die aber nie angefordert wird.
+   *
+   * Ein Feld, das man vergessen KANN, wird vergessen. Deshalb erzwingt der
+   * Typ es.
+   */
+  turn_lanes: boolean;
   /** present & non-empty only when the request carries `exclude_locations`. */
   exclude_locations?: ValhallaExcludeLocation[];
   /**
@@ -130,6 +149,43 @@ export interface ValhallaSummary {
   time: number;
 }
 
+/**
+ * Ein Eintrag auf einem Wegweiser, wie Valhalla ihn liefert.
+ *
+ * `text` ist Pflicht, `consecutive_count` laut Referenz ausdruecklich
+ * optional („This item is optional.").
+ */
+export interface ValhallaSignElement {
+  text: string;
+  consecutive_count?: number;
+}
+
+/**
+ * Valhallas `sign`-Block. Vier Listen, alle optional.
+ *
+ * Die Namen tragen bei Valhalla die Endung `_elements`; in unserer
+ * Schnittstelle fallen sie weg (siehe `@yapaia/shared#ManeuverSign`). Die
+ * Zuordnung steht an genau einer Stelle: `mapResponse.ts`.
+ */
+export interface ValhallaSign {
+  exit_number_elements?: ValhallaSignElement[];
+  exit_branch_elements?: ValhallaSignElement[];
+  exit_toward_elements?: ValhallaSignElement[];
+  exit_name_elements?: ValhallaSignElement[];
+}
+
+/**
+ * Eine Fahrspur. Drei BITMASKEN -- siehe `@yapaia/shared#SPUR` fuer die Werte.
+ *
+ * `valid` und `active` laesst Valhalla weg, wo eine Spur fuer dieses Manoever
+ * gar nicht in Frage kommt.
+ */
+export interface ValhallaLane {
+  directions: number;
+  valid?: number;
+  active?: number;
+}
+
 export interface ValhallaManeuver {
   /** integer maneuver-type enum, see ./maneuverMapping.ts. */
   type: number;
@@ -141,6 +197,10 @@ export interface ValhallaManeuver {
   time?: number;
   begin_shape_index: number;
   end_shape_index?: number;
+  /** Was auf den Schildern steht. Fehlt ueberall ausser an Kreuzen/Abfahrten. */
+  sign?: ValhallaSign;
+  /** Spurfuehrung. Kommt NUR, wenn die Anfrage `turn_lanes: true` setzt. */
+  lanes?: ValhallaLane[];
 }
 
 export interface ValhallaLeg {

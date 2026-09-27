@@ -10,6 +10,53 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.17.3
+
+**Schildertexte und Spurführung — wie bei Maps.**
+
+Gewünscht nach der Probefahrt:
+
+> „Was mir bei Maps noch gefällt ist die Anzeige was auf den Schildern auf der
+> Straße steht wenn man abbiegt. Und auch welche Spur man wählen sollte."
+
+### Was auf dem Schild steht
+
+An Abfahrten und Autobahnkreuzen zeigt das Abbiege-Feld jetzt eine **blaue
+Tafel** — Ausfahrtsnummer, Straße, Ziele: `61 · A 65 · Landau · Neustadt`.
+Damit lässt sich die Ansage gegen das Schild prüfen, das man gerade vor sich
+hat.
+
+Wird es auf dem Telefon eng, fällt zuerst das Ziel weg, das auf den Schildern
+**am seltensten** wiederholt wird — nicht einfach das letzte in der Liste.
+
+### Welche Spur
+
+Etwa **500 m vor dem Abbiegen** erscheint darunter eine Spurleiste. Alle Spuren
+bleiben sichtbar (sonst ginge das Zählen „zweite von rechts" nicht), die
+richtige ist **weiß hervorgehoben**.
+
+Hervorgehoben wird nur die Spur, auf der man **ohne weiteren Wechsel**
+durchkommt. Spuren, von denen aus man zwar abbiegen *kann*, sich aber vorher
+noch einmal einfädeln müsste, bleiben blass — mit sieben Metern Fahrzeug ist
+genau dieses Einfädeln kurz vor der Ausfahrt das, was man vermeiden will.
+
+### Wo es nichts zeigt
+
+Beides hängt an den Kartendaten. Auf deutschen Autobahnen sind Schilder und
+Spurmarkierungen (`turn:lanes`) gut erfasst, auf Landstraßen oft nicht. Wo es
+keine Daten gibt, erscheint **nichts** — keine leere Tafel und keine geratene
+Spur.
+
+> **Voraussichtlich kein Neubau nötig.** Valhallas Bauanleitung kennt keinen
+> Schalter für Schilder oder Spuren — beides wird beim Bau des Routings immer
+> mit abgelegt, sofern OSM es hergibt. Neu ist nur, dass Yapaia die Spuren jetzt
+> *anfordert* (ohne ausdrückliche Anfrage liefert Valhalla sie gar nicht).
+> Bereits gespeicherte Routen zeigen noch nichts; die nächste neu berechnete
+> schon. Erscheint an einer bekannten Autobahnabfahrt trotzdem nie etwas, ist
+> das eine Rückmeldung wert.
+
+---
+
 ## 0.17.2
 
 **Nach der ersten echten Probefahrt: der linke Abbiegepfeil war kaputt, der

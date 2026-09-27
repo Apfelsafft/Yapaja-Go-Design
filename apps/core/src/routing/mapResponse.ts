@@ -6,8 +6,10 @@
 
 import { randomUUID } from 'crypto';
 import type {
+  LaneInfo,
   LatLng,
   Maneuver,
+  ManeuverSign,
   Route,
   RouteLeg,
   RouteWarning,
@@ -15,9 +17,83 @@ import type {
 } from '@yapaia/shared';
 import { mapManeuverType } from './maneuverMapping.js';
 import { joinLegShapes } from './polyline.js';
-import type { ValhallaRouteResponse, ValhallaTrip } from './types.js';
+import type {
+  ValhallaLane,
+  ValhallaRouteResponse,
+  ValhallaSign,
+  ValhallaSignElement,
+  ValhallaTrip,
+} from './types.js';
 
 const EARTH_RADIUS_M = 6371000;
+
+/**
+ * Valhallas `sign`-Block auf unseren.
+ *
+ * ─── DIE EINZIGE STELLE, AN DER DIE NAMEN AUFEINANDERTREFFEN ────────────────
+ * Valhalla nennt die Listen `exit_number_elements` und so fort; unsere
+ * Schnittstelle laesst die Endung weg. Das ist eine Umbenennung, kein zweiter
+ * Datenbestand -- sie geschieht hier und nirgends sonst, und der Uebersetzer
+ * prueft sie.
+ *
+ * ─── WARUM LEERE LISTEN WEGFALLEN ───────────────────────────────────────────
+ * Valhalla schickt an manchen Manoevern einen `sign`-Block, in dem alle vier
+ * Listen leer sind. Unveraendert durchgereicht ergaebe das ein `sign: {}` --
+ * und damit ein Feld, das „es gibt Schilder" behauptet, waehrend nichts
+ * darauf steht. Die Anzeige zeichnete eine leere Tafel.
+ *
+ * Deshalb: leere Listen fallen weg, und bleibt nichts uebrig, faellt der
+ * ganze Block weg. „Nichts" und „nichts darauf" sehen danach gleich aus, und
+ * das ist hier richtig -- fuer den Fahrer ist es dasselbe.
+ */
+export function spreizeSchild(sign: ValhallaSign | undefined): { sign?: ManeuverSign } {
+  if (!sign) return {};
+  const gefiltert: ManeuverSign = {};
+  const zuordnung = [
+    ['exit_number', sign.exit_number_elements],
+    ['exit_branch', sign.exit_branch_elements],
+    ['exit_toward', sign.exit_toward_elements],
+    ['exit_name', sign.exit_name_elements],
+  ] as const;
+
+  for (const [unser, ihre] of zuordnung) {
+    if (!Array.isArray(ihre)) continue;
+    // Eintraege ohne Aufschrift fallen weg: ein Schild ohne Text ist in der
+    // Anzeige ein leeres Feld -- sichtbar, aber ohne Auskunft.
+    const eintraege = ihre
+      .filter((e): e is ValhallaSignElement => typeof e?.text === 'string' && e.text.length > 0)
+      .map((e) => ({
+        text: e.text,
+        ...(typeof e.consecutive_count === 'number' ? { consecutive_count: e.consecutive_count } : {}),
+      }));
+    if (eintraege.length > 0) gefiltert[unser] = eintraege;
+  }
+
+  return Object.keys(gefiltert).length > 0 ? { sign: gefiltert } : {};
+}
+
+/**
+ * Valhallas `lanes` auf unsere.
+ *
+ * Die Felder heissen gleich; was hier passiert, ist die Abwehr von
+ * Unbrauchbarem. `directions` ist Pflicht -- eine Spur ohne jede Richtung
+ * waere in der Anzeige ein leerer Kasten, der so aussieht, als fehle etwas.
+ *
+ * Kommt gar keine brauchbare Spur heraus, faellt das Feld weg statt als
+ * leeres Array dazustehen: eine leere Spurliste hiesse „hier gibt es Spuren,
+ * naemlich keine".
+ */
+export function spreizeSpuren(lanes: ValhallaLane[] | undefined): { lanes?: LaneInfo[] } {
+  if (!Array.isArray(lanes)) return {};
+  const brauchbar = lanes
+    .filter((l): l is ValhallaLane => typeof l?.directions === 'number')
+    .map((l) => ({
+      directions: l.directions,
+      ...(typeof l.valid === 'number' ? { valid: l.valid } : {}),
+      ...(typeof l.active === 'number' ? { active: l.active } : {}),
+    }));
+  return brauchbar.length > 0 ? { lanes: brauchbar } : {};
+}
 
 /**
  * Great-circle distance in metres. Matches the Haversine used inside
@@ -92,6 +168,11 @@ function mapTrip(trip: ValhallaTrip, origin: LatLng, destination: LatLng): Route
         // key) -- keeps the object exactly what the (additionalProperties:
         // false) maneuverSchema expects.
         ...(m.time !== undefined ? { duration_s: m.time } : {}),
+        // Schilder und Spuren -- dieselbe bedingte Schreibweise und aus
+        // demselben Grund: ein fehlendes Feld bleibt ABWESEND statt
+        // ausdruecklich `undefined` zu sein.
+        ...spreizeSchild(m.sign),
+        ...spreizeSpuren(m.lanes),
       });
     }
   });

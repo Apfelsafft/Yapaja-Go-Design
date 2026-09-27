@@ -30,6 +30,9 @@ import { formatDistance } from '../routing/format.js';
 // unveraendert bleiben.
 export { isDriveActive } from './driveActive.js';
 import { isDriveActive } from './driveActive.js';
+import { schildAnzeige } from './schildText.js';
+import { spurAnzeige } from './spuren.js';
+import { SchildTafel, SpurLeiste } from './SchildUndSpur.js';
 
 export interface FollowingManeuver {
   type: Maneuver['type'];
@@ -88,6 +91,11 @@ export default function ManeuverPanel(props: ManeuverPanelProps = {}): React.Rea
   const street = maneuver.street_names[0] ?? null;
   const activeRoute = routes.find((r) => r.id === navState.route_id);
   const following = findFollowingManeuver(maneuver, activeRoute?.maneuvers);
+  // Schild und Spuren: beide sind der Ausnahmefall. Schilder gibt es fast nur
+  // an Kreuzen und Abfahrten, Spurdaten nur, wo OSM `turn:lanes` kennt. Ohne
+  // sie bleibt das Panel genau so, wie es vorher war.
+  const schild = schildAnzeige(maneuver.sign);
+  const spuren = spurAnzeige(maneuver.lanes, navState.distance_to_maneuver_m);
 
   return (
     <div
@@ -106,10 +114,15 @@ export default function ManeuverPanel(props: ManeuverPanelProps = {}): React.Rea
         maxWidth: schmal ? LINKS_MAX_BREITE_CSS : MITTE_MAX_BREITE_CSS,
         ...(schmal ? { left: EDGE_INSET_PX } : null),
       }}
-      className={`absolute z-20 flex items-center gap-3 rounded-2xl bg-slate-900/90 text-white px-4 py-3 shadow-lg pointer-events-none ${
+      className={`absolute z-20 flex flex-col rounded-2xl bg-slate-900/90 text-white px-4 py-3 shadow-lg pointer-events-none ${
         schmal ? '' : 'left-1/2 -translate-x-1/2'
       }`}
     >
+      {/* ─── ZWEI ZEILEN STATT EINER ─────────────────────────────────────
+          Die Spurleiste braucht die volle Breite und gehoert UNTER das
+          Manoever, nicht daneben: daneben nahm sie der Anweisung den Platz,
+          der auf 390 Bildpunkten ohnehin nur 238 breit ist. */}
+      <div className="flex items-center gap-3">
       <ManeuverArrow type={maneuver.type} className="shrink-0" />
       <div className="flex min-w-0 flex-col">
         <span data-testid="maneuver-distance" className="text-xl font-bold leading-tight tabular-nums">
@@ -126,6 +139,7 @@ export default function ManeuverPanel(props: ManeuverPanelProps = {}): React.Rea
             {street}
           </span>
         )}
+        {schild && <SchildTafel schild={schild} />}
       </div>
       {following && (
         <div
@@ -136,6 +150,8 @@ export default function ManeuverPanel(props: ManeuverPanelProps = {}): React.Rea
           {following.street && <span className="truncate text-xs">{following.street}</span>}
         </div>
       )}
+      </div>
+      {spuren && <SpurLeiste spuren={spuren} />}
     </div>
   );
 }

@@ -153,11 +153,105 @@ export interface SpeedSegment {
   road_class?: string | null;
 }
 
-// TODO(spec): minimal definition, refine when first consumed
+/**
+ * Die möglichen Richtungen einer Fahrspur — als Bitmaske.
+ *
+ * ─── DIE WERTE SIND NACHGELESEN, NICHT GERATEN ──────────────────────────────
+ * Sie stammen wörtlich aus Valhallas API-Referenz (`docs/api/route/
+ * api-reference.md`, Abschnitt „A `lanes` includes"). Eine eigene Numerierung
+ * wäre eine zweite Liste neben der, die auf der Leitung liegt — und damit
+ * genau die Sorte Abweichung, die in diesem Projekt schon mehrfach lautlos
+ * falsche Anzeigen erzeugt hat.
+ *
+ * Es ist eine MASKE: eine Spur, auf der man geradeaus oder links fahren darf,
+ * trägt `2 | 8 = 10`.
+ */
+export const SPUR = {
+  KEINE: 0,
+  UNBESTIMMT: 1,
+  GERADEAUS: 2,
+  SCHARF_LINKS: 4,
+  LINKS: 8,
+  LEICHT_LINKS: 16,
+  LEICHT_RECHTS: 32,
+  RECHTS: 64,
+  SCHARF_RECHTS: 128,
+  WENDEN: 256,
+  EINFAEDELN_LINKS: 512,
+  EINFAEDELN_RECHTS: 1024,
+} as const;
+
+/**
+ * Eine einzelne Fahrspur vor einem Abbiegepunkt.
+ *
+ * ─── HIER STAND EIN PLATZHALTER ─────────────────────────────────────────────
+ * Bis 0.17.3: `{ lane_index, is_usable, direction? }`, mit dem Vermerk
+ * „TODO(spec): minimal definition, refine when first consumed". Er war nie
+ * befüllt worden und hat, wie sich beim ersten Befüllen zeigte, mit Valhallas
+ * tatsächlicher Antwort nichts gemein: dort sind es drei BITMASKEN und kein
+ * Index mit einem Ja/Nein.
+ *
+ * ─── DER UNTERSCHIED ZWISCHEN `valid` UND `active` ──────────────────────────
+ * Beides sind Masken, und der Unterschied ist für den Fahrer der wichtigste
+ * Teil der ganzen Auskunft:
+ *
+ *   `valid`  — auf dieser Spur KANN man die Abbiegung nehmen, muss dafür aber
+ *              unter Umständen noch die Spur wechseln.
+ *   `active` — das ist die richtige Spur. Wer hier fährt, kommt durch, ohne
+ *              noch einmal zu wechseln.
+ *
+ * Nur `active` verdient die Hervorhebung. Wer `valid` hervorhöbe, schickte
+ * jemanden mit einem Wohnmobil auf eine Spur, von der aus er sich kurz vor
+ * der Ausfahrt noch einmal einfädeln muss.
+ */
 export interface LaneInfo {
-  lane_index: number;
-  is_usable: boolean;
-  direction?: string;
+  /** Alle Richtungen, die diese Spur zulässt (Bitmaske, siehe `SPUR`). */
+  directions: number;
+  /** Richtungen, die zur Route passen — evtl. mit weiterem Spurwechsel. */
+  valid?: number;
+  /** Richtungen, für die dies die beste Spur ist. Diese wird hervorgehoben. */
+  active?: number;
+}
+
+/**
+ * Ein Eintrag auf einem Wegweiser.
+ *
+ * `consecutive_count` ist Valhallas Angabe, wie oft dieser Eintrag auf einer
+ * Folge von Schildern auftaucht. Er wird mitgeführt, weil auf einer schmalen
+ * Anzeige irgendwann gekürzt werden muss — und dann ist die Häufigkeit das
+ * einzige Maß dafür, welcher Zielort der wichtigere ist. Ohne ihn bliebe nur
+ * „der erste in der Liste", und das ist keine Aussage.
+ */
+export interface ManeuverSignElement {
+  text: string;
+  consecutive_count?: number;
+}
+
+/**
+ * Was auf den Schildern an dieser Abzweigung steht.
+ *
+ * ─── WOFÜR ──────────────────────────────────────────────────────────────────
+ * Gewünscht: „Was mir bei Maps noch gefällt ist die Anzeige was auf den
+ * Schildern auf der Straße steht wenn man abbiegt."
+ *
+ * Das ist die Auskunft, mit der man die Ansage gegen die Wirklichkeit prüft.
+ * „Rechts abbiegen" kann man glauben oder nicht; „Ausfahrt 26 · A 61 ·
+ * Ludwigshafen" steht am Straßenrand und ist zu vergleichen.
+ *
+ * Die vier Listen sind Valhallas (`exit_number_elements` und so fort), nur
+ * ohne die Endung: in unserer Schnittstelle sagt das `_elements` nichts, was
+ * der Typ nicht schon sagt. Die Zuordnung steht an genau einer Stelle
+ * (`apps/core/src/routing/mapResponse.ts`).
+ */
+export interface ManeuverSign {
+  /** Die Ausfahrtsnummer, z. B. „26". Meist genau ein Eintrag. */
+  exit_number?: ManeuverSignElement[];
+  /** Die Straße, auf die es geht, z. B. „A 61". */
+  exit_branch?: ManeuverSignElement[];
+  /** Wohin sie führt — meist eine Stadt, z. B. „Ludwigshafen". */
+  exit_toward?: ManeuverSignElement[];
+  /** Der Name des Kreuzes selbst. In Europa selten belegt. */
+  exit_name?: ManeuverSignElement[];
 }
 
 // TODO(spec): minimal definition, refine when first consumed
@@ -185,6 +279,15 @@ export interface Maneuver {
   distance_m: number; // length of this maneuver segment
   begin_shape_index: number;
   lanes?: LaneInfo[];
+  /**
+   * Was auf den Schildern steht. Fehlt, wo es keine gibt -- also fast
+   * ueberall ausser an Autobahnkreuzen und -abfahrten.
+   *
+   * Optional und bleibt es: eine vor 0.17.3 berechnete und gespeicherte Route
+   * hat das Feld nicht, und sie muss weiterhin gueltig sein -- sonst liesse
+   * sich nach einem Update keine laufende Fahrt fortsetzen.
+   */
+  sign?: ManeuverSign;
   // Planned duration of this maneuver segment in seconds (Valhalla's
   // per-maneuver `time`, E04-T2 ETA calibration input). Optional: absent on
   // routes computed before this field existed, or in hand-built fixtures --

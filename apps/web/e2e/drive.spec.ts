@@ -139,6 +139,19 @@ async function instructionSeq(page: Page): Promise<number> {
   return page.evaluate(() => window.__yapaiaNavStore?.getState().instructionSeq ?? 0);
 }
 
+// ─── DIE GANZE DATEI SERIELL, NICHT NUR JEDER BLOCK ─────────────────────────
+// Alle Tests hier teilen sich EINEN Fahr-Kern (`DRIVE_CORE_BASE_URL`) und
+// damit eine Navigationssitzung. `fullyParallel: true` in der Konfiguration
+// verteilt aber verschiedene `describe`-Bloecke derselben Datei auf
+// verschiedene Worker.
+//
+// Solange es nur einen Block gab, reichte dessen eigenes `serial`. Mit dem
+// zweiten (Schild und Spuren, 0.17.3) liefen zwei Fahrten gleichzeitig gegen
+// denselben Kern: die eine startete, die andere stoppte sie im `afterEach`,
+// und es fielen Tests aus BEIDEN Bloecken aus -- scheinbar zufaellig, je
+// nachdem, welcher Worker schneller war.
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Drive basics (E04-T3, Flow 2)', () => {
   test.describe.configure({ mode: 'serial' }); // one shared drive core, one navigation session at a time
 
@@ -573,3 +586,113 @@ const ECK_ROUTE: Route = {
   speed_limits: [],
   warnings: [],
 };
+
+/**
+ * Schildertext und Spurführung — durch den ECHTEN Kern.
+ *
+ * ─── WARUM NICHT EINFACH DEN ZUSTAND IM BROWSER SETZEN ──────────────────────
+ * Das prüfte nur die halbe Kette. Die Route geht hier über
+ * `POST /api/v1/navigation/start`, also durch die Schemaprüfung
+ * (`maneuverSchema`, `additionalProperties: false`) und die Zusammensetzung
+ * des Navigationszustands im Kern. Fehlte `sign` im Schema, würde die Route
+ * abgelehnt; reichte der Kern `next_maneuver` nicht vollständig durch, käme
+ * nichts an. Beides wäre bei einem direkt gesetzten Zustand unsichtbar
+ * geblieben.
+ */
+test.describe('Schild und Spuren im Manöver-Panel', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  test.afterEach(async ({ page }) => {
+    await page
+      .evaluate(async (baseUrl: string) => {
+        await fetch(`${baseUrl}/api/v1/navigation/stop`, { method: 'POST' });
+      }, DRIVE_CORE_BASE_URL)
+      .catch(() => {});
+  });
+
+  // Dieselbe Strecke wie oben; nur der Linksabbieger bei ~556 m trägt ein
+  // Schild und drei Spuren, von denen die linke die richtige ist.
+  const MIT_SCHILD: Route = {
+    ...ROUTE,
+    id: 'drive-e2e-schild',
+    maneuvers: ROUTE.maneuvers.map((m) =>
+      m.index === 1
+        ? {
+            ...m,
+            sign: {
+              exit_number: [{ text: '26' }],
+              exit_branch: [{ text: 'A 61' }],
+              exit_toward: [{ text: 'Ludwigshafen', consecutive_count: 3 }],
+            },
+            lanes: [
+              { directions: 8, active: 8 }, // nur links -- die richtige
+              { directions: 10, valid: 8 }, // links+geradeaus -- geht, aber nicht ideal
+              { directions: 2 }, // nur geradeaus
+            ],
+          }
+        : m,
+    ),
+  };
+
+  async function starten(page: Page): Promise<void> {
+    await page.goto(DRIVE_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    const antwort = await page.request.post(`${DRIVE_CORE_BASE_URL}/api/v1/navigation/start`, {
+      data: { route: MIT_SCHILD, destination: { latlng: ROUTE_POINTS[10], name: 'Ziel' } },
+    });
+    // Die erste Zusicherung: der Kern NIMMT die Route mit Schild und Spuren
+    // an. Fehlte `sign` im Schema, schlüge genau das hier fehl.
+    expect(antwort.ok(), await antwort.text()).toBe(true);
+    await page.evaluate((route: Route) => {
+      window.__yapaiaRoutingStore?.setState({ routes: [route], activeRouteId: route.id });
+    }, MIT_SCHILD);
+  }
+
+  test('das Schild erscheint mit Nummer, Straße und Ziel', async ({ page }) => {
+    test.setTimeout(60_000);
+    await starten(page);
+    await driveTo(page, 100); // ~456 m vor dem Linksabbieger
+
+    await expect(page.getByTestId('maneuver-panel')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('maneuver-sign-number')).toHaveText('26');
+    await expect(page.getByTestId('maneuver-sign-text')).toHaveText('A 61 · Ludwigshafen');
+  });
+
+  test('die Spuren erscheinen erst in der Nähe, und nur die richtige ist hervorgehoben', async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await starten(page);
+
+    // ~556 m vor dem Abbieger: über `SPUREN_AB_M` (500) -- noch keine Spuren.
+    await driveTo(page, 0);
+    await expect(page.getByTestId('maneuver-panel')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('maneuver-lanes')).toHaveCount(0);
+
+    // ~256 m davor: jetzt.
+    await driveTo(page, 300);
+    await expect(page.getByTestId('maneuver-lanes')).toBeVisible({ timeout: 5_000 });
+    const spuren = page.getByTestId('maneuver-lane');
+    await expect(spuren).toHaveCount(3);
+
+    // ─── NUR `active`, NICHT `valid` ──────────────────────────────────────
+    // Die zweite Spur ist `valid` für links -- man KANN von dort abbiegen,
+    // muss sich aber evtl. noch einfädeln. Hervorgehoben wird nur die erste.
+    await expect(spuren.nth(0)).toHaveAttribute('data-aktiv', 'ja');
+    await expect(spuren.nth(1)).toHaveAttribute('data-aktiv', 'nein');
+    await expect(spuren.nth(2)).toHaveAttribute('data-aktiv', 'nein');
+  });
+
+  test('am nächsten Manöver ohne Schild verschwindet es wieder', async ({ page }) => {
+    // Die Gegenprobe: ein Schild, das stehen bliebe, gehörte nach dem
+    // Abbiegen zur falschen Kreuzung -- und das ist schlimmer als keins.
+    test.setTimeout(60_000);
+    await starten(page);
+    await driveTo(page, 300);
+    await expect(page.getByTestId('maneuver-sign')).toBeVisible({ timeout: 5_000 });
+
+    await driveTo(page, 600); // hinter dem Linksabbieger, vor dem Rechtsabbieger
+    await expect(page.getByTestId('maneuver-sign')).toHaveCount(0, { timeout: 5_000 });
+    await expect(page.getByTestId('maneuver-lanes')).toHaveCount(0);
+  });
+});

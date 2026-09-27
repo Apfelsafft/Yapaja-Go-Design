@@ -3273,30 +3273,123 @@
                   "items": {
                     "type": "object",
                     "properties": {
-                      "lane_index": {
+                      "directions": {
                         "type": "integer",
                         "minimum": 0,
-                        "description": "Lane index from left"
+                        "maximum": 2047,
+                        "description": "Bitmask of every direction this lane allows (see SPUR)"
                       },
-                      "is_usable": {
-                        "type": "boolean",
-                        "description": "Whether vehicle can use this lane"
+                      "valid": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 2047,
+                        "description": "Directions matching the route — may still need a lane change"
                       },
-                      "direction": {
-                        "type": [
-                          "string",
-                          "null"
-                        ],
-                        "description": "Direction indicator if available"
+                      "active": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 2047,
+                        "description": "Directions for which this is the best lane (highlighted)"
                       }
                     },
                     "required": [
-                      "lane_index",
-                      "is_usable"
+                      "directions"
                     ],
                     "additionalProperties": false
                   },
                   "description": "Optional lane information"
+                },
+                "sign": {
+                  "type": "object",
+                  "properties": {
+                    "exit_number": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                          },
+                          "consecutive_count": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "How often this element appears across consecutive signs"
+                          }
+                        },
+                        "required": [
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "exit_branch": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                          },
+                          "consecutive_count": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "How often this element appears across consecutive signs"
+                          }
+                        },
+                        "required": [
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "exit_toward": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                          },
+                          "consecutive_count": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "How often this element appears across consecutive signs"
+                          }
+                        },
+                        "required": [
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "exit_name": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                          },
+                          "consecutive_count": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "How often this element appears across consecutive signs"
+                          }
+                        },
+                        "required": [
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false,
+                  "description": "What the road signs say at this junction, optional (0.17.3)"
                 },
                 "duration_s": {
                   "type": "number",
@@ -3433,30 +3526,123 @@
             "items": {
               "type": "object",
               "properties": {
-                "lane_index": {
+                "directions": {
                   "type": "integer",
                   "minimum": 0,
-                  "description": "Lane index from left"
+                  "maximum": 2047,
+                  "description": "Bitmask of every direction this lane allows (see SPUR)"
                 },
-                "is_usable": {
-                  "type": "boolean",
-                  "description": "Whether vehicle can use this lane"
+                "valid": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2047,
+                  "description": "Directions matching the route — may still need a lane change"
                 },
-                "direction": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "description": "Direction indicator if available"
+                "active": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2047,
+                  "description": "Directions for which this is the best lane (highlighted)"
                 }
               },
               "required": [
-                "lane_index",
-                "is_usable"
+                "directions"
               ],
               "additionalProperties": false
             },
             "description": "Optional lane information"
+          },
+          "sign": {
+            "type": "object",
+            "properties": {
+              "exit_number": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                    },
+                    "consecutive_count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "How often this element appears across consecutive signs"
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "exit_branch": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                    },
+                    "consecutive_count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "How often this element appears across consecutive signs"
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "exit_toward": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                    },
+                    "consecutive_count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "How often this element appears across consecutive signs"
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "exit_name": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                    },
+                    "consecutive_count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "How often this element appears across consecutive signs"
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [],
+            "additionalProperties": false,
+            "description": "What the road signs say at this junction, optional (0.17.3)"
           },
           "duration_s": {
             "type": "number",
@@ -3539,30 +3725,123 @@
                     "items": {
                       "type": "object",
                       "properties": {
-                        "lane_index": {
+                        "directions": {
                           "type": "integer",
                           "minimum": 0,
-                          "description": "Lane index from left"
+                          "maximum": 2047,
+                          "description": "Bitmask of every direction this lane allows (see SPUR)"
                         },
-                        "is_usable": {
-                          "type": "boolean",
-                          "description": "Whether vehicle can use this lane"
+                        "valid": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 2047,
+                          "description": "Directions matching the route — may still need a lane change"
                         },
-                        "direction": {
-                          "type": [
-                            "string",
-                            "null"
-                          ],
-                          "description": "Direction indicator if available"
+                        "active": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 2047,
+                          "description": "Directions for which this is the best lane (highlighted)"
                         }
                       },
                       "required": [
-                        "lane_index",
-                        "is_usable"
+                        "directions"
                       ],
                       "additionalProperties": false
                     },
                     "description": "Optional lane information"
+                  },
+                  "sign": {
+                    "type": "object",
+                    "properties": {
+                      "exit_number": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                            },
+                            "consecutive_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "description": "How often this element appears across consecutive signs"
+                            }
+                          },
+                          "required": [
+                            "text"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "exit_branch": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                            },
+                            "consecutive_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "description": "How often this element appears across consecutive signs"
+                            }
+                          },
+                          "required": [
+                            "text"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "exit_toward": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                            },
+                            "consecutive_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "description": "How often this element appears across consecutive signs"
+                            }
+                          },
+                          "required": [
+                            "text"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "exit_name": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "text": {
+                              "type": "string",
+                              "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                            },
+                            "consecutive_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "description": "How often this element appears across consecutive signs"
+                            }
+                          },
+                          "required": [
+                            "text"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [],
+                    "additionalProperties": false,
+                    "description": "What the road signs say at this junction, optional (0.17.3)"
                   },
                   "duration_s": {
                     "type": "number",
@@ -3759,30 +4038,123 @@
                 "items": {
                   "type": "object",
                   "properties": {
-                    "lane_index": {
+                    "directions": {
                       "type": "integer",
                       "minimum": 0,
-                      "description": "Lane index from left"
+                      "maximum": 2047,
+                      "description": "Bitmask of every direction this lane allows (see SPUR)"
                     },
-                    "is_usable": {
-                      "type": "boolean",
-                      "description": "Whether vehicle can use this lane"
+                    "valid": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2047,
+                      "description": "Directions matching the route — may still need a lane change"
                     },
-                    "direction": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "Direction indicator if available"
+                    "active": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2047,
+                      "description": "Directions for which this is the best lane (highlighted)"
                     }
                   },
                   "required": [
-                    "lane_index",
-                    "is_usable"
+                    "directions"
                   ],
                   "additionalProperties": false
                 },
                 "description": "Optional lane information"
+              },
+              "sign": {
+                "type": "object",
+                "properties": {
+                  "exit_number": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "text": {
+                          "type": "string",
+                          "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                        },
+                        "consecutive_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "How often this element appears across consecutive signs"
+                        }
+                      },
+                      "required": [
+                        "text"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "exit_branch": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "text": {
+                          "type": "string",
+                          "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                        },
+                        "consecutive_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "How often this element appears across consecutive signs"
+                        }
+                      },
+                      "required": [
+                        "text"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "exit_toward": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "text": {
+                          "type": "string",
+                          "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                        },
+                        "consecutive_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "How often this element appears across consecutive signs"
+                        }
+                      },
+                      "required": [
+                        "text"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "exit_name": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "text": {
+                          "type": "string",
+                          "description": "Sign text, e.g. \"26\", \"A 61\", \"Ludwigshafen\""
+                        },
+                        "consecutive_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "How often this element appears across consecutive signs"
+                        }
+                      },
+                      "required": [
+                        "text"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [],
+                "additionalProperties": false,
+                "description": "What the road signs say at this junction, optional (0.17.3)"
               },
               "duration_s": {
                 "type": "number",

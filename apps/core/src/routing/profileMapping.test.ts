@@ -122,6 +122,21 @@ describe('buildValhallaRouteBody', () => {
     expect(body.alternates).toBe(2);
   });
 
+  it('fordert die Spurfuehrung an (`turn_lanes`)', () => {
+    // ─── DIE WICHTIGSTE ZEILE DIESER GANZEN FUNKTION ──────────────────────
+    // Valhalla liefert `lanes` NUR auf Anforderung; Standard ist aus
+    // (API-Referenz: „When present and `true`, each maneuver in the route
+    // response can include a `lanes` array"). Fehlt die Option, ist die
+    // gesamte Spurfuehrung gebaut, geprueft -- und lautlos leer. Der Kern
+    // bildet ab, was nicht kommt, die Anzeige zeigt nichts, und nichts
+    // schlaegt fehl.
+    //
+    // Ohne diese Zusicherung ueberlebt genau diese Mutation: `turn_lanes`
+    // auf `false` zu setzen liess beim ersten Anlauf ALLE 236 Tests gruen.
+    const body = buildValhallaRouteBody(origin, destination, [], camper(), 1);
+    expect(body.turn_lanes).toBe(true);
+  });
+
   it('passes alternatives straight through as alternates', () => {
     const body = buildValhallaRouteBody(origin, destination, [], camper(), 0);
     expect(body.alternates).toBe(0);
