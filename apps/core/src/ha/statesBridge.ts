@@ -50,7 +50,7 @@ import type { NavState, Position } from '@yapaia/shared';
 import type { EventBus } from '../bus/index.js';
 import type { HaConnection } from './config.js';
 import { EIGENER_FAHRZEUG_TRACKER } from './eigeneEntitaeten.js';
-import { buildSpeedPayload, maneuverIcon } from '../mqtt/mapping.js';
+import { buildSpeedPayload, kreiselAttribut, maneuverIcon } from '../mqtt/mapping.js';
 import { tempoAusPosition, hoeheAusPosition } from './ausPosition.js';
 import {
   fahrzeugGrenze,
@@ -243,6 +243,9 @@ export function buildHaStates(zustand: YapaiaZustand): HaStateWrite[] {
           street_names: manoever.street_names,
           distance_m: navState?.distance_to_maneuver_m ?? null,
           icon: maneuverIcon(manoever.type),
+          // Fuer den Kreisel auf dem Display -- IMMER gesetzt, auch leer.
+          // Warum, steht an `kreiselAttribut`.
+          roundabout: kreiselAttribut(manoever),
         }
       : { icon: 'mdi:navigation' },
   );

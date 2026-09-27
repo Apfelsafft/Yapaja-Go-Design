@@ -65,6 +65,56 @@
 export const DRIVE_VEHICLE_Y = 0.75;
 
 /**
+ * Wo das Fahrzeug waagerecht sitzt, als Anteil der Breite von links -- je
+ * nach Einbau.
+ *
+ * ─── DIE MELDUNG ────────────────────────────────────────────────────────────
+ * „Können wir den [blauen Punkt] aus dem Zentrum mehr in die Mitte des linken
+ * unteren Quadranten legen - bzw, je nach LHD oder RHD rechten unteren
+ * Quadranten."
+ *
+ * Die Mitte des unteren linken Viertels ist (0,25 | 0,75). Links bei einem
+ * Linkslenker, rechts bei einem Rechtslenker -- die Einstellung dafuer gibt
+ * es schon (`shell/handedness.ts`), sie stellt bisher die Knoepfe um.
+ *
+ * Die Hoehe bleibt `DRIVE_VEHICLE_Y`. Die waagerechte Verschiebung aendert
+ * nichts daran, wie weit man VORAUS sieht, und damit nichts an der Rechnung
+ * in `autoZoom.ts#passtInsBildZoom`.
+ */
+export const DRIVE_VEHICLE_X = { lhd: 0.25, rhd: 0.75 } as const;
+
+/** Die Raender waehrend der Fahrt. `bottom` gehoert anderen und fehlt hier. */
+export interface DriveRaender {
+  top: number;
+  left: number;
+  right: number;
+}
+
+/**
+ * Alle drei Raender, mit denen MapLibre das Fahrzeug an seinen Platz schiebt.
+ *
+ * Dieselbe Ueberlegung wie oben bei `drivePaddingTop`, nur waagerecht: der
+ * Mittelpunkt liegt in der Mitte des Restbereichs. Soll er bei x = 0,25
+ * liegen, braucht es RECHTS einen Rand von 2·(0,5 − 0,25) = die halbe
+ * Breite; bei 0,75 entsprechend links.
+ *
+ * `null`, wenn eine der beiden Abmessungen unbekannt ist -- aus demselben
+ * Grund wie bei `drivePaddingTop`.
+ */
+export function driveRaender(
+  breitePx: number | null | undefined,
+  hoehePx: number | null | undefined,
+  einbau: 'lhd' | 'rhd',
+): DriveRaender | null {
+  const top = drivePaddingTop(hoehePx);
+  if (top === null) return null;
+  if (typeof breitePx !== 'number' || !Number.isFinite(breitePx) || breitePx <= 0) return null;
+  const x = DRIVE_VEHICLE_X[einbau];
+  const seitlich = Math.round(breitePx * 2 * Math.abs(x - 0.5));
+  return x < 0.5 ? { top, left: 0, right: seitlich } : { top, left: seitlich, right: 0 };
+}
+
+/**
  * Der Randabstand, mit dem MapLibre den Kartenmittelpunkt nach unten schiebt.
  *
  * MapLibre setzt den Mittelpunkt in die Mitte des Bereichs, der nach Abzug

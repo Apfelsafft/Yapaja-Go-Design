@@ -199,6 +199,18 @@ export const maneuverSchema = {
       minimum: 0,
       description: 'Planned duration of this maneuver segment in seconds (Valhalla time), optional (E04-T2)',
     },
+    roundabout_exit_count: {
+      type: 'integer',
+      minimum: 1,
+      description: 'Roundabouts only: which exit to take, counted from the entry (1 = first), optional (0.18.0)',
+    },
+    roundabout_turn_deg: {
+      type: 'integer',
+      minimum: -180,
+      maximum: 180,
+      description:
+        'Roundabouts only: change of heading from entering to leaving, clockwise positive (90 = leaves to the right, 0 = straight on, -90 = to the left), optional (0.18.0)',
+    },
   },
   // `sign` und `lanes` sind NICHT required: eine vor 0.17.3 berechnete und
   // gespeicherte Route hat sie nicht, und sie muss weiterhin gueltig sein --

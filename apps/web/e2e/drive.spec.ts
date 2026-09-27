@@ -31,6 +31,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { DRIVE_CORE_BASE_URL } from './support/constants.js';
+import { oeffneFahrtMenue } from './support/fahrtMenue.js';
 import { collectPageErrors, trackRequests } from './support/network.js';
 
 const BASE_LAT = 47.2;
@@ -277,8 +278,11 @@ test.describe('Drive basics (E04-T3, Flow 2)', () => {
     expect(startResponse.ok()).toBe(true);
     await driveTo(page, 50);
 
+    // Die Ansagen-Taste liegt seit 0.18.0 im Fahrtmenue.
+    await expect(page.getByTestId('trip-info-panel')).toBeVisible({ timeout: 5_000 });
+    await oeffneFahrtMenue(page);
     const toggle = page.getByTestId('tts-toggle');
-    await expect(toggle).toBeVisible({ timeout: 5_000 });
+    await expect(toggle).toBeVisible();
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');

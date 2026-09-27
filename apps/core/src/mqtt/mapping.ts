@@ -8,7 +8,7 @@ import {
   faehrtZuSchnell,
   type Tempoquelle,
 } from '../routing/fahrzeugTempo.js';
-import type { ManeuverType, NavInstructionPayload, NavState, Route } from '@yapaia/shared';
+import type { Maneuver, ManeuverType, NavInstructionPayload, NavState, Route } from '@yapaia/shared';
 
 /**
  * `ManeuverType` -> mdi icon name for `yapaja/nav/instruction`'s `icon`
@@ -40,6 +40,29 @@ export interface MqttInstructionPayload {
   street_names: string[];
   distance_m: number;
   icon: string;
+  /** Siehe {@link kreiselAttribut}. */
+  roundabout: string;
+}
+
+/**
+ * Der Kreisel als EIN Text: `"<Ausfahrt>|<Drehung>"`, z. B. `"2|90"`.
+ *
+ * ─── WARUM EIN TEXT UND NICHT ZWEI ZAHLEN ───────────────────────────────────
+ * Wegen des Displays. ESPHome liest Attribute ueber Home Assistant, und HA
+ * schickt ein Attribut, das es nicht (mehr) gibt, gar nicht erst -- der Wert
+ * auf dem Geraet bliebe dann auf dem des LETZTEN Kreisels stehen. Beim
+ * naechsten Kreisel stuende dort womoeglich eine Nummer, die nicht zu ihm
+ * gehoert.
+ *
+ * Ein leerer Text dagegen WIRD geschickt. Deshalb ist das Attribut an jedem
+ * Manoever da, und „kein Kreisel" ist `""` statt „fehlt". Fehlt nur eine der
+ * beiden Angaben, bleibt ihre Stelle leer: `"2|"`, `"|90"`.
+ */
+export function kreiselAttribut(m: Maneuver): string {
+  const nummer = m.roundabout_exit_count;
+  const drehung = m.roundabout_turn_deg;
+  if (nummer === undefined && drehung === undefined) return '';
+  return `${nummer ?? ''}|${drehung ?? ''}`;
 }
 
 /**
@@ -57,6 +80,7 @@ export function buildInstructionPayload(payload: NavInstructionPayload): MqttIns
     street_names: payload.maneuver.street_names,
     distance_m: payload.distance_m,
     icon: maneuverIcon(payload.maneuver.type),
+    roundabout: kreiselAttribut(payload.maneuver),
   };
 }
 
@@ -92,6 +116,7 @@ export function buildManeuverPayload(state: NavState): MqttInstructionPayload | 
     // dann steht hier 0 statt einer erfundenen Entfernung.
     distance_m: state.distance_to_maneuver_m ?? 0,
     icon: maneuverIcon(state.next_maneuver.type),
+    roundabout: kreiselAttribut(state.next_maneuver),
   };
 }
 

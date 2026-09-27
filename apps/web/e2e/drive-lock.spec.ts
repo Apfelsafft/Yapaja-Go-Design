@@ -16,6 +16,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { DRIVE_LOCK_CORE_BASE_URL, FIXTURE_REGION } from './support/constants.js';
+import { oeffneFahrtMenue } from './support/fahrtMenue.js';
 import { collectPageErrors } from './support/network.js';
 
 const BASE_LAT = 47.05;
@@ -228,14 +229,15 @@ test.describe('Speed-Lock (E07-T4)', () => {
     await postSpeed(page, 30, 100); // 108 km/h -- well above the 10 km/h threshold
     await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('navigating');
 
-    // Prove the lock is genuinely active elsewhere at this same speed.
-    await page.getByTestId('style-panel-toggle').click();
-    await expect(page.getByTestId('drive-lock-overlay')).toBeVisible();
+    // Die Einstellungen sind waehrend der Fahrt seit 0.18.0 gar nicht mehr
+    // im Bild (`map/MapView.tsx`) -- gesperrt UND ausgeblendet.
+    await expect(page.getByTestId('style-panel-toggle')).toHaveCount(0);
 
-    // The Stop button is STILL visible, enabled, and NOT covered by any
-    // overlay -- `DriveControls.tsx` never even consults the Speed-Lock
-    // (see `drive/driveLock.ts#isControlLocked`'s unconditional
-    // `'drive-stop'` early return).
+    // Stopp liegt im Fahrtmenue, zwei Tipps entfernt -- und ist dort weder
+    // gesperrt noch verdeckt: `FahrtMenue.tsx` fragt die Sperre gar nicht
+    // erst (siehe `drive/driveLock.ts#isControlLocked`, `'drive-stop'`).
+    await oeffneFahrtMenue(page);
+    await expect(page.getByTestId('drive-lock-overlay')).toHaveCount(0);
     const stopButton = page.getByTestId('drive-stop-button');
     await expect(stopButton).toBeVisible();
     await expect(stopButton).toBeEnabled();
@@ -243,7 +245,7 @@ test.describe('Speed-Lock (E07-T4)', () => {
 
     await stopButton.click();
     await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('idle');
-    await expect(page.getByTestId('drive-controls')).toHaveCount(0);
+    await expect(page.getByTestId('trip-info-panel')).toHaveCount(0);
 
     expect(pageErrors).toEqual([]);
   });

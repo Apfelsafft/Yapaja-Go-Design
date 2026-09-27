@@ -108,14 +108,14 @@ const CONTROLS = [
   'speed-display',
   // Die Favoriten-Schublade, und zwar ihre KOPFZEILE: die ist immer da, das
   // aufgeklappte Innere nicht. Sie fehlte hier -- und genau sie lag auf dem
-  // Telefon-Bildschirmfoto unter „Pause". Waehrend der Fahrt ist sie der
-  // einzige Weg zu einem Ziel (die Suche ist gesperrt), sie darf also nicht
-  // verdeckt sein.
+  // Telefon-Bildschirmfoto unter „Pause". Seit 0.18.0 gibt es sie waehrend
+  // der Fahrt nicht mehr (die Favoriten liegen im Fahrtmenue).
   'favorites-drawer-toggle',
-  // Nur waehrend der Fahrt vorhanden:
+  // Nur waehrend der Fahrt vorhanden. Pause, Stopp und die Ansagen-Taste
+  // liegen seit 0.18.0 im Fahrtmenue und stehen nicht mehr auf der Karte;
+  // „Fortsetzen" steht dort nur bei einer pausierten Fahrt.
   'maneuver-panel',
-  'tts-toggle',
-  'drive-controls',
+  'drive-resume-button',
   'speed-limit-sign',
   'trip-info-panel',
 ] as const;
@@ -347,8 +347,23 @@ test.describe('Bedienelemente ueberlappen einander nicht', () => {
 
     // Die Fahrt-Bedienelemente muessen wirklich da sein.
     expect(rects.map((r) => r.name)).toEqual(
-      expect.arrayContaining(['maneuver-panel', 'drive-controls']),
+      expect.arrayContaining(['maneuver-panel', 'trip-info-panel']),
     );
+    // ─── UND WAS WAEHREND DER FAHRT NICHT MEHR DA IST ───────────────────────
+    // „wir haben so viele tolle Informationen dass man während der Fahrt zu
+    // viele Dinge sieht." Suche, Fahrzeugwahl, Favoriten-Schublade und die
+    // Panel-Knoepfe gehoeren zum Suchen und Planen.
+    for (const weg of [
+      'search-input',
+      'profile-chip',
+      'favorites-drawer-toggle',
+      'style-panel-toggle',
+      'regions-panel-toggle',
+      'store-panel-toggle',
+      'preflight-panel-toggle',
+    ]) {
+      expect(rects.map((r) => r.name), `${weg} waehrend der Fahrt`).not.toContain(weg);
+    }
 
     expect(findOverlaps(rects), findOverlaps(rects).join('\n')).toEqual([]);
   });

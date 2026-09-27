@@ -456,6 +456,7 @@ describe('MqttBridge (aedes in-process broker)', () => {
       street_names: ['B27'],
       distance_m: 150,
       icon: 'mdi:arrow-left-top',
+      roundabout: '',
     });
 
     // Die ANZEIGE des Manoevers -- aus dem Zustand, nicht aus der Ansage.
@@ -468,6 +469,7 @@ describe('MqttBridge (aedes in-process broker)', () => {
       street_names: ['Bergstrasse'],
       distance_m: 275,
       icon: expect.stringContaining('mdi:'),
+      roundabout: '',
     });
 
     for (const eventTopic of ['yapaja/event/deviation', 'yapaja/event/arrived', 'yapaja/event/gps_lost']) {

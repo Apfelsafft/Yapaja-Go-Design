@@ -26,6 +26,7 @@ import * as client from './client.js';
 import { RoutingApiError } from './client.js';
 import {
   addWaypoint as addWaypointToList,
+  addWaypointVorn,
   canAddWaypoint,
   moveWaypoint as moveWaypointInList,
   removeWaypoint as removeWaypointFromList,
@@ -151,6 +152,8 @@ export interface RoutingState {
   zeigeLangerDruckHinweis: () => void;
   /** Haengt ein Zwischenziel ans Ende an und berechnet neu, wenn schon eine Route steht. */
   addWaypoint: (latlng: LatLng, name: string | null, params: RequestRouteParams | null) => void;
+  /** Ein Zwischenziel als NAECHSTEN Halt einschieben -- siehe `waypoints.ts#addWaypointVorn`. */
+  zwischenstoppVorn: (latlng: LatLng, name: string | null, params: RequestRouteParams | null) => void;
   /** Entfernt ein Zwischenziel und berechnet neu, wenn schon eine Route steht. */
   removeWaypoint: (id: string, params: RequestRouteParams | null) => void;
   /** Verschiebt ein Zwischenziel um eine Position und berechnet neu. */
@@ -297,6 +300,14 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
     const { waypoints } = get();
     if (!canAddWaypoint(waypoints)) return;
     const next = addWaypointToList(waypoints, latlng, name);
+    set({ waypoints: next });
+    applyWaypointChange(next, params, get);
+  },
+
+  zwischenstoppVorn: (latlng, name, params) => {
+    const { waypoints } = get();
+    if (!canAddWaypoint(waypoints)) return;
+    const next = addWaypointVorn(waypoints, latlng, name);
     set({ waypoints: next });
     applyWaypointChange(next, params, get);
   },

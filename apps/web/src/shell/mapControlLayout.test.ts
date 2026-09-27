@@ -70,66 +70,57 @@ describe('die rechte Spalte stapelt ohne Ueberschneidung', () => {
     //
     // `>=` statt `>`: buendig darueber ist erlaubt, die Namensnennung wird
     // nicht angetippt -- sie muss nur lesbar bleiben.
-    for (const slot of ['viewmode', 'drive-controls'] as const) {
-      const driveActive = slot === 'drive-controls';
-      expect(rightStackBottomPx(slot, driveActive)).toBeGreaterThanOrEqual(ATTRIBUTION_RESERVE_PX);
-      expect(rightStackBottomPx(slot, driveActive, true)).toBeGreaterThanOrEqual(
+    for (const driveActive of [false, true]) {
+      expect(rightStackBottomPx('viewmode', driveActive)).toBeGreaterThanOrEqual(ATTRIBUTION_RESERVE_PX);
+      expect(rightStackBottomPx('viewmode', driveActive, true)).toBeGreaterThanOrEqual(
         ATTRIBUTION_RESERVE_PX,
       );
     }
   });
 
-  it('auf schmalen Schirmen beginnt die Spalte ueber der Fahrtdaten-Leiste', () => {
+  it('auf schmalen Schirmen beginnt die Spalte waehrend der Fahrt ueber der Fahrtdaten-Leiste', () => {
     // Dort liegt die Leiste waehrend der Fahrt ganz unten ueber die volle
-    // Breite -- die Spalte muss um deren Hoehe hoeher ansetzen als sonst.
-    expect(rightStackBottomPx('drive-controls', true, true)).toBeGreaterThanOrEqual(
-      rightStackBottomPx('drive-controls', true, false) + TRIP_BAR_HEIGHT_PX,
-    );
-  });
-
-  it('waehrend der Fahrt liegen die Karten-Knoepfe UEBER der Fahrt-Bedienung', () => {
-    // Der gemeldete Fehler: „wenn die Navigation aktiv ist, liegen die neuen
-    // Buttons über der Zentrierung." Die Ansagen-Taste stand auf `bottom-24`
-    // und schnitt damit Zentrierung und Ansichtsmodus.
-    const tts = rightStackBottomPx('tts', true);
-    expect(rightStackBottomPx('viewmode', true)).toBeGreaterThan(tts);
-    expect(rightStackBottomPx('compass', true)).toBeGreaterThan(
-      rightStackBottomPx('viewmode', true),
-    );
-    expect(rightStackBottomPx('recenter', true)).toBeGreaterThan(
-      rightStackBottomPx('compass', true),
-    );
-  });
-
-  it('ohne Fahrt ruecken die Knoepfe nach unten', () => {
-    // Sonst klaffte dort eine Luecke, wo waehrend der Fahrt die Bedienung ist.
-    expect(rightStackBottomPx('viewmode', false)).toBeLessThan(
-      rightStackBottomPx('viewmode', true),
-    );
-  });
-});
-
-describe('die Mitte unten stapelt sich', () => {
-  it('die Fahrtdaten liegen ueber der Namensnennung', () => {
-    expect(tripInfoBottomPx()).toBeGreaterThanOrEqual(ATTRIBUTION_RESERVE_PX);
-  });
-
-  it('die Favoriten-Schublade liegt waehrend der Fahrt UEBER den Fahrtdaten', () => {
-    // Der gefundene Fehler: beide standen auf `EDGE_INSET_PX` und lagen damit
-    // aufeinander -- auf jeder Breite, gemessen 13925 qpx bei 1280.
-    expect(favoritesDrawerBottomPx(true)).toBeGreaterThanOrEqual(
+    // Breite -- die Spalte muss ueber ihr ansetzen.
+    expect(rightStackBottomPx('viewmode', true, true)).toBeGreaterThanOrEqual(
       tripInfoBottomPx() + TRIP_BAR_HEIGHT_PX,
     );
   });
 
-  it('ohne Fahrt ruecken die Fahrtdaten weg und die Schublade nach unten', () => {
-    expect(favoritesDrawerBottomPx(false)).toBeLessThan(favoritesDrawerBottomPx(true));
+  it('die Karten-Knoepfe stapeln sich in fester Reihenfolge', () => {
+    for (const driveActive of [false, true]) {
+      expect(rightStackBottomPx('compass', driveActive)).toBeGreaterThan(
+        rightStackBottomPx('viewmode', driveActive),
+      );
+      expect(rightStackBottomPx('recenter', driveActive)).toBeGreaterThan(
+        rightStackBottomPx('compass', driveActive),
+      );
+    }
   });
 
-  it('auf schmalen Schirmen beginnen die Seiten ueber der Schublade', () => {
-    // Dort ist die Schublade 92 % der Breite -- sie reicht in beide Spalten.
-    expect(bottomInsetPx(true, true)).toBeGreaterThanOrEqual(
-      favoritesDrawerBottomPx(true) + FAVORITES_BAR_HEIGHT_PX,
+  it('auf breiten Schirmen verschiebt die Fahrt die Spalte nicht mehr', () => {
+    // Pause, Stopp und die Ansagen-Taste lagen bis 0.17.3 darunter und
+    // hoben die Knoepfe waehrend der Fahrt an. Seit sie im Fahrtmenue
+    // liegen, gibt es dafuer keinen Grund mehr -- ein Knopf, der beim
+    // Losfahren den Platz wechselt, ist einer, den man sucht.
+    expect(rightStackBottomPx('viewmode', true)).toBe(rightStackBottomPx('viewmode', false));
+  });
+});
+
+describe('die Mitte unten', () => {
+  it('die Fahrtdaten liegen ueber der Namensnennung', () => {
+    expect(tripInfoBottomPx()).toBeGreaterThanOrEqual(ATTRIBUTION_RESERVE_PX);
+  });
+
+  it('die Schublade steht auf derselben Hoehe -- beide gibt es nie gleichzeitig', () => {
+    // Waehrend der Fahrt ist die Schublade weg (Favoriten im Fahrtmenue),
+    // ohne Fahrt gibt es keine Fahrtdaten.
+    expect(favoritesDrawerBottomPx()).toBe(tripInfoBottomPx());
+  });
+
+  it('auf schmalen Schirmen beginnen die Seiten ueber dem, was unten in der Mitte liegt', () => {
+    expect(bottomInsetPx(true, true)).toBeGreaterThanOrEqual(tripInfoBottomPx() + TRIP_BAR_HEIGHT_PX);
+    expect(bottomInsetPx(true, false)).toBeGreaterThanOrEqual(
+      favoritesDrawerBottomPx() + FAVORITES_BAR_HEIGHT_PX,
     );
   });
 });

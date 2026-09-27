@@ -36,6 +36,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { PROFILE_REROUTE_CORE_BASE_URL, PROFILE_REROUTE_VALHALLA_PORT } from './support/constants.js';
+import { oeffneFahrtMenue } from './support/fahrtMenue.js';
 import { collectPageErrors, trackRequests } from './support/network.js';
 import { startValhallaStub, type ValhallaStub } from './support/valhallaStub.js';
 
@@ -200,11 +201,12 @@ test.describe('E06-T3 Flow 5: profile change during navigation -> reroute coupli
       timeS: INITIAL_DURATION_S * 1.25,
     });
 
-    // Switch the active profile through the REAL UI (profile chip -> panel -> item).
-    await page.getByTestId('profile-chip').click();
-    await expect(page.getByTestId('profiles-panel')).toBeVisible();
-    await expect(page.getByTestId(`profile-item-${profileB.id}`)).toBeVisible({ timeout: 5_000 });
-    await page.getByTestId(`profile-item-${profileB.id}`).click();
+    // Switch the active profile through the REAL UI. Waehrend der Fahrt ist die
+    // Kopfzeile seit 0.18.0 ausgeblendet; die Fahrzeugwahl liegt im
+    // Fahrtmenue hinter den Fahrtdaten.
+    await oeffneFahrtMenue(page);
+    await expect(page.getByTestId(`fahrt-menue-profil-${profileB.id}`)).toBeVisible({ timeout: 5_000 });
+    await page.getByTestId(`fahrt-menue-profil-${profileB.id}`).click();
 
     // Confirmation banner appears with the exact spec text.
     await expect(page.getByTestId('profile-change-confirm-banner')).toBeVisible({ timeout: 5_000 });
@@ -277,9 +279,8 @@ test.describe('E06-T3 Flow 5: profile change during navigation -> reroute coupli
     const callsBefore = valhallaStub.callCount();
     // No trip configured for this test -- if a reroute were (wrongly) attempted, it would 400.
 
-    await page.getByTestId('profile-chip').click();
-    await expect(page.getByTestId('profiles-panel')).toBeVisible();
-    await page.getByTestId(`profile-item-${profileB.id}`).click();
+    await oeffneFahrtMenue(page);
+    await page.getByTestId(`fahrt-menue-profil-${profileB.id}`).click();
 
     await expect(page.getByTestId('profile-change-confirm-banner')).toBeVisible({ timeout: 5_000 });
     expect(await activeProfileId(page)).toBe(profileB.id); // the activation itself DID happen

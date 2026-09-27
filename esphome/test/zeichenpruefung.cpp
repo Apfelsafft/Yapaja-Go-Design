@@ -172,7 +172,7 @@ static sensor::Sensor s_tempo, s_limit, s_limit_fz, s_mdist, s_rest;
 // Die digitale Wasserwaage: Neigung links/rechts und vorne/hinten.
 static sensor::Sensor s_lr, s_vh;
 static binary_sensor::BinarySensor s_schnell;
-static text_sensor::TextSensor s_anweisung, s_art, s_zustand, s_ankunft;
+static text_sensor::TextSensor s_anweisung, s_art, s_zustand, s_ankunft, s_kreisel;
 // Die beiden Schalter: Waage erzwingen, und Fahrzeug statt Libelle.
 static switch_::Switch s_erzwingen, s_fahrzeug;
 // Und der dritte: Restzeit statt Ankunftszeit.
@@ -208,7 +208,8 @@ static binary_sensor::BinarySensor *yapaja_zu_schnell = &s_schnell;
 static text_sensor::TextSensor *yapaja_anweisung = &s_anweisung,
                                *yapaja_manoever_art = &s_art,
                                *yapaja_fahrzustand = &s_zustand,
-                               *yapaja_ankunft = &s_ankunft;
+                               *yapaja_ankunft = &s_ankunft,
+                               *yapaja_kreisel = &s_kreisel;
 
 static void zeichne(Display &it) {
 #include "lambda_body.inc"  // wird von run.mjs erzeugt
@@ -237,6 +238,8 @@ struct Fall {
   // das „jetzt" daneben ist ein erwartetes Ergebnis nicht aufzuschreiben.
   bool restzeit;
   const char *jetzt;  // "YYYY-MM-DDThh:mm:ss" in UTC, oder nullptr
+  // Der Kreisel, wie der Kern ihn schickt: "2|90". nullptr = leer.
+  const char *kreisel;
 };
 
 static int fehler = 0;
@@ -266,6 +269,7 @@ static int fehler = 0;
 static void aufbauen(const Fall &f) {
   s_zustand.state = f.zustand; s_art.state = f.art;
   s_anweisung.state = f.anweisung; s_ankunft.state = f.ankunft;
+  s_kreisel.state = f.kreisel ? f.kreisel : "";
   auto setze = [](sensor::Sensor &s, float wert, bool da) {
     s.has = da; s.state = da ? wert : NAN;
   };
@@ -1115,7 +1119,7 @@ int main() {
   // auch slight_/sharp_/ramp_. Wer auf genaue Gleichheit prueft, zeigt bei
   // all diesen einen Geradeaus-Pfeil -- also genau die falsche Richtung.
   auto pfeil = [&](const char *art, const char *soll_formen,
-                   const char *soll_richtung) {
+                   const char *soll_richtung, const char *kreisel = nullptr) {
     // ─── DIE FUENFTE AUFBAU-STELLE, UND DIE GEFAEHRLICHSTE ──────────────
     // Sie setzte die Bauteile selbst und liess dabei alles ungenannte
     // stehen -- also den Zustand des VORIGEN Falls. Solange es nur Sensoren
@@ -1130,7 +1134,7 @@ int main() {
     // nicht nennt, ist danach aus und nicht „was zuletzt galt".
     Fall f{};
     f.name = "x";
-    f.zustand = "navigating"; f.art = art;
+    f.zustand = "navigating"; f.art = art; f.kreisel = kreisel;
     f.anweisung = "x"; f.ankunft = "2026-09-15T14:32:00.000Z";
     f.tempo = 87;    f.tempo_da = true;
     f.limit = 80;    f.limit_da = true;
@@ -1148,20 +1152,66 @@ int main() {
     if (nach_links > nach_rechts * 3 / 2) richtung = "links";
     else if (nach_rechts > nach_links * 3 / 2) richtung = "rechts";
     bool gut = vorne == soll_formen && std::string(richtung) == soll_richtung;
-    printf("  %s %-22s -> %-5s %-7s (soll %s %s)\n", gut?"OK  ":"FEHL", art,
-           vorne.c_str(), richtung, soll_formen, soll_richtung);
+    printf("  %s %-22s %-6s -> %-5.5s %-7s (soll %.5s %s)\n", gut?"OK  ":"FEHL", art,
+           kreisel ? kreisel : "", vorne.c_str(), richtung, soll_formen, soll_richtung);
     if (!gut) fehler++;
   };
-  const char *GERADE="RT", *ABBIEGEN="RRT", *WENDEN="RRRT", *KREISEL="ORRT";
+  // Der Kreisel ohne Angaben: nur Ring und Stiel, keine Richtung. Mit
+  // Angaben kommen Bogen und Arm als Punktfolge dazu -- deren Laenge haengt
+  // am Winkel, deshalb wird dort unten nicht die Formenfolge verglichen,
+  // sondern Richtung und Nummer.
+  const char *GERADE="RT", *ABBIEGEN="RRT", *WENDEN="RRRT", *KREISEL="OR";
   pfeil("turn_left", ABBIEGEN, "links");    pfeil("turn_right", ABBIEGEN, "rechts");
   pfeil("slight_left", ABBIEGEN, "links");  pfeil("sharp_right", ABBIEGEN, "rechts");
   pfeil("ramp_left", ABBIEGEN, "links");    pfeil("exit_right", ABBIEGEN, "rechts");
   pfeil("uturn_left", WENDEN, "links");     pfeil("uturn_right", WENDEN, "rechts");
-  pfeil("roundabout_enter", KREISEL, "rechts"); pfeil("roundabout_exit", KREISEL, "rechts");
+  pfeil("roundabout_enter", KREISEL, "gerade"); pfeil("roundabout_exit", KREISEL, "gerade");
   pfeil("straight", GERADE, "gerade");      pfeil("continue", GERADE, "gerade");
   pfeil("merge", GERADE, "gerade");         pfeil("destination", GERADE, "gerade");
   pfeil("", GERADE, "gerade");              pfeil("voellig_unbekannt", GERADE, "gerade");
-  pfeil("exit_roundabout_left", KREISEL, "links");
+
+  // ─── DER KREISEL MIT AUSFAHRT UND WINKEL ─────────────────────────────────
+  // Gemeldet: „wenn ich auf einen Kreisel zu fahre zeigt der ESP komische
+  // Symbole an." Bis 0.17.3 zeigte JEDER Kreisel nach rechts oben -- auch
+  // der, den man nach links verlaesst. Jetzt zeigt der Arm dorthin, wohin
+  // die Ausfahrt fuehrt, und die Nummer steht in der Mitte.
+  printf("\n── Kreisel: Richtung der Ausfahrt und ihre Nummer ──\n");
+  auto kreisel = [&](const char *attr, const char *soll_richtung, const char *soll_nummer) {
+    Fall f{};
+    f.name = "x"; f.zustand = "navigating"; f.art = "roundabout_enter";
+    f.kreisel = attr; f.anweisung = "x"; f.ankunft = "2026-09-15T14:32:00.000Z";
+    f.mdist = 240; f.mdist_da = true;
+    aufbauen(f);
+    Display it(240,240); zeichne(it);
+    const int px = 240 / 2;
+    const int nach_links = px - it.pminx, nach_rechts = it.pmaxx - px;
+    const char *richtung = "gerade";
+    if (nach_links > nach_rechts * 11 / 10) richtung = "links";
+    else if (nach_rechts > nach_links * 11 / 10) richtung = "rechts";
+    bool nummer_da = false;
+    for (auto &t : it.texte) if (soll_nummer && t == soll_nummer) nummer_da = true;
+    // Ohne Nummer darf auch keine erscheinen -- geprueft ueber die Texte,
+    // die AUSSCHLIESSLICH aus Ziffern bestehen.
+    bool fremde_nummer = false;
+    if (!soll_nummer) {
+      for (auto &t : it.texte)
+        if (!t.empty() && t.find_first_not_of("0123456789") == std::string::npos) fremde_nummer = true;
+    }
+    const bool gut = std::string(richtung) == soll_richtung &&
+                     (soll_nummer ? nummer_da : !fremde_nummer);
+    printf("  %s %-7s -> %-7s Nummer %s (soll %s %s)\n", gut ? "OK  " : "FEHL", attr,
+           richtung, soll_nummer ? (nummer_da ? "da" : "FEHLT") : (fremde_nummer ? "UNERWARTET" : "keine"),
+           soll_richtung, soll_nummer ? soll_nummer : "-");
+    if (!gut) fehler++;
+  };
+  kreisel("1|90",  "rechts", "1");
+  kreisel("2|0",   "gerade", "2");
+  kreisel("3|-90", "links",  "3");
+  kreisel("2|45",  "rechts", "2");
+  kreisel("3|-45", "links",  "3");
+  kreisel("2|",    "gerade", "2");   // Nummer ohne Winkel: nur die Nummer
+  kreisel("|90",   "rechts", nullptr);
+  kreisel("",      "gerade", nullptr);
 
   // ─── LINKS UND RECHTS MUESSEN SPIEGELGLEICH SEIN ─────────────────────────
   // Gemeldet nach einer Probefahrt, mit Foto: „Links und rechts Pfeil auf dem
@@ -1193,9 +1243,9 @@ int main() {
   // Breiten.
   printf("\n── Linker und rechter Pfeil sind spiegelgleich ──\n");
   {
-    auto weite = [&](const char *art) {
+    auto weite = [&](const char *art, const char *kreisel = nullptr) {
       Fall f{};
-      f.name = "x"; f.zustand = "navigating"; f.art = art;
+      f.name = "x"; f.zustand = "navigating"; f.art = art; f.kreisel = kreisel;
       f.anweisung = "x"; f.ankunft = "2026-09-15T14:32:00.000Z";
       f.tempo = 87;   f.tempo_da = true;
       f.limit = 80;   f.limit_da = true;
@@ -1223,7 +1273,17 @@ int main() {
     spiegel("slight_left", "slight_right");
     spiegel("ramp_left", "ramp_right");
     spiegel("uturn_left", "uturn_right");
-    spiegel("exit_roundabout_left", "exit_roundabout_right");
+    // Der Kreisel: rechts raus (ein Viertel) gegen links raus (drei
+    // Viertel). Der Bogen ist verschieden lang, der ARM aber muss gleich
+    // weit hinausragen -- er ist, was der Fahrer als Richtung liest.
+    {
+      auto l = weite("roundabout_enter", "3|-90");
+      auto r = weite("roundabout_enter", "1|90");
+      const bool gut = l.first == r.second;
+      printf("  %s %-20s %3d  <->  %-20s %3d\n", gut ? "OK  " : "FEHL",
+             "Kreisel 3|-90", l.first, "Kreisel 1|90", r.second);
+      if (!gut) fehler++;
+    }
   }
 
   printf("\n%d Fehler\n", fehler);

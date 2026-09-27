@@ -79,3 +79,14 @@ export const useVerkehrStore = create<VerkehrState>((set, get) => ({
 
   leeren: () => set({ ...LEER }),
 }));
+
+declare global {
+  interface Window {
+    /** Debug/E2E hook, mirrors `window.__yapaiaNavStore`. */
+    __yapaiaVerkehrStore?: typeof useVerkehrStore;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.__yapaiaVerkehrStore = useVerkehrStore;
+}

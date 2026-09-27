@@ -17,6 +17,7 @@ import type {
 } from '@yapaia/shared';
 import { mapManeuverType } from './maneuverMapping.js';
 import { joinLegShapes } from './polyline.js';
+import { kreiselAngaben } from './kreisel.js';
 import type {
   ValhallaLane,
   ValhallaRouteResponse,
@@ -153,7 +154,8 @@ function mapTrip(trip: ValhallaTrip, origin: LatLng, destination: LatLng): Route
   const maneuvers: Maneuver[] = [];
   trip.legs.forEach((leg, legIndex) => {
     const legOffset = offsets[legIndex] ?? 0;
-    for (const m of leg.maneuvers) {
+    const kreisel = kreiselAngaben(leg.maneuvers);
+    for (const [i, m] of leg.maneuvers.entries()) {
       maneuvers.push({
         index: maneuvers.length,
         type: mapManeuverType(m.type),
@@ -173,6 +175,7 @@ function mapTrip(trip: ValhallaTrip, origin: LatLng, destination: LatLng): Route
         // ausdruecklich `undefined` zu sein.
         ...spreizeSchild(m.sign),
         ...spreizeSpuren(m.lanes),
+        ...kreisel[i],
       });
     }
   });

@@ -13,6 +13,7 @@ import {
   buildManeuverPayload,
   buildRouteSummaryPayload,
   buildSpeedPayload,
+  kreiselAttribut,
   maneuverIcon,
 } from './mapping.js';
 
@@ -174,6 +175,7 @@ describe('buildInstructionPayload', () => {
       street_names: ['B27'],
       distance_m: 250,
       icon: 'mdi:arrow-left-top',
+      roundabout: '',
     });
   });
 
@@ -245,6 +247,7 @@ describe('buildManeuverPayload — die ANZEIGE, nicht die Ansage', () => {
       street_names: ['B27'],
       distance_m: 250,
       icon: 'mdi:arrow-left-top',
+      roundabout: '',
     });
   });
 
@@ -277,5 +280,31 @@ describe('buildRouteSummaryPayload', () => {
   it('via is empty for a route with no named streets', () => {
     const route = buildRoute({ maneuvers: [maneuver({ street_names: [] })] });
     expect(buildRouteSummaryPayload(route).via).toEqual([]);
+  });
+});
+
+describe('kreiselAttribut', () => {
+  const basis = {
+    index: 0,
+    type: 'roundabout_enter',
+    instruction: '',
+    street_names: [],
+    distance_m: 0,
+    begin_shape_index: 0,
+  };
+
+  it('schreibt Ausfahrt und Drehung in einen Text', () => {
+    expect(kreiselAttribut({ ...basis, roundabout_exit_count: 2, roundabout_turn_deg: -90 })).toBe('2|-90');
+  });
+
+  it('laesst die Stelle einer fehlenden Angabe leer', () => {
+    expect(kreiselAttribut({ ...basis, roundabout_exit_count: 3 })).toBe('3|');
+    expect(kreiselAttribut({ ...basis, roundabout_turn_deg: 0 })).toBe('|0');
+  });
+
+  it('ist ohne Kreisel ein LEERER Text und nicht undefined', () => {
+    // Ein fehlendes Attribut schickt HA nicht ans Display -- dort bliebe
+    // der Wert des letzten Kreisels stehen.
+    expect(kreiselAttribut({ ...basis, type: 'turn_left' })).toBe('');
   });
 });

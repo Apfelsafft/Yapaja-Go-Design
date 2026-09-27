@@ -30,6 +30,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { NAV_CONTROL_CORE_BASE_URL } from './support/constants.js';
+import { oeffneFahrtMenue } from './support/fahrtMenue.js';
 import { collectPageErrors, trackRequests } from './support/network.js';
 import { zielAufKartenmitte } from './support/zielGeste.js';
 
@@ -238,22 +239,27 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
       }, { timeout: 5_000 })
       .toBeLessThan(0.01); // follow-me recentered the camera on the fed position
 
-    // 4. Pause -> Resume.
-    await expect(page.getByTestId('drive-pause-button')).toBeVisible();
+    // 4. Pause -> Resume. Pause liegt seit 0.18.0 im Fahrtmenue -- zwei
+    // Tipps: Fahrtdaten, dann Pause. „Fortsetzen" steht bei einer
+    // pausierten Fahrt dagegen DIREKT im Bild (siehe `FahrtMenue.tsx`).
+    await expect(page.getByTestId('drive-pause-button')).toHaveCount(0);
+    await oeffneFahrtMenue(page);
     await page.getByTestId('drive-pause-button').click();
     await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('paused');
     await expect(page.getByTestId('maneuver-panel')).toBeVisible(); // still shown while paused
+    await expect(page.getByTestId('fahrt-menue')).toHaveCount(0); // schliesst nach der Aktion
     await expect(page.getByTestId('drive-resume-button')).toBeVisible();
 
     await page.getByTestId('drive-resume-button').click();
     await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('navigating');
-    await expect(page.getByTestId('drive-pause-button')).toBeVisible();
+    await expect(page.getByTestId('drive-resume-button')).toHaveCount(0);
 
     // 5. Stop -> back to Explore mode; route stays drawn; nav/state idle
     // (destination null, per the E04-T5 plausibility requirement).
+    await oeffneFahrtMenue(page);
     await page.getByTestId('drive-stop-button').click();
     await expect(page.getByTestId('maneuver-panel')).toHaveCount(0, { timeout: 5_000 });
-    await expect(page.getByTestId('drive-controls')).toHaveCount(0);
+    await expect(page.getByTestId('trip-info-panel')).toHaveCount(0);
     await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('idle');
     const destinationAfterStop = await page.evaluate(
       () => window.__yapaiaNavStore?.getState().navState?.destination,
@@ -399,7 +405,7 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
 
     // Und es bleibt eine Anzeige: keine Fahrbedienung, keine Rueckfrage.
     await expect(page.getByTestId('resume-prompt')).toHaveCount(0);
-    await expect(page.getByTestId('drive-controls')).toHaveCount(0);
+    await expect(page.getByTestId('trip-info-panel')).toHaveCount(0);
 
     expect(pageErrors).toEqual([]);
   });
@@ -441,6 +447,58 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
     await expect
       .poll(() => zoomOf(page), { timeout: 10_000 })
       .toBeGreaterThan(WEIT_DRAUSSEN + 2);
+  });
+
+  // ─── ZWISCHENSTOPP AUS DEM FAHRTMENUE ──────────────────────────────────────
+  // „braucht es den Favoriten Block nicht während der Navigation. Außer man
+  // will einen Parkplatz oder Tankstelle als zwischenziel aussuchen. Wenn das
+  // vielleicht hinter den aktuellen fahrtdaten […] verschachtelt."
+  test('Fahrtmenue: ein Favorit wird als NAECHSTER Halt eingeschoben', async ({ page }) => {
+    test.setTimeout(30_000);
+    const pageErrors = collectPageErrors(page);
+
+    const fav = await page.request.post(`${NAV_CONTROL_CORE_BASE_URL}/api/v1/favorites`, {
+      data: {
+        name: 'Tankstelle E2E',
+        latlng: { lat: latForProgressM(600), lon: BASE_LON + 0.002 },
+        icon: '⛽',
+        category: 'poi',
+      },
+    });
+    expect(fav.ok(), await fav.text()).toBe(true);
+    const favId = ((await fav.json()) as { data: { id: string } }).data.id;
+
+    const gesendet: Array<{ waypoints: Array<{ lat: number; lon: number }> }> = [];
+    await page.route('**/api/v1/navigation/waypoints', async (route) => {
+      gesendet.push(route.request().postDataJSON());
+      await route.continue();
+    });
+
+    try {
+      await page.goto(NAV_CONTROL_CORE_BASE_URL + '/');
+      await waitForMapReady(page);
+      const startResponse = await page.request.post(`${NAV_CONTROL_CORE_BASE_URL}/api/v1/navigation/start`, {
+        data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'Menue Ziel' } },
+      });
+      expect(startResponse.ok()).toBe(true);
+      await driveTo(page, 100);
+      await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('navigating');
+
+      // Die Schublade steht waehrend der Fahrt NICHT im Bild ...
+      await expect(page.getByTestId('favorites-drawer')).toHaveCount(0);
+      // ... der Favorit liegt hinter den Fahrtdaten.
+      await oeffneFahrtMenue(page);
+      await page.getByTestId(`fahrt-menue-stopp-fav-${favId}`).click();
+
+      await expect(page.getByTestId('fahrt-menue')).toHaveCount(0);
+      await expect(page.getByTestId('fahrt-menue-eingeschoben')).toContainText('Tankstelle E2E');
+      await expect.poll(() => gesendet.length, { timeout: 5_000 }).toBeGreaterThan(0);
+      expect(gesendet[0]!.waypoints[0]).toEqual({ lat: latForProgressM(600), lon: BASE_LON + 0.002 });
+    } finally {
+      await page.request.delete(`${NAV_CONTROL_CORE_BASE_URL}/api/v1/favorites/${favId}`);
+    }
+
+    expect(pageErrors).toEqual([]);
   });
 
   test('Flow 5 (prepared): changing the active profile mid-navigation does not crash the app or corrupt nav/state', async ({

@@ -26,7 +26,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { LONG_DRIVE_CORE_BASE_URL, LONG_DRIVE_VALHALLA_PORT } from './support/constants.js';
 import { startValhallaStub, type ValhallaStub } from './support/valhallaStub.js';
 import { collectPageErrors } from './support/network.js';
-import { DRIVE_VEHICLE_Y } from '../src/map/drivePadding.js';
+import { DRIVE_VEHICLE_X, DRIVE_VEHICLE_Y } from '../src/map/drivePadding.js';
 import type { LatLon } from '../../core/src/routing/polyline.js';
 
 const BASE_LAT = 47.4;
@@ -265,6 +265,19 @@ test.describe('Eine laengere Testfahrt', () => {
     const waehrend = await fahrzeugImBild(page);
     expect(waehrend, 'waehrend der Fahrt: im unteren Viertel').toBeCloseTo(DRIVE_VEHICLE_Y, 2);
     expect(waehrend, 'und wirklich tiefer als vorher').toBeGreaterThan(0.5);
+    // Und zur Seite: „in die Mitte des linken unteren Quadranten legen - bzw,
+    // je nach LHD oder RHD rechten unteren Quadranten". Vorgabe ist RHD.
+    expect(await fahrzeugImBildX(page), 'RHD: rechtes unteres Viertel').toBeCloseTo(
+      DRIVE_VEHICLE_X.rhd,
+      2,
+    );
+    // Umgestellt waehrend der Fahrt: die Seite wechselt sofort. Direkt im
+    // Store, nicht ueber `setHandedness` -- das schriebe die Einstellung in
+    // den geteilten Core und veraenderte andere Tests.
+    await page.evaluate(() => window.__yapaiaHandednessStore!.setState({ handedness: 'lhd' }));
+    await expect
+      .poll(() => fahrzeugImBildX(page), { timeout: 5_000, intervals: [100] })
+      .toBeCloseTo(DRIVE_VEHICLE_X.lhd, 2);
 
     await page.request
       .post(`${LONG_DRIVE_CORE_BASE_URL}/api/v1/navigation/stop`)
@@ -272,6 +285,7 @@ test.describe('Eine laengere Testfahrt', () => {
     await expect
       .poll(() => fahrzeugImBild(page), { timeout: 15_000, intervals: [250] })
       .toBeCloseTo(0.5, 2);
+    expect(await fahrzeugImBildX(page), 'danach auch waagerecht mittig').toBeCloseTo(0.5, 2);
   });
 
   // ─── „Der blaue Punkt springt immer von Punkt zu Punkt" ───────────────────
@@ -606,6 +620,13 @@ async function fahrzeugImBild(page: Page): Promise<number> {
   return page.evaluate(() => {
     const map = window.__yapaiaMapController!.getMap!()!;
     return map.project(map.getCenter()).y / map.getCanvas().clientHeight;
+  });
+}
+
+async function fahrzeugImBildX(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const map = window.__yapaiaMapController!.getMap!()!;
+    return map.project(map.getCenter()).x / map.getCanvas().clientWidth;
   });
 }
 

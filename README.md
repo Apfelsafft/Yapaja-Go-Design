@@ -135,7 +135,7 @@ Reading the code, running it yourself and reporting problems are welcome.
 | For | Document |
 |---|---|
 | 🧭 **Using the app** | [**User Manual**](docs/manual.md) — every feature, in plain language |
-| 🔧 **Installing it** | [Installation Guide](docs/installation.md) (German) · [First Steps](docs/erste-schritte.md) (German) |
+| 🔧 **Installing it** | [Installation Guide](docs/installation.md) (German) · [First Steps](docs/erste-schritte.md) (German) · [Own maps, routing and search](docs/eigene-karten.md) (German) |
 | ❓ **Something is wrong** | [Troubleshooting](docs/troubleshooting.md) (German) · [FAQ](docs/faq.md) (German) |
 | 💻 **Contributing code** | [**Developer Guide**](docs/developers.md) — architecture, interfaces, CI/CD |
 | 🧩 **Writing an add-on** | [Add-on Development Guide](docs/addon-dev-guide.md) (German) · [`@yapaia/addon-sdk`](packages/addon-sdk) |

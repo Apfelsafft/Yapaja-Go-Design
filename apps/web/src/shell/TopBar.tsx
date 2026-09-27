@@ -41,8 +41,17 @@ import SearchBar from '../search/SearchBar.js';
 
 import { TOP_BAR_RIGHT_RESERVE_PX } from './mapControlLayout.js';
 import { useSchmal } from './useSchmal.js';
-export default function TopBar(): React.ReactElement {
+import { useFahrtAnsicht } from '../drive/useFahrtAnsicht.js';
+
+export default function TopBar(): React.ReactElement | null {
   const schmal = useSchmal();
+  // ─── WAEHREND DER FAHRT: GAR NICHT ────────────────────────────────────────
+  // Marke, Fahrzeugwahl und Suche braucht man beim Suchen und Planen. Waehrend
+  // der Fahrt war die Suche ohnehin gesperrt („nur Favoriten"), und die
+  // Favoriten liegen jetzt im Fahrtmenue (`drive/FahrtMenue.tsx`). Stehen
+  // blieb eine Zeile, die Platz kostet und nichts anbietet.
+  const fahrt = useFahrtAnsicht();
+  if (fahrt) return null;
   return (
     // `<header>` und nicht `<div>`: das ist die Kopfzeile der Anwendung, also
     // ein Landmark. Beim ersten Umbau stand hier ein `div` -- `pwa.spec.ts`

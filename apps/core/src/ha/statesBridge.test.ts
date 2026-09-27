@@ -358,6 +358,28 @@ describe('die Werte selbst', () => {
     expect(findeZustand(danach, 'sensor.yapaja_instruction_distance')?.state).toBe('2900');
   });
 
+  it('traegt den Kreisel fuer das Display -- und an jedem anderen Manoever einen LEEREN Text', () => {
+    // Leer statt fehlend: ein fehlendes Attribut schickt HA nicht an ESPHome,
+    // und auf dem Geraet bliebe die Ausfahrt des letzten Kreisels stehen.
+    const kreisel = buildHaStates({
+      navState: navState({
+        next_maneuver: {
+          type: 'roundabout_enter',
+          instruction: 'In den Kreisverkehr einfahren',
+          street_names: [],
+          roundabout_exit_count: 3,
+          roundabout_turn_deg: -90,
+        } as never,
+        distance_to_maneuver_m: 120,
+      }),
+      position: null,
+    });
+    expect(findeZustand(kreisel, 'sensor.yapaja_instruction')?.attributes?.roundabout).toBe('3|-90');
+
+    const sonst = buildHaStates({ navState: navState(abbiegung(57)), position: null });
+    expect(findeZustand(sonst, 'sensor.yapaja_instruction')?.attributes?.roundabout).toBe('');
+  });
+
   it('ohne anstehendes Manoever steht dort „unknown", keine erfundene Null', () => {
     const leer = buildHaStates({
       navState: navState({ next_maneuver: null, distance_to_maneuver_m: null }),

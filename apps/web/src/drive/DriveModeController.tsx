@@ -18,11 +18,15 @@ import { useNavStore } from './navStore.js';
 import { useViewModeStore, type ViewMode } from '../map/viewMode.js';
 import { useFollowMeStore } from '../map/followMe.js';
 import { mapController } from '../state/mapStore.js';
-import { drivePaddingTop } from '../map/drivePadding.js';
+import { driveRaender } from '../map/drivePadding.js';
+import { useHandednessStore } from '../shell/handednessStore.js';
 
 export default function DriveModeController(): null {
   const status = useNavStore((state) => state.navState?.status ?? null);
   const driveGateOpen = useNavStore((state) => state.resumeAcknowledged);
+  // Links- oder Rechtslenker: entscheidet, in welches untere Viertel das
+  // Fahrzeug kommt (`map/drivePadding.ts#DRIVE_VEHICLE_X`).
+  const einbau = useHandednessStore((state) => state.handedness);
   const inDriveMode = useRef(false);
   const priorViewMode = useRef<ViewMode | null>(null);
 
@@ -42,7 +46,9 @@ export default function DriveModeController(): null {
       // Bewegung, mit der `3d-course` die Neigung anlegt -- die Karte blieb
       // flach. Gefunden hat das `nav-control.spec.ts` („pitch > 50", gemessen
       // 0). Wer das hier wieder tauscht, nimmt die 3D-Ansicht mit.
-      mapController.setTopPadding(drivePaddingTop(mapController.getHeightPx()));
+      mapController.setDrivePadding(
+        driveRaender(mapController.getWidthPx(), mapController.getHeightPx(), einbau),
+      );
       useViewModeStore.getState().setMode('3d-course');
       useFollowMeStore.getState().setFollowing(true);
       inDriveMode.current = true;
@@ -51,12 +57,23 @@ export default function DriveModeController(): null {
       // Ausserhalb der Fahrt gehoert die Position wieder in die Mitte: dort
       // geht es ums Umsehen, nicht ums Vorausschauen. Auch hier zuerst, aus
       // demselben Grund wie oben.
-      mapController.setTopPadding(null);
+      mapController.setDrivePadding(null);
       useViewModeStore.getState().setMode(priorViewMode.current ?? '2d-north');
       priorViewMode.current = null;
       inDriveMode.current = false;
     }
+    // `einbau` steht absichtlich NICHT in der Liste: ein Umstellen waehrend
+    // der Fahrt soll nicht den Modus neu betreten, sondern nur die Seite
+    // wechseln -- das macht der Effekt darunter.
   }, [status, driveGateOpen]);
+
+  // Umgestellt waehrend der Fahrt: nur die Raender neu, sonst nichts.
+  useEffect(() => {
+    if (!inDriveMode.current) return;
+    mapController.setDrivePadding(
+      driveRaender(mapController.getWidthPx(), mapController.getHeightPx(), einbau),
+    );
+  }, [einbau]);
 
   return null;
 }
