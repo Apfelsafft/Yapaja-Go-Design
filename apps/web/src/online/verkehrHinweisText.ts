@@ -32,7 +32,26 @@ export interface Hinweis {
   /** `warnung` bedeutet: hier fehlt etwas, das auf der Strecke liegen könnte. */
   stufe: 'warnung' | 'hinweis';
   text: string;
+  /**
+   * Was diesen Hinweis ausmacht — OHNE das Alter.
+   *
+   * Die Anzeige blendet einen Hinweis nach kurzer Zeit aus und zeigt ihn
+   * erst wieder, wenn sich dieser Schlüssel ändert. Stünde das Alter darin,
+   * wäre „17 Minuten" ein anderer Hinweis als „16 Minuten", und er käme
+   * jede Minute zurück — genau das, was gemeldet wurde: „Die war die ganze
+   * Zeit über sichtbar, für längere Zeit."
+   */
+  schluessel: string;
 }
+
+/**
+ * Wie lange ein Hinweis der Stufe `hinweis` stehen bleibt.
+ *
+ * Lang genug, um ihn beim Blick auf die Karte einmal zu lesen; kurz genug,
+ * dass er nicht zur Tapete wird. Eine `warnung` bleibt dagegen stehen, bis
+ * man sie antippt — dort fehlt etwas, das auf der Strecke liegen kann.
+ */
+export const HINWEIS_SICHTBAR_MS = 10_000;
 
 /** Minuten, gerundet, mit passender Einzahl. */
 function alterInWorten(sekunden: number): string {
@@ -60,13 +79,14 @@ export function verkehrHinweis(eingabe: HinweisEingabe): Hinweis | null {
       text:
         `Für ${fehlend.join(', ')} liegen gerade keine Verkehrsdaten vor — ` +
         'dort kann etwas sein, das hier nicht steht.',
+      schluessel: `fehlt:${fehlend.join(',')}`,
     };
   }
 
   // Der Abruf als Ganzes ging schief, aber einzelne Straßen sind nicht
   // benannt (etwa weil die Dienste gar nicht eingeschaltet sind).
   if (eingabe.fehler !== null && eingabe.strassen.length === 0) {
-    return { stufe: 'warnung', text: eingabe.fehler };
+    return { stufe: 'warnung', text: eingabe.fehler, schluessel: `abruf:${eingabe.fehler}` };
   }
 
   if (alt.length > 0) {
@@ -74,6 +94,7 @@ export function verkehrHinweis(eingabe: HinweisEingabe): Hinweis | null {
     return {
       stufe: 'hinweis',
       text: `Verkehrsdaten für ${alt.map((s) => s.strasse).join(', ')} sind ${alterInWorten(aeltest)} alt.`,
+      schluessel: `alt:${alt.map((s) => s.strasse).join(',')}`,
     };
   }
 
@@ -82,6 +103,7 @@ export function verkehrHinweis(eingabe: HinweisEingabe): Hinweis | null {
       stufe: 'hinweis',
       text:
         `${eingabe.ohneOrt} Meldung(en) ohne Ortsangabe — sie stehen nicht auf der Karte.`,
+      schluessel: 'ohne-ort',
     };
   }
 

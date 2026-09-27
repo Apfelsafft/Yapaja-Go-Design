@@ -19,9 +19,9 @@
  * Abwägung steht dort und ist dort geprüft. Diese Datei zeigt nur an.
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useVerkehrStore } from './verkehrStore.js';
-import { verkehrHinweis } from './verkehrHinweisText.js';
+import { HINWEIS_SICHTBAR_MS, verkehrHinweis } from './verkehrHinweisText.js';
 
 export default function VerkehrHinweis(): React.ReactElement | null {
   const strassen = useVerkehrStore((s) => s.strassen);
@@ -29,7 +29,27 @@ export default function VerkehrHinweis(): React.ReactElement | null {
   const fehler = useVerkehrStore((s) => s.fehler);
 
   const hinweis = verkehrHinweis({ strassen, ohneOrt, fehler });
-  if (hinweis === null) return null;
+
+  // ─── NUR KURZ ───────────────────────────────────────────────────────────
+  // Gemeldet: „Verkehrsdaten für A5 sind etwa 17 Minuten alt" — „Die war die
+  // ganze Zeit über sichtbar, für längere Zeit." Ein Hinweis, der die ganze
+  // Fahrt über dasteht, ist Tapete: er verdeckt die Karte und wird nicht
+  // mehr gelesen.
+  //
+  // Deshalb verschwindet ein `hinweis` nach `HINWEIS_SICHTBAR_MS` von selbst,
+  // und jeder Hinweis — auch eine `warnung` — auf Antippen. Er kommt erst
+  // wieder, wenn sich der SCHLÜSSEL ändert, also eine andere Straße betroffen
+  // ist; das weiterlaufende Alter zählt nicht dazu.
+  const [weg, setWeg] = useState<string | null>(null);
+  const schluessel = hinweis?.schluessel ?? null;
+  const vergeht = hinweis?.stufe === 'hinweis';
+  useEffect(() => {
+    if (schluessel === null || !vergeht || weg === schluessel) return;
+    const t = setTimeout(() => setWeg(schluessel), HINWEIS_SICHTBAR_MS);
+    return () => clearTimeout(t);
+  }, [schluessel, vergeht, weg]);
+
+  if (hinweis === null || weg === hinweis.schluessel) return null;
 
   const warnung = hinweis.stufe === 'warnung';
   return (
@@ -41,8 +61,10 @@ export default function VerkehrHinweis(): React.ReactElement | null {
     >
       <div
         role="status"
+        onClick={() => setWeg(hinweis.schluessel)}
+        title="Antippen zum Ausblenden"
         className={
-          'pointer-events-auto rounded-lg px-3 py-2 text-xs shadow-lg ' +
+          'pointer-events-auto cursor-pointer rounded-lg px-3 py-2 text-xs shadow-lg ' +
           (warnung
             ? 'border border-amber-300 bg-amber-50/95 text-amber-900 dark:border-amber-700 dark:bg-amber-950/95 dark:text-amber-100'
             : 'border border-slate-300 bg-white/95 text-slate-700 dark:border-slate-600 dark:bg-slate-900/95 dark:text-slate-200')

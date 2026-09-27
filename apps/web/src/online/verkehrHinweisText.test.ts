@@ -129,3 +129,40 @@ describe('verkehrHinweis — Meldungen ohne Ort', () => {
     expect(h?.text).toContain('Minuten alt');
   });
 });
+
+describe('Schlüssel des Hinweises', () => {
+  // Die Anzeige blendet einen Hinweis aus und zeigt ihn erst wieder, wenn
+  // sich der Schlüssel ändert. Hinge das Alter daran, käme „17 Minuten alt"
+  // jede Minute zurück.
+  const mit = (alter_s: number) =>
+    verkehrHinweis({
+      strassen: [{ strasse: 'A5', quelle: 'zwischenspeicher', alter_s }],
+      ohneOrt: 0,
+      fehler: null,
+    });
+
+  it('bleibt gleich, wenn nur das Alter wächst', () => {
+    expect(mit(16 * 60)?.schluessel).toBe(mit(17 * 60)?.schluessel);
+    expect(mit(16 * 60)?.text).not.toBe(mit(17 * 60)?.text);
+  });
+
+  it('ändert sich, wenn eine andere Straße betroffen ist', () => {
+    const a61 = verkehrHinweis({
+      strassen: [{ strasse: 'A61', quelle: 'zwischenspeicher', alter_s: 600 }],
+      ohneOrt: 0,
+      fehler: null,
+    });
+    expect(a61?.schluessel).not.toBe(mit(600)?.schluessel);
+  });
+
+  it('unterscheidet „alt" von „fehlt" auf derselben Straße', () => {
+    const fehlt = verkehrHinweis({
+      strassen: [{ strasse: 'A5', quelle: 'fehler' }],
+      ohneOrt: 0,
+      fehler: null,
+    });
+    // Aus einem ausgeblendeten Altersvermerk wird eine Warnung — die muss
+    // wieder erscheinen.
+    expect(fehlt?.schluessel).not.toBe(mit(600)?.schluessel);
+  });
+});
