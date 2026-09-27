@@ -3,24 +3,78 @@
  * Synchronized with types.ts Route and Maneuver interfaces
  */
 
+/**
+ * Eine Fahrspur. Drei BITMASKEN, kein Index mit einem Ja/Nein.
+ *
+ * Hier stand bis 0.17.3 ein Platzhalter (`lane_index`, `is_usable`), der nie
+ * befuellt worden war. Er hatte mit Valhallas tatsaechlicher Antwort nichts
+ * gemein -- siehe `types.ts#LaneInfo` und Valhallas API-Referenz.
+ *
+ * Die Obergrenze 2047 ist die Summe aller zwoelf Maskenwerte (0b111_1111_1111).
+ * Ein groesserer Wert traegt Bits, die Valhalla nicht vergibt: dann stimmt die
+ * Zuordnung nicht mehr, und die Anzeige zeigte Spuren, die es nicht gibt.
+ */
 export const laneInfoSchema = {
   type: 'object',
   properties: {
-    lane_index: {
+    directions: {
       type: 'integer',
       minimum: 0,
-      description: 'Lane index from left',
+      maximum: 2047,
+      description: 'Bitmask of every direction this lane allows (see SPUR)',
     },
-    is_usable: {
-      type: 'boolean',
-      description: 'Whether vehicle can use this lane',
+    valid: {
+      type: 'integer',
+      minimum: 0,
+      maximum: 2047,
+      description: 'Directions matching the route — may still need a lane change',
     },
-    direction: {
-      type: ['string', 'null'],
-      description: 'Direction indicator if available',
+    active: {
+      type: 'integer',
+      minimum: 0,
+      maximum: 2047,
+      description: 'Directions for which this is the best lane (highlighted)',
     },
   },
-  required: ['lane_index', 'is_usable'],
+  // Nur `directions` ist Pflicht: `valid` und `active` laesst Valhalla weg,
+  // wo eine Spur fuer dieses Manoever gar nicht in Frage kommt.
+  required: ['directions'],
+  additionalProperties: false,
+} as const;
+
+/** Ein Eintrag auf einem Wegweiser. */
+export const maneuverSignElementSchema = {
+  type: 'object',
+  properties: {
+    text: {
+      type: 'string',
+      description: 'Sign text, e.g. "26", "A 61", "Ludwigshafen"',
+    },
+    consecutive_count: {
+      type: 'integer',
+      minimum: 0,
+      description: 'How often this element appears across consecutive signs',
+    },
+  },
+  required: ['text'],
+  additionalProperties: false,
+} as const;
+
+/**
+ * Was auf den Schildern an dieser Abzweigung steht.
+ *
+ * Alle vier Listen sind optional: Valhalla laesst weg, wofuer es keine Daten
+ * gibt, und das ist ueberall ausser an Kreuzen und Abfahrten der Normalfall.
+ */
+export const maneuverSignSchema = {
+  type: 'object',
+  properties: {
+    exit_number: { type: 'array', items: maneuverSignElementSchema },
+    exit_branch: { type: 'array', items: maneuverSignElementSchema },
+    exit_toward: { type: 'array', items: maneuverSignElementSchema },
+    exit_name: { type: 'array', items: maneuverSignElementSchema },
+  },
+  required: [],
   additionalProperties: false,
 } as const;
 
@@ -136,12 +190,20 @@ export const maneuverSchema = {
       items: laneInfoSchema,
       description: 'Optional lane information',
     },
+    sign: {
+      ...maneuverSignSchema,
+      description: 'What the road signs say at this junction, optional (0.17.3)',
+    },
     duration_s: {
       type: 'number',
       minimum: 0,
       description: 'Planned duration of this maneuver segment in seconds (Valhalla time), optional (E04-T2)',
     },
   },
+  // `sign` und `lanes` sind NICHT required: eine vor 0.17.3 berechnete und
+  // gespeicherte Route hat sie nicht, und sie muss weiterhin gueltig sein --
+  // sonst liesse sich nach einem Update keine laufende Fahrt fortsetzen.
+  // Dieselbe Ueberlegung wie bei `road_class` in `speedSegmentSchema`.
   required: ['index', 'type', 'instruction', 'street_names', 'distance_m', 'begin_shape_index'],
   additionalProperties: false,
 } as const;

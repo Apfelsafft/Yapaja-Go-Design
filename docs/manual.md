@@ -193,6 +193,23 @@ pixels off is a click as far as the browser is concerned, so plain taps used to
 replace the destination while you were simply panning around looking for
 something. If you tap by habit, Yapaia says so rather than sitting silent.
 
+### Road signs and lanes
+
+At motorway exits and interchanges the turn panel shows **what the road signs
+say** — a blue plate with the exit number, the road you are joining and where it
+leads, e.g. `61 · A 65 · Landau`. It is there so you can check the instruction
+against the sign you are actually looking at.
+
+About 500 m before a turn, a **lane strip** appears under it. Every lane is
+shown; the one you should be in is highlighted in white. Lanes you *could* use
+but would have to leave again before the exit are deliberately **not**
+highlighted — with a long vehicle, that last-second merge is exactly what you
+want to avoid.
+
+Both depend on the map data: signs and lane markings (`turn:lanes`) are well
+covered on German motorways but often missing on smaller roads. Where there is
+no data, nothing is shown — rather than a guess.
+
 ### "Not down that road"
 
 Long-press (or right-click) **on the route line itself** and Yapaia will avoid

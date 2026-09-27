@@ -412,15 +412,72 @@ describe('Validators', () => {
     });
 
     it('should accept Maneuver with lanes', () => {
+      // ─── DAS BEISPIEL AUS VALHALLAS EIGENER DOKUMENTATION ───────────────
+      // Woertlich aus `docs/api/route/api-reference.md`: zwei Spuren, die
+      // erste nur links (8) und die bevorzugte, die zweite links oder
+      // geradeaus (8|2 = 10), aber nur fuer links brauchbar.
+      //
+      // Bis 0.17.3 stand hier `{ lane_index, is_usable, direction }` -- eine
+      // Form, die Valhalla nie geliefert hat. Der Test war gruen, weil er
+      // den Platzhalter gegen sich selbst geprueft hat.
       expect(
         validateManeuver({
           ...validManeuver,
           lanes: [
-            { lane_index: 0, is_usable: true, direction: 'left' },
-            { lane_index: 1, is_usable: false, direction: 'straight' },
+            { directions: 8, active: 8 },
+            { directions: 10, valid: 8 },
           ],
         }),
       ).toBe(true);
+    });
+
+    it('should reject the old placeholder lane shape', () => {
+      // Die Gegenprobe. Ohne sie bliebe unbemerkt, wenn das Schema beide
+      // Formen durchliesse -- und dann koennte eine Spur mit `lane_index`
+      // bis in die Anzeige laufen, wo sie als „keine Richtung" erschiene.
+      expect(
+        validateManeuver({
+          ...validManeuver,
+          lanes: [{ lane_index: 0, is_usable: true, direction: 'left' }],
+        }),
+      ).toBe(false);
+    });
+
+    it('should reject a lane direction mask Valhalla never issues', () => {
+      // 2047 ist die Summe aller zwoelf Maskenwerte. Alles darueber traegt
+      // Bits, die es nicht gibt.
+      expect(
+        validateManeuver({ ...validManeuver, lanes: [{ directions: 4096 }] }),
+      ).toBe(false);
+    });
+
+    it('should accept Maneuver with sign', () => {
+      expect(
+        validateManeuver({
+          ...validManeuver,
+          sign: {
+            exit_number: [{ text: '26' }],
+            exit_branch: [{ text: 'A 61', consecutive_count: 2 }],
+            exit_toward: [{ text: 'Ludwigshafen' }],
+          },
+        }),
+      ).toBe(true);
+    });
+
+    it('should accept a Maneuver WITHOUT sign or lanes', () => {
+      // Der eigentliche Alltagsfall -- Schilder gibt es fast nur an Kreuzen
+      // und Abfahrten. Und: eine vor 0.17.3 gespeicherte Route hat weder das
+      // eine noch das andere und muss weiterhin gueltig sein, sonst liesse
+      // sich nach einem Update keine laufende Fahrt fortsetzen.
+      expect(validateManeuver(validManeuver)).toBe(true);
+    });
+
+    it('should reject a sign element without text', () => {
+      // Ein Schild ohne Aufschrift ist kein Schild. Durchgelassen erschiene
+      // es in der Anzeige als leeres Feld -- sichtbar, aber ohne Auskunft.
+      expect(
+        validateManeuver({ ...validManeuver, sign: { exit_toward: [{ consecutive_count: 1 }] } }),
+      ).toBe(false);
     });
 
     it('should reject Maneuver with missing required fields', () => {

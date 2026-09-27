@@ -283,6 +283,10 @@ export function buildValhallaRouteBody(
     costing_options: { truck: buildTruckCostingOptions(profile, excludeOptions?.avoidOverrides, mode) },
     directions_options: { units: 'kilometers', language: valhallaSprache(sprache) },
     alternates: alternatives,
+    // ─── OHNE DIESE ZEILE GIBT ES KEINE SPURFUEHRUNG ──────────────────────
+    // Valhalla liefert `lanes` nur auf Anforderung; Standard ist aus. Die
+    // ganze Spurfuehrung waere sonst gebaut und lautlos leer.
+    turn_lanes: true,
   };
 
   const excludeLocations = excludeOptions?.excludeLocations;
