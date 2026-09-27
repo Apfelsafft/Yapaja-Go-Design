@@ -205,7 +205,7 @@ Alle Payloads JSON. HA-Auto-Discovery unter `homeassistant/...` (siehe docs/04).
 | `yapaja/status` | `online|offline` (LWT!) | ✔ |
 | `yapaja/position` | `Position` (1 Hz während Fahrt, 0,1 Hz im Stand) | ✔ |
 | `yapaja/nav/state` | `NavState.status` | ✔ |
-| `yapaja/nav/instruction` | `{type, instruction, street_names, distance_m, icon, roundabout}` – `icon` = mdi-Name für Richtungspfeil (z. B. `mdi:arrow-left-top`); `roundabout` = `"<Ausfahrt>|<Drehung°>"` (z. B. `"2|90"`), sonst `""` | ✔ |
+| `yapaja/nav/instruction` | `{type, instruction, street_names, distance_m, icon, roundabout}` – `icon` = mdi-Name für Richtungspfeil (z. B. `mdi:arrow-left-top`); `roundabout` = `"<Ausfahrt>\|<Drehung°>"` (z. B. `"2\|90"`), sonst `""` | ✔ |
 | `yapaja/nav/maneuver` | dieselben Felder, aber als **Zustand**: aus `nav/state`, also im Sekundentakt. `null`, wenn kein Manöver ansteht. **Hieran hängen die Anzeige-Sensoren** (`sensor.yapaja_instruction`, `…_instruction_distance`) — an `nav/instruction` stünde die Entfernung zwischen zwei Ansagen still (0.7.2) | ✔ |
 | `yapaja/nav/eta` | `{eta, duration_remaining_s, distance_remaining_m}` | ✔ |
 | `yapaja/nav/speed` | `{speed_kmh, speed_limit_kmh, speed_limit_vehicle_kmh, speed_limit_effective_kmh, speed_limit_source, speeding: bool}` | ✔ |

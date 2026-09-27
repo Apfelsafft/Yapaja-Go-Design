@@ -81,7 +81,7 @@ Im Einzelnen:
 | Was | Woher | Besonderheit |
 |---|---|---|
 | Manöverpfeil | Attribut `type` von `sensor.yapaja_instruction` | gezeichnet, keine Symbolschrift |
-| Kreisel | Attribut `roundabout` von `sensor.yapaja_instruction` (`"2|90"` = 2. Ausfahrt, 90° nach rechts) | der Bogen, den man fährt (Viertel = rechts, Hälfte = geradeaus, drei Viertel = links), der Pfeil in Richtung der Ausfahrt und ihre Nummer in der Mitte |
+| Kreisel | Attribut `roundabout` von `sensor.yapaja_instruction` (`"2\|90"` = 2. Ausfahrt, 90° nach rechts) | der Bogen, den man fährt (Viertel = rechts, Hälfte = geradeaus, drei Viertel = links), der Pfeil in Richtung der Ausfahrt und ihre Nummer in der Mitte |
 | Entfernung zum Manöver | `sensor.yapaja_instruction_distance` | unter 1 km in Metern, auf 10 m gerundet |
 | Anweisungstext | `sensor.yapaja_instruction` | bereits auf Deutsch, bei Überlänge gekürzt |
 | Tempo | `sensor.yapaja_speed` | rot, wenn `binary_sensor.yapaja_speeding` an ist |

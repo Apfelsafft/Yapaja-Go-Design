@@ -10,6 +10,79 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.18.0
+
+**Aufgeräumte Fahransicht, Kreisel auf dem Display, kurze Verkehrshinweise
+und eine Anleitung für eigene Karten.**
+
+### Während der Fahrt nur noch, was man braucht
+
+> „wir haben so viele tolle Informationen dass man während der Fahrt zu viele
+> Dinge sieht."
+
+Während einer Navigation sind **Suchleiste, Fahrzeugwahl, Favoriten-Schublade
+und die Knöpfe für Karteneinstellungen, Karten, Store und Installationsprüfung
+ausgeblendet**. Beim Suchen und Planen ist alles wie bisher da.
+
+**Tipp auf die Fahrtdaten** (Ankunft · Restzeit · Entfernung) öffnet das
+**Fahrtmenü**:
+
+- **⏸ Pause**, **⏹ Stopp** und **🔊 Ansagen an/aus** — zwei Tipps statt
+  dreier großer Knöpfe, die dauernd im Bild standen.
+- **Zwischenstopp einschieben:** eure Favoriten und die letzten Ziele. Ein
+  Tipp, und der Ort wird der **nächste** Halt — der Parkplatz oder die
+  Tankstelle, bevor es weitergeht.
+
+Ist die Fahrt pausiert, steht **▶ Fortsetzen** direkt auf der Karte.
+
+### Der blaue Punkt sitzt auf der Fahrerseite
+
+Während der Fahrt steht die eigene Position jetzt in der **Mitte des unteren
+Viertels**: links bei einem Linkslenker, rechts bei einem Rechtslenker. So
+zeigt der größte Teil des Bildes die Straße voraus.
+
+Die Seite stellt ihr unter **Karteneinstellungen → Lenkrad (LHD/RHD)** ein.
+Vorgabe ist **Rechtslenker** — für ein deutsches Wohnmobil also einmal auf
+**Linkslenker (LHD)** umstellen. Die Einstellung hat bisher die Fahrknöpfe auf
+die andere Seite gelegt; die liegen jetzt im Fahrtmenü.
+
+### Kreisel auf dem ESP-Display
+
+> „wenn ich auf einen Kreisel zu fahre zeigt der ESP komische Symbole an.
+> Besser wären sowas wie ein viertelkreis, Halbkreis etc. oder eine
+> zusätzliche Nummerierung wann man den Kreisel wieder verlassen muss."
+
+Das Display zeigt jetzt **den Bogen, den man im Kreisel fährt** — ein Viertel
+für rechts, die Hälfte für geradeaus, drei Viertel für links —, einen Pfeil in
+die Richtung der Ausfahrt und **die Nummer der Ausfahrt** in der Mitte.
+
+Bisher bekam jeder Kreisel dasselbe Bild mit einem Pfeil nach rechts oben,
+auch der, den man nach links verlässt.
+
+**Dafür die ESP-Konfiguration neu aufspielen:** `yapaja-nav-display.yaml`
+enthält einen neuen Sensor (`yapaja_kreisel`). Mit der alten Konfiguration
+bleibt das bisherige Symbol.
+
+### Der Verkehrshinweis bleibt nicht mehr stehen
+
+> „Zusätzlich sehe ich eine Anzeige dass die verkehrsinformationen 17 Minuten
+> alt sind. Die war die ganze Zeit über sichtbar, für längere Zeit."
+
+Ein Hinweis wie „Verkehrsdaten für A5 sind etwa 17 Minuten alt" steht jetzt
+**zehn Sekunden** und verschwindet dann. Er kommt nur wieder, wenn eine
+**andere** Straße betroffen ist — nicht jede Minute, in der das Alter um eins
+wächst. Die Warnung, dass für eine Autobahn gar **keine** Daten vorliegen,
+bleibt stehen, lässt sich aber antippen und wegwischen.
+
+### Eigene Karten, Routen und Suche
+
+Neue Anleitung: **`docs/eigene-karten.md`**. Sie beantwortet, welche Dateien
+Yapaia für Karte, Routing und Suche braucht, welche Formate von Bekannten
+passen (und welche nicht — OsmAnd, Organic Maps, Garmin), wie man sie baut und
+wo sie auf dem Gerät hingehören.
+
+---
+
 ## 0.17.3
 
 **Schildertexte und Spurführung — wie bei Maps.**
