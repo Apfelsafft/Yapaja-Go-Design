@@ -14,6 +14,7 @@ import type { LatLng } from '@yapaia/shared';
 import {
   MAX_WAYPOINTS,
   addWaypoint,
+  addWaypointVorn,
   canAddWaypoint,
   canMove,
   moveWaypoint,
@@ -59,6 +60,18 @@ describe('anhaengen', () => {
   it('ein Name ist freiwillig', () => {
     const wps = addWaypoint([], ll(1));
     expect(wps[0].name).toBeNull();
+  });
+});
+
+describe('vorn einschieben (Fahrtmenue)', () => {
+  it('wird der NAECHSTE Halt, vor allen anderen', () => {
+    // Die Tankstelle, die man unterwegs einschiebt, will man als Naechstes
+    // anfahren -- nicht nach allen uebrigen Zwischenzielen.
+    expect(namen(addWaypointVorn(liste(2), ll(9), 'T'))).toEqual(['T', 'A', 'B']);
+  });
+
+  it('haelt die Obergrenze ein', () => {
+    expect(addWaypointVorn(liste(MAX_WAYPOINTS), ll(9), 'T')).toHaveLength(MAX_WAYPOINTS);
   });
 });
 
