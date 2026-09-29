@@ -305,6 +305,22 @@ minutes old" shows for ten seconds and then gets out of the way; it comes back
 only if a different road is affected. A warning that data is *missing* for a
 road stays until you tap it away.
 
+### On-board sensors
+
+If your motorhome reports its tanks to Home Assistant, Yapaia can keep an eye on
+them. Set the entities under **Bordsensoren** in the add-on configuration (grey
+water, fresh water and house battery in percent, outside temperature in °C) and
+restart the add-on.
+
+When a threshold is reached, a note appears. **Grey water full** comes with the
+next dump station *ahead on your route*, at most 2 km off it. **Fresh water low**
+comes with the next water tap. Tap **Als nächsten Halt** and it becomes your next
+stop. **Battery low** and **frost** only get a note, with no stop offered.
+
+A new note is spoken once while driving (if announcements are on). **Später**
+hides it until a different station becomes the nearest one. The trip menu keeps
+all current notes.
+
 ### Losing GPS
 
 Tunnels and multi-storey car parks cut the signal. Yapaia keeps estimating your

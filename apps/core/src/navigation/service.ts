@@ -469,6 +469,16 @@ export class NavigationService implements DeadReckoningRouteSource {
     return this.publishState();
   }
 
+  /**
+   * Die laufende Route und wie weit man darauf ist -- fuer Dienste, die
+   * „voraus auf der Strecke" suchen (`bord/entlangRoute.ts`). `null` ohne
+   * aktive Fahrt oder vor dem ersten Positionsabgleich. Nur lesend.
+   */
+  getFortschritt(): { geom: RouteGeometry; progressM: number } | null {
+    if (!this.active || this.lastProgressM === null) return null;
+    return { geom: this.active.geom, progressM: this.lastProgressM };
+  }
+
   /** Current navigation state (does not publish). */
   getState(): NavState {
     return this.buildState();

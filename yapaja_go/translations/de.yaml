@@ -85,6 +85,37 @@ configuration:
     enabled:
       name: Online-Dienste erlauben
       description: 'Aus als Vorgabe. Eingeschaltet darf Yapaia bei bestehender Verbindung Baustellen, Sperrungen und Warnungen der Autobahn GmbH abrufen. Es geht dabei nur die Anfrage hinaus — keine Position, keine Route, keine Gerätekennung. Ohne Netz fällt nur das weg; die Navigation arbeitet unverändert offline.'
+  bord:
+    name: Bordsensoren
+    description: 'Füllstände, Batterie und Außentemperatur aus Home Assistant. Ist eine
+      Schwelle erreicht, meldet Yapaia es — bei Grau- und Frischwasser mit der nächsten
+      Station voraus auf der Route, die man als nächsten Halt übernehmen kann. Leer
+      gelassene Sensoren werden nicht beachtet.'
+    grauwasser:
+      name: Grauwasser (Sensor)
+      description: 'Die Entität mit dem Füllstand des Grauwassertanks in Prozent, zum
+        Beispiel „sensor.grauwasser_fuellstand".'
+    frischwasser:
+      name: Frischwasser (Sensor)
+      description: Die Entität mit dem Füllstand des Frischwassertanks in Prozent.
+    batterie:
+      name: Bordbatterie (Sensor)
+      description: Die Entität mit dem Ladezustand der Aufbaubatterie in Prozent.
+    aussentemperatur:
+      name: Außentemperatur (Sensor)
+      description: Die Entität mit der Außentemperatur in °C.
+    grauwasser_ab:
+      name: Grauwasser melden ab (%)
+      description: Ab diesem Füllstand meldet Yapaia den Grauwassertank.
+    frischwasser_bis:
+      name: Frischwasser melden bis (%)
+      description: Bei diesem Füllstand und darunter meldet Yapaia den Frischwassertank.
+    batterie_bis:
+      name: Batterie melden bis (%)
+      description: Bei diesem Ladezustand und darunter meldet Yapaia die Bordbatterie.
+    frost_bis:
+      name: Frost melden bis (°C)
+      description: Bei dieser Außentemperatur und darunter erinnert Yapaia an den Frostschutz der Wasseranlage.
   home_assistant:
     name: Home Assistant
     description: Auf welchen Wegen Yapaia seine Werte an Home Assistant meldet.

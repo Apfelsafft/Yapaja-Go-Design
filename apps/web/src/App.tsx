@@ -14,6 +14,7 @@ import UpdatePrompt from './pwa/UpdatePrompt.js';
 import OnboardingWizard from './onboarding/OnboardingWizard.js';
 import UnconfirmedDimensionsBanner from './profiles/UnconfirmedDimensionsBanner.js';
 import AddonHost from './addons/AddonHost.js';
+import BordHinweis from './bord/BordHinweis.js';
 
 export default function App(): React.ReactElement {
   return (
@@ -34,6 +35,9 @@ export default function App(): React.ReactElement {
       <RoutingInitializer />
       <FavoritesDrawer />
       <DriveOverlay />
+      {/* Bordsensoren: Grau-/Frischwasser, Batterie, Frost -- mit der
+          passenden Station voraus (bord/BordHinweis.tsx). */}
+      <BordHinweis />
       {/* Tacho: haengt an der Position, also auch ohne laufende Navigation da. */}
       <SpeedDisplay />
       <UpdatePrompt />

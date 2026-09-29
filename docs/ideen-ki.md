@@ -4,8 +4,10 @@ Stand: 2026-09-29. Ideensammlung, noch **nichts davon ist gebaut**. Sie hält
 fest, was besprochen wurde, damit es nicht verloren geht, und ist die Vorlage
 für die Umsetzung.
 
-Reihenfolge laut Absprache: zuerst **Idee 3 (Reise-Erzähler)**, dann
-**Idee 1 (Sprach-Copilot)**. Die übrigen stehen kürzer am Ende.
+Reihenfolge laut Absprache: zuerst **Idee 4 (Bordsensoren)**, dann
+**Idee 1 (Sprach-Copilot)**. Idee 4 steht unten bei den übrigen, weil ihre
+erste Stufe ohne KI auskommt; ihr Stand ist dort vermerkt. Ausführlich
+beschrieben sind hier Idee 3 und Idee 1.
 
 ---
 
@@ -262,6 +264,13 @@ dieses Fahrzeug relevant ist, mit Quelle. Nie als Ersatz für die harten
 Beschränkungen im Routing, immer zusätzlich.
 
 ### Idee 4: Das Wohnmobil als Mitdenker (Home Assistant + KI)
+
+> **Stand:** Stufe 1 (ohne KI) ist seit **0.19.0** gebaut. Grauwasser,
+> Frischwasser, Batterie und Frost werden mit Schwellen und Hysterese geprüft,
+> und Stationen werden voraus auf der Route gesucht (`apps/core/src/bord/`,
+> `apps/web/src/bord/`). Offen: die KI-Stufe, die mehrere Werte zusammen
+> bewertet („Batterie reicht nicht für zwei Nächte autark") und Wetter sowie
+> Tagesplanung einbezieht.
 
 Home Assistant kennt Frischwasser, Grauwasser, Batterie, Gas, Solar,
 Temperatur. Die KI verknüpft das mit Route und Planung:

@@ -261,6 +261,26 @@ export_env "VALHALLA_MEMORY_MB" "${VALHALLA_MEMORY_MB}"
 export_env "PHOTON_ENABLED" "${PHOTON_ENABLED}"
 export_env "ONLINE_ENABLED" "${ONLINE_ENABLED}"
 
+# ─── BORDSENSOREN ──────────────────────────────────────────────────────────
+# Welche HA-Entitaeten Fuellstaende, Batterie und Aussentemperatur liefern,
+# und ab wann Yapaia etwas sagt (`apps/core/src/bord/`). Leere Werte werden
+# gar nicht erst exportiert: der Kern kennt dann diesen Sensor nicht, statt
+# einen leeren Namen bei Home Assistant zu erfragen.
+for paar in \
+  "grauwasser:YAPAIA_BORD_GRAUWASSER" \
+  "frischwasser:YAPAIA_BORD_FRISCHWASSER" \
+  "batterie:YAPAIA_BORD_BATTERIE" \
+  "aussentemperatur:YAPAIA_BORD_AUSSENTEMPERATUR" \
+  "grauwasser_ab:YAPAIA_BORD_GRAUWASSER_AB" \
+  "frischwasser_bis:YAPAIA_BORD_FRISCHWASSER_BIS" \
+  "batterie_bis:YAPAIA_BORD_BATTERIE_BIS" \
+  "frost_bis:YAPAIA_BORD_FROST_BIS"; do
+  bord_wert="$(config_wert "bord.${paar%%:*}")"
+  if [ -n "${bord_wert}" ]; then
+    export_env "${paar#*:}" "${bord_wert}"
+  fi
+done
+
 # ─── DEN TESTFAHRER FREISCHALTEN ───────────────────────────────────────────
 # Der Core laeuft hier mit NODE_ENV=production; dort antworten alle
 # Simulator-Routen mit 403, solange ENABLE_SIMULATOR nicht auf "1" steht.

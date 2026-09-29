@@ -119,6 +119,10 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     summary: 'Baustellen und Sperrungen für die genannten Autobahnen',
     tags: ['Online'],
   },
+  'GET /api/v1/bord': {
+    summary: 'Bordsensoren (Wasser, Batterie, Temperatur) mit Hinweisen und passender Station voraus',
+    tags: ['Navigation'],
+  },
   'DELETE /api/v1/jobs/:id': { summary: 'Job abbrechen', tags: ['Karten'] },
   'GET /tiles/:regionParam': { summary: 'PMTiles-Kachel (HTTP-Range-Support)', tags: ['Karten'], rawResponse: true },
   'GET /api/v1/map/regions': { summary: 'Installierte Kartenregionen', tags: ['Karten'] },

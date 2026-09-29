@@ -10,7 +10,7 @@
 name: "Yapaia Go"
 description: "Offline-fähige Motorhome-Navigation (Karten, Routing, GPS, MQTT/HA-Integration) als HA-Add-on."
 slug: "yapaja_go"
-version: "0.18.0"
+version: "0.19.0"
 # ─── MINDESTVERSION VON HOME ASSISTANT ──────────────────────────────────────
 # Seit 0.8.4 sind die selten angefassten Optionen in aufklappbaren Gruppen
 # zusammengefasst. Verschachtelte Konfiguration gibt es in Home Assistant aber
@@ -335,6 +335,15 @@ options:
   # nicht.
   online:
     enabled: false
+  bord:
+    grauwasser: ""
+    frischwasser: ""
+    batterie: ""
+    aussentemperatur: ""
+    grauwasser_ab: 80
+    frischwasser_bis: 20
+    batterie_bis: 30
+    frost_bis: 1
   home_assistant:
     ha_internal: true
     mqtt_enabled: true
@@ -390,6 +399,19 @@ schema:
     theme: "list(light|dark|system|sun)"
   online:
     enabled: "bool"
+  # ─── BORDSENSOREN (seit 0.19.0) ────────────────────────────────────────────
+  # Welche HA-Entitaet welchen Wert liefert; leer = diesen Hinweis gibt es
+  # nicht. Keine Vorgabe fuer die Entitaeten: jedes Fahrzeug nennt seine
+  # Sensoren anders, und ein geratener Name waere ein stiller Fehler.
+  bord:
+    grauwasser: "str?"
+    frischwasser: "str?"
+    batterie: "str?"
+    aussentemperatur: "str?"
+    grauwasser_ab: "int(1,100)"
+    frischwasser_bis: "int(0,99)"
+    batterie_bis: "int(0,99)"
+    frost_bis: "int(-20,10)"
   home_assistant:
     ha_internal: "bool"
     mqtt_enabled: "bool"
