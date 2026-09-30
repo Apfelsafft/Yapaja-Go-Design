@@ -1016,6 +1016,20 @@ describe('init-yapaja-config.sh — die GPS-Quelle, ausgeführt', () => {
   //
   // Eine Textprüfung wäre grün, sobald das Wort irgendwo im Skript steht.
   // Deshalb wird hier AUSGEFÜHRT und die Umgebung nachgesehen.
+  it('reicht die Bordsensoren an den Kern weiter -- leere gar nicht', () => {
+    const env = runInit({
+      'bord.grauwasser': 'sensor.grauwasser',
+      'bord.frischwasser': '',
+      'bord.grauwasser_ab': '75',
+    });
+    expect(env.YAPAIA_BORD_GRAUWASSER).toBe('sensor.grauwasser');
+    expect(env.YAPAIA_BORD_GRAUWASSER_AB).toBe('75');
+    // Leer bzw. nicht gesetzt ("null" von bashio): keine Variable, statt eines
+    // leeren Namens, den der Kern bei Home Assistant erfragen wuerde.
+    expect(env.YAPAIA_BORD_FRISCHWASSER).toBeUndefined();
+    expect(env.YAPAIA_BORD_BATTERIE).toBeUndefined();
+  });
+
   it('übersetzt „sun" in den Modus, den der Kern kennt', () => {
     expect(runInit({ 'display.theme': 'sun' }).THEME_MODE).toBe('auto');
   });
@@ -1580,6 +1594,18 @@ describe('die Add-on-Konfiguration ist gegliedert und beschriftet', () => {
     // Feineinstellung, sondern die Entscheidung, ob dieses Add-on ueberhaupt
     // nach draussen ruft.
     online: ['enabled'],
+    // Seit 0.19.0: welche HA-Entitaeten Fuellstaende, Batterie und
+    // Temperatur liefern, und die Schwellen dazu.
+    bord: [
+      'grauwasser',
+      'frischwasser',
+      'batterie',
+      'aussentemperatur',
+      'grauwasser_ab',
+      'frischwasser_bis',
+      'batterie_bis',
+      'frost_bis',
+    ],
     home_assistant: ['ha_internal', 'mqtt_enabled', 'mqtt_prefix'],
     advanced: ['gps_simulator', 'log_level'],
   };

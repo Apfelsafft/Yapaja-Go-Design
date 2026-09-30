@@ -35,6 +35,8 @@ import { useNavStore } from './navStore.js';
 import { useTtsStore } from './ttsStore.js';
 import { announce, cancelSpeech, unlockAudio } from './tts.js';
 import TripInfoPanel from './TripInfoPanel.js';
+import { stationsZeile, useBordStore } from '../bord/bordStore.js';
+import { stationAlsHalt } from '../bord/BordHinweis.js';
 import { useFavoritesStore } from '../favorites/store.js';
 import { iconForFavoriteCategory } from '../favorites/icons.js';
 import { useRoutingStore } from '../routing/store.js';
@@ -96,6 +98,7 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
   const favoriten = useFavoritesStore((s) => s.favorites);
   const verlauf = useFavoritesStore((s) => s.history);
   const zwischenstoppVorn = useRoutingStore((s) => s.zwischenstoppVorn);
+  const bordHinweise = useBordStore((s) => s.hinweise);
   const profile = useProfileStore((s) => s.profiles);
   const aktivesProfil = useProfileStore((s) => s.activeProfile);
   const profilAktivieren = useProfileStore((s) => s.activateProfile);
@@ -245,6 +248,37 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
               {ttsAn ? '🔊 Ansagen an' : '🔇 Ansagen aus'}
             </button>
           </div>
+
+          {bordHinweise.length > 0 && (
+            // Die Bordhinweise bleiben hier nachlesbar, auch wenn man sie auf
+            // der Karte mit „Später" weggetippt hat.
+            <section aria-labelledby="fahrt-menue-bord" data-testid="fahrt-menue-bord">
+              <h2 id="fahrt-menue-bord" className="mb-2 font-semibold">
+                Bord
+              </h2>
+              <ul className="space-y-2">
+                {bordHinweise.map((h) => (
+                  <li key={h.art}>
+                    <p>{h.text}</p>
+                    {h.station && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          stationAlsHalt(h);
+                          setEingeschoben(h.station!.name);
+                          setOffen(false);
+                        }}
+                        className="mt-1 min-h-[48px] rounded-full bg-slate-100 px-3 py-2 text-left hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600"
+                        data-testid={`fahrt-menue-bord-${h.art}`}
+                      >
+                        {stationsZeile(h.station)}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <section aria-labelledby="fahrt-menue-stopp">
             <h2 id="fahrt-menue-stopp" className="mb-2 font-semibold">

@@ -10,6 +10,44 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.19.0
+
+**Das Wohnmobil meldet sich: Bordsensoren.**
+
+Erste Stufe von Idee 4 aus `docs/ideen-ki.md` — noch ohne KI, mit festen
+Regeln, und dafür vorhersagbar und offline.
+
+Yapaia liest aus Home Assistant **Grauwasser, Frischwasser, Bordbatterie und
+Außentemperatur** und meldet sich, wenn eine Schwelle erreicht ist:
+
+- **Grauwasser voll** → mit der nächsten **Entsorgungsstation voraus auf der
+  Route**: „Entsorgung Musterhof — in 12 km an der Strecke". Ein Tipp auf
+  **„Als nächsten Halt"**, und sie wird angefahren.
+- **Frischwasser knapp** → ebenso, mit der nächsten Frischwasser-Zapfstelle.
+- **Batterie niedrig** → Hinweis, für die Nacht besser einen Platz mit Strom.
+- **Frost** → Erinnerung an den Frostschutz der Wasseranlage.
+
+Während der Fahrt wird ein neuer Hinweis **einmal angesagt** (wenn die Ansagen
+an sind). Mit **„Später"** verschwindet er und kommt erst wieder, wenn eine
+andere Station die nächste ist — nicht bei jedem Prozentpunkt. Im **Fahrtmenü**
+bleibt er nachlesbar.
+
+Ohne Route sucht Yapaia die Station im Umkreis von 25 km; mit Route nur
+**voraus** und höchstens 2 km neben der Strecke.
+
+### Einrichten
+
+In der **Add-on-Konfiguration** gibt es die neue Gruppe **„Bordsensoren"**:
+dort die Entitäten eintragen, die eure Werte liefern (zum Beispiel
+`sensor.grauwasser_fuellstand`), und bei Bedarf die Schwellen anpassen
+(Vorgabe: Grauwasser ab 80 %, Frischwasser bis 20 %, Batterie bis 30 %,
+Frost bis 1 °C). Leer gelassene Sensoren werden nicht beachtet. Danach das
+Add-on neu starten.
+
+Füllstände und Batterie werden in **Prozent** erwartet, die Temperatur in °C.
+
+---
+
 ## 0.18.0
 
 **Aufgeräumte Fahransicht, Kreisel auf dem Display, kurze Verkehrshinweise

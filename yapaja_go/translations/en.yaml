@@ -70,6 +70,36 @@ configuration:
     enabled:
       name: Allow online services
       description: 'Off by default. When on, Yapaia may fetch roadworks, closures and warnings from the German motorway authority while a connection exists. Only the request leaves the house — no position, no route, no device identifier. Without a connection only this feature is lost; navigation keeps working offline.'
+  bord:
+    name: On-board sensors
+    description: 'Tank levels, battery and outside temperature from Home Assistant. When
+      a threshold is reached, Yapaia says so — for grey and fresh water together with
+      the next station ahead on the route, which you can take as your next stop. Sensors
+      left empty are ignored.'
+    grauwasser:
+      name: Grey water (sensor)
+      description: The entity with the grey-water tank level in percent, e.g. "sensor.grey_water_level".
+    frischwasser:
+      name: Fresh water (sensor)
+      description: The entity with the fresh-water tank level in percent.
+    batterie:
+      name: House battery (sensor)
+      description: The entity with the house battery's state of charge in percent.
+    aussentemperatur:
+      name: Outside temperature (sensor)
+      description: The entity with the outside temperature in °C.
+    grauwasser_ab:
+      name: Report grey water from (%)
+      description: From this level up, Yapaia reports the grey-water tank.
+    frischwasser_bis:
+      name: Report fresh water at (%)
+      description: At this level and below, Yapaia reports the fresh-water tank.
+    batterie_bis:
+      name: Report battery at (%)
+      description: At this charge and below, Yapaia reports the house battery.
+    frost_bis:
+      name: Report frost at (°C)
+      description: At this outside temperature and below, Yapaia reminds you to protect the water system from frost.
   home_assistant:
     name: Home Assistant
     description: How Yapaia reports its values to Home Assistant.

@@ -501,6 +501,54 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
     expect(pageErrors).toEqual([]);
   });
 
+  // ─── BORDSENSOREN: DIE STATION ALS NAECHSTER HALT ─────────────────────────
+  test('Bordhinweis: die Entsorgungsstation wird als NAECHSTER Halt eingeschoben', async ({ page }) => {
+    test.setTimeout(30_000);
+    const pageErrors = collectPageErrors(page);
+    const station = { name: 'Entsorgung E2E', lat: latForProgressM(700), lon: BASE_LON + 0.001, voraus_m: 600, abseits_m: 80 };
+    await page.route('**/api/v1/bord', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            eingerichtet: true,
+            hinweise: [{ art: 'grauwasser', wert: 90, text: 'Grauwasser bei 90 %.', station }],
+            stand: new Date().toISOString(),
+          },
+        }),
+      }),
+    );
+    const gesendet: Array<{ waypoints: Array<{ lat: number; lon: number }> }> = [];
+    await page.route('**/api/v1/navigation/waypoints', async (route) => {
+      gesendet.push(route.request().postDataJSON());
+      await route.continue();
+    });
+
+    await page.goto(NAV_CONTROL_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    const startResponse = await page.request.post(`${NAV_CONTROL_CORE_BASE_URL}/api/v1/navigation/start`, {
+      data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'Bord Ziel' } },
+    });
+    expect(startResponse.ok()).toBe(true);
+    await driveTo(page, 100);
+    await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('navigating');
+
+    await expect(page.getByTestId('bord-station-grauwasser')).toHaveText(
+      'Entsorgung E2E — in 600 m an der Strecke',
+    );
+    await page.getByTestId('bord-halt-grauwasser').click();
+    await expect(page.getByTestId('bord-hinweis-grauwasser')).toHaveCount(0);
+    await expect.poll(() => gesendet.length, { timeout: 5_000 }).toBeGreaterThan(0);
+    expect(gesendet[0]!.waypoints[0]).toEqual({ lat: station.lat, lon: station.lon });
+
+    // Im Fahrtmenue bleibt er nachlesbar.
+    await oeffneFahrtMenue(page);
+    await expect(page.getByTestId('fahrt-menue-bord')).toContainText('Grauwasser bei 90 %.');
+
+    expect(pageErrors).toEqual([]);
+  });
+
   test('Flow 5 (prepared): changing the active profile mid-navigation does not crash the app or corrupt nav/state', async ({
     page,
   }) => {

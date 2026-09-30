@@ -40,6 +40,8 @@ import { authPlugin } from './auth/plugin.js';
 import { HaOutputChannel } from './ha/outputChannel.js';
 import { starteDashboardPflege } from './ha/dashboard.js';
 import { fetchHaStates, fetchHaStatesById, postHaState } from './ha/client.js';
+import { BordDienst, bordKonfigurationAusUmgebung } from './bord/dienst.js';
+import { leseSonderziele } from './map/sonderziele/ausIndex.js';
 import { HaStatesBridge } from './ha/statesBridge.js';
 import { HaCommandWatcher } from './ha/commandWatcher.js';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -768,6 +770,51 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   fastify.addHook('onClose', async () => {
     haCommandWatcher?.dispose();
   });
+
+  // ─── BORDSENSOREN (Idee 4, Stufe 1) ─────────────────────────────────────
+  // Liest eingerichtete HA-Entitaeten (Grau-/Frischwasser, Batterie,
+  // Aussentemperatur) und meldet, wenn eine Schwelle erreicht ist -- mit der
+  // naechsten passenden Station voraus. Ohne eingerichtete Entitaet oder ohne
+  // HA-Verbindung tut der Dienst nichts. Siehe `bord/dienst.ts`.
+  const bordKonfiguration = bordKonfigurationAusUmgebung(process.env);
+  let stationsCache: { bis: number; ziele: ReturnType<typeof leseSonderziele>['ziele'] } | null = null;
+  const bordDienst = new BordDienst({
+    konfiguration: bordKonfiguration,
+    leseZustaende: async (ids) => {
+      const verbindung = resolveHaConnection({ settings: settingsService });
+      if (!verbindung) return new Map();
+      return fetchHaStatesById(verbindung, ids, {
+        logger: {
+          info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
+          warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
+          error: (msg, meta) => fastify.log.error(meta ?? {}, msg),
+        },
+      });
+    },
+    stationen: (kategorie) => {
+      // Die Sonderziele aendern sich nur beim Neubau des Suchindex; einmal
+      // alle zehn Minuten lesen genuegt.
+      const jetzt = Date.now();
+      if (!stationsCache || stationsCache.bis < jetzt) {
+        stationsCache = { bis: jetzt + 10 * 60_000, ziele: leseSonderziele().ziele };
+      }
+      return stationsCache.ziele.filter((z) => z.kategorie === kategorie);
+    },
+    ort: () => {
+      const p = positionService.getLast();
+      return {
+        route: navigationService.getFortschritt(),
+        position: p ? { lat: p.lat, lon: p.lon } : null,
+      };
+    },
+    logger: { warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg) },
+  });
+  bordDienst.start();
+  fastify.addHook('onClose', async () => {
+    bordDienst.dispose();
+  });
+  // GET /api/v1/bord -- was die Bordsensoren gerade sagen, samt Hinweisen.
+  fastify.get('/api/v1/bord', async (_request, reply) => reply.code(200).send({ data: bordDienst.zustand() }));
 
   // Fertiges Lovelace-Dashboard (`/local/yapaja/dashboard.yaml`).
   //
