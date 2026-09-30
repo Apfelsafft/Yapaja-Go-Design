@@ -136,7 +136,7 @@ kompiliert), inklusive aller transitiven Abhaengigkeiten.
 | `bindings` | 1.5.0 | `MIT` |
 | `bl` | 4.1.0 | `MIT` |
 | `bl` | 6.1.6 | `MIT` |
-| `brace-expansion` | 5.0.9 | `MIT` |
+| `brace-expansion` | 5.0.12 | `MIT` |
 | `broker-factory` | 3.1.15 | `MIT` |
 | `buffer` | 5.7.1 | `MIT` |
 | `buffer` | 6.0.3 | `MIT` |
