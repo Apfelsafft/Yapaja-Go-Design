@@ -140,3 +140,6 @@ export {
   type PoiAuswahlEintrag,
   type PoiQuelle,
 } from './poi/auswahl';
+
+// „Unterwegs finden" (Fahrtmenü, Copilot): siehe `./poi/unterwegs.ts`.
+export { UNTERWEGS_KATEGORIEN, unterwegsKategorie, type UnterwegsKategorie } from './poi/unterwegs';

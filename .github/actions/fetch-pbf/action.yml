@@ -57,7 +57,12 @@ runs:
         # wenn der Durchsatz 30 s lang unter 1 KB/s faellt. GENAU dieser Fall
         # trat auf -- die Verbindung stand, es kam nur nichts mehr. Ein
         # reines `--max-time` haette 30 Minuten lang gewartet.
-        curl --fail --location --show-error --silent \
+        # `--cookie ''` schaltet curls Cookie-Verwaltung ein, ohne eine Datei
+        # zu lesen: ein Cookie, das die Gegenstelle bei einer Umleitung setzt,
+        # geht beim naechsten Sprung wieder mit. Ohne das folgt curl einer
+        # Umleitung, die erst mit Cookie endet, bis zum Limit von 50
+        # (`curl: (47)`) -- so geschehen am 2026-09-30 mit 274-Byte-Antworten.
+        curl --fail --location --show-error --silent --cookie '' \
              --connect-timeout 20 --max-time 300 \
              --speed-limit 1024 --speed-time 30 \
              --retry 3 --retry-delay 5 --retry-all-errors \

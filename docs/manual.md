@@ -287,6 +287,10 @@ and planning, so Drive mode hides them. What you only need occasionally sits
 
 - **Tap the ETA bar** to open the trip menu: **⏸ Pause**, **⏹ Stopp** and
   **🔊 Ansagen an/aus**.
+- **Unterwegs finden** (fuel, parking, motorhome site, campsite, supermarket,
+  dump station, water, gas, toilet): one tap shows the three nearest you will
+  actually pass — ahead on the route and at most 2 km off it. Tap one to make
+  it your next stop. Without a route, it searches within 25 km.
 - In the same menu, **Zwischenstopp einschieben** lists your favourites and
   recent destinations. Tap one and it becomes your **next** stop — the car
   park or fuel station you want to pull into before carrying on.

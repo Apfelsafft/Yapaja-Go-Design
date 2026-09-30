@@ -919,27 +919,26 @@ jobs:
           sudo apt-get install -y osmium-tool
           osmium --version
 
-      - name: Download Liechtenstein PBF (Geofabrik)
-        # ─── WARUM HIER WIEDERHOLT WIRD ────────────────────────────────────
-        # Geofabrik hat an EINEM Tag zweimal mit `503` geantwortet und diesen
-        # Job rot gemacht -- ohne dass am Code etwas falsch war. Ein roter
-        # Merge-Blocker, der nichts ueber die Aenderung aussagt, kostet nicht
-        # nur Actions-Minuten: er gewoehnt einen daran, rote Haken
-        # wegzuklicken, und dann wird auch der echte Fehler weggeklickt.
-        #
-        # `--retry` deckt genau diesen Fall ab: curl wiederholt bei den
-        # voruebergehenden Statuscodes, und 503 gehoert dazu.
-        # `--retry-delay 10` statt des exponentiellen Standards, weil eine
-        # ueberlastete Gegenstelle eher Zeit als Backoff braucht.
-        #
-        # Die anderen Geofabrik-Downloads in dieser Datei laufen IM
-        # Valhalla-Container (`build-tiles.sh` reicht die URL an gis-ops
-        # weiter) -- dort greift das hier nicht. Faellt Geofabrik laenger aus,
-        # sind die weiterhin betroffen; das ist bekannt und nicht behoben.
-        run: |
-          curl -fL --retry 5 --retry-delay 10 --retry-connrefused \
-            -o li.osm.pbf \
-            https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+      # ─── DIESELBE QUELLE WIE DER VALHALLA-JOB ────────────────────────────
+      # Bis 0.20.0 lud dieser Job die PBF bei JEDEM Lauf per `curl` direkt.
+      # Am 2026-09-30 antwortete Geofabrik darauf mit einer Umleitung auf sich
+      # selbst (`curl: (47) Maximum (50) redirects followed`, 274-Byte-
+      # Antworten) -- zweimal hintereinander, waehrend der Valhalla-Job
+      # daneben gruen war. Der holte die Datei naemlich gar nicht erst: er
+      # nimmt sie aus dem Wochen-Cache von `fetch-pbf`.
+      #
+      # Jetzt dieselbe Aktion, derselbe Cache-Schluessel: ein Download je Woche
+      # fuer beide Jobs statt einer je Lauf, mit Zeitlimit und Pruefung, dass
+      # tatsaechlich eine .osm.pbf ankam. Der Name `li.osm.pbf` bleibt, weil
+      # der Regionsname aus ihm abgeleitet wird ("li").
+      - name: Liechtenstein-PBF holen
+        uses: ./.github/actions/fetch-pbf
+        with:
+          url: https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
+          path: .cache/pbf/liechtenstein-latest.osm.pbf
+
+      - name: Als li.osm.pbf bereitlegen
+        run: cp .cache/pbf/liechtenstein-latest.osm.pbf li.osm.pbf
 
       # Exercises build-lite-index.sh end-to-end: osmium tags-filter + export,
       # tsx CLI (extract.ts/buildIndex.ts), atomic temp-file+rename swap

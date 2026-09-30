@@ -55,7 +55,10 @@
   "pnpm": {
     "overrides": {
       "fast-uri@^3.0.0": "^3.1.6",
-      "fast-uri@^4.0.0": "^4.1.3"
+      "fast-uri@^4.0.0": "^4.1.3",
+      "brace-expansion@^1.1.0": "^1.1.21",
+      "brace-expansion@^2.0.0": "^2.1.7",
+      "brace-expansion@^5.0.0": "^5.0.12"
     },
     "onlyBuiltDependencies": [
       "better-sqlite3",

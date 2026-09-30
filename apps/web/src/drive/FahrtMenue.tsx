@@ -14,6 +14,7 @@
  * Hinter einem Tipp auf die Fahrtdaten:
  *
  *   Pause · Stopp · Ansagen an/aus
+ *   Unterwegs finden — ⛽ 🅿️ 🚐 …: die nächsten Treffer voraus auf der Strecke
  *   Zwischenstopp einschieben — aus Favoriten und zuletzt angefahrenen Zielen
  *   Fahrzeug — das Profil wechseln (die Kopfzeile mit der Fahrzeugwahl ist
  *   waehrend der Fahrt ausgeblendet; der Wechsel mit Neuberechnung ist aber
@@ -35,6 +36,7 @@ import { useNavStore } from './navStore.js';
 import { useTtsStore } from './ttsStore.js';
 import { announce, cancelSpeech, unlockAudio } from './tts.js';
 import TripInfoPanel from './TripInfoPanel.js';
+import UnterwegsFinden from './UnterwegsFinden.js';
 import { stationsZeile, useBordStore } from '../bord/bordStore.js';
 import { stationAlsHalt } from '../bord/BordHinweis.js';
 import { useFavoritesStore } from '../favorites/store.js';
@@ -279,6 +281,15 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
               </ul>
             </section>
           )}
+
+          <UnterwegsFinden
+            onGewaehlt={(t) => {
+              const profileId = useProfileStore.getState().activeProfile?.id;
+              zwischenstoppVorn({ lat: t.lat, lon: t.lon }, t.name, { origin: 'current', profileId });
+              setEingeschoben(t.name);
+              setOffen(false);
+            }}
+          />
 
           <section aria-labelledby="fahrt-menue-stopp">
             <h2 id="fahrt-menue-stopp" className="mb-2 font-semibold">

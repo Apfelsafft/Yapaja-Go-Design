@@ -10,6 +10,31 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.20.0
+
+**Unterwegs finden: die nächste Tankstelle, der nächste Stellplatz — voraus
+auf der Strecke.**
+
+Im **Fahrtmenü** (Tipp auf die Fahrtdaten) gibt es jetzt den Abschnitt
+**„Unterwegs finden"**: ⛽ Tankstelle · 🅿️ Parkplatz · 🚐 Stellplatz ·
+⛺ Campingplatz · 🛒 Supermarkt · 🚽 Entsorgung · 💧 Frischwasser ·
+🔥 Gasflaschen · 🚻 Toilette.
+
+Ein Tipp zeigt die **drei nächsten Treffer, an denen man vorbeikommt**:
+voraus auf der Route und höchstens 2 km daneben, bis 80 km weit. Zum Beispiel:
+„Aral — in 12 km an der Strecke". Ein weiterer Tipp nimmt einen Treffer als
+**nächsten Halt**. Ohne laufende Route sucht Yapaia im Umkreis von 25 km.
+
+Findet sich nichts, sagt Yapaia **warum**: „keine an der Strecke" ist etwas
+anderes als „ohne Position lässt sich nicht suchen".
+
+Das ist die erste Stufe des **Sprach-Copiloten** (`docs/ideen-ki.md`,
+Idee 1): Später beantwortet er „Wir brauchen Diesel" mit genau dieser Suche.
+Sie funktioniert aber schon jetzt, ohne KI und offline, aus dem installierten
+Suchindex.
+
+---
+
 ## 0.19.0
 
 **Das Wohnmobil meldet sich: Bordsensoren.**
