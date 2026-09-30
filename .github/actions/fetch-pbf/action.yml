@@ -71,8 +71,13 @@ runs:
         case "${URL}" in
           https://download.geofabrik.de/*)
             PFAD="${URL#https://download.geofabrik.de/}"
-            QUELLEN+=("https://download.openstreetmap.fr/extracts/${PFAD}")
-            # gwdg spiegelt Geofabrik flach: nur der Dateiname, ohne Kontinent.
+            # openstreetmap.fr erzeugt eigene Extrakte und haengt kein
+            # `-latest` an (`europe/liechtenstein.osm.pbf`); gwdg spiegelt
+            # Geofabrik 1:1. Die Namensschemata sind von hier aus nicht
+            # pruefbar -- ein 404 kostet nur Sekunden, darum lieber eine
+            # Variante mehr.
+            QUELLEN+=("https://download.openstreetmap.fr/extracts/${PFAD/-latest/}")
+            QUELLEN+=("https://ftp5.gwdg.de/pub/misc/openstreetmap/download.geofabrik.de/${PFAD}")
             QUELLEN+=("https://ftp5.gwdg.de/pub/misc/openstreetmap/download.geofabrik.de/${PFAD##*/}")
             ;;
         esac
@@ -89,7 +94,7 @@ runs:
           if curl --fail --location --show-error --silent --cookie '' \
                --connect-timeout 20 --max-time 300 \
                --speed-limit 1024 --speed-time 30 \
-               --retry 2 --retry-delay 5 --retry-all-errors \
+               --retry 2 --retry-delay 5 \
                --output "${ZIEL}" "${QUELLE}" \
              && head -c 64 "${ZIEL}" | grep -q "OSMHeader"; then
             GELADEN="${QUELLE}"
