@@ -42,6 +42,12 @@ import { starteDashboardPflege } from './ha/dashboard.js';
 import { fetchHaStates, fetchHaStatesById, postHaState } from './ha/client.js';
 import { BordDienst, bordKonfigurationAusUmgebung } from './bord/dienst.js';
 import { leseSonderziele } from './map/sonderziele/ausIndex.js';
+import {
+  leseKandidaten,
+  sucheUnterwegs,
+  unterwegsKategorie,
+  UNTERWEGS_KATEGORIEN,
+} from './search/unterwegs.js';
 import { HaStatesBridge } from './ha/statesBridge.js';
 import { HaCommandWatcher } from './ha/commandWatcher.js';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -813,6 +819,42 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   fastify.addHook('onClose', async () => {
     bordDienst.dispose();
   });
+  // ─── UNTERWEGS FINDEN (Copilot, Stufe 1) ─────────────────────────────────
+  // GET /api/v1/unterwegs?kategorie=fuel[&anzahl=3] -- die naechsten Treffer
+  // voraus auf der Route (ohne Route: im Umkreis). Siehe `search/unterwegs.ts`.
+  const unterwegsCache = new Map<string, { bis: number; kandidaten: ReturnType<typeof leseKandidaten> }>();
+  fastify.get<{ Querystring: { kategorie?: string; anzahl?: string } }>('/api/v1/unterwegs', async (request, reply) => {
+    const kategorie = unterwegsKategorie(String(request.query.kategorie ?? ''));
+    if (!kategorie) {
+      return reply.code(400).send({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: `kategorie muss eine von ${UNTERWEGS_KATEGORIEN.map((k) => k.id).join(', ')} sein`,
+        },
+      });
+    }
+    const anzahl = Math.min(10, Math.max(1, Number.parseInt(String(request.query.anzahl ?? '3'), 10) || 3));
+    const jetzt = Date.now();
+    let eintrag = unterwegsCache.get(kategorie.id);
+    if (!eintrag || eintrag.bis < jetzt) {
+      // Der Suchindex aendert sich nur beim Neubau; zehn Minuten sind reichlich.
+      eintrag = { bis: jetzt + 10 * 60_000, kandidaten: leseKandidaten(kategorie) };
+      unterwegsCache.set(kategorie.id, eintrag);
+    }
+    const p = positionService.getLast();
+    const ergebnis = sucheUnterwegs(
+      kategorie,
+      eintrag.kandidaten,
+      { route: navigationService.getFortschritt(), position: p ? { lat: p.lat, lon: p.lon } : null },
+      anzahl,
+    );
+    return reply.code(200).send({ data: ergebnis });
+  });
+  // GET /api/v1/unterwegs/kategorien -- was es zu suchen gibt, fuer die Knoepfe.
+  fastify.get('/api/v1/unterwegs/kategorien', async (_request, reply) =>
+    reply.code(200).send({ data: UNTERWEGS_KATEGORIEN }),
+  );
+
   // GET /api/v1/bord -- was die Bordsensoren gerade sagen, samt Hinweisen.
   fastify.get('/api/v1/bord', async (_request, reply) => reply.code(200).send({ data: bordDienst.zustand() }));
 

@@ -165,6 +165,12 @@ async function navStatus(page: Page): Promise<string | null> {
   return page.evaluate(() => window.__yapaiaNavStore?.getState().navState?.status ?? null);
 }
 
+// Zwei Bloecke, EIN geteilter Kern: die ganze Datei laeuft nacheinander. Ein
+// `configure` nur im Block laesst die Bloecke untereinander parallel laufen
+// (`fullyParallel`) -- und dann faehrt der eine im Navigationszustand des
+// anderen.
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
   test.describe.configure({ mode: 'serial' }); // one shared Core, one navigation session at a time
   // Opt back IN to the PWA Service Worker that `playwright.config.ts` blocks
@@ -501,6 +507,59 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test('Flow 5 (prepared): changing the active profile mid-navigation does not crash the app or corrupt nav/state', async ({
+    page,
+  }) => {
+    test.setTimeout(30_000);
+    const pageErrors = collectPageErrors(page);
+
+    const otherProfileId = await createAndActivateProfile(page, 'E2E Flow5 Ausgangsprofil');
+
+    await page.goto(NAV_CONTROL_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+
+    const startResponse = await page.request.post(`${NAV_CONTROL_CORE_BASE_URL}/api/v1/navigation/start`, {
+      data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'Flow5 Ziel' } },
+    });
+    expect(startResponse.ok()).toBe(true);
+    await driveTo(page, 100);
+    await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('navigating');
+
+    // Activate a DIFFERENT profile while navigating -- full "reroute + Warnhinweis"
+    // (docs/03: profile activate during nav) is out of E04-T5's scope; this
+    // just proves the app survives it and `nav/state` stays a valid status.
+    const otherId = await createAndActivateProfile(page, 'E2E Flow5 Neues Profil');
+    expect(otherId).not.toBe(otherProfileId);
+
+    await driveTo(page, 150);
+    const status = await navStatus(page);
+    expect(['navigating', 'off_route', 'paused']).toContain(status);
+
+    expect(pageErrors).toEqual([]);
+  });
+});
+
+/**
+ * ─── TESTS MIT ERSETZTEN KERN-ANTWORTEN ─────────────────────────────────────
+ * Der Block oben erlaubt den Service Worker (W-19). Ist er aktiv, beantwortet
+ * ER die Anfragen der Seite -- und `page.route` sieht sie nicht mehr. Eine
+ * ersetzte Antwort griff dann nur, solange die Anfrage zufaellig VOR dem
+ * Aktivwerden kam. Deshalb stehen die Tests, die Antworten ersetzen, hier mit
+ * der Vorgabe der Suite: Service Worker blockiert.
+ */
+test.describe('Fahrtmenue mit ersetzten Antworten (Bordsensoren, Unterwegs finden)', () => {
+  test.use({ serviceWorkers: 'block' });
+
+  test.afterEach(async ({ page }) => {
+    await page
+      .evaluate(async (baseUrl: string) => {
+        await fetch(`${baseUrl}/api/v1/navigation/stop`, { method: 'POST' });
+      }, NAV_CONTROL_CORE_BASE_URL)
+      .catch(() => {
+        // Best-effort cleanup.
+      });
+  });
+
   // ─── BORDSENSOREN: DIE STATION ALS NAECHSTER HALT ─────────────────────────
   test('Bordhinweis: die Entsorgungsstation wird als NAECHSTER Halt eingeschoben', async ({ page }) => {
     test.setTimeout(30_000);
@@ -549,33 +608,55 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test('Flow 5 (prepared): changing the active profile mid-navigation does not crash the app or corrupt nav/state', async ({
-    page,
-  }) => {
+  // ─── UNTERWEGS FINDEN (Copilot, Stufe 1) ──────────────────────────────────
+  test('Unterwegs finden: Tankstelle voraus wird als NAECHSTER Halt eingeschoben', async ({ page }) => {
     test.setTimeout(30_000);
     const pageErrors = collectPageErrors(page);
 
-    const otherProfileId = await createAndActivateProfile(page, 'E2E Flow5 Ausgangsprofil');
+    // Der echte Kern antwortet -- hier nur ohne Suchindex, also ohne Treffer.
+    // Das prueft die Schnittstelle selbst; die Treffer kommen danach aus
+    // einer ersetzten Antwort (dieser Test-Kern hat keinen Suchindex).
+    const falsch = await page.request.get(`${NAV_CONTROL_CORE_BASE_URL}/api/v1/unterwegs?kategorie=bogus`);
+    expect(falsch.status()).toBe(400);
+
+    const tanke = { name: 'Aral E2E', lat: latForProgressM(800), lon: BASE_LON + 0.001, voraus_m: 700, abseits_m: 80 };
+    await page.route(/\/api\/v1\/unterwegs\?/, (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { kategorie: { id: 'fuel', name: 'Tankstelle', symbol: '⛽' }, bezug: 'route', treffer: [tanke] },
+        }),
+      });
+    });
+    const gesendet: Array<{ waypoints: Array<{ lat: number; lon: number }> }> = [];
+    await page.route('**/api/v1/navigation/waypoints', async (route) => {
+      gesendet.push(route.request().postDataJSON());
+      await route.continue();
+    });
 
     await page.goto(NAV_CONTROL_CORE_BASE_URL + '/');
     await waitForMapReady(page);
-
     const startResponse = await page.request.post(`${NAV_CONTROL_CORE_BASE_URL}/api/v1/navigation/start`, {
-      data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'Flow5 Ziel' } },
+      data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'Unterwegs Ziel' } },
     });
     expect(startResponse.ok()).toBe(true);
     await driveTo(page, 100);
     await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('navigating');
 
-    // Activate a DIFFERENT profile while navigating -- full "reroute + Warnhinweis"
-    // (docs/03: profile activate during nav) is out of E04-T5's scope; this
-    // just proves the app survives it and `nav/state` stays a valid status.
-    const otherId = await createAndActivateProfile(page, 'E2E Flow5 Neues Profil');
-    expect(otherId).not.toBe(otherProfileId);
+    // Die echte Schnittstelle kennt jetzt die laufende Route.
+    const echt = await page.request.get(`${NAV_CONTROL_CORE_BASE_URL}/api/v1/unterwegs?kategorie=fuel`);
+    expect(((await echt.json()) as { data: { bezug: string } }).data.bezug).toBe('route');
 
-    await driveTo(page, 150);
-    const status = await navStatus(page);
-    expect(['navigating', 'off_route', 'paused']).toContain(status);
+    await oeffneFahrtMenue(page);
+    await page.getByTestId('unterwegs-kategorie-fuel').click();
+    await expect(page.getByTestId('unterwegs-treffer-0')).toHaveText('Aral E2E — in 700 m an der Strecke');
+    await page.getByTestId('unterwegs-treffer-0').click();
+
+    await expect(page.getByTestId('fahrt-menue')).toHaveCount(0);
+    await expect(page.getByTestId('fahrt-menue-eingeschoben')).toContainText('Aral E2E');
+    await expect.poll(() => gesendet.length, { timeout: 5_000 }).toBeGreaterThan(0);
+    expect(gesendet[0]!.waypoints[0]).toEqual({ lat: tanke.lat, lon: tanke.lon });
 
     expect(pageErrors).toEqual([]);
   });

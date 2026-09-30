@@ -119,6 +119,11 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     summary: 'Baustellen und Sperrungen für die genannten Autobahnen',
     tags: ['Online'],
   },
+  'GET /api/v1/unterwegs': {
+    summary: 'Nächste Treffer einer Kategorie voraus auf der Route (ohne Route: im Umkreis)',
+    tags: ['Suche'],
+  },
+  'GET /api/v1/unterwegs/kategorien': { summary: 'Kategorien für „Unterwegs finden"', tags: ['Suche'] },
   'GET /api/v1/bord': {
     summary: 'Bordsensoren (Wasser, Batterie, Temperatur) mit Hinweisen und passender Station voraus',
     tags: ['Navigation'],

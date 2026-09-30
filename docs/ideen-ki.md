@@ -245,6 +245,9 @@ apps/web/src/drive                 Mikrofon-Knopf, Vorschlagskarten im Fahrtmen�
 ### Ausbaustufen
 
 1. **Suche entlang der Route** als normale Funktion (Knopf im Fahrtmenü).
+   **Gebaut in 0.20.0:** `GET /api/v1/unterwegs?kategorie=…`
+   (`apps/core/src/search/unterwegs.ts`), „Unterwegs finden" im Fahrtmenü.
+   Dieselbe Lage-Logik wie bei den Bordsensoren (`bord/entlangRoute.ts`).
 2. **Copilot per Text** (Eingabefeld, nur im Stand) zum Ausprobieren der
    Werkzeuge und Antworten.
 3. **Copilot per Sprache im Browser** (Weg A).
