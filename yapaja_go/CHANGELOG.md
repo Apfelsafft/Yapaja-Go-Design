@@ -10,6 +10,36 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.20.1
+
+**Der USB-GPS-Empfänger ist nach einem Neustart schneller da.**
+
+> „wenn Home Assistant startet braucht der gpsd immer recht lange bis er
+> gestartet hat."
+
+Zwei Wartezeiten haben sich beim Hochfahren addiert, beide ohne Grund:
+
+- **Die Suche nach dem Empfänger** sah fest alle 15 Sekunden nach. Meldet sich
+  der USB-Empfänger — wie beim Booten üblich — erst kurz nach dem Add-on, lag
+  er bis zu 15 s ungenutzt herum. Jetzt wird in den ersten 90 Sekunden jede
+  Sekunde nachgesehen, danach wie bisher alle 15 s.
+- **Yapaia selbst** versuchte gpsd nach einem Fehlschlag in immer größeren
+  Abständen zu erreichen: 1, 2, 4, 8, 16, dann 30 Sekunden. War gpsd nach
+  17 s bereit, merkte Yapaia es erst nach 31 s. Jetzt liegen höchstens
+  5 Sekunden zwischen zwei Versuchen — gpsd läuft im selben Add-on, ein
+  Versuch kostet praktisch nichts.
+
+Zusammen spart das beim Start bis zu etwa 40 Sekunden.
+
+**Was sich nicht beschleunigen lässt:** die Zeit, die der Empfänger selbst bis
+zur ersten Position braucht. Nach längerer Stromlosigkeit muss er die Bahndaten
+der Satelliten erst neu empfangen; das dauert bei freiem Himmel etwa eine halbe
+Minute, unter Bäumen oder in der Halle länger. Empfänger mit eigener
+Stützbatterie behalten diese Daten einige Stunden und haben dann oft schon nach
+wenigen Sekunden eine Position.
+
+---
+
 ## 0.20.0
 
 **Unterwegs finden: die nächste Tankstelle, der nächste Stellplatz — voraus

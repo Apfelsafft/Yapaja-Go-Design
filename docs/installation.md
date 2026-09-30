@@ -554,7 +554,7 @@ Supervisor USB-Geräte automatisch durchreicht. Ablauf:
 2. Add-on neu starten (Geräte-Durchreichung wird beim Container-Start
    ausgewertet, nicht live nachgeladen).
 3. Im Add-on-Log nachsehen: entweder „found GPS device at /dev/ttyACMx"
-   oder eine Warnung, dass noch gewartet wird (alle 15 s erneuter Versuch,
+   oder eine Warnung, dass noch gewartet wird (in den ersten 90 s jede Sekunde, danach alle 15 s ein erneuter Versuch,
    kein Absturz).
 4. In der App: Einstellungen → Position sollte einen Live-Fix zeigen,
    sobald `gpsd` einen hat (freie Sicht zum Himmel nötig, siehe
