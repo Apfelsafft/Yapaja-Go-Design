@@ -17,7 +17,7 @@
  *  - A connect-timeout guards against a host that accepts the TCP handshake
  *    but never completes it (e.g. a firewall black-holing the connection).
  *  - On any disconnect (error or close), the source reconnects with
- *    exponential backoff (1s -> 2s -> 4s ... capped at 30s), reset to the
+ *    exponential backoff (1s -> 2s -> 4s ... capped at 5s), reset to the
  *    minimum on the next successful connect.
  *  - gpsd being unreachable is an expected, non-fatal condition (docs/01
  *    ADR-007 lists gpsd as a data service the core depends on but does not
@@ -48,7 +48,25 @@ const WATCH_COMMAND = '?WATCH={"enable":true,"json":true}\n';
 const DEFAULT_HOST = 'localhost';
 const DEFAULT_PORT = 2947;
 const DEFAULT_MIN_BACKOFF_MS = 1000;
-const DEFAULT_MAX_BACKOFF_MS = 30000;
+/**
+ * Obergrenze fuer den Abstand zwischen zwei Verbindungsversuchen.
+ *
+ * ─── WARUM 5 s UND NICHT MEHR 30 s ──────────────────────────────────────────
+ * Gemeldet: „wenn Home Assistant startet braucht der gpsd immer recht lange
+ * bis er gestartet hat."
+ *
+ * Beim Hochfahren startet der Kern oft VOR gpsd, und der wartet noch auf den
+ * USB-Empfaenger. Mit einer Obergrenze von 30 s und der Folge 1-2-4-8-16-30
+ * bemerkte der Kern ein gpsd, das nach 17 s bereit war, erst nach 31 s -- und
+ * eines nach 32 s erst nach 61 s. Bis zu 30 s ohne Position, obwohl alles
+ * lief.
+ *
+ * gpsd laeuft im selben Container auf localhost. Ein fehlgeschlagener Versuch
+ * ist dort ein abgewiesener Socket in Mikrosekunden -- es gibt nichts zu
+ * schonen, was die langen Pausen rechtfertigen wuerde. Fuer ein entferntes
+ * gpsd (`gps_source: network`) sind 5 s ebenfalls unbedenklich.
+ */
+export const DEFAULT_MAX_BACKOFF_MS = 5000;
 const DEFAULT_CONNECT_TIMEOUT_MS = 5000;
 
 export type GpsdConnectionState = 'disconnected' | 'connecting' | 'connected';
@@ -73,7 +91,7 @@ export interface GpsdSourceOptions {
   logger?: GpsdLogger;
   /** Initial/minimum reconnect backoff in ms. Default 1000. */
   minBackoffMs?: number;
-  /** Reconnect backoff cap in ms. Default 30000. */
+  /** Reconnect backoff cap in ms. Default 5000 (siehe `DEFAULT_MAX_BACKOFF_MS`). */
   maxBackoffMs?: number;
   /** How long to wait for the TCP handshake to complete before giving up. Default 5000. */
   connectTimeoutMs?: number;

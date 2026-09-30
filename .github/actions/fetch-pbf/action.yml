@@ -53,20 +53,61 @@ runs:
           exit 0
         fi
         mkdir -p "$(dirname "${ZIEL}")"
-        # `--speed-limit/--speed-time` ist der entscheidende Teil: bricht ab,
-        # wenn der Durchsatz 30 s lang unter 1 KB/s faellt. GENAU dieser Fall
-        # trat auf -- die Verbindung stand, es kam nur nichts mehr. Ein
-        # reines `--max-time` haette 30 Minuten lang gewartet.
-        # `--cookie ''` schaltet curls Cookie-Verwaltung ein, ohne eine Datei
-        # zu lesen: ein Cookie, das die Gegenstelle bei einer Umleitung setzt,
-        # geht beim naechsten Sprung wieder mit. Ohne das folgt curl einer
-        # Umleitung, die erst mit Cookie endet, bis zum Limit von 50
-        # (`curl: (47)`) -- so geschehen am 2026-09-30 mit 274-Byte-Antworten.
-        curl --fail --location --show-error --silent --cookie '' \
-             --connect-timeout 20 --max-time 300 \
-             --speed-limit 1024 --speed-time 30 \
-             --retry 3 --retry-delay 5 --retry-all-errors \
-             --output "${ZIEL}" '${{ inputs.url }}'
+
+        # ─── ZWEITE QUELLE ─────────────────────────────────────────────────
+        # Seit 2026-09-30 antwortet Geofabrik den GitHub-Runnern mit einer
+        # Umleitung auf sich selbst (`curl: (47) Maximum (50) redirects
+        # followed`, 274-Byte-Antworten) -- ueber Stunden, in mehreren Jobs,
+        # auch mit Cookie-Verwaltung. Ein einziger Anbieter ist damit ein
+        # Merge-Blocker fuer jede Aenderung, auch fuer eine an der Doku.
+        #
+        # Deshalb danach derselbe Extrakt von Spiegeln (openstreetmap.fr unter
+        # `/extracts/`, gwdg als Geofabrik-Spiegel). Dieselben
+        # OSM-Daten, nur ein anderer Server. Ob wirklich eine .osm.pbf ankam,
+        # prueft der naechste Schritt ohnehin -- ein falscher Pfad beim
+        # Spiegel faellt dort auf und nicht erst in einem Build.
+        URL='${{ inputs.url }}'
+        QUELLEN=("${URL}")
+        case "${URL}" in
+          https://download.geofabrik.de/*)
+            PFAD="${URL#https://download.geofabrik.de/}"
+            # openstreetmap.fr erzeugt eigene Extrakte und haengt kein
+            # `-latest` an (`europe/liechtenstein.osm.pbf`); gwdg spiegelt
+            # Geofabrik 1:1. Die Namensschemata sind von hier aus nicht
+            # pruefbar -- ein 404 kostet nur Sekunden, darum lieber eine
+            # Variante mehr.
+            QUELLEN+=("https://download.openstreetmap.fr/extracts/${PFAD/-latest/}")
+            QUELLEN+=("https://ftp5.gwdg.de/pub/misc/openstreetmap/download.geofabrik.de/${PFAD}")
+            QUELLEN+=("https://ftp5.gwdg.de/pub/misc/openstreetmap/download.geofabrik.de/${PFAD##*/}")
+            ;;
+        esac
+
+        GELADEN=""
+        for QUELLE in "${QUELLEN[@]}"; do
+          echo "Versuche ${QUELLE}"
+          # `--speed-limit/--speed-time` bricht ab, wenn der Durchsatz 30 s
+          # lang unter 1 KB/s faellt -- die Verbindung stand schon einmal,
+          # es kam nur nichts mehr. Ein reines `--max-time` haette 30 Minuten
+          # gewartet. `--cookie ''` schaltet curls Cookie-Verwaltung ein, ohne
+          # eine Datei zu lesen: ein Cookie aus einer Umleitung geht beim
+          # naechsten Sprung wieder mit.
+          if curl --fail --location --show-error --silent --cookie '' \
+               --connect-timeout 20 --max-time 300 \
+               --speed-limit 1024 --speed-time 30 \
+               --retry 2 --retry-delay 5 \
+               --output "${ZIEL}" "${QUELLE}" \
+             && head -c 64 "${ZIEL}" | grep -q "OSMHeader"; then
+            GELADEN="${QUELLE}"
+            break
+          fi
+          echo "::warning::${QUELLE} lieferte keine brauchbare .osm.pbf -- naechste Quelle."
+          rm -f "${ZIEL}"
+        done
+        if [ -z "${GELADEN}" ]; then
+          echo "::error::Keine Quelle lieferte den Extrakt: ${QUELLEN[*]}"
+          exit 1
+        fi
+        echo "Quelle: ${GELADEN}"
         echo "PBF geladen: $(du -h "${ZIEL}" | cut -f1)"
 
     - name: Datei ist brauchbar

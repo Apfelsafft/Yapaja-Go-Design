@@ -14,7 +14,7 @@ import { setTimeout } from 'node:timers';
 import { checkPosition, validatePosition, type Position } from '@yapaia/shared';
 import { EventBus } from '../../bus/index.js';
 import { PositionService } from '../service.js';
-import { GpsdSource } from './index.js';
+import { DEFAULT_MAX_BACKOFF_MS, GpsdSource } from './index.js';
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -383,6 +383,30 @@ describe('GpsdSource reconnect backoff (fake timers, injected socket factory)', 
     });
     return source;
   }
+
+  it('ohne eigene Obergrenze: hoechstens 5 s zwischen zwei Versuchen', () => {
+    // Beim Hochfahren startet der Kern oft vor gpsd. Mit der alten Grenze von
+    // 30 s bemerkte er ein gpsd, das nach 17 s bereit war, erst nach 31 s.
+    source = new GpsdSource({
+      positionService: service,
+      createConnection: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket as unknown as net.Socket;
+      },
+    });
+    source.start();
+    const erwartet = [1000, 2000, 4000, 5000, 5000];
+    for (const delayMs of erwartet) {
+      const vorher = sockets.length;
+      sockets[sockets.length - 1].destroy();
+      vi.advanceTimersByTime(delayMs - 1);
+      expect(sockets.length).toBe(vorher);
+      vi.advanceTimersByTime(1);
+      expect(sockets.length).toBe(vorher + 1);
+    }
+    expect(DEFAULT_MAX_BACKOFF_MS).toBe(5000);
+  });
 
   it('doubles the backoff on each failed attempt and caps it at 30s', () => {
     makeSource();

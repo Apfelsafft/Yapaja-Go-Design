@@ -1426,7 +1426,7 @@ describe('find-gps-device.sh — die Geräteauswahl, ausgeführt', () => {
         .slice(echt.indexOf('source /etc/yapaja/find-gps-device.sh'))
         .replace('source /etc/yapaja/find-gps-device.sh', `source ${JSON.stringify(FIND_SCRIPT)}`)
         // Nicht ewig weitersuchen: eine Runde genügt für die Aussage.
-        .replace('sleep 15', 'exit 0');
+        .replace('sleep "${PAUSE_S}"', 'exit 0');
 
       const stubPath = join(wurzel, 'run.sh');
       writeFileSync(
@@ -1557,6 +1557,26 @@ describe('find-gps-device.sh — die Geräteauswahl, ausgeführt', () => {
         expect(zweiter.ausgabe, 'der zweite Lauf kurz darauf schon').toContain(
           'Neustartschleife',
         );
+      });
+
+      it('sucht den Empfänger anfangs jede Sekunde, später alle 15 s', () => {
+        // Gemeldet: „wenn Home Assistant startet braucht der gpsd immer recht
+        // lange bis er gestartet hat." Ein Empfänger, der beim Booten eine
+        // Sekunde nach dem ersten Blick erschien, wartete bis 0.20.0 14 s.
+        //
+        // Ausgeführt werden genau die beiden Zeilen des echten Skripts, die
+        // die Pause bestimmen -- nicht eine Abschrift von ihnen.
+        const echt = readFileSync(GPSD_RUN, 'utf-8');
+        const zeilen = echt
+          .split('\n')
+          .filter((z) => /PAUSE_S=1; else PAUSE_S=15|GESUCHT_S=\$\(\(GESUCHT_S \+ PAUSE_S\)\)/.test(z));
+        expect(zeilen).toHaveLength(2);
+        const skript = ['GESUCHT_S=0', 'for i in $(seq 1 100); do', ...zeilen, 'echo "$PAUSE_S"', 'done'].join('\n');
+        const pausen = execFileSync('bash', ['-c', skript], { encoding: 'utf-8' }).trim().split('\n').map(Number);
+        // 90 Sekunden lang jede Sekunde ...
+        expect(pausen.slice(0, 90).every((p) => p === 1)).toBe(true);
+        // ... danach nur noch alle 15 s.
+        expect(pausen.slice(90).every((p) => p === 15)).toBe(true);
       });
 
       it('startet gpsd mit -D 2, damit es überhaupt etwas sagen kann', () => {

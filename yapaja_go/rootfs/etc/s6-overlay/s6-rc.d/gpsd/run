@@ -58,6 +58,18 @@ status_schreiben() {
 # alle 15 Sekunden dieselbe Zeile ins Add-on-Protokoll und machte es
 # unbrauchbar für alles andere.
 LETZTER_GRUND=""
+# ─── ERST SCHNELL, DANN GEMAECHLICH ──────────────────────────────────────────
+# Gemeldet: „wenn Home Assistant startet braucht der gpsd immer recht lange bis
+# er gestartet hat."
+#
+# Beim Hochfahren meldet sich ein USB-Empfaenger oft erst NACH dem Add-on. Bis
+# 0.20.0 wurde dann fest alle 15 s nachgesehen -- ein Empfaenger, der eine
+# Sekunde nach dem ersten Blick erschien, wartete 14 s ungenutzt. In den ersten
+# `GPSD_SCHNELLSUCHE_S` Sekunden wird deshalb jede Sekunde nachgesehen; ein
+# Blick kostet nur ein `ls` im Geraeteverzeichnis. Danach, wenn offenbar gar
+# kein Empfaenger steckt, wieder alle 15 s -- das Protokoll soll nicht im
+# Sekundentakt dieselbe Suche beschreiben.
+GESUCHT_S=0
 while true; do
   # OHNE `$(...)`: die Funktion setzt zwei Variablen, und eine Subshell
   # wuerde beide wieder verwerfen (siehe find-gps-device.sh).
@@ -74,10 +86,12 @@ while true; do
   status_schreiben "suchend" "${GPS_DEVICE_GRUND}"
 
   if [ "${GPS_DEVICE_GRUND}" != "${LETZTER_GRUND}" ]; then
-    bashio::log.warning "gpsd: kein Empfänger in Betrieb genommen -- ${GPS_DEVICE_GRUND} (siehe DOCS.md, Abschnitt 'USB-GPS'). Wird alle 15 s erneut geprüft; die Position fällt solange auf die übrigen Quellen zurück."
+    bashio::log.warning "gpsd: kein Empfänger in Betrieb genommen -- ${GPS_DEVICE_GRUND} (siehe DOCS.md, Abschnitt 'USB-GPS'). Wird anfangs jede Sekunde, danach alle 15 s erneut geprüft; die Position fällt solange auf die übrigen Quellen zurück."
     LETZTER_GRUND="${GPS_DEVICE_GRUND}"
   fi
-  sleep 15
+  if [ "${GESUCHT_S}" -lt "${GPSD_SCHNELLSUCHE_S:-90}" ]; then PAUSE_S=1; else PAUSE_S=15; fi
+  GESUCHT_S=$((GESUCHT_S + PAUSE_S))
+  sleep "${PAUSE_S}"
 done
 
 # ─── GIBT ES gpsd UEBERHAUPT? ───────────────────────────────────────────────
