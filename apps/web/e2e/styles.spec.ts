@@ -719,11 +719,24 @@ test.describe('einzelne Sonderziele an- und abschalten', () => {
 // ─── EIN STIL JE THEMA (0.21) ────────────────────────────────────────────────
 // Gemeldet: „Wenn ich aber einen anderen Kartenstil wähle, wird das
 // überschrieben (dunkles Theme mit heller Karte)."
+/**
+ * Thema umschalten, OHNE es im Kern zu speichern. `setMode` schreibt in den
+ * gemeinsamen Kern -- ein spaeterer Test (`theme.spec.ts`, „default mode is
+ * deterministic light") faend dann Dunkel vor. Genau so ist es beim ersten
+ * Lauf passiert. Derselbe Weg wie `forceAutoMode` dort.
+ */
+async function setzeThemaOhneSpeichern(page: Page, mode: 'light' | 'dark'): Promise<void> {
+  await page.evaluate((m) => {
+    window.__yapaiaThemeStore?.setState({ mode: m, override: null, lastAppliedTheme: null });
+    window.__yapaiaThemeStore?.getState().tick();
+  }, mode);
+}
+
 test.describe('Kartenstil je Hell und Dunkel', () => {
   test('ein Stil für Dunkel wird erst beim Wechsel auf Dunkel gezeigt -- und bleibt', async ({ page }) => {
     await page.goto(CORE_BASE_URL + '/');
     await waitForMapReady(page);
-    await page.evaluate(() => window.__yapaiaThemeStore?.getState().setMode('light'));
+    await setzeThemaOhneSpeichern(page, 'light');
     await openStylePanel(page);
 
     // Für Dunkel „Kontrast" wählen, während Hell gilt: die Karte bleibt hell.
@@ -735,13 +748,13 @@ test.describe('Kartenstil je Hell und Dunkel', () => {
     await expect.poll(sichtbar).toBe('yapaja-light');
 
     // Auf Dunkel: jetzt „Kontrast".
-    await page.evaluate(() => window.__yapaiaThemeStore?.getState().setMode('dark'));
+    await setzeThemaOhneSpeichern(page, 'dark');
     await expect.poll(sichtbar).toBe('yapaja-contrast');
 
     // Zurück auf Hell: wieder hell, und die Wahl für Dunkel ist nicht verloren.
-    await page.evaluate(() => window.__yapaiaThemeStore?.getState().setMode('light'));
+    await setzeThemaOhneSpeichern(page, 'light');
     await expect.poll(sichtbar).toBe('yapaja-light');
-    await page.evaluate(() => window.__yapaiaThemeStore?.getState().setMode('dark'));
+    await setzeThemaOhneSpeichern(page, 'dark');
     await expect.poll(sichtbar).toBe('yapaja-contrast');
   });
 });
