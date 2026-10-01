@@ -18,7 +18,10 @@ import BordHinweis from './bord/BordHinweis.js';
 
 export default function App(): React.ReactElement {
   return (
-    <div className="relative w-full h-full overflow-hidden bg-white dark:bg-slate-900">
+    // `#yapaia-sicht` (index.css) ist nur so groß wie der SICHTBARE Teil des
+    // Fensters, und alle `fixed`-Elemente darin richten sich nach ihm statt
+    // nach dem ganzen Rahmen -- siehe shell/sichtbarerBereich.ts.
+    <div id="yapaia-sicht" className="overflow-hidden bg-white dark:bg-slate-900">
       <ThemeController />
       <DriveLockController />
       <HandednessController />

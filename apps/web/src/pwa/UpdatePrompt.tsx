@@ -27,7 +27,7 @@ export default function UpdatePrompt(): React.ReactElement | null {
 
   return (
     <div
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[min(90vw,22rem)] rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-2xl p-3 text-sm text-slate-800 dark:text-slate-100 flex items-center gap-3"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[min(calc(var(--sicht-b,100vw)*0.9),22rem)] rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-2xl p-3 text-sm text-slate-800 dark:text-slate-100 flex items-center gap-3"
       data-testid="update-prompt"
       role="status"
     >

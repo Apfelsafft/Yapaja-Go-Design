@@ -252,7 +252,7 @@ export default function RoutingPanel(): React.ReactElement | null {
       // frueher oder spaeter die Karte, um die es geht. 45 % der Hoehe
       // laesst die Mehrheit der Karte frei -- und der Inhalt bleibt ueber
       // das Scrollen vollstaendig erreichbar.
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 w-[min(92vw,28rem)] max-h-[45vh] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 w-[min(calc(var(--sicht-b,100vw)*0.92),28rem)] max-h-[calc(var(--sicht-h,100vh)*0.45)] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"
       data-testid="destination-sheet"
     >
       <div className="flex items-start justify-between gap-2">

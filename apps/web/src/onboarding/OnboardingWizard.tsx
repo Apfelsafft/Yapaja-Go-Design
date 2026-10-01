@@ -79,7 +79,7 @@ export default function OnboardingWizard(): React.ReactElement | null {
       className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
       data-testid="onboarding-wizard"
     >
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[calc(var(--sicht-h,100vh)*0.9)] overflow-y-auto p-6 space-y-4">
         <div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-1" data-testid="onboarding-step-indicator">
             Schritt {stepIndex + 1} von {ONBOARDING_STEPS.length}

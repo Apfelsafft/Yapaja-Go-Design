@@ -46,7 +46,7 @@ export default function RegionCoverageNotice(): React.ReactElement | null {
 
   return (
     <div
-      className="fixed top-32 left-1/2 -translate-x-1/2 z-30 w-[min(92vw,30rem)] pointer-events-none"
+      className="fixed top-32 left-1/2 -translate-x-1/2 z-30 w-[min(calc(var(--sicht-b,100vw)*0.92),30rem)] pointer-events-none"
       data-testid="region-coverage-notice-container"
     >
       <div

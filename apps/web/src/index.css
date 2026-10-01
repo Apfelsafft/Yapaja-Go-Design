@@ -32,6 +32,26 @@ body,
 }
 
 /*
+ * ─── DIE OBERFLÄCHE NUR IM SICHTBAREN TEIL ────────────────────────────────────
+ * Gemeldet: „Die Ränder sind abgeschnitten. Kannst du die Anzeige so bauen,
+ * dass sie immer in den verfügbaren Platz passt?"
+ *
+ * Die Ränder misst `shell/sichtbarerBereich.ts` (was vom Rahmen in Home
+ * Assistant wirklich zu sehen ist). `transform` macht diesen Kasten zum
+ * Bezugsrahmen für JEDES `position: fixed` darin -- Kopfzeile, Knöpfe,
+ * Leisten und Dialoge richten sich damit nach dem sichtbaren Teil, ohne dass
+ * eines davon angefasst werden musste.
+ */
+#yapaia-sicht {
+  position: fixed;
+  top: var(--sicht-oben, 0px);
+  bottom: var(--sicht-unten, 0px);
+  left: var(--sicht-links, 0px);
+  right: var(--sicht-rechts, 0px);
+  transform: translateZ(0);
+}
+
+/*
  * Design tokens (E07-T3, docs/06 §3): CSS custom properties for the two
  * themes. Scoped to `:root` (light, the default) and `:root.dark` (dark) --
  * the `dark` class is set/removed on `<html>` by the theme controller
