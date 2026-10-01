@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import type { VehicleProfile } from '@yapaia/shared';
+import { FUEL_TYPES, FUEL_TYPE_NAMEN, type VehicleProfile } from '@yapaia/shared';
 import VehicleSilhouette from './VehicleSilhouette.js';
 import {
   validateProfile,
@@ -303,6 +303,30 @@ export default function ProfileEditor({
             testId="avoid-unpaved"
           />
         </div>
+      </div>
+
+      {/* Spritsorte -- fuer spaeter: Tankstellen nach dem zeigen, was man
+          tanken kann. „Nicht angegeben" filtert nichts. */}
+      <div>
+        <label htmlFor="fuel-type" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Spritsorte
+        </label>
+        <select
+          id="fuel-type"
+          value={profile.fuel_type ?? ''}
+          onChange={(e) =>
+            handleFieldChange('fuel_type', (e.target.value || null) as VehicleProfile['fuel_type'])
+          }
+          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700"
+          data-testid="fuel-type-select"
+        >
+          <option value="">Nicht angegeben</option>
+          {FUEL_TYPES.map((f) => (
+            <option key={f} value={f}>
+              {FUEL_TYPE_NAMEN[f]}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Tempo-100-Zulassung */}

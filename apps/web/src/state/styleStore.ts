@@ -7,7 +7,7 @@
  */
 
 import { create } from 'zustand';
-import { labelGroesse, parseAbgeschaltet } from '@yapaia/shared';
+import { labelGroesse, parseAbgeschaltet, POI_SCHLUESSEL } from '@yapaia/shared';
 import {
   DEFAULT_STYLE_ID,
   DEFAULT_STYLE_OPTIONS,
@@ -129,6 +129,53 @@ function persist(key: string, value: string): void {
   }
 }
 
+// ─── POI-CHIPS IN DER KOPFZEILE ─────────────────────────────────────────────
+// Gewünscht: „Können wir da noch einen Marker einbauen, damit die als Chips
+// wie bei Maps in der Kopfzeile sichtbar sind? Wenn man auf einen Chip klickt,
+// wird dieser aktiviert und nur die POIs der aktivierten Chips werden
+// angezeigt."
+//
+// Zwei Dinge, zwei Zustände:
+//   `poiChips`    WELCHE Kategorien als Chip oben stehen -- eine Einstellung,
+//                 gespeichert, gesetzt mit dem 📌 in den Einstellungen.
+//   `chipFilter`  welche Chips gerade AN sind -- ein Blick, nicht gespeichert.
+//                 Nach dem Neuladen ist die Karte wieder so, wie die
+//                 Einstellungen sagen, und nicht auf „nur Tankstellen"
+//                 festgeklemmt, ohne dass man noch weiß, warum.
+//
+// Ist mindestens ein Chip an, zeigt die Karte NUR dessen Kategorien; die
+// Schalter in den Einstellungen bleiben dabei unberührt.
+export const POI_CHIPS_KEY = 'yapaja.poiChips';
+export const STANDARD_POI_CHIPS: readonly string[] = [
+  'poi-wohnmobil',
+  'poi-camping',
+  'poi-tanken',
+  'poi-entsorgung',
+  'poi-frischwasser',
+  'poi-einkaufen',
+];
+
+function leseChips(): string[] {
+  if (typeof window === 'undefined') return [...STANDARD_POI_CHIPS];
+  try {
+    const roh = window.localStorage.getItem(POI_CHIPS_KEY);
+    if (roh === null) return [...STANDARD_POI_CHIPS];
+    const liste = JSON.parse(roh) as unknown;
+    return Array.isArray(liste) ? parseAbgeschaltet(liste.filter((w) => typeof w === 'string').join(',')) : [...STANDARD_POI_CHIPS];
+  } catch {
+    return [...STANDARD_POI_CHIPS];
+  }
+}
+
+/**
+ * Welche Kategorien die Karte WIRKLICH weglässt: mit aktivem Chip-Filter
+ * alles außer den Chips, sonst die Auswahl aus den Einstellungen.
+ */
+export function wirksamesPoiAus(poiAus: readonly string[], chipFilter: readonly string[]): string[] {
+  if (chipFilter.length === 0) return [...poiAus];
+  return POI_SCHLUESSEL.filter((k) => !chipFilter.includes(k));
+}
+
 interface StyleStoreState {
   /** Der Stil, der GERADE gilt -- abgeleitet aus Thema und den beiden Plätzen. */
   styleId: string;
@@ -150,6 +197,12 @@ interface StyleStoreState {
   setPoiKategorie: (schluessel: string, an: boolean) => void;
   /** Alle auf einmal — `[]` heisst „alle an". */
   setPoiAus: (poiAus: readonly string[]) => void;
+  /** Kategorien, die als Chip in der Kopfzeile stehen. */
+  poiChips: string[];
+  setPoiChip: (schluessel: string, alsChip: boolean) => void;
+  /** Gerade aktive Chips -- leer heisst „kein Filter". */
+  chipFilter: string[];
+  toggleChip: (schluessel: string) => void;
 }
 
 const anfangHell = leseStil(STIL_HELL_KEY, STANDARD_STIL_HELL);
@@ -214,6 +267,23 @@ export const useStyleStore = create<StyleStoreState>((set, get) => ({
     const options = { ...get().options, poiAus: parseAbgeschaltet(poiAus.join(',')) };
     set({ options });
     persist(STYLE_OPTIONS_KEY, JSON.stringify(options));
+  },
+
+  poiChips: leseChips(),
+  setPoiChip: (schluessel, alsChip) => {
+    const bisher = get().poiChips;
+    const poiChips = parseAbgeschaltet((alsChip ? [...bisher, schluessel] : bisher.filter((k) => k !== schluessel)).join(','));
+    // Ein Chip, der nicht mehr oben steht, darf nicht unsichtbar weiterfiltern.
+    const chipFilter = get().chipFilter.filter((k) => poiChips.includes(k));
+    set({ poiChips, chipFilter });
+    persist(POI_CHIPS_KEY, JSON.stringify(poiChips));
+  },
+
+  chipFilter: [],
+  toggleChip: (schluessel) => {
+    const bisher = get().chipFilter;
+    const chipFilter = bisher.includes(schluessel) ? bisher.filter((k) => k !== schluessel) : [...bisher, schluessel];
+    set({ chipFilter: parseAbgeschaltet(chipFilter.join(',')) });
   },
 }));
 

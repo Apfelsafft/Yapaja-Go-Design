@@ -195,7 +195,7 @@ export class ProfileService {
     db.prepare(
       `UPDATE profiles SET name=?, height_m=?, width_m=?, length_m=?, weight_t=?, avg_speed_kmh=?,
        hazmat=?, avoid_motorway=?, avoid_toll=?, avoid_ferry=?, avoid_unpaved=?,
-       dimensions_confirmed_at=? WHERE id=?`,
+       dimensions_confirmed_at=?, tempo_100=?, fuel_type=? WHERE id=?`,
     ).run(
       row.name,
       row.height_m,
@@ -209,6 +209,8 @@ export class ProfileService {
       row.avoid_ferry,
       row.avoid_unpaved,
       updated.dimensions_confirmed_at,
+      row.tempo_100,
+      row.fuel_type,
       id,
     );
 
@@ -305,8 +307,8 @@ export class ProfileService {
     db.prepare(
       `INSERT INTO profiles (id, name, height_m, width_m, length_m, weight_t, avg_speed_kmh,
        hazmat, avoid_motorway, avoid_toll, avoid_ferry, avoid_unpaved, is_active,
-       dimensions_confirmed_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       dimensions_confirmed_at, tempo_100, fuel_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       row.id,
       row.name,
@@ -322,6 +324,8 @@ export class ProfileService {
       row.avoid_unpaved,
       row.is_active,
       profile.dimensions_confirmed_at,
+      row.tempo_100,
+      row.fuel_type,
     );
   }
 }

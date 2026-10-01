@@ -39,6 +39,14 @@ interface FollowMeState {
   resume: () => void;
   /** Pause Follow-Me for PAUSE_DURATION */
   pause: () => void;
+  /**
+   * Pausieren OHNE automatisches Weiterfolgen -- bis `resume()`.
+   *
+   * Fuer Ansichten, die man bewusst aufruft und in denen die Karte nicht nach
+   * zehn Sekunden zurueckspringen darf: die Routen-Uebersicht und die
+   * Vorschau eines Ortes aus „Unterwegs finden".
+   */
+  halten: () => void;
   /** Enable/disable Follow-Me globally */
   setFollowing: (enabled: boolean) => void;
 }
@@ -75,6 +83,16 @@ export const useFollowMeStore = create<FollowMeState>((set, get) => {
           get().resume();
         }, PAUSE_DURATION);
       }
+    },
+
+    halten: () => {
+      if (pauseTimer !== null) {
+        if (typeof window !== 'undefined') {
+          window.clearTimeout(pauseTimer);
+        }
+        pauseTimer = null;
+      }
+      set({ isPaused: true });
     },
 
     setFollowing: (enabled: boolean) => {

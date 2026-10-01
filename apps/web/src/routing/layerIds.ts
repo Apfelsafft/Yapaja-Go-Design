@@ -14,6 +14,9 @@ export const MAIN_ROUTE_ACCENT_LAYER_ID = 'route-main-accent';
 export const MARKERS_SOURCE_ID = 'route-markers-source';
 export const START_MARKER_LAYER_ID = 'route-start-marker';
 export const DEST_MARKER_LAYER_ID = 'route-dest-marker';
+// Zwischenziele: nummerierte Pins 1, 2, ... (Kreis mit Zahl darauf).
+export const WAYPOINT_MARKER_LAYER_ID = 'route-waypoint-marker';
+export const WAYPOINT_LABEL_LAYER_ID = 'route-waypoint-label';
 
 // E03-T4: temporary-avoidance polygons ("Diesen Abschnitt meiden").
 export const AVOID_POLYGONS_SOURCE_ID = 'route-avoid-polygons-source';

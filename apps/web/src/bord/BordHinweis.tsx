@@ -73,7 +73,7 @@ export default function BordHinweis(): React.ReactElement | null {
 
   return (
     <div
-      className="pointer-events-none fixed left-1/2 top-64 z-30 flex w-[min(calc(var(--sicht-b,100vw)*0.92),30rem)] -translate-x-1/2 flex-col gap-2"
+      className="pointer-events-none fixed left-1/2 top-[calc(16rem+var(--kopf-mehr,0px))] z-30 flex w-[min(calc(var(--sicht-b,100vw)*0.92),30rem)] -translate-x-1/2 flex-col gap-2"
       data-testid="bord-hinweise"
     >
       {sichtbar.map((h) => (
