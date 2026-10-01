@@ -34,6 +34,7 @@
  * (`useIsControlLocked`) lifts this collapse too.
  */
 
+import FavoritesDrawer from '../favorites/FavoritesDrawer.js';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSchmal } from '../shell/useSchmal.js';
 import type { Favorite, SearchResult } from '@yapaia/shared';
@@ -172,6 +173,31 @@ export default function SearchBar(): React.ReactElement {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  // ─── FAVORITEN ERST BEIM SUCHEN ───────────────────────────────────────────
+  // Gewünscht (Vorbild Google Maps): „Das meiste passiert, wenn man auf Suche
+  // klickt … Dann sieht man auch erst die Favoriten." Bis 0.22 lagen sie in
+  // einer Leiste am unteren Rand, immer sichtbar.
+  //
+  // Eigener Zustand statt `isFocused`: in der Liste kann man Favoriten
+  // umbenennen und sortieren -- das nimmt dem Suchfeld den Fokus, und die
+  // Liste darf deshalb nicht zuklappen. Sie schließt beim Tippen außerhalb,
+  // mit Esc, sobald man etwas eintippt (dann kommen Treffer) und sobald ein
+  // Ziel gewählt ist.
+  const [favoritenOffen, setFavoritenOffen] = useState(false);
+  const bereichRef = useRef<HTMLDivElement | null>(null);
+  const ziel = useRoutingStore((state) => state.destination);
+  useEffect(() => {
+    setFavoritenOffen(false);
+  }, [ziel]);
+  useEffect(() => {
+    if (!favoritenOffen) return undefined;
+    const draussen = (e: PointerEvent): void => {
+      if (bereichRef.current && !bereichRef.current.contains(e.target as Node)) setFavoritenOffen(false);
+    };
+    document.addEventListener('pointerdown', draussen);
+    return () => document.removeEventListener('pointerdown', draussen);
+  }, [favoritenOffen]);
+
   // The CONFIGURED threshold (not a fixed 10) -- `isControlLocked` also
   // folds in the "Ich bin Beifahrer" passenger override (E07-T4).
   const speedLocked = useIsControlLocked('search-full');
@@ -282,7 +308,7 @@ export default function SearchBar(): React.ReactElement {
   }
 
   return (
-    <div className="relative flex-1 min-w-0 max-w-[26rem] pointer-events-none">
+    <div ref={bereichRef} className="relative flex-1 min-w-0 pointer-events-none">
       <div className="pointer-events-auto relative">
         <div className="relative">
           <input
@@ -291,7 +317,10 @@ export default function SearchBar(): React.ReactElement {
             value={query}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            onFocus={() => setIsFocused(true)}
+            onFocus={() => {
+              setIsFocused(true);
+              setFavoritenOffen(true);
+            }}
             onBlur={() => setIsFocused(false)}
             placeholder="Ziel suchen…"
             role="combobox"
@@ -347,6 +376,18 @@ export default function SearchBar(): React.ReactElement {
         <span className="sr-only" role="status" aria-live="polite" data-testid="search-status">
           {liveMessage}
         </span>
+
+        {favoritenOffen && !showDropdown && trimmedLength === 0 && (
+          <div
+            className="pointer-events-auto absolute mt-2 max-h-[calc(var(--sicht-h,100vh)-8rem)] w-full overflow-y-auto overscroll-contain rounded-xl bg-white/95 shadow-xl dark:bg-slate-800/95"
+            data-testid="search-favoriten"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setFavoritenOffen(false);
+            }}
+          >
+            <FavoritesDrawer eingebettet />
+          </div>
+        )}
 
         {showDropdown && (
           <div

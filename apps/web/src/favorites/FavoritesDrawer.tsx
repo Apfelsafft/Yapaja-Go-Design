@@ -33,7 +33,6 @@ import { useMapStore } from '../state/mapStore.js';
 import { useProfileStore } from '../profiles/store.js';
 import { useRoutingStore } from '../routing/store.js';
 import { useSearchStore } from '../search/store.js';
-import { favoritesDrawerBottomPx } from '../shell/mapControlLayout.js';
 import { useFahrtAnsicht } from '../drive/useFahrtAnsicht.js';
 import { useFavoritesStore } from './store.js';
 import { navigateToFavorite } from './navigate.js';
@@ -48,7 +47,17 @@ function historyEntryLabel(entry: HistoryEntry): string {
   return entry.destination?.name ?? entry.query ?? 'Eintrag';
 }
 
-export default function FavoritesDrawer(): React.ReactElement | null {
+export default function FavoritesDrawer({
+  eingebettet = false,
+}: {
+  /**
+   * Seit 0.23 erscheinen Favoriten und Verlauf erst, wenn man in die Suche
+   * tippt (Vorbild Google Maps: „Dann sieht man auch erst die Favoriten").
+   * Eingebettet zeigt diese Datei nur ihren Inhalt -- ohne eigene Leiste
+   * am unteren Rand, ohne Aufklappknopf, immer offen.
+   */
+  eingebettet?: boolean;
+} = {}): React.ReactElement | null {
   const destination = useRoutingStore((s) => s.destination);
   const fahrt = useFahrtAnsicht();
   const routingSetDestination = useRoutingStore((s) => s.setDestination);
@@ -66,7 +75,7 @@ export default function FavoritesDrawer(): React.ReactElement | null {
   const deleteHistoryEntry = useFavoritesStore((s) => s.deleteHistoryEntry);
   const clearHistory = useFavoritesStore((s) => s.clearHistory);
 
-  const [isOpen, setIsOpen] = useState(false);
+  const isOpen = eingebettet;
   const [tab, setTab] = useState<DrawerTab>('favorites');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
@@ -185,30 +194,17 @@ export default function FavoritesDrawer(): React.ReactElement | null {
   // Fahrtdaten (`drive/FahrtMenue.tsx`) -- dort als ZWISCHENSTOPP, denn das
   // ist es, wofuer man sie unterwegs braucht: „Außer man will einen
   // Parkplatz oder Tankstelle als zwischenziel aussuchen."
-  if (fahrt) {
+  // Nur noch eingebettet (in der Suche) -- die Leiste am unteren Rand gibt
+  // es seit 0.23 nicht mehr.
+  if (fahrt || !eingebettet) {
     return null;
   }
 
   return (
-    <div
-      style={{ bottom: favoritesDrawerBottomPx() }}
-      className="fixed left-1/2 -translate-x-1/2 z-20 w-[min(calc(var(--sicht-b,100vw)*0.92),28rem)] rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl text-sm text-slate-800 dark:text-slate-100"
-      data-testid="favorites-drawer"
-    >
-      <button
-        type="button"
-        onClick={() => setIsOpen((open) => !open)}
-        aria-expanded={isOpen}
-        aria-controls="favorites-drawer-content"
-        className="w-full flex items-center justify-between px-4 py-3 font-medium min-h-[48px]"
-        data-testid="favorites-drawer-toggle"
-      >
-        <span>⭐ Favoriten &amp; Verlauf</span>
-        <span aria-hidden="true">{isOpen ? '▾' : '▴'}</span>
-      </button>
+    <div className="text-sm text-slate-800 dark:text-slate-100" data-testid="favorites-drawer">
 
       {isOpen && (
-        <div id="favorites-drawer-content" className="px-4 pb-4 space-y-3 max-h-[calc(var(--sicht-h,100vh)*0.5)] overflow-y-auto">
+        <div id="favorites-drawer-content" className="px-4 py-3 space-y-3">
           <div className="flex gap-2" role="tablist" aria-label="Favoriten und Verlauf">
             <button
               type="button"

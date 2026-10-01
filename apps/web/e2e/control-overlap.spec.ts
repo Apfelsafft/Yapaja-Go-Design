@@ -108,7 +108,6 @@ const CONTROLS = [
   // aufgeklappte Innere nicht. Sie fehlte hier -- und genau sie lag auf dem
   // Telefon-Bildschirmfoto unter „Pause". Seit 0.18.0 gibt es sie waehrend
   // der Fahrt nicht mehr (die Favoriten liegen im Fahrtmenue).
-  'favorites-drawer-toggle',
   // Nur waehrend der Fahrt vorhanden. Pause, Stopp und die Ansagen-Taste
   // liegen seit 0.18.0 im Fahrtmenue und stehen nicht mehr auf der Karte;
   // „Fortsetzen" steht dort nur bei einer pausierten Fahrt.
@@ -360,7 +359,6 @@ test.describe('Bedienelemente ueberlappen einander nicht', () => {
     for (const weg of [
       'search-input',
       'profile-chip',
-      'favorites-drawer-toggle',
       'einstellungen-toggle',
     ]) {
       expect(rects.map((r) => r.name), `${weg} waehrend der Fahrt`).not.toContain(weg);

@@ -111,7 +111,9 @@ export default function TopBar(): React.ReactElement | null {
           in das Einstellungsmenue"). Fuer Screenreader bleibt er die
           Ueberschrift der Seite. */}
       <h1 className="sr-only">Yapaia Go</h1>
-      <div className="flex items-start gap-2">
+      {/* `z-10`: die Ausklappfenster der Suche (Treffer, Favoriten) liegen
+          ueber der zweiten Zeile, nicht darunter. */}
+      <div className="relative z-10 flex items-start gap-2">
         <button
           type="button"
           onClick={() => setMenueOffen(true)}
@@ -123,12 +125,19 @@ export default function TopBar(): React.ReactElement | null {
         >
           ⚙️
         </button>
-        <ProfilesPanel />
         <SearchBar />
       </div>
-      {/* Die POI-Chips -- eine eigene Zeile, damit sie die Suche nie schmaler
-          machen. Welche hier stehen, entscheidet das 📌 in den Einstellungen. */}
-      <PoiChips />
+      {/* ─── ZWEITE ZEILE: FAHRZEUG UND CHIPS ─────────────────────────────
+          Das Fahrzeug stand neben der Suche und drückte sie im 380-px-Panel
+          bei einem langen Profilnamen auf ein paar Bildpunkte zusammen --
+          samt der Favoritenliste darunter. Die Suche bekommt die ganze
+          erste Zeile; das Fahrzeug steht vor den POI-Chips. */}
+      <div className="flex min-w-0 items-start gap-2">
+        <ProfilesPanel />
+        <div className="min-w-0 flex-1">
+          <PoiChips />
+        </div>
+      </div>
       {/* Ueber ein Portal an den Wurzelkasten: innerhalb der Kopfzeile (z-20)
           laegen Hinweise mit z-30 ueber dem Menue. */}
       {menueOffen &&

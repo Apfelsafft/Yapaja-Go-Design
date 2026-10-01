@@ -118,11 +118,12 @@ async function createAndActivateProfile(page: Page, overrides: Partial<ProfileFi
  * makes this robust regardless of that internal state.
  */
 async function ensureFavoritesDrawerOnTab(page: Page, tab: 'favorites' | 'history'): Promise<void> {
-  const toggle = page.getByTestId('favorites-drawer-toggle');
-  await expect(toggle).toBeVisible();
-  if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
-    await toggle.click();
+  // Seit 0.23 erscheinen Favoriten und Verlauf beim Tippen in die Suche
+  // (Vorbild Google Maps) statt in einer Leiste am unteren Rand.
+  if (!(await page.getByTestId('search-favoriten').isVisible())) {
+    await page.getByTestId('search-input').click();
   }
+  await expect(page.getByTestId('search-favoriten')).toBeVisible();
   await page.getByTestId(`favorites-tab-${tab}`).click();
 }
 
@@ -158,9 +159,9 @@ test('[Flow 6] create favorite via destination sheet -> reload -> route via the 
   await page.goto(FAVORITES_CORE_BASE_URL + '/');
   await waitForMapReady(page);
 
-  // No destination yet -> the favorites drawer (not the destination sheet)
-  // occupies the bottom-center footprint.
-  await expect(page.getByTestId('favorites-drawer-toggle')).toBeVisible();
+  // No destination yet -> no destination sheet; and since 0.23 no favorites
+  // bar either (favorites appear when tapping the search field).
+  await expect(page.getByTestId('favorites-drawer')).toHaveCount(0);
   await expect(page.getByTestId('destination-sheet')).not.toBeVisible();
 
   // 1. Pick a destination (map click, E03-T3 flow) -> "Als Favorit speichern".
