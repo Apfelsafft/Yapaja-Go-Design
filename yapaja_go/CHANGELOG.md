@@ -10,6 +10,26 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.20.2
+
+**Der USB-GPS-Empfänger wird auch gefunden, wenn er nach dem Start anders heißt.**
+
+**Gemeldet:** „Es scheint, wir bekommen keine GPS-Daten." Die Prüfung zeigte:
+eingetragen war `…u-blox.com_u-blox_7_-_GPS_GNSS_Receiver-if00`, gefunden
+wurde `…u-blox.com_01a7-if00` — derselbe Empfänger. Linux benennt manche
+Sticks je nach Start unterschiedlich: kommen beim Hochfahren die Textangaben
+des Sticks nicht sauber an, steht statt „u-blox_7" die Produktnummer im Namen.
+
+- Fehlt das eingetragene Gerät, nimmt Yapaia jetzt **denselben Empfänger unter
+  dem anderen Namen** — aber nur, wenn es eindeutig ist: gleicher Hersteller,
+  gleiche Schnittstelle, der Name sagt selbst „GPS/GNSS/u-blox", und es gibt
+  genau einen solchen Treffer. Ein Zigbee- oder Z-Wave-Stick wird weiterhin
+  nie geöffnet.
+- **Tipp:** Am sichersten ist ein **leeres** Feld „USB-Gerät". Dann sucht
+  Yapaia den Empfänger bei jedem Start selbst, egal wie er gerade heißt.
+
+---
+
 ## 0.20.1
 
 **Der USB-GPS-Empfänger ist nach einem Neustart schneller da.**
