@@ -10,6 +10,29 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.21.1
+
+**Die Anzeige passt immer in den sichtbaren Platz.**
+
+Gemeldet: „Die Ränder sind abgeschnitten. Kannst du bitte die Anzeige so
+bauen, dass sie immer in den verfügbaren Platz passt? Auch wenn ein Browser
+mehr Platz braucht oder die Auflösung des Screens geringer ist."
+
+Home Assistant zeigt Yapaia in einem eingebetteten Rahmen. Auf dem iPad ist
+dieser Rahmen höher als das, was davon auf dem Bildschirm steht — die
+Kopfzeile mit der Suche lag oben halb außerhalb, der Zoom-Knopf fehlte, das
+Zahnrad unten war angeschnitten. 0.21.0 hatte das nur verkleinert.
+
+- Yapaia misst jetzt selbst, welcher Teil seines Rahmens wirklich zu sehen
+  ist, und legt **alle** Bedienelemente dort hinein — Kopfzeile, Knöpfe,
+  Leisten, Menüs und Dialoge. Scrollt oder ändert sich die Ansicht (Drehen,
+  Adressleiste, Bildschirmtastatur), zieht Yapaia mit.
+- Menüs und Listen sind höchstens so hoch wie der sichtbare Teil, nicht wie
+  der ganze Rahmen.
+- Direkt im Browser geöffnet ändert sich nichts.
+
+---
+
 ## 0.21.0
 
 **Symbole auf der Karte, Kartenstil je Hell und Dunkel, Schriftgröße frei

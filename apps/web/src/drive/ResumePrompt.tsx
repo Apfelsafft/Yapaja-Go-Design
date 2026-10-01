@@ -64,7 +64,7 @@ export default function ResumePrompt(): React.ReactElement | null {
 
   return (
     <div
-      className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-[min(90vw,24rem)] rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-2xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"
+      className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-[min(calc(var(--sicht-b,100vw)*0.9),24rem)] rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-2xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"
       data-testid="resume-prompt"
     >
       <h2 className="font-semibold">Navigation fortsetzen?</h2>

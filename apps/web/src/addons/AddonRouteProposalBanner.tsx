@@ -40,7 +40,7 @@ export default function AddonRouteProposalBanner(): React.ReactElement | null {
   if (proposals.length === 0) return null;
 
   return (
-    <div className="absolute top-2 left-1/2 z-50 flex w-[min(92vw,32rem)] -translate-x-1/2 flex-col gap-2" data-testid="addon-route-proposals">
+    <div className="absolute top-2 left-1/2 z-50 flex w-[min(calc(var(--sicht-b,100vw)*0.92),32rem)] -translate-x-1/2 flex-col gap-2" data-testid="addon-route-proposals">
       {proposals.map((proposal) => (
         <div
           key={proposal.id}

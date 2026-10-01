@@ -192,7 +192,7 @@ export default function FavoritesDrawer(): React.ReactElement | null {
   return (
     <div
       style={{ bottom: favoritesDrawerBottomPx() }}
-      className="fixed left-1/2 -translate-x-1/2 z-20 w-[min(92vw,28rem)] rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl text-sm text-slate-800 dark:text-slate-100"
+      className="fixed left-1/2 -translate-x-1/2 z-20 w-[min(calc(var(--sicht-b,100vw)*0.92),28rem)] rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl text-sm text-slate-800 dark:text-slate-100"
       data-testid="favorites-drawer"
     >
       <button
@@ -208,7 +208,7 @@ export default function FavoritesDrawer(): React.ReactElement | null {
       </button>
 
       {isOpen && (
-        <div id="favorites-drawer-content" className="px-4 pb-4 space-y-3 max-h-[50vh] overflow-y-auto">
+        <div id="favorites-drawer-content" className="px-4 pb-4 space-y-3 max-h-[calc(var(--sicht-h,100vh)*0.5)] overflow-y-auto">
           <div className="flex gap-2" role="tablist" aria-label="Favoriten und Verlauf">
             <button
               type="button"

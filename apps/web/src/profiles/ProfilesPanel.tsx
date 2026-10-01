@@ -147,7 +147,7 @@ export default function ProfilesPanel(): React.ReactElement {
       {/* Panel (Sheet-style, appears when isOpen) */}
       {isOpen && !editorMode && (
         <div
-          className="absolute top-12 left-0 mt-2 w-96 max-h-[70vh] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4 pointer-events-auto"
+          className="absolute top-12 left-0 mt-2 w-96 max-h-[calc(var(--sicht-h,100vh)*0.7)] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4 pointer-events-auto"
           data-testid="profiles-panel"
         >
           {/* Profiles list */}
@@ -242,11 +242,12 @@ export default function ProfilesPanel(): React.ReactElement {
           und damit auf „Speichern" zu liegen kam. Verdeckt war der untere Rand
           des Dialogs aber schon vorher -- nur eben unterhalb der Knoepfe.
 
-          `createPortal` haengt den Dialog direkt an `document.body`; dort
-          bedeutet `z-50` wieder, was es sagt. */}
+          `createPortal` haengt den Dialog direkt an den Wurzelkasten
+          (`#yapaia-sicht`); dort bedeutet `z-50` wieder, was es sagt -- und
+          er bleibt im sichtbaren Teil des Fensters. */}
       {editorMode && editingProfile && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 pointer-events-auto">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 space-y-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full max-h-[calc(var(--sicht-h,100vh)*0.9)] overflow-y-auto p-6 space-y-4">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
               {editorMode === 'create' ? 'Neues Profil' : 'Profil bearbeiten'}
             </h2>
@@ -266,7 +267,7 @@ export default function ProfilesPanel(): React.ReactElement {
             </div>
           </div>
         </div>,
-        document.body,
+        document.getElementById('yapaia-sicht') ?? document.body,
       )}
     </div>
   );

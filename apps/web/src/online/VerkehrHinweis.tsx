@@ -56,7 +56,7 @@ export default function VerkehrHinweis(): React.ReactElement | null {
     <div
       // Unterhalb des Regionen-Hinweises, damit sich die beiden nicht
       // überdecken, wenn sie einmal gleichzeitig zutreffen.
-      className="pointer-events-none fixed left-1/2 top-48 z-30 w-[min(92vw,30rem)] -translate-x-1/2"
+      className="pointer-events-none fixed left-1/2 top-48 z-30 w-[min(calc(var(--sicht-b,100vw)*0.92),30rem)] -translate-x-1/2"
       data-testid="verkehr-hinweis"
     >
       <div

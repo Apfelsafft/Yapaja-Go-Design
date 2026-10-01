@@ -43,7 +43,7 @@ export default function GpsLossBanner(): React.ReactElement | null {
 
   return (
     <div
-      className="fixed top-20 left-1/2 -translate-x-1/2 z-30 w-[min(92vw,26rem)] pointer-events-none"
+      className="fixed top-20 left-1/2 -translate-x-1/2 z-30 w-[min(calc(var(--sicht-b,100vw)*0.92),26rem)] pointer-events-none"
       data-testid="gps-loss-banner-container"
     >
       <div className="pointer-events-auto">

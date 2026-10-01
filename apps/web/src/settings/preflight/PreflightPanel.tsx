@@ -190,7 +190,7 @@ export default function PreflightPanel(): React.ReactElement {
     <div className="fixed z-10" style={{ top: topRightSlotPx('preflight'), right: TOP_RIGHT_INSET_PX }}>
       {isOpen && (
         <div
-          className="absolute top-14 right-0 mb-2 w-96 max-h-[75vh] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"
+          className="absolute top-14 right-0 mb-2 w-96 max-h-[calc(var(--sicht-h,100vh)*0.75)] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"
           data-testid="preflight-panel"
         >
           <div className="flex items-center justify-between gap-2">

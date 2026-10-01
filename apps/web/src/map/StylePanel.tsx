@@ -162,7 +162,7 @@ export default function StylePanel(): React.ReactElement {
     <div className="fixed left-4 z-10" style={{ bottom: bottomInsetPx(schmal, driveActive) }}>
       {isOpen && (
         <div
-          className="absolute bottom-14 left-0 mb-2 w-64 max-h-[calc(100vh-7rem)] max-h-[calc(100dvh-7rem)] overflow-y-auto overscroll-contain rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"
+          className="absolute bottom-14 left-0 mb-2 w-64 max-h-[calc(var(--sicht-h,100dvh)-7rem)] overflow-y-auto overscroll-contain rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"
           data-testid="style-panel"
         >
           {/* Speed-Lock (E07-T4): Settings is one of docs/06 §4's "complex
