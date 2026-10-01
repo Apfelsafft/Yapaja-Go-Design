@@ -9,6 +9,7 @@ import DriveLockController from './drive/DriveLockController.js';
 import HandednessController from './shell/HandednessController.js';
 import ScreenAwakeController from './shell/ScreenAwakeController.js';
 import TopBar from './shell/TopBar.js';
+import FavoritenLader from './favorites/FavoritenLader.js';
 import UpdatePrompt from './pwa/UpdatePrompt.js';
 import OnboardingWizard from './onboarding/OnboardingWizard.js';
 import UnconfirmedDimensionsBanner from './profiles/UnconfirmedDimensionsBanner.js';
@@ -34,6 +35,8 @@ export default function App(): React.ReactElement {
           (shell/TopBar.tsx). Vorher positionierte sich jedes der drei selbst
           -- und ueberlagerte die anderen, je nach Fensterbreite. */}
       <TopBar />
+      {/* Favoriten und Verlauf laden, auch wenn gerade nichts sie zeigt. */}
+      <FavoritenLader />
       <RoutingInitializer />
       <DriveOverlay />
       {/* Bordsensoren: Grau-/Frischwasser, Batterie, Frost -- mit der
