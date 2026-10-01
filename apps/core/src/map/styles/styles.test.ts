@@ -61,7 +61,7 @@ describe('style spec validation', () => {
 
     it(`${id}: validates for every lang/labelScale/poi option combination`, () => {
       const langs = ['name', 'name_de', 'name_en'] as const;
-      const scales = ['1.0', '1.2'] as const;
+      const scales = ['0.8', '1.0', '1.2', '2.0'] as const;
       const densities = ['full', 'reduced', 'off'] as const;
       for (const lang of langs) {
         for (const labelScale of scales) {
@@ -223,7 +223,7 @@ describe('parseStyleOptions', () => {
   });
 
   it('drops unknown/invalid values instead of throwing', () => {
-    expect(parseStyleOptions({ lang: 'klingon', labelScale: '99', poi: 'lots' })).toEqual({});
+    expect(parseStyleOptions({ lang: 'klingon', labelScale: 'riesig', poi: 'lots' })).toEqual({});
   });
 
   it('omits keys entirely absent from the query', () => {
@@ -257,6 +257,22 @@ describe('applyStyleOptions: lang', () => {
 });
 
 describe('applyStyleOptions: labelScale', () => {
+  // Gewünscht: „einen Slider für die Labelgröße von 80 % bis 200 %".
+  it('nimmt jede Größe von 0.8 bis 2.0 und setzt Ausreißer an den Rand', () => {
+    expect(parseStyleOptions({ labelScale: '1.7' })).toEqual({ labelScale: '1.7' });
+    expect(parseStyleOptions({ labelScale: '99' })).toEqual({ labelScale: '2.0' });
+    expect(parseStyleOptions({ labelScale: '0.1' })).toEqual({ labelScale: '0.8' });
+  });
+
+  it('2.0 verdoppelt, 0.8 verkleinert die Schrift', () => {
+    const base = buildYapaiaLightStyle();
+    const vorher = (base.layers.find((l) => l.id === 'place-labels') as SymbolLayer).layout['text-size'] as number;
+    const gross = applyStyleOptions(base, { labelScale: '2.0' });
+    const klein = applyStyleOptions(base, { labelScale: '0.8' });
+    expect((gross.layers.find((l) => l.id === 'place-labels') as SymbolLayer).layout['text-size']).toBeCloseTo(vorher * 2, 5);
+    expect((klein.layers.find((l) => l.id === 'place-labels') as SymbolLayer).layout['text-size']).toBeCloseTo(vorher * 0.8, 1);
+  });
+
   it('1.2 scales text-size up by 20% on every label layer', () => {
     const base = buildYapaiaLightStyle();
     const basePlaceSize = (base.layers.find((l) => l.id === 'place-labels') as SymbolLayer).layout['text-size'] as number;

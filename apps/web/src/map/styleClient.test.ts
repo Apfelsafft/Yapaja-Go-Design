@@ -235,3 +235,27 @@ describe('die Regionswahl in der Stil-Anfrage', () => {
     expect(abgefragteUrl('')).not.toContain('region=');
   });
 });
+
+describe('spriteAbsolut', () => {
+  // MapLibre 6: „Invalid sprite URL "./sprites/yapaja", must be absolute."
+  // Ohne das erschien kein einziges POI-Symbol und kein Straßenschild.
+  const basis = 'http://ha.local:8123/api/hassio_ingress/abc123/';
+
+  it('löst die relative Adresse gegen die Wurzel der Anwendung auf', async () => {
+    const { spriteAbsolut } = await import('./styleClient.js');
+    const stil = spriteAbsolut({ version: 8, sources: {}, layers: [], sprite: './sprites/yapaja' }, basis);
+    expect(stil.sprite).toBe('http://ha.local:8123/api/hassio_ingress/abc123/sprites/yapaja');
+  });
+
+  it('lässt absolute Adressen und Stile ohne Sprite unverändert', async () => {
+    const { spriteAbsolut } = await import('./styleClient.js');
+    expect(spriteAbsolut({ version: 8, sources: {}, layers: [], sprite: 'https://x.org/s' }, basis).sprite).toBe('https://x.org/s');
+    expect(spriteAbsolut({ version: 8, sources: {}, layers: [] }, basis).sprite).toBeUndefined();
+  });
+
+  it('behandelt auch die Listenform', async () => {
+    const { spriteAbsolut } = await import('./styleClient.js');
+    const stil = spriteAbsolut({ version: 8, sources: {}, layers: [], sprite: [{ id: 'a', url: './s/a' }] }, basis);
+    expect(stil.sprite).toEqual([{ id: 'a', url: 'http://ha.local:8123/api/hassio_ingress/abc123/s/a' }]);
+  });
+});

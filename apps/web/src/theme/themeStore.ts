@@ -9,29 +9,10 @@
  * (`resolveTheme.test.ts`, `sunResolution.test.ts`) without touching this
  * store at all.
  *
- * MAP-STYLE SYNC RULE (`shouldSyncMapStyle` below) -- when a resolution is
- * allowed to (re)write the coupled `yapaja-light`/`yapaja-dark` map style,
- * vs. leaving whatever is currently applied alone:
- *   - The very FIRST tick this store ever runs (`lastAppliedTheme === null`,
- *     e.g. right after a page load): only if the CURRENT map style is still
- *     the untouched built-in default (`yapaja-light`) -- i.e. nothing
- *     indicates the user (or a previous session) deliberately chose
- *     something else. A persisted `yapaja-dark`/`yapaja-contrast` from a
- *     prior explicit choice (E01-T4's Style Panel, independent of this
- *     task) is left alone on this very first tick.
- *   - Every tick after that: only when the resolved theme actually CHANGED
- *     from the last one this store applied -- a genuine transition, which
- *     is exactly what docs/06 §3's "Wechsel setzt UI-Theme UND Karten-Style
- *     ... atomar" ("a SWITCH sets both, atomically") describes. A quiet
- *     re-check that lands on the same theme as before never touches the
- *     map style, so it can never fight a manual pick made in between two
- *     ticks either.
- *   - Switching the MODE itself (`setMode`) or creating a manual override
- *     (`setManualTheme`) both call `tick()` immediately afterwards, so a
- *     deliberate user action still applies (and syncs the map style, if the
- *     resulting theme differs from what was last applied) right away --
- *     there is no special-casing needed for "explicit mode" vs "auto" here,
- *     the plain "did the theme change" rule covers it.
+ * KARTENSTIL: seit 0.21 hat jedes Thema seinen eigenen, frei gewählten Stil
+ * (`state/styleStore.ts`). Jeder Tick sagt dem Stil-Speicher nur, welches
+ * Thema gilt; eine Wahl wird dabei nie umgeschrieben. Die frühere Regel, wann
+ * der Stil überschrieben werden durfte, ist damit entfallen.
  */
 
 import { create } from 'zustand';
@@ -47,8 +28,6 @@ import {
 } from './resolveTheme.js';
 import { systemBevorzugtDunkel } from './systemPreference.js';
 import { DEFAULT_THEME_MODE, loadThemeMode, patchServerThemeMode, saveLocalThemeMode } from './themeClient.js';
-import { useStyleStore } from '../state/styleStore.js';
-import { DEFAULT_STYLE_ID } from '../map/styleClient.js';
 
 interface ThemeStoreState {
   mode: ThemeMode;
@@ -121,7 +100,7 @@ export const useThemeStore = create<ThemeStoreState>((set, get) => ({
 
   tick: (now = new Date(), position) => {
     const pos = position !== undefined ? position : null;
-    const { mode, override, lastAppliedTheme } = get();
+    const { mode, override } = get();
     // Das Geraet wird HIER befragt und als Wert hineingereicht --
     // `resolveTheme` bleibt rein (siehe dessen Modulkommentar).
     const resolution = resolveTheme({
@@ -137,13 +116,8 @@ export const useThemeStore = create<ThemeStoreState>((set, get) => ({
     // change would keep re-checking a stale, already-expired override.
     const clearedOverride = override && now.getTime() >= override.expiresAt ? null : override;
 
-    const syncMapStyle =
-      lastAppliedTheme === null
-        ? useStyleStore.getState().styleId === DEFAULT_STYLE_ID
-        : resolution.theme !== lastAppliedTheme;
-
     set({ resolution, override: clearedOverride, lastAppliedTheme: resolution.theme });
-    applyThemeResolution(resolution, { syncMapStyle });
+    applyThemeResolution(resolution);
   },
 }));
 

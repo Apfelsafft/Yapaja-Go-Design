@@ -9,13 +9,14 @@
  */
 
 import type { StyleSpecification } from 'maplibre-gl';
-import { alsPoiParameter } from '@yapaia/shared';
+import { alsPoiParameter, labelGroesse } from '@yapaia/shared';
 
 /** Siehe `apps/core/src/map/styles/options.ts`: unsere Kacheln fuehren
  *  `name`, `name_de` und `name_en` — `name:de` gibt es dort NICHT, und die
  *  Wahl „Deutsch" liess deshalb bis 0.3.6 jede Beschriftung verschwinden. */
 export type StyleLang = 'name' | 'name_de' | 'name_en';
-export type StyleLabelScale = '1.0' | '1.2';
+/** `0.8` bis `2.0` in Zehnteln, als Zeichenkette (`labelGroesse` in `@yapaia/shared`). */
+export type StyleLabelScale = string;
 export type StylePoiDensity = 'full' | 'reduced' | 'off';
 
 export interface StyleOptions {
@@ -70,7 +71,6 @@ export const NO_STYLE_QUALITY_CAPS: StyleQualityCaps = { poi: null, labelScale: 
 // only pull the effective value DOWN to its own rank, never up — so a user who
 // chose `poi: 'off'` is never forced back to 'full' by a degradation cap.
 const POI_RANK: Record<StylePoiDensity, number> = { off: 0, reduced: 1, full: 2 };
-const LABEL_SCALE_RANK: Record<StyleLabelScale, number> = { '1.0': 0, '1.2': 1 };
 
 /**
  * Combines the user's persisted `StyleOptions` with any active degradation
@@ -85,7 +85,8 @@ export function applyDegradationCaps(
   const poi =
     caps.poi !== null && POI_RANK[caps.poi] < POI_RANK[options.poi] ? caps.poi : options.poi;
   const labelScale =
-    caps.labelScale !== null && LABEL_SCALE_RANK[caps.labelScale] < LABEL_SCALE_RANK[options.labelScale]
+    caps.labelScale !== null &&
+    Number(labelGroesse(caps.labelScale) ?? '1.0') < Number(labelGroesse(options.labelScale) ?? '1.0')
       ? caps.labelScale
       : options.labelScale;
   // `poiAus` geht unveraendert durch: die Kategorie-Wahl ist eine Aussage des
@@ -175,10 +176,52 @@ export async function fetchStyle(
       }
       return null;
     }
-    return (await response.json()) as StyleSpecification;
+    return spriteAbsolut((await response.json()) as StyleSpecification, stilBasis());
   } catch {
     return null;
   }
+}
+
+/** Woran relative Adressen im Stil gemessen werden: die Wurzel der Anwendung. */
+function stilBasis(): string {
+  const seite = typeof window !== 'undefined' ? window.location.href : 'http://localhost/';
+  return new URL(import.meta.env.BASE_URL ?? '/', seite).href;
+}
+
+/**
+ * Macht die `sprite`-Adresse absolut.
+ *
+ * ─── DER GEMELDETE FALL ─────────────────────────────────────────────────────
+ * „Können wir vielleicht kleine Icons für die POIs einblenden? Ich erkenne
+ * nicht auf Anhieb, wo bspw. ein Womo-Stellplatz ist."
+ *
+ * Die Icons gab es längst -- ein Symbol je Kategorie, dazu die gelben und
+ * blauen Straßenschilder. Gezeichnet wurde keines davon. MapLibre 6 verlangt
+ * für `sprite` eine ABSOLUTE Adresse und meldet sonst nur in die Konsole:
+ *
+ *   Invalid sprite URL "./sprites/yapaja", must be absolute.
+ *
+ * Für `glyphs` gilt das nicht, darum erschien die Schrift und alles sah fast
+ * richtig aus. Der Kern liefert die Adresse bewusst relativ (er kennt den
+ * Ingress-Pfad von Home Assistant nicht); aufgelöst wird deshalb HIER, wo
+ * die Seite weiß, unter welcher Adresse sie läuft.
+ */
+export function spriteAbsolut(style: StyleSpecification, basis: string): StyleSpecification {
+  const absolut = (url: string): string => {
+    try {
+      return new URL(url, basis).href;
+    } catch {
+      return url;
+    }
+  };
+  const sprite = style.sprite;
+  if (typeof sprite === 'string') {
+    return { ...style, sprite: absolut(sprite) };
+  }
+  if (Array.isArray(sprite)) {
+    return { ...style, sprite: sprite.map((s) => ({ ...s, url: absolut(s.url) })) };
+  }
+  return style;
 }
 
 /**

@@ -5,6 +5,7 @@ import CrashScreen from './shell/CrashScreen.js';
 import './index.css';
 import { initServiceWorker } from './pwa/registerServiceWorker.js';
 import { requestPersistentStorage } from './pwa/persistentStorage.js';
+import { seiteFesthalten } from './shell/seiteFesthalten.js';
 
 const root = document.getElementById('root');
 if (!root) {
@@ -15,6 +16,7 @@ if (!root) {
 // boot as possible, independent of the React render below.
 initServiceWorker();
 void requestPersistentStorage();
+seiteFesthalten();
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>

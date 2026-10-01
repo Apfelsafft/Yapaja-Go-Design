@@ -13,7 +13,7 @@
  * intact unless a caller explicitly overrides them.
  */
 
-import { nichtAbgeschaltet, parseAbgeschaltet, symbolNachKategorie } from '@yapaia/shared';
+import { labelGroesse, nichtAbgeschaltet, parseAbgeschaltet, symbolNachKategorie } from '@yapaia/shared';
 import { POI_LAYER_ID_PREFIX, REDUCED_POI_CLASSES } from './constants.js';
 import type { MapStyleDocument, StyleLayer, SymbolLayer } from './types.js';
 
@@ -39,7 +39,8 @@ import type { MapStyleDocument, StyleLayer, SymbolLayer } from './types.js';
  * `name:de`-Tag verschwindet also nicht, sondern behaelt ihren Namen.
  */
 export type StyleLang = 'name' | 'name_de' | 'name_en';
-export type StyleLabelScale = '1.0' | '1.2';
+/** `0.8` bis `2.0` in Zehnteln, als Zeichenkette (siehe `labelGroesse` in `@yapaia/shared`). */
+export type StyleLabelScale = string;
 export type StylePoiDensity = 'full' | 'reduced' | 'off';
 
 /**
@@ -74,7 +75,6 @@ export interface StyleOptions {
 }
 
 const VALID_LANG: readonly StyleLang[] = ['name', 'name_de', 'name_en'];
-const VALID_LABEL_SCALE: readonly StyleLabelScale[] = ['1.0', '1.2'];
 const VALID_POI: readonly StylePoiDensity[] = ['full', 'reduced', 'off'];
 
 /** Raw, not-yet-validated query values (Fastify querystring shape). */
@@ -109,9 +109,9 @@ export function parseStyleOptions(query: RawStyleQuery): StyleOptions {
     }
   }
 
-  const labelScale = firstValue(query.labelScale);
-  if (labelScale && (VALID_LABEL_SCALE as readonly string[]).includes(labelScale)) {
-    options.labelScale = labelScale as StyleLabelScale;
+  const labelScale = labelGroesse(firstValue(query.labelScale));
+  if (labelScale) {
+    options.labelScale = labelScale;
   }
 
   const poi = firstValue(query.poi);
@@ -186,7 +186,7 @@ function applyLabelScale(layer: StyleLayer, scale: StyleLabelScale): StyleLayer 
     // none of the shipped styles use expression sizes today).
     return layer;
   }
-  const factor = scale === '1.2' ? 1.2 : 1.0;
+  const factor = Number(labelGroesse(scale) ?? '1.0');
   // Rounded to 2 decimals to keep the served JSON tidy and avoid float noise.
   const nextSize = Math.round(currentSize * factor * 100) / 100;
   return { ...layer, layout: { ...layer.layout, 'text-size': nextSize } };

@@ -12,9 +12,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { POI_AUSWAHL } from '@yapaia/shared';
 import { useStyleStore } from '../state/styleStore';
-import { fetchStyleSummaries, type StyleLabelScale, type StyleLang, type StylePoiDensity, type StyleSummary } from './styleClient';
+import { fetchStyleSummaries, type StyleLang, type StylePoiDensity, type StyleSummary } from './styleClient';
 import ThemeToggle from '../theme/ThemeToggle.js';
 import FaltAbschnitt from './FaltAbschnitt.js';
+import LabelGroesseRegler from './LabelGroesseRegler.js';
+import StilJeThema from './StilJeThema.js';
 import DriveLockGate from '../drive/DriveLockGate.js';
 import HandednessToggle from '../shell/HandednessToggle.js';
 import { useOnboardingStore } from '../onboarding/store.js';
@@ -27,11 +29,6 @@ const LANG_OPTIONS: Array<{ value: StyleLang; label: string }> = [
   { value: 'name', label: 'Original' },
   { value: 'name_de', label: 'Deutsch' },
   { value: 'name_en', label: 'English' },
-];
-
-const LABEL_SCALE_OPTIONS: Array<{ value: StyleLabelScale; label: string }> = [
-  { value: '1.0', label: '100%' },
-  { value: '1.2', label: '120%' },
 ];
 
 const POI_OPTIONS: Array<{ value: StylePoiDensity; label: string }> = [
@@ -132,9 +129,7 @@ export default function StylePanel(): React.ReactElement {
   const schmal = useSchmal();
   const driveActive = isDriveActive(useNavStore((state) => state.navState)?.status);
   const [styles, setStyles] = useState<StyleSummary[]>([]);
-  const styleId = useStyleStore((state) => state.styleId);
   const options = useStyleStore((state) => state.options);
-  const setStyleId = useStyleStore((state) => state.setStyleId);
   const setLang = useStyleStore((state) => state.setLang);
   const setLabelScale = useStyleStore((state) => state.setLabelScale);
   const setPoi = useStyleStore((state) => state.setPoi);
@@ -167,7 +162,7 @@ export default function StylePanel(): React.ReactElement {
     <div className="fixed left-4 z-10" style={{ bottom: bottomInsetPx(schmal, driveActive) }}>
       {isOpen && (
         <div
-          className="absolute bottom-14 left-0 mb-2 w-64 max-h-[calc(100vh-7rem)] overflow-y-auto overscroll-contain rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"
+          className="absolute bottom-14 left-0 mb-2 w-64 max-h-[calc(100vh-7rem)] max-h-[calc(100dvh-7rem)] overflow-y-auto overscroll-contain rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"
           data-testid="style-panel"
         >
           {/* Speed-Lock (E07-T4): Settings is one of docs/06 §4's "complex
@@ -182,23 +177,7 @@ export default function StylePanel(): React.ReactElement {
               Haendigkeit und Region. Was man am haeufigsten braucht, gehoert
               dorthin, wo der Blick zuerst hinfaellt. */}
           <FaltAbschnitt titel="Kartenstil" offen id="stil">
-            <div className="flex flex-col gap-1">
-              {styles.map((style) => (
-                <button
-                  key={style.id}
-                  onClick={() => setStyleId(style.id)}
-                  aria-pressed={style.id === styleId}
-                  data-testid={`style-option-${style.id}`}
-                  className={`text-left px-3 py-2 rounded-lg border ${
-                    style.id === styleId
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/40 font-semibold'
-                      : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  {style.name}
-                </button>
-              ))}
-            </div>
+            <StilJeThema styles={styles} />
           </FaltAbschnitt>
 
           {/* ─── HIER STAND „ANGEZEIGTE REGION" ────────────────────────────
@@ -254,23 +233,7 @@ export default function StylePanel(): React.ReactElement {
                 <h3 className="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
                   Label-Größe
                 </h3>
-                <div className="flex gap-1">
-              {LABEL_SCALE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setLabelScale(opt.value)}
-                  aria-pressed={opt.value === options.labelScale}
-                  data-testid={`labelscale-option-${opt.value}`}
-                  className={`px-2 py-1 rounded-md border text-xs ${
-                    opt.value === options.labelScale
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/40 font-semibold'
-                      : 'border-slate-300 dark:border-slate-600'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-                  ))}
-                </div>
+                <LabelGroesseRegler wert={options.labelScale} onWert={setLabelScale} />
               </div>
 
               <div>

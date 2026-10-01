@@ -1,16 +1,11 @@
 /**
- * Unit tests for `applyThemeResolution.ts`'s STYLE-STORE side (the DOM-class
- * side needs a real `document`, covered by `apps/web/e2e/theme.spec.ts` in a
- * real browser -- this suite runs under Node, see `vitest.config.ts`
- * `environment: 'node'`, same convention as `state/styleStore.test.ts`).
+ * `applyThemeResolution` -- die Seite des Stil-Speichers (die `dark`-Klasse
+ * braucht ein echtes `document`, das prüft `e2e/theme.spec.ts`).
  *
- * Covers:
- *  - the `syncMapStyle` gate (`themeStore.ts` decides it; this only checks
- *    `applyThemeResolution` HONORS it, on/off);
- *  - the contrast-interaction decision documented in
- *    `applyThemeResolution.ts`: theme-coupling only ever touches
- *    `yapaja-light`/`yapaja-dark`, never overwriting a manually-picked
- *    `yapaja-contrast`, even when `syncMapStyle` is true.
+ * Seit 0.21 hat jedes Thema seinen eigenen Stilplatz. Gemeldet war: „Wenn ich
+ * aber einen anderen Kartenstil wähle, wird das überschrieben (dunkles Theme
+ * mit heller Karte)." Geprüft wird hier, dass der Wechsel des Themas nur den
+ * PLATZ wechselt und nie eine Wahl überschreibt.
  */
 
 import { describe, expect, it, beforeEach } from 'vitest';
@@ -19,59 +14,58 @@ import { useStyleStore } from '../state/styleStore.js';
 import { DEFAULT_STYLE_OPTIONS } from '../map/styleClient.js';
 import type { ThemeResolution } from './resolveTheme.js';
 
-function darkResolution(): ThemeResolution {
+function dunkel(): ThemeResolution {
   return { theme: 'dark', styleId: 'yapaja-dark', overrideActive: false, nextBoundaryAt: null };
 }
 
-function lightResolution(): ThemeResolution {
+function hell(): ThemeResolution {
   return { theme: 'light', styleId: 'yapaja-light', overrideActive: false, nextBoundaryAt: null };
 }
 
 describe('applyThemeResolution', () => {
   beforeEach(() => {
-    useStyleStore.setState({ styleId: 'yapaja-light', options: DEFAULT_STYLE_OPTIONS });
+    useStyleStore.setState({
+      styleId: 'yapaja-light',
+      stilHell: 'yapaja-light',
+      stilDunkel: 'yapaja-dark',
+      thema: 'light',
+      options: DEFAULT_STYLE_OPTIONS,
+    });
   });
 
-  it('does not throw without a document (Node test env)', () => {
-    expect(() => applyThemeResolution(darkResolution(), { syncMapStyle: true })).not.toThrow();
+  it('wirft ohne document nicht (Node)', () => {
+    expect(() => applyThemeResolution(dunkel())).not.toThrow();
   });
 
-  it('syncMapStyle: true sets the style store to yapaja-dark for a dark resolution', () => {
-    applyThemeResolution(darkResolution(), { syncMapStyle: true });
+  it('zeigt bei Dunkel den Dunkel-Stil und bei Hell den Hell-Stil', () => {
+    applyThemeResolution(dunkel());
     expect(useStyleStore.getState().styleId).toBe('yapaja-dark');
-  });
-
-  it('syncMapStyle: true sets the style store to yapaja-light for a light resolution', () => {
-    useStyleStore.getState().setStyleId('yapaja-dark');
-    applyThemeResolution(lightResolution(), { syncMapStyle: true });
+    applyThemeResolution(hell());
     expect(useStyleStore.getState().styleId).toBe('yapaja-light');
   });
 
-  it('syncMapStyle: false leaves the style store untouched, regardless of resolution', () => {
-    useStyleStore.getState().setStyleId('yapaja-dark');
-    applyThemeResolution(lightResolution(), { syncMapStyle: false });
-    expect(useStyleStore.getState().styleId).toBe('yapaja-dark');
-  });
+  it('der gemeldete Fall: ein frei gewählter Stil überlebt den Wechsel in beide Richtungen', () => {
+    // Bei Hell „Natur", bei Dunkel „Kontrast" gewählt.
+    useStyleStore.getState().setStilFuer('light', 'yapaja-natur');
+    useStyleStore.getState().setStilFuer('dark', 'yapaja-contrast');
 
-  it('leaves a manually-chosen yapaja-contrast style untouched by a dark resolution, even with syncMapStyle: true', () => {
-    useStyleStore.getState().setStyleId('yapaja-contrast');
-    applyThemeResolution(darkResolution(), { syncMapStyle: true });
+    applyThemeResolution(dunkel());
     expect(useStyleStore.getState().styleId).toBe('yapaja-contrast');
-  });
-
-  it('leaves a manually-chosen yapaja-contrast style untouched by a light resolution, even with syncMapStyle: true', () => {
-    useStyleStore.getState().setStyleId('yapaja-contrast');
-    applyThemeResolution(lightResolution(), { syncMapStyle: true });
+    applyThemeResolution(hell());
+    expect(useStyleStore.getState().styleId).toBe('yapaja-natur');
+    applyThemeResolution(dunkel());
     expect(useStyleStore.getState().styleId).toBe('yapaja-contrast');
+
+    // Die Wahl selbst ist unberührt.
+    expect(useStyleStore.getState().stilHell).toBe('yapaja-natur');
+    expect(useStyleStore.getState().stilDunkel).toBe('yapaja-contrast');
   });
 
-  it('resumes coupling once the style is set back to yapaja-light/yapaja-dark', () => {
-    useStyleStore.getState().setStyleId('yapaja-contrast');
-    applyThemeResolution(darkResolution(), { syncMapStyle: true });
-    expect(useStyleStore.getState().styleId).toBe('yapaja-contrast'); // still untouched
-
-    useStyleStore.getState().setStyleId('yapaja-light'); // user picks light/dark again via Style Panel
-    applyThemeResolution(darkResolution(), { syncMapStyle: true }); // next theme transition
-    expect(useStyleStore.getState().styleId).toBe('yapaja-dark'); // coupling resumed
+  it('eine Wahl im Menü gilt für das gerade aktive Thema', () => {
+    applyThemeResolution(dunkel());
+    useStyleStore.getState().setStyleId('yapaja-reduziert');
+    expect(useStyleStore.getState().stilDunkel).toBe('yapaja-reduziert');
+    expect(useStyleStore.getState().stilHell).toBe('yapaja-light');
+    expect(useStyleStore.getState().styleId).toBe('yapaja-reduziert');
   });
 });

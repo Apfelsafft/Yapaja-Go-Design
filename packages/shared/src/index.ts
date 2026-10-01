@@ -143,3 +143,6 @@ export {
 
 // „Unterwegs finden" (Fahrtmenü, Copilot): siehe `./poi/unterwegs.ts`.
 export { UNTERWEGS_KATEGORIEN, unterwegsKategorie, type UnterwegsKategorie } from './poi/unterwegs';
+
+// Kartenbeschriftung: 80 % bis 200 % (Kern und Oberfläche prüfen gleich)
+export { labelGroesse, LABEL_GROESSE_MIN, LABEL_GROESSE_MAX, LABEL_GROESSE_SCHRITT } from './labelGroesse';
