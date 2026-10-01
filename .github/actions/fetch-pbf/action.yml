@@ -10,6 +10,12 @@ inputs:
   path:
     description: Wohin die Datei gelegt wird. NICHT unter data/valhalla -- das raeumt build-tiles.sh aus.
     required: true
+  bbox:
+    description: >-
+      Nur fuer den Ausweg ueber planet.osm.ch: das Rechteck (west,sued,ost,nord),
+      das aus dem Schweiz-Extrakt ausgeschnitten wird. Leer = kein Ausweg.
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -54,57 +60,61 @@ runs:
         fi
         mkdir -p "$(dirname "${ZIEL}")"
 
-        # ─── ZWEITE QUELLE ─────────────────────────────────────────────────
+        # ─── WENN GEOFABRIK NICHT LIEFERT ───────────────────────────────────
         # Seit 2026-09-30 antwortet Geofabrik den GitHub-Runnern mit einer
-        # Umleitung auf sich selbst (`curl: (47) Maximum (50) redirects
-        # followed`, 274-Byte-Antworten) -- ueber Stunden, in mehreren Jobs,
-        # auch mit Cookie-Verwaltung. Ein einziger Anbieter ist damit ein
-        # Merge-Blocker fuer jede Aenderung, auch fuer eine an der Doku.
+        # Umleitung auf sich selbst (`curl: (47)`), und vom Betreiber aus lief
+        # die Verbindung in eine Zeitueberschreitung -- der Dienst war also
+        # insgesamt weg, nicht nur fuer GitHub. Ein einzelner Anbieter ist
+        # damit ein Merge-Blocker fuer jede Aenderung.
         #
-        # Deshalb danach derselbe Extrakt von Spiegeln (openstreetmap.fr unter
-        # `/extracts/`, gwdg als Geofabrik-Spiegel). Dieselben
-        # OSM-Daten, nur ein anderer Server. Ob wirklich eine .osm.pbf ankam,
-        # prueft der naechste Schritt ohnehin -- ein falscher Pfad beim
-        # Spiegel faellt dort auf und nicht erst in einem Build.
+        # Die zuerst versuchten Spiegel (openstreetmap.fr, gwdg) lieferten fuer
+        # Liechtenstein nur 404 und sind wieder heraus. Der Ausweg ist jetzt
+        # ein anderer Anbieter mit anderem Zuschnitt: der Schweizer OSM-Verein
+        # (planet.osm.ch) bietet einen Schweiz-Extrakt mit 10 km Rand, und der
+        # enthaelt Liechtenstein vollstaendig. Daraus schneidet `osmium` das
+        # Rechteck aus `bbox` aus. Das kostet einen groesseren Download, aber
+        # nur dann, wenn Geofabrik ausfaellt -- und das Ergebnis landet im
+        # selben Wochen-Cache wie sonst.
         URL='${{ inputs.url }}'
-        QUELLEN=("${URL}")
-        case "${URL}" in
-          https://download.geofabrik.de/*)
-            PFAD="${URL#https://download.geofabrik.de/}"
-            # openstreetmap.fr erzeugt eigene Extrakte und haengt kein
-            # `-latest` an (`europe/liechtenstein.osm.pbf`); gwdg spiegelt
-            # Geofabrik 1:1. Die Namensschemata sind von hier aus nicht
-            # pruefbar -- ein 404 kostet nur Sekunden, darum lieber eine
-            # Variante mehr.
-            QUELLEN+=("https://download.openstreetmap.fr/extracts/${PFAD/-latest/}")
-            QUELLEN+=("https://ftp5.gwdg.de/pub/misc/openstreetmap/download.geofabrik.de/${PFAD}")
-            QUELLEN+=("https://ftp5.gwdg.de/pub/misc/openstreetmap/download.geofabrik.de/${PFAD##*/}")
-            ;;
-        esac
-
-        GELADEN=""
-        for QUELLE in "${QUELLEN[@]}"; do
-          echo "Versuche ${QUELLE}"
+        BBOX='${{ inputs.bbox }}'
+        lade() {
           # `--speed-limit/--speed-time` bricht ab, wenn der Durchsatz 30 s
           # lang unter 1 KB/s faellt -- die Verbindung stand schon einmal,
-          # es kam nur nichts mehr. Ein reines `--max-time` haette 30 Minuten
-          # gewartet. `--cookie ''` schaltet curls Cookie-Verwaltung ein, ohne
-          # eine Datei zu lesen: ein Cookie aus einer Umleitung geht beim
-          # naechsten Sprung wieder mit.
-          if curl --fail --location --show-error --silent --cookie '' \
-               --connect-timeout 20 --max-time 300 \
+          # es kam nur nichts mehr. `--cookie ''` schaltet curls
+          # Cookie-Verwaltung ein, ohne eine Datei zu lesen.
+          curl --fail --location --show-error --silent --cookie '' \
+               --connect-timeout 20 --max-time "$3" \
                --speed-limit 1024 --speed-time 30 \
                --retry 2 --retry-delay 5 \
-               --output "${ZIEL}" "${QUELLE}" \
-             && head -c 64 "${ZIEL}" | grep -q "OSMHeader"; then
-            GELADEN="${QUELLE}"
-            break
-          fi
-          echo "::warning::${QUELLE} lieferte keine brauchbare .osm.pbf -- naechste Quelle."
+               --output "$2" "$1" \
+            && head -c 64 "$2" | grep -q "OSMHeader"
+        }
+
+        GELADEN=""
+        echo "Versuche ${URL}"
+        if lade "${URL}" "${ZIEL}" 300; then
+          GELADEN="${URL}"
+        else
           rm -f "${ZIEL}"
-        done
+          echo "::warning::${URL} lieferte keine brauchbare .osm.pbf."
+          if [ -n "${BBOX}" ]; then
+            GROSS="$(dirname "${ZIEL}")/schweiz-gross.osm.pbf"
+            for CH in https://planet.osm.ch/switzerland-padded.osm.pbf https://planet.osm.ch/switzerland.pbf; do
+              echo "Ausweg: ${CH}, danach Ausschnitt ${BBOX}"
+              if lade "${CH}" "${GROSS}" 900; then
+                command -v osmium >/dev/null 2>&1 || { sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool >/dev/null; }
+                osmium extract --bbox "${BBOX}" --overwrite -o "${ZIEL}" "${GROSS}"
+                rm -f "${GROSS}"
+                GELADEN="${CH} (Ausschnitt ${BBOX})"
+                break
+              fi
+              rm -f "${GROSS}"
+              echo "::warning::${CH} lieferte keine brauchbare .osm.pbf."
+            done
+          fi
+        fi
         if [ -z "${GELADEN}" ]; then
-          echo "::error::Keine Quelle lieferte den Extrakt: ${QUELLEN[*]}"
+          echo "::error::Keine Quelle lieferte den Extrakt (${URL}${BBOX:+, Ausweg planet.osm.ch})."
           exit 1
         fi
         echo "Quelle: ${GELADEN}"
