@@ -78,6 +78,14 @@ test('[Flow 9] ingress sub-path: assets, tiles AND the WebSocket all load under 
   }
   expect(allUrls.some((u) => u.includes(`${SUBPATH_PREFIX}/api/v1/map/regions`))).toBe(true);
   expect(allUrls.some((u) => u.includes(`${SUBPATH_PREFIX}/tiles/`))).toBe(true);
+  // Die Symbole (POI-Marken, Schilder) kommen ebenfalls unter dem Ingress-Pfad
+  // -- MapLibre 6 verlangt dafuer eine absolute Adresse (`spriteAbsolut`).
+  await expect
+    .poll(() => page.evaluate(() => Boolean(window.__yapaiaMapController?.getMap()?.hasImage('poi-wohnmobil'))), {
+      timeout: 15_000,
+    })
+    .toBe(true);
+  expect(allUrls.some((u) => u.includes(`${SUBPATH_PREFIX}/sprites/yapaja`))).toBe(true);
 
   // --- API through the proxy ------------------------------------------------
   // The same endpoints the UI relies on answer correctly when addressed via

@@ -320,10 +320,16 @@ test.describe('style options', () => {
 
     // Seit 0.12.2 liegen diese Optionen hinter einer Klappe.
     await oeffneAbschnitt(page, 'darstellung');
-    await page.locator('[data-testid="labelscale-option-1.2"]').click();
+    // Seit 0.21 ein Schieberegler von 80 % bis 200 %.
+    const regler = page.getByTestId('labelscale-slider');
+    await regler.fill('1.2');
     await expect.poll(() => currentPlaceLabelSize()).toBeCloseTo((baseSize as number) * 1.2, 1);
 
-    await page.locator('[data-testid="labelscale-option-1.0"]').click();
+    await regler.fill('2');
+    await expect(page.getByTestId('labelscale-wert')).toHaveText('200 %');
+    await expect.poll(() => currentPlaceLabelSize()).toBeCloseTo((baseSize as number) * 2, 1);
+
+    await regler.fill('1');
     await expect.poll(() => currentPlaceLabelSize()).toBeCloseTo(baseSize as number, 1);
   });
 
@@ -359,7 +365,7 @@ test.describe('style options', () => {
     // Seit 0.12.2 liegen diese Optionen hinter einer Klappe.
     await oeffneAbschnitt(page, 'darstellung');
     await page.locator('[data-testid="poi-option-off"]').click();
-    await page.locator('[data-testid="labelscale-option-1.2"]').click();
+    await page.getByTestId('labelscale-slider').fill('1.2');
     await page.locator('[data-testid="lang-option-name_en"]').click();
 
     // 10s (not 5s): the dark-style render can lag under CI CPU contention --
@@ -369,8 +375,16 @@ test.describe('style options', () => {
       .poll(async () => relativeLuminance(await readCenterPixel(page)), { timeout: 10_000 })
       .toBeLessThan(0.3);
 
+    // Der Schieberegler uebernimmt erst, wenn er kurz stillsteht
+    // (`LabelGroesseRegler.tsx`) -- also auf die Uebernahme warten.
+    await expect
+      .poll(() =>
+        page.evaluate(() => (JSON.parse(window.localStorage.getItem('yapaja.styleOptions') ?? '{}') as { labelScale?: string }).labelScale),
+      )
+      .toBe('1.2');
+
     const storedBefore = await page.evaluate(() => ({
-      styleId: window.localStorage.getItem('yapaja.styleId'),
+      styleId: window.localStorage.getItem('yapaja.stilHell'),
       options: window.localStorage.getItem('yapaja.styleOptions'),
     }));
     expect(storedBefore.styleId).toBe('yapaja-dark');
@@ -420,7 +434,7 @@ test.describe('style options', () => {
       )
       .toBe('none');
 
-    const storedAfter = await page.evaluate(() => window.localStorage.getItem('yapaja.styleId'));
+    const storedAfter = await page.evaluate(() => window.localStorage.getItem('yapaja.stilHell'));
     expect(storedAfter).toBe('yapaja-dark');
   });
 });
@@ -699,5 +713,48 @@ test.describe('einzelne Sonderziele an- und abschalten', () => {
         { timeout: 10_000 },
       )
       .toContain('poi-entsorgung');
+  });
+});
+
+// ─── EIN STIL JE THEMA (0.21) ────────────────────────────────────────────────
+// Gemeldet: „Wenn ich aber einen anderen Kartenstil wähle, wird das
+// überschrieben (dunkles Theme mit heller Karte)."
+/**
+ * Thema umschalten, OHNE es im Kern zu speichern. `setMode` schreibt in den
+ * gemeinsamen Kern -- ein spaeterer Test (`theme.spec.ts`, „default mode is
+ * deterministic light") faend dann Dunkel vor. Genau so ist es beim ersten
+ * Lauf passiert. Derselbe Weg wie `forceAutoMode` dort.
+ */
+async function setzeThemaOhneSpeichern(page: Page, mode: 'light' | 'dark'): Promise<void> {
+  await page.evaluate((m) => {
+    window.__yapaiaThemeStore?.setState({ mode: m, override: null, lastAppliedTheme: null });
+    window.__yapaiaThemeStore?.getState().tick();
+  }, mode);
+}
+
+test.describe('Kartenstil je Hell und Dunkel', () => {
+  test('ein Stil für Dunkel wird erst beim Wechsel auf Dunkel gezeigt -- und bleibt', async ({ page }) => {
+    await page.goto(CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    await setzeThemaOhneSpeichern(page, 'light');
+    await openStylePanel(page);
+
+    // Für Dunkel „Kontrast" wählen, während Hell gilt: die Karte bleibt hell.
+    await page.getByTestId('stil-reiter-dark').click();
+    await page.getByTestId('style-option-yapaja-contrast').click();
+    await expect(page.getByTestId('stil-hinweis')).toContainText('sobald');
+    const sichtbar = () =>
+      page.evaluate(() => window.__yapaiaStyleStore?.getState().styleId);
+    await expect.poll(sichtbar).toBe('yapaja-light');
+
+    // Auf Dunkel: jetzt „Kontrast".
+    await setzeThemaOhneSpeichern(page, 'dark');
+    await expect.poll(sichtbar).toBe('yapaja-contrast');
+
+    // Zurück auf Hell: wieder hell, und die Wahl für Dunkel ist nicht verloren.
+    await setzeThemaOhneSpeichern(page, 'light');
+    await expect.poll(sichtbar).toBe('yapaja-light');
+    await setzeThemaOhneSpeichern(page, 'dark');
+    await expect.poll(sichtbar).toBe('yapaja-contrast');
   });
 });

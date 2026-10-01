@@ -10,6 +10,59 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.21.0
+
+**Symbole auf der Karte, Kartenstil je Hell und Dunkel, Schriftgröße frei
+einstellbar.**
+
+- **POI-Symbole und Straßenschilder erscheinen jetzt.** Gemeldet: „Ich
+  erkenne nicht auf Anhieb, wo bspw. ein Womo-Stellplatz ist." Die Symbole
+  (Wohnmobilstellplatz, Camping, Tankstelle, Wasser, Entsorgung …) und die
+  gelben/blauen Straßenschilder gab es schon — sie wurden aber nie
+  gezeichnet: die Kartenbibliothek verlangt seit dem Umstieg auf MapLibre 6
+  eine absolute Adresse für die Symbolgrafik und hat die bisherige still
+  verworfen. Jetzt erscheint jede Kategorie mit eigenem Symbol, der Name
+  steht darunter.
+- **Kartenstil je Thema.** Im Kartenmenü unter „Kartenstil" gibt es jetzt zwei
+  Reiter, ☀️ Hell und 🌙 Dunkel. Für jeden lässt sich einer der Stile wählen;
+  beim Wechsel zwischen Hell und Dunkel (automatisch, nach Sonnenstand oder
+  von Hand) wird der jeweils gewählte gezeigt. Eine Wahl wird dabei nie mehr
+  überschrieben. Vorher bekam man nach einer eigenen Wahl z. B. ein dunkles
+  Design mit heller Karte.
+- **Label-Größe als Schieberegler** von 80 % bis 200 % (vorher nur 100 %
+  oder 120 %). Die Karte zieht nach, sobald der Regler kurz stillsteht.
+- **Suchzeile verschwand.** Auf dem iPad verschob sich die ganze Ansicht nach
+  dem Antippen im Kartenmenü um ein Stück nach oben, und die Kopfzeile mit
+  der Suche lag außerhalb des Bildes. Die Seite kann jetzt nicht mehr
+  verrutschen, und das Kartenmenü passt in die sichtbare Höhe.
+
+Hinweis: Wer bisher einen anderen Stil als „Hell" gewählt hatte, findet nach
+dem Update wieder die Vorgaben (Hell/Dunkel) und wählt einmal neu.
+
+---
+
+## 0.20.2
+
+**Der USB-GPS-Empfänger wird auch gefunden, wenn er nach dem Start anders heißt.**
+
+**Gemeldet:** „Es scheint, wir bekommen keine GPS-Daten." Die Prüfung zeigte:
+eingetragen war `…u-blox.com_u-blox_7_-_GPS_GNSS_Receiver-if00`, gefunden
+wurde `…u-blox.com_01a7-if00` — derselbe Empfänger. Linux benennt manche
+Sticks je nach Start unterschiedlich: kommen beim Hochfahren die Textangaben
+des Sticks nicht sauber an, steht statt „u-blox_7" die Produktnummer im Namen.
+
+- Fehlt das eingetragene Gerät, nimmt Yapaia jetzt **denselben Empfänger unter
+  dem anderen Namen** — aber nur, wenn es eindeutig ist: gleicher Hersteller,
+  gleiche Schnittstelle, der Name sagt selbst „GPS/GNSS/u-blox", und es gibt
+  genau einen solchen Treffer. Ein Zigbee- oder Z-Wave-Stick wird weiterhin
+  nie geöffnet.
+- **Tipp:** Am sichersten ist ein **leeres** Feld „USB-Gerät". Dann sucht
+  Yapaia den Empfänger bei jedem Start selbst, egal wie er gerade heißt.
+- Sicherheit: der Webserver (fastify) ist auf 5.12.5 aktualisiert; vier als
+  „hoch" eingestufte Lücken der Vorversion sind damit geschlossen.
+
+---
+
 ## 0.20.1
 
 **Der USB-GPS-Empfänger ist nach einem Neustart schneller da.**

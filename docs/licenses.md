@@ -170,7 +170,7 @@ kompiliert), inklusive aller transitiven Abhaengigkeiten.
 | `fast-unique-numbers` | 9.0.27 | `MIT` |
 | `fast-uri` | 3.1.7 | `BSD-3-Clause` |
 | `fast-uri` | 4.1.4 | `BSD-3-Clause` |
-| `fastify` | 5.11.2 | `MIT` |
+| `fastify` | 5.12.5 | `MIT` |
 | `fastify-plugin` | 6.0.0 | `MIT` |
 | `fastq` | 1.20.1 | `ISC` |
 | `fflate` | 0.8.3 | `MIT` |
@@ -228,7 +228,7 @@ kompiliert), inklusive aller transitiven Abhaengigkeiten.
 | `process-nextick-args` | 2.0.1 | `MIT` |
 | `process-warning` | 3.0.0 | `MIT` |
 | `process-warning` | 4.0.1 | `MIT` |
-| `process-warning` | 5.0.0 | `MIT` |
+| `process-warning` | 5.1.0 | `MIT` |
 | `protocol-buffers-schema` | 3.6.1 | `MIT` |
 | `pump` | 3.0.4 | `MIT` |
 | `quick-format-unescaped` | 4.0.4 | `MIT` |

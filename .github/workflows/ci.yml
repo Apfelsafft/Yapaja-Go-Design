@@ -593,6 +593,9 @@ jobs:
         with:
           url: https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
           path: .cache/pbf/liechtenstein-latest.osm.pbf
+          # Liechtenstein mit etwas Rand -- nur fuer den Ausweg ueber
+          # planet.osm.ch, falls Geofabrik nicht liefert.
+          bbox: 9.45,47.03,9.65,47.28
 
       - name: Build Liechtenstein tileset via build-tiles.sh (atomic swap, W-17)
         run: |
@@ -800,6 +803,9 @@ jobs:
         with:
           url: https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
           path: .cache/pbf/liechtenstein-latest.osm.pbf
+          # Liechtenstein mit etwas Rand -- nur fuer den Ausweg ueber
+          # planet.osm.ch, falls Geofabrik nicht liefert.
+          bbox: 9.45,47.03,9.65,47.28
 
       - name: Build Liechtenstein tileset via build-tiles.sh
         run: |
@@ -936,6 +942,9 @@ jobs:
         with:
           url: https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf
           path: .cache/pbf/liechtenstein-latest.osm.pbf
+          # Liechtenstein mit etwas Rand -- nur fuer den Ausweg ueber
+          # planet.osm.ch, falls Geofabrik nicht liefert.
+          bbox: 9.45,47.03,9.65,47.28
 
       - name: Als li.osm.pbf bereitlegen
         run: cp .cache/pbf/liechtenstein-latest.osm.pbf li.osm.pbf

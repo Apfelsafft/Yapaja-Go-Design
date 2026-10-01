@@ -26,7 +26,13 @@ describe('themeStore', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ data: {} }) }));
     useThemeStore.setState({ mode: 'auto', override: null, lastAppliedTheme: null });
-    useStyleStore.setState({ styleId: DEFAULT_STYLE_ID, options: DEFAULT_STYLE_OPTIONS });
+    useStyleStore.setState({
+      styleId: DEFAULT_STYLE_ID,
+      stilHell: DEFAULT_STYLE_ID,
+      stilDunkel: 'yapaja-dark',
+      thema: 'light',
+      options: DEFAULT_STYLE_OPTIONS,
+    });
   });
 
   afterEach(() => {
@@ -47,28 +53,28 @@ describe('themeStore', () => {
     expect(useStyleStore.getState().styleId).toBe('yapaja-light');
   });
 
-  it('the FIRST tick only syncs the map style when it is still the untouched default', () => {
+  it('eine Wahl für Hell bleibt beim ersten Tag-Tick stehen', () => {
     useStyleStore.getState().setStyleId('yapaja-dark'); // a pre-existing explicit pick, unrelated to theming
     useThemeStore.getState().tick(new Date('2026-06-21T12:00:00Z'), STUTTGART); // day -> would resolve light
     expect(useThemeStore.getState().resolution.theme).toBe('light'); // UI class still resolves correctly...
     expect(useStyleStore.getState().styleId).toBe('yapaja-dark'); // ...but the pre-existing map pick survives
   });
 
-  it('a later tick still leaves an untouched-by-theme style alone as long as the theme does not change again', () => {
+  it('weitere Tag-Ticks lassen die Wahl für Hell stehen', () => {
     useStyleStore.getState().setStyleId('yapaja-dark');
     useThemeStore.getState().tick(new Date('2026-06-21T12:00:00Z'), STUTTGART); // day, first tick: style survives (see above)
     useThemeStore.getState().tick(new Date('2026-06-21T12:05:00Z'), STUTTGART); // still day: no theme change
     expect(useStyleStore.getState().styleId).toBe('yapaja-dark'); // never touched
   });
 
-  it('a genuine transition DOES override even a pre-existing style once the theme actually changes', () => {
-    useStyleStore.getState().setStyleId('yapaja-dark');
-    useThemeStore.getState().tick(new Date('2026-06-21T12:00:00Z'), STUTTGART); // day, first tick: survives
-    useThemeStore.getState().tick(new Date('2026-06-21T23:00:00Z'), STUTTGART); // night: theme DID change (light->dark)
-    expect(useStyleStore.getState().styleId).toBe('yapaja-dark'); // coupled again (coincidentally already dark, but via sync)
-
-    useThemeStore.getState().tick(new Date('2026-06-22T12:00:00Z'), STUTTGART); // next day: dark->light, a real transition
-    expect(useStyleStore.getState().styleId).toBe('yapaja-light');
+  it('Tag und Nacht wechseln den Platz, nicht die Wahl (seit 0.21)', () => {
+    useStyleStore.getState().setStilFuer('light', 'yapaja-natur');
+    useThemeStore.getState().tick(new Date('2026-06-21T12:00:00Z'), STUTTGART); // Tag
+    expect(useStyleStore.getState().styleId).toBe('yapaja-natur');
+    useThemeStore.getState().tick(new Date('2026-06-21T23:00:00Z'), STUTTGART); // Nacht
+    expect(useStyleStore.getState().styleId).toBe('yapaja-dark');
+    useThemeStore.getState().tick(new Date('2026-06-22T12:00:00Z'), STUTTGART); // naechster Tag
+    expect(useStyleStore.getState().styleId).toBe('yapaja-natur');
   });
 
   it('setMode("dark") is a deliberate action: it applies (and syncs the map style) immediately via its own tick()', () => {
@@ -117,11 +123,11 @@ describe('themeStore', () => {
     expect(useThemeStore.getState().override).toBeNull();
   });
 
-  it('a manual override never touches a manually-picked yapaja-contrast map style, even though it is a transition', () => {
-    useStyleStore.getState().setStyleId('yapaja-contrast');
+  it('ein manueller Wechsel auf Dunkel zeigt den Dunkel-Platz -- auch wenn er „Kontrast" ist', () => {
+    useStyleStore.getState().setStilFuer('dark', 'yapaja-contrast');
     useThemeStore.getState().setManualTheme('dark', new Date('2026-06-21T12:00:00Z'), STUTTGART);
-    expect(useStyleStore.getState().styleId).toBe('yapaja-contrast');
-    // The UI theme itself still resolved to dark (only the map style write was skipped).
     expect(useThemeStore.getState().resolution.theme).toBe('dark');
+    expect(useStyleStore.getState().styleId).toBe('yapaja-contrast');
+    expect(useStyleStore.getState().stilHell).toBe('yapaja-light');
   });
 });

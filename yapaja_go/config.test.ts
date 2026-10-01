@@ -1309,6 +1309,44 @@ describe('find-gps-device.sh — die Geräteauswahl, ausgeführt', () => {
     expect(ergebnis.grund).toContain('/dev/ttyUSB9');
   });
 
+  // ─── DERSELBE EMPFÄNGER UNTER ANDEREM NAMEN ────────────────────────────────
+  // Gemeldet am 2026-09-30: eingetragen war UBLOX, der VK-162 hieß nach dem
+  // Neustart aber UBLOX_NUMMER -- udev nimmt die Produktnummer (01a7), wenn die
+  // Textangaben beim Hochfahren nicht sauber ankommen.
+  const UBLOX_NUMMER = '/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_01a7-if00';
+
+  it('findet denselben u-blox-Empfänger, wenn udev ihn umbenannt hat', () => {
+    const ergebnis = waehle([SKYCONNECT, UBLOX_NUMMER], UBLOX);
+    expect(ergebnis.code).toBe(0);
+    expect(ergebnis.device).toBe(UBLOX_NUMMER);
+    expect(ergebnis.grund).toContain(UBLOX);
+    expect(ergebnis.grund).toContain(UBLOX_NUMMER);
+  });
+
+  it('weicht nicht aus, wenn zwei Empfänger desselben Herstellers passen', () => {
+    const zweiter = '/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00';
+    const ergebnis = waehle([UBLOX_NUMMER, zweiter], UBLOX);
+    expect(ergebnis.code).toBe(1);
+    expect(ergebnis.device).toBe('');
+  });
+
+  it('nimmt nie einen Stick desselben Wandler-Herstellers, der nicht GPS sagt', () => {
+    // Ein GPS mit Silicon-Labs-Wandler ist eingetragen und fehlt; der
+    // Zigbee-/Z-Wave-Stick hat denselben Hersteller und dieselbe
+    // Schnittstelle. Er darf trotzdem nicht geöffnet werden.
+    const gps = '/dev/serial/by-id/usb-Silicon_Labs_GPS_Receiver_0002-if00-port0';
+    const ergebnis = waehle([ZWAVE], gps);
+    expect(ergebnis.code).toBe(1);
+    expect(ergebnis.device).toBe('');
+  });
+
+  it('weicht bei einem rohen Knoten nicht aus', () => {
+    // ttyUSB9 fehlt, ttyUSB0 ist ein anderer Knoten -- ob es derselbe
+    // Empfänger ist, sagt der Name nicht.
+    const ergebnis = waehle([UBLOX_NUMMER], '/dev/ttyUSB9');
+    expect(ergebnis.code).toBe(1);
+  });
+
   // ─── DER FEHLENDE FÜHRENDE SCHRÄGSTRICH ───────────────────────────────────
   // Gemeldet mit genau diesem Inhalt im Feld „USB-Gerät":
   //   dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_7_-_GPS_GNSS_Receiver-if00

@@ -2,12 +2,12 @@
  * Persisted style selection + options (E01-T4).
  *
  * Persists to localStorage:
- *  - `yapaja.styleId`      the selected style id (as named in the task spec)
+ *  - `yapaja.stilHell` / `yapaja.stilDunkel`  der Stil je Thema (seit 0.21)
  *  - `yapaja.styleOptions` the {lang, labelScale, poi} option set (JSON)
  */
 
 import { create } from 'zustand';
-import { parseAbgeschaltet } from '@yapaia/shared';
+import { labelGroesse, parseAbgeschaltet } from '@yapaia/shared';
 import {
   DEFAULT_STYLE_ID,
   DEFAULT_STYLE_OPTIONS,
@@ -17,7 +17,6 @@ import {
   type StylePoiDensity,
 } from '../map/styleClient';
 
-const STYLE_ID_KEY = 'yapaja.styleId';
 const STYLE_OPTIONS_KEY = 'yapaja.styleOptions';
 
 const VALID_LANG: readonly StyleLang[] = ['name', 'name_de', 'name_en'];
@@ -34,18 +33,37 @@ const LANG_ALIASES: Readonly<Record<string, StyleLang>> = {
   'name:de': 'name_de',
   'name:en': 'name_en',
 };
-const VALID_LABEL_SCALE: readonly StyleLabelScale[] = ['1.0', '1.2'];
 const VALID_POI: readonly StylePoiDensity[] = ['full', 'reduced', 'off'];
 
-function readInitialStyleId(): string {
-  if (typeof window === 'undefined') {
-    return DEFAULT_STYLE_ID;
-  }
+// ─── EIN STIL FÜR HELL, EINER FÜR DUNKEL ─────────────────────────────────────
+// Gemeldet: „Es wird zwar automatisch zwischen hell und dunkel umgestellt.
+// Wenn ich aber einen anderen Kartenstil wähle, wird das überschrieben
+// (dunkles Theme mit heller Karte)." Gewünscht: je Thema einen eigenen Stil,
+// frei aus allen verfügbaren.
+//
+// Bis 0.20 gab es EINEN gewählten Stil, und die Themensteuerung schrieb ihn
+// beim Wechsel auf Hell/Dunkel um -- außer, er war „Kontrast", dann ließ sie
+// ihn stehen. Wer „Natur" wählte, bekam beim nächsten Sonnenuntergang
+// „Dunkel", oder eben gar keinen Wechsel. Jetzt gibt es zwei Plätze, und das
+// Thema wählt nur noch, WELCHER gilt. Die Wahl selbst fasst es nie an.
+export const STIL_HELL_KEY = 'yapaja.stilHell';
+export const STIL_DUNKEL_KEY = 'yapaja.stilDunkel';
+export const STANDARD_STIL_HELL = DEFAULT_STYLE_ID;
+export const STANDARD_STIL_DUNKEL = 'yapaja-dark';
+
+export type StilThema = 'light' | 'dark';
+
+function leseStil(key: string, standard: string): string {
+  if (typeof window === 'undefined') return standard;
   try {
-    return window.localStorage.getItem(STYLE_ID_KEY) || DEFAULT_STYLE_ID;
+    return window.localStorage.getItem(key) || standard;
   } catch {
-    return DEFAULT_STYLE_ID;
+    return standard;
   }
+}
+
+function aktiverStil(thema: StilThema, hell: string, dunkel: string): string {
+  return thema === 'dark' ? dunkel : hell;
 }
 
 /**
@@ -63,9 +81,9 @@ export function normalizeStoredOptions(parsed: Partial<StyleOptions>): StyleOpti
     lang: (VALID_LANG as readonly string[]).includes(lang)
       ? (lang as StyleLang)
       : DEFAULT_STYLE_OPTIONS.lang,
-    labelScale: (VALID_LABEL_SCALE as readonly string[]).includes(parsed.labelScale ?? '')
-      ? (parsed.labelScale as StyleLabelScale)
-      : DEFAULT_STYLE_OPTIONS.labelScale,
+    // Seit 0.21 ein Schieberegler von 80 % bis 200 %; die alten Stufen
+    // `1.0` und `1.2` sind darin enthalten und bleiben, was sie waren.
+    labelScale: labelGroesse(parsed.labelScale) ?? DEFAULT_STYLE_OPTIONS.labelScale,
     poi: (VALID_POI as readonly string[]).includes(parsed.poi ?? '')
       ? (parsed.poi as StylePoiDensity)
       : DEFAULT_STYLE_OPTIONS.poi,
@@ -112,9 +130,19 @@ function persist(key: string, value: string): void {
 }
 
 interface StyleStoreState {
+  /** Der Stil, der GERADE gilt -- abgeleitet aus Thema und den beiden Plätzen. */
   styleId: string;
+  stilHell: string;
+  stilDunkel: string;
+  /** Welches Thema gerade gilt; setzt nur die Themensteuerung. */
+  thema: StilThema;
   options: StyleOptions;
+  /** Setzt den Stil für das GERADE geltende Thema -- sichtbar sofort. */
   setStyleId: (id: string) => void;
+  /** Setzt den Stil für ein bestimmtes Thema. */
+  setStilFuer: (thema: StilThema, id: string) => void;
+  /** Schaltet um, welcher der beiden Plätze gilt. */
+  setThema: (thema: StilThema) => void;
   setLang: (lang: StyleLang) => void;
   setLabelScale: (labelScale: StyleLabelScale) => void;
   setPoi: (poi: StylePoiDensity) => void;
@@ -124,13 +152,30 @@ interface StyleStoreState {
   setPoiAus: (poiAus: readonly string[]) => void;
 }
 
+const anfangHell = leseStil(STIL_HELL_KEY, STANDARD_STIL_HELL);
+const anfangDunkel = leseStil(STIL_DUNKEL_KEY, STANDARD_STIL_DUNKEL);
+
 export const useStyleStore = create<StyleStoreState>((set, get) => ({
-  styleId: readInitialStyleId(),
+  styleId: anfangHell,
+  stilHell: anfangHell,
+  stilDunkel: anfangDunkel,
+  thema: 'light',
   options: readInitialOptions(),
 
-  setStyleId: (id) => {
-    set({ styleId: id });
-    persist(STYLE_ID_KEY, id);
+  setStyleId: (id) => get().setStilFuer(get().thema, id),
+
+  setStilFuer: (thema, id) => {
+    const stilHell = thema === 'light' ? id : get().stilHell;
+    const stilDunkel = thema === 'dark' ? id : get().stilDunkel;
+    set({ stilHell, stilDunkel, styleId: aktiverStil(get().thema, stilHell, stilDunkel) });
+    persist(thema === 'light' ? STIL_HELL_KEY : STIL_DUNKEL_KEY, id);
+  },
+
+  setThema: (thema) => {
+    const { stilHell, stilDunkel } = get();
+    const styleId = aktiverStil(thema, stilHell, stilDunkel);
+    if (thema === get().thema && styleId === get().styleId) return;
+    set({ thema, styleId });
   },
 
   setLang: (lang) => {
@@ -139,7 +184,9 @@ export const useStyleStore = create<StyleStoreState>((set, get) => ({
     persist(STYLE_OPTIONS_KEY, JSON.stringify(options));
   },
 
-  setLabelScale: (labelScale) => {
+  setLabelScale: (roh) => {
+    const labelScale = labelGroesse(roh) ?? DEFAULT_STYLE_OPTIONS.labelScale;
+    if (labelScale === get().options.labelScale) return;
     const options = { ...get().options, labelScale };
     set({ options });
     persist(STYLE_OPTIONS_KEY, JSON.stringify(options));
@@ -169,3 +216,14 @@ export const useStyleStore = create<StyleStoreState>((set, get) => ({
     persist(STYLE_OPTIONS_KEY, JSON.stringify(options));
   },
 }));
+
+declare global {
+  interface Window {
+    /** Debug/E2E-Zugang, wie `__yapaiaThemeStore`. */
+    __yapaiaStyleStore?: typeof useStyleStore;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.__yapaiaStyleStore = useStyleStore;
+}

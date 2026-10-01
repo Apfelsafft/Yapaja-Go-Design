@@ -3,6 +3,35 @@
 @tailwind utilities;
 
 /*
+ * ─── DIE SEITE SELBST SCROLLT NIE ────────────────────────────────────────────
+ * Gemeldet (iPad, Home-Assistant-Seitenleiste): „ich sehe die Suchzeile am
+ * oberen Rand nicht mehr". Auf den Bildschirmfotos war ALLES um rund 120
+ * Punkte nach oben verschoben -- Kopfzeile weg, Zoom-Knöpfe halb abgeschnitten,
+ * das Kartenmenü oben angeschnitten. Nicht die Kopfzeile fehlte, die Seite
+ * war gescrollt.
+ *
+ * Yapaia ist eine Vollbild-Anwendung: Scrollen gibt es nur IN Bereichen
+ * (Menü, Listen), nie auf der Seite. Bisher hatten `html` und `body` aber
+ * weder Höhe noch `overflow` -- und `100vh` ist in WebKit auf iPad/iPhone die
+ * GRÖSSTE denkbare Höhe, nicht die sichtbare. Ragt dann irgendetwas einen
+ * Hauch über den Rand, lässt sich das Dokument verschieben, und das tut
+ * WebKit beim Antippen eines Bedienelements auch von selbst.
+ *
+ * In Chromium nicht nachzustellen; dort ist `100vh` die sichtbare Höhe. Darum
+ * wird hier nicht der eine Auslöser gesucht, sondern die Möglichkeit
+ * beseitigt: die Seite ist exakt so hoch wie das Fenster und kann nicht
+ * scrollen.
+ */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/*
  * Design tokens (E07-T3, docs/06 §3): CSS custom properties for the two
  * themes. Scoped to `:root` (light, the default) and `:root.dark` (dark) --
  * the `dark` class is set/removed on `<html>` by the theme controller

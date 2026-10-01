@@ -18,7 +18,7 @@ import BordHinweis from './bord/BordHinweis.js';
 
 export default function App(): React.ReactElement {
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-white dark:bg-slate-900">
+    <div className="relative w-full h-full overflow-hidden bg-white dark:bg-slate-900">
       <ThemeController />
       <DriveLockController />
       <HandednessController />
