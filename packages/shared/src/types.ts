@@ -23,6 +23,17 @@ export interface Position {
 }
 
 // Vehicle profile for routing and restriction checking
+/** Die Spritsorten, nach denen OpenStreetMap Tankstellen auszeichnet. */
+export const FUEL_TYPES = ['diesel', 'benzin', 'lpg', 'cng', 'elektro'] as const;
+export type FuelType = (typeof FUEL_TYPES)[number];
+export const FUEL_TYPE_NAMEN: Readonly<Record<FuelType, string>> = {
+  diesel: 'Diesel',
+  benzin: 'Benzin',
+  lpg: 'Autogas (LPG)',
+  cng: 'Erdgas (CNG)',
+  elektro: 'Elektro',
+};
+
 export interface VehicleProfile {
   id: string; // uuid
   name: string; // e.g. "Kastenwagen", "Alkoven 7.5t"
@@ -44,6 +55,16 @@ export interface VehicleProfile {
    * die niedrigere Grenze).
    */
   tempo_100?: boolean;
+  /**
+   * Womit das Fahrzeug tankt. Gewünscht für später: „Das hilft, wenn wir
+   * Tankstellen anzeigen" -- eine LPG-Zapfsäule nützt einem Diesel nichts.
+   *
+   * Optional: fehlt die Angabe, wird bei Tankstellen nichts ausgefiltert.
+   * Eine geratene Sorte würde Tankstellen verstecken, an denen man tanken
+   * KÖNNTE -- die falsche Richtung. `null` heisst ausdrücklich „keine
+   * Angabe" und löscht beim Speichern eine frühere Wahl.
+   */
+  fuel_type?: FuelType | null;
   hazmat: boolean; // default false
   avoid: {
     motorway: boolean;

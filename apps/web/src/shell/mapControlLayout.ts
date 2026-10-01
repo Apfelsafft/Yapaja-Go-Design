@@ -172,7 +172,7 @@ export function rightColumnBottomPx(schmal: boolean, driveActive: boolean): numb
 
 
 /** Ein Platz in der rechten Spalte, von unten nach oben. */
-export type RightStackSlot = 'viewmode' | 'compass' | 'recenter';
+export type RightStackSlot = 'viewmode' | 'compass' | 'recenter' | 'uebersicht';
 
 interface StackEntry {
   slot: RightStackSlot;
@@ -185,6 +185,8 @@ const RIGHT_STACK: readonly StackEntry[] = [
   { slot: 'viewmode', heightPx: FAB_SIZE_PX },
   { slot: 'compass', heightPx: FAB_SIZE_PX },
   { slot: 'recenter', heightPx: FAB_SIZE_PX },
+  // Position <-> ganze Route (map/UebersichtButton.tsx), nur mit Route da.
+  { slot: 'uebersicht', heightPx: FAB_SIZE_PX },
 ];
 
 /**

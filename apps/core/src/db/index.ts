@@ -6,7 +6,7 @@
 import Database from 'better-sqlite3';
 import { mkdirSync, existsSync } from 'fs';
 import { dirname } from 'path';
-import type { VehicleProfile, Favorite, HistoryEntry } from '@yapaia/shared';
+import { FUEL_TYPES, type FuelType, type VehicleProfile, type Favorite, type HistoryEntry } from '@yapaia/shared';
 import { runMigrations } from './migrations/index.js';
 
 let dbInstance: Database.Database | null = null;
@@ -73,6 +73,10 @@ export interface DatabaseRow {
   is_active: number;
   /** Migration 005. `null`/fehlend = nie von einem Menschen bestaetigt. */
   dimensions_confirmed_at?: string | null;
+  /** Migration 006. `null`/fehlend = keine Zulassung. */
+  tempo_100?: number | null;
+  /** Migration 006. `null`/fehlend = nicht angegeben. */
+  fuel_type?: string | null;
 }
 
 /**
@@ -99,13 +103,21 @@ export function rowToProfile(row: DatabaseRow): VehicleProfile {
     // fehlendes Feld darf hier NIE zu einem Zeitstempel werden: das hiesse
     // „ein Mensch hat die Masse geprueft", und genau das ist unbekannt.
     dimensions_confirmed_at: row.dimensions_confirmed_at ?? null,
+    // Fehlt die Zulassung, fehlt das Feld -- gelesen wird sie überall als
+    // `tempo_100 === true`, und ein Profil sieht nach dem Speichern genauso
+    // aus wie vorher.
+    ...(row.tempo_100 === 1 ? { tempo_100: true } : {}),
+    // Nur eine bekannte Sorte; alles andere heisst „nicht angegeben".
+    ...((FUEL_TYPES as readonly string[]).includes(row.fuel_type ?? '')
+      ? { fuel_type: row.fuel_type as FuelType }
+      : {}),
   };
 }
 
 /**
  * Converts a VehicleProfile to database values
  */
-export function profileToRow(profile: VehicleProfile): Record<string, number | string> {
+export function profileToRow(profile: VehicleProfile): Record<string, number | string | null> {
   return {
     id: profile.id,
     name: profile.name,
@@ -120,6 +132,8 @@ export function profileToRow(profile: VehicleProfile): Record<string, number | s
     avoid_ferry: profile.avoid.ferry ? 1 : 0,
     avoid_unpaved: profile.avoid.unpaved ? 1 : 0,
     is_active: profile.is_active ? 1 : 0,
+    tempo_100: profile.tempo_100 ? 1 : 0,
+    fuel_type: profile.fuel_type ?? null,
   };
 }
 

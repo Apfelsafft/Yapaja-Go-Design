@@ -36,7 +36,8 @@ import { useNavStore } from './navStore.js';
 import { useTtsStore } from './ttsStore.js';
 import { announce, cancelSpeech, unlockAudio } from './tts.js';
 import TripInfoPanel from './TripInfoPanel.js';
-import UnterwegsFinden from './UnterwegsFinden.js';
+import UnterwegsFinden, { type UnterwegsErgebnis } from './UnterwegsFinden.js';
+import UnterwegsVorschau, { type Vorschau } from './UnterwegsVorschau.js';
 import { stationsZeile, useBordStore } from '../bord/bordStore.js';
 import { stationAlsHalt } from '../bord/BordHinweis.js';
 import { useFavoritesStore } from '../favorites/store.js';
@@ -110,6 +111,10 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eingeschoben, setEingeschoben] = useState<string | null>(null);
+  // Erst ansehen, dann einfügen (UnterwegsVorschau.tsx). Das letzte Ergebnis
+  // bleibt, damit „Liste" dorthin zurückführt, wo man war.
+  const [vorschau, setVorschau] = useState<Vorschau | null>(null);
+  const [letztesUnterwegs, setLetztesUnterwegs] = useState<UnterwegsErgebnis | null>(null);
 
   // Die Profilliste frisch holen, sobald das Menue aufgeht -- wie die
   // Fahrzeugwahl in der Kopfzeile es beim Aufklappen tut.
@@ -199,6 +204,27 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
         </p>
       )}
 
+      {vorschau && !offen && (
+        <UnterwegsVorschau
+          vorschau={vorschau}
+          bottomPx={tripInfoBottomPx() + TRIP_BAR_HEIGHT_PX + STACK_GAP_PX}
+          onBlaettern={(index) => setVorschau({ ...vorschau, index })}
+          onEinfuegen={() => {
+            const t = vorschau.ergebnis.treffer[vorschau.index]!;
+            const profileId = useProfileStore.getState().activeProfile?.id;
+            zwischenstoppVorn({ lat: t.lat, lon: t.lon }, t.name, { origin: 'current', profileId });
+            setEingeschoben(t.name);
+            setVorschau(null);
+            setLetztesUnterwegs(null);
+          }}
+          onListe={() => {
+            setVorschau(null);
+            setOffen(true);
+          }}
+          onSchliessen={() => setVorschau(null)}
+        />
+      )}
+
       {offen && (
         <div
           id="fahrt-menue"
@@ -283,10 +309,10 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
           )}
 
           <UnterwegsFinden
-            onGewaehlt={(t) => {
-              const profileId = useProfileStore.getState().activeProfile?.id;
-              zwischenstoppVorn({ lat: t.lat, lon: t.lon }, t.name, { origin: 'current', profileId });
-              setEingeschoben(t.name);
+            anfang={letztesUnterwegs}
+            onGewaehlt={(_t, ergebnis, index) => {
+              setLetztesUnterwegs(ergebnis);
+              setVorschau({ ergebnis, index });
               setOffen(false);
             }}
           />

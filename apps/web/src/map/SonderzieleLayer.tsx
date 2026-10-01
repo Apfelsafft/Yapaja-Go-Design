@@ -23,11 +23,11 @@
  * dann dauerhaft leer, ohne Fehler.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { FilterSpecification } from 'maplibre-gl';
 import { nichtAbgeschaltet } from '@yapaia/shared';
 import { useMapStore } from '../state/mapStore.js';
-import { useStyleStore } from '../state/styleStore.js';
+import { useStyleStore, wirksamesPoiAus } from '../state/styleStore.js';
 import { runWhenStyleReady } from './styleReady.js';
 import { useSonderzieleStore } from './sonderzieleStore.js';
 
@@ -73,7 +73,10 @@ export default function SonderzieleLayer(): null {
   const map = useMapStore((state) => state.map);
   const merkmale = useSonderzieleStore((s) => s.merkmale);
   const abrufen = useSonderzieleStore((s) => s.abrufen);
-  const poiAus = useStyleStore((s) => s.options.poiAus);
+  const poiAusEinstellung = useStyleStore((s) => s.options.poiAus);
+  const chipFilter = useStyleStore((s) => s.chipFilter);
+  // Mit aktivem Chip in der Kopfzeile gilt dessen Filter (styleStore.ts).
+  const poiAus = useMemo(() => wirksamesPoiAus(poiAusEinstellung, chipFilter), [poiAusEinstellung, chipFilter]);
   // ─── WARUM DIE SCHALTER AUCH IN EINEM REF LIEGEN ────────────────────────
   // Der Aufbau unten haengt bewusst nur an `[map]`: er darf NICHT bei jeder
   // Aenderung der Schalter neu laufen, sonst wuerde die Ebene dreizehnmal

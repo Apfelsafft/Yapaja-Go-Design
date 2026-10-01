@@ -229,14 +229,17 @@ test('re-center: bringt die Karte nach einem Schwenk zurück zur Position', asyn
     });
   }, HOME);
 
-  // Jetzt ist der Knopf da -- und zwar OHNE dass jemand geschwenkt haette.
-  // Genau das war die Luecke: nach einer Suche pausiert Follow-Me nicht.
-  await expect(reCenterBtn).toBeVisible({ timeout: 5_000 });
+  // Seit 0.22 erscheint der Knopf nur, wenn die Karte NICHT auf der
+  // Position steht. Follow-Me zieht sie dorthin -- dann ist er weg.
+  await expect(reCenterBtn).toBeHidden({ timeout: 5_000 });
 
   // Kamera wegbewegen, wie es eine Suche tut (programmatisch, kein Schwenk).
+  // Genau das war die Luecke von frueher: nach einer Suche pausiert
+  // Follow-Me nicht -- der Knopf muss trotzdem kommen.
   await page.evaluate(() => {
     window.__yapaiaMapController?.getMap()?.jumpTo({ center: [8.25, 49.22], zoom: 12 });
   });
+  await expect(reCenterBtn).toBeVisible({ timeout: 5_000 });
   const movedAway = await page.evaluate(() => {
     const c = window.__yapaiaMapController?.getMap()?.getCenter();
     return c ? { lat: c.lat, lon: c.lng } : null;
@@ -294,12 +297,12 @@ test('re-center: zoomt nicht heraus, wenn man bereits naeher dran ist', async ({
   }, HOME);
 
   const reCenterBtn = page.locator('[data-testid="recenter-button"]');
-  await expect(reCenterBtn).toBeVisible({ timeout: 5_000 });
 
   // Deutlich naeher als die Mindeststufe, und woanders.
   await page.evaluate(() => {
     window.__yapaiaMapController?.getMap()?.jumpTo({ center: [8.25, 49.22], zoom: 18 });
   });
+  await expect(reCenterBtn).toBeVisible({ timeout: 5_000 });
 
   await reCenterBtn.click();
   await expect

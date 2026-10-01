@@ -18,24 +18,69 @@
  * keiner, und „zurück zu nichts" ist kein Ziel.
  */
 
-import React, { useCallback } from 'react';
-import { recenterOnPosition } from './followMe';
+import React, { useCallback, useEffect, useState } from 'react';
+import { recenterOnPosition, useFollowMeIsPaused, useFollowMeStore } from './followMe';
+import { useMapStore } from '../state/mapStore';
 import { usePositionStore } from '../position/positionStore';
 import { rightStackBottomPx, EDGE_INSET_PX } from '../shell/mapControlLayout.js';
 import { useSchmal } from '../shell/useSchmal.js';
 import { useNavStore } from '../drive/navStore.js';
 import { isDriveActive } from '../drive/driveActive.js';
 
+/** Ab dieser Entfernung zwischen Kartenmitte und Position gilt die Karte als woanders. */
+export const WEG_AB_PX = 40;
+
 export default function ReCenterButton(): React.ReactElement | null {
   const driveActive = isDriveActive(useNavStore((state) => state.navState?.status));
   const schmal = useSchmal();
   const hasPosition = usePositionStore((state) => state.position !== null);
+  const pausiert = useFollowMeIsPaused();
+  const map = useMapStore((state) => state.map);
+  const [weg, setWeg] = useState(false);
+
+  // ─── NUR WENN MAN NICHT DORT IST ────────────────────────────────────────
+  // Gewuenscht: der Zentrier-Button erscheint nur, wenn man gerade (etwa
+  // durch Suchen) auf der Karte nicht auf der aktuellen Position ist.
+  //
+  // Bis 0.21 war er IMMER da. Davor hing er an der Follow-Me-Pause, und das
+  // ging schief: eine Suche bewegt die Karte, ohne zu pausieren, und der
+  // Knopf fehlte genau dann, wenn man ihn brauchte (siehe viewmode.spec.ts).
+  //
+  // Jetzt wird gemessen, wo die Karte WIRKLICH steht: liegt die Position
+  // mehr als WEG_AB_PX vom Kartenmittelpunkt entfernt, erscheint der Knopf.
+  // Geprueft wird nach jeder abgeschlossenen Bewegung (`moveend`) -- nicht
+  // waehrenddessen, sonst flackerte er beim Mitfahren mit jedem Fix, solange
+  // die Kamera der neuen Position noch hinterhergleitet.
+  useEffect(() => {
+    if (!map) return undefined;
+    const pruefen = (): void => {
+      const p = usePositionStore.getState().position;
+      if (!p) {
+        setWeg(false);
+        return;
+      }
+      const a = map.project([p.lon, p.lat]);
+      const c = map.project(map.getCenter());
+      setWeg(Math.hypot(a.x - c.x, a.y - c.y) > WEG_AB_PX);
+    };
+    map.on('moveend', pruefen);
+    // Steht die Kamera still (Follow-Me pausiert), entfernt sich die Position
+    // von selbst -- dann auch bei jedem neuen Fix nachsehen.
+    const abmelden = usePositionStore.subscribe(() => {
+      if (useFollowMeStore.getState().isPaused) pruefen();
+    });
+    pruefen();
+    return () => {
+      map.off('moveend', pruefen);
+      abmelden();
+    };
+  }, [map]);
 
   const handleClick = useCallback(() => {
     recenterOnPosition();
   }, []);
 
-  if (!hasPosition) {
+  if (!hasPosition || !(weg || pausiert)) {
     return null;
   }
 

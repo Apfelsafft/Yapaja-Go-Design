@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 // ─── NAMENSRAUM STATT STANDARD-EXPORT ─────────────────────────────────────
 // MapLibre 6 hat den Standard-Export entfernt (`TS1192: has no default
 // export`). Der Aufstieg war noetig, weil 5.x eine kritische XSS-Luecke
@@ -19,7 +19,7 @@ import {
 } from './styleClient';
 import { applyStyle, trackCoreStyle } from './styleSwitch';
 import { ensureMaplibreWorkerUrl } from './maplibreWorker';
-import { useStyleStore } from '../state/styleStore';
+import { useStyleStore, wirksamesPoiAus } from '../state/styleStore';
 import { useDegradationStore } from '../perf/degrade';
 import { useViewModeStore, syncHeadingToBearing } from './viewMode';
 import { initializeFollowMe, updateFollowMePosition } from './followMe';
@@ -30,6 +30,7 @@ import RegionCoverageNotice from './RegionCoverageNotice';
 import CompassButton from './CompassButton';
 import ViewModeButton from './ViewModeButton';
 import ReCenterButton from './ReCenterButton';
+import UebersichtButton from './UebersichtButton';
 import StylePanel from './StylePanel';
 import SonderzieleLayer from './SonderzieleLayer.js';
 import RegionsPanel from '../settings/regions/RegionsPanel';
@@ -135,7 +136,13 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
   const restoreViewMode = useViewModeStore((state) => state.restoreMode);
   const position = usePosition();
   const styleId = useStyleStore((state) => state.styleId);
-  const userStyleOptions = useStyleStore((state) => state.options);
+  const gespeicherteOptionen = useStyleStore((state) => state.options);
+  const chipFilter = useStyleStore((state) => state.chipFilter);
+  // Ein aktiver Chip in der Kopfzeile filtert, ohne die Einstellung zu ändern.
+  const userStyleOptions = useMemo(
+    () => ({ ...gespeicherteOptionen, poiAus: wirksamesPoiAus(gespeicherteOptionen.poiAus, chipFilter) }),
+    [gespeicherteOptionen, chipFilter],
+  );
   // Transient performance-degradation caps (E01-T6). These clamp the effective
   // render options DOWN from the user's persisted choice under low FPS; they
   // are never persisted and never overwrite `userStyleOptions` (that would
@@ -471,6 +478,7 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
           <CompassButton />
           <ViewModeButton />
           <ReCenterButton />
+          <UebersichtButton />
           {/* ─── WAEHREND DER FAHRT NICHT ────────────────────────────────
               Karteneinstellungen, Regionen, Store und Installationspruefung
               sind Dinge fuer den Stand, nicht fuer die Fahrt -- und die

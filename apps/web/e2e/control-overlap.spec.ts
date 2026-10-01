@@ -241,6 +241,12 @@ async function seedPosition(page: Page): Promise<void> {
     },
     { lat: BASE_LAT, lon: BASE_LON },
   );
+  // Der Zentrier-Knopf erscheint seit 0.22 nur abseits der Position -- fuer
+  // diese Pruefung soll er da sein, also die Karte wegschieben.
+  await page.evaluate(() => {
+    window.__yapaiaFollowMeStore?.getState().halten();
+    window.__yapaiaMapController?.getMap()?.jumpTo({ center: [8.25, 49.22] });
+  });
   await expect(page.getByTestId('recenter-button')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('viewmode-button')).toBeVisible({ timeout: 10_000 });
 }

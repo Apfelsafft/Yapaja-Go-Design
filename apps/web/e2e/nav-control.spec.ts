@@ -653,7 +653,18 @@ test.describe('Fahrtmenue mit ersetzten Antworten (Bordsensoren, Unterwegs finde
     await expect(page.getByTestId('unterwegs-treffer-0')).toHaveText('Aral E2E — in 700 m an der Strecke');
     await page.getByTestId('unterwegs-treffer-0').click();
 
+    // Seit 0.22 erst ansehen, dann einfügen: der Tipp zeigt den Ort auf der
+    // Karte und fügt NOCH NICHTS ein.
     await expect(page.getByTestId('fahrt-menue')).toHaveCount(0);
+    await expect(page.getByTestId('unterwegs-vorschau')).toContainText('Aral E2E');
+    await expect(page.getByTestId('unterwegs-vorschau-markierung')).toHaveCount(1);
+    expect(gesendet).toHaveLength(0);
+    // Die Kamera bleibt beim Ort, statt nach 10 s zurückzuspringen.
+    expect(await page.evaluate(() => window.__yapaiaFollowMeStore?.getState().isPaused)).toBe(true);
+
+    await page.getByTestId('unterwegs-vorschau-einfuegen').click();
+    await expect(page.getByTestId('unterwegs-vorschau')).toHaveCount(0);
+    await expect(page.getByTestId('unterwegs-vorschau-markierung')).toHaveCount(0);
     await expect(page.getByTestId('fahrt-menue-eingeschoben')).toContainText('Aral E2E');
     await expect.poll(() => gesendet.length, { timeout: 5_000 }).toBeGreaterThan(0);
     expect(gesendet[0]!.waypoints[0]).toEqual({ lat: tanke.lat, lon: tanke.lon });

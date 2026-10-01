@@ -53,6 +53,13 @@ export const vehicleProfileSchema = {
         'whether 80 or 100 applies on the Autobahn. NOT required — a profile ' +
         'stored before 0.14.0 stays valid and counts as "no permit".',
     },
+    fuel_type: {
+      type: ['string', 'null'],
+      enum: ['diesel', 'benzin', 'lpg', 'cng', 'elektro', null],
+      description:
+        'What the vehicle refuels with. NOT required — a missing value filters ' +
+        'nothing, so no usable fuel station is ever hidden by a guess.',
+    },
     hazmat: {
       type: 'boolean',
       description: 'Whether vehicle carries hazardous materials',

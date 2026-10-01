@@ -72,6 +72,8 @@ import {
   MARKERS_SOURCE_ID,
   START_MARKER_LAYER_ID,
   DEST_MARKER_LAYER_ID,
+  WAYPOINT_MARKER_LAYER_ID,
+  WAYPOINT_LABEL_LAYER_ID,
   AVOID_POLYGONS_SOURCE_ID,
   AVOID_POLYGONS_FILL_LAYER_ID,
   AVOID_POLYGONS_OUTLINE_LAYER_ID,
@@ -82,6 +84,7 @@ const ACCENT_COLOR = '#3B82F6'; // bright blue
 const ALT_COLOR = '#9CA3AF'; // gray
 const START_COLOR = '#16A34A'; // green
 const DEST_COLOR = '#DC2626'; // red
+const WAYPOINT_COLOR = '#EA580C'; // orange -- weder Start (gruen) noch Ziel (rot)
 const AVOID_COLOR = '#DC2626'; // red, matches the destination pin for "danger/excluded"
 
 // Bereits gefahren: gedecktes Blaugrau statt des Grau der Alternativen
@@ -124,6 +127,7 @@ export default function RouteLayer(): null {
   const routes = useRoutingStore((state) => state.routes);
   const activeRouteId = useRoutingStore((state) => state.activeRouteId);
   const destination = useRoutingStore((state) => state.destination);
+  const waypoints = useRoutingStore((state) => state.waypoints);
   const startPoint = useRoutingStore((state) => state.startPoint);
   const tempAvoidances = useRoutingStore((state) => state.tempAvoidances);
   const navState = useNavStore((state) => state.navState);
@@ -253,6 +257,37 @@ export default function RouteLayer(): null {
         },
       });
 
+      // ─── ZWISCHENZIELE MIT NUMMER ────────────────────────────────────────
+      // Gewuenscht: Zwischenziele auch auf der Karte sichtbar, ein Pin fuer
+      // #1, #2 usw. Bis 0.21 standen sie nur in der Liste.
+      map.addLayer({
+        id: WAYPOINT_MARKER_LAYER_ID,
+        type: 'circle',
+        source: MARKERS_SOURCE_ID,
+        filter: ['==', ['get', 'kind'], 'waypoint'],
+        paint: {
+          'circle-radius': 11,
+          'circle-color': WAYPOINT_COLOR,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#fff',
+        },
+      });
+      map.addLayer({
+        id: WAYPOINT_LABEL_LAYER_ID,
+        type: 'symbol',
+        source: MARKERS_SOURCE_ID,
+        filter: ['==', ['get', 'kind'], 'waypoint'],
+        layout: {
+          'text-field': ['to-string', ['get', 'nummer']],
+          'text-font': ['noto-sans-bold'],
+          'text-size': 12,
+          // Die Nummer darf nie wegen anderer Beschriftung verschwinden.
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+        },
+        paint: { 'text-color': '#fff' },
+      });
+
       // Sources were just created empty -- trigger the geometry effect below
       // so the current route is painted right away (E10-T1).
       setStyleEpoch((epoch) => epoch + 1);
@@ -335,7 +370,7 @@ export default function RouteLayer(): null {
 
     const markerFeatures: Array<{
       type: 'Feature';
-      properties: { kind: 'start' | 'destination' };
+      properties: { kind: 'start' | 'destination' | 'waypoint'; nummer?: number };
       geometry: { type: 'Point'; coordinates: [number, number] };
     }> = [];
     if (activeRoute) {
@@ -354,6 +389,13 @@ export default function RouteLayer(): null {
         geometry: { type: 'Point', coordinates: [startPoint.lon, startPoint.lat] },
       });
     }
+    waypoints.forEach((wp, i) => {
+      markerFeatures.push({
+        type: 'Feature',
+        properties: { kind: 'waypoint', nummer: i + 1 },
+        geometry: { type: 'Point', coordinates: [wp.latlng.lon, wp.latlng.lat] },
+      });
+    });
     if (destination) {
       markerFeatures.push({
         type: 'Feature',
@@ -362,7 +404,7 @@ export default function RouteLayer(): null {
       });
     }
     markersSource.setData({ type: 'FeatureCollection', features: markerFeatures });
-  }, [map, routes, activeRouteId, activeRoute, activeGeom, destination, startPoint, tempAvoidances, styleEpoch]);
+  }, [map, routes, activeRouteId, activeRoute, activeGeom, destination, startPoint, waypoints, tempAvoidances, styleEpoch]);
 
   // Auto-fit the camera to the union of all currently displayed routes
   // (active + alternatives) whenever the route set changes.

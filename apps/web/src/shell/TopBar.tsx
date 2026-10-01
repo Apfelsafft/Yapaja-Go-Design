@@ -35,11 +35,12 @@
  * die Panel-Knöpfe (🗺️ 🧩 🩺). Deshalb `pr-16` statt symmetrischer Polsterung.
  */
 
-import React from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import ProfilesPanel from '../profiles/ProfilesPanel.js';
 import SearchBar from '../search/SearchBar.js';
+import PoiChips from './PoiChips.js';
 
-import { TOP_BAR_RIGHT_RESERVE_PX } from './mapControlLayout.js';
+import { TOP_BAR_HEIGHT_PX, TOP_BAR_RIGHT_RESERVE_PX } from './mapControlLayout.js';
 import { useSchmal } from './useSchmal.js';
 import { useFahrtAnsicht } from '../drive/useFahrtAnsicht.js';
 
@@ -51,6 +52,34 @@ export default function TopBar(): React.ReactElement | null {
   // Favoriten liegen jetzt im Fahrtmenue (`drive/FahrtMenue.tsx`). Stehen
   // blieb eine Zeile, die Platz kostet und nichts anbietet.
   const fahrt = useFahrtAnsicht();
+  const kopf = useRef<HTMLElement | null>(null);
+
+  // ─── WIE VIEL HÖHER ALS FRÜHER ───────────────────────────────────────────
+  // Die POI-Chips machen die Kopfzeile höher. Die Hinweise darunter (GPS,
+  // Kartenabdeckung, Verkehr, Bord) standen auf festen Abständen, die von
+  // 62 Punkten ausgingen -- sie lägen jetzt unter den Chips. `--kopf-mehr`
+  // ist der Zuwachs; die Hinweise rücken um genau so viel nach unten. Ohne
+  // Kopfzeile (Fahrt) ist er null.
+  useLayoutEffect(() => {
+    const html = document.documentElement;
+    const el = kopf.current;
+    if (!el) {
+      html.style.setProperty('--kopf-mehr', '0px');
+      return undefined;
+    }
+    const messen = (): void => {
+      const mehr = Math.max(0, Math.round(el.getBoundingClientRect().height - TOP_BAR_HEIGHT_PX));
+      html.style.setProperty('--kopf-mehr', `${mehr}px`);
+    };
+    messen();
+    const beobachter = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(messen) : null;
+    beobachter?.observe(el);
+    return () => {
+      beobachter?.disconnect();
+      html.style.setProperty('--kopf-mehr', '0px');
+    };
+  }, [fahrt]);
+
   if (fahrt) return null;
   return (
     // `<header>` und nicht `<div>`: das ist die Kopfzeile der Anwendung, also
@@ -58,38 +87,44 @@ export default function TopBar(): React.ReactElement | null {
     // fiel darueber, und zwar zu Recht: die Pruefung „die Huelle ist
     // gestartet" haengt an genau diesem Landmark, und Screenreader auch.
     <header
-      className="fixed top-0 left-0 right-0 z-20 flex items-start gap-2 p-3 pointer-events-none"
+      ref={kopf}
+      className="fixed top-0 left-0 right-0 z-20 flex flex-col gap-2 p-3 pointer-events-none"
       style={{ paddingRight: TOP_BAR_RIGHT_RESERVE_PX }}
       data-testid="top-bar"
     >
-      {/* ─── AUF DEM TELEFON NUR DAS ZEICHEN ──────────────────────────────
-          Gemessen bei 390 Bildpunkten: der Schriftzug allein belegte rund 180
-          davon, und rechts sind 148 fuer Tempolimit und Zoom reserviert. Fuer
-          Fahrzeugwahl und Suche blieb dann nichts -- sie rutschten unter das
-          Schild. Das Emblem traegt die Marke auch ohne Wort; der Name steht
-          fuer Screenreader weiter da (`sr-only`). */}
-      <h1 className="flex-shrink-0 pointer-events-auto flex items-center gap-2 bg-white/90 dark:bg-slate-900/90 rounded px-3 py-1 text-lg font-bold text-slate-900 dark:text-white shadow-md">
-        {/* ─── DAS ZEICHEN, NICHT DER GANZE SCHRIFTZUG ─────────────────────
-            Die Weitfassung des Logos traegt den Namen bereits als Schrift;
-            neben dem Wort „Yapaia Go" stuende er zweimal da. Hier also nur
-            das Emblem, freigestellt, damit es in Hell UND Dunkel sitzt.
+      <div className="flex items-start gap-2">
+        {/* ─── AUF DEM TELEFON NUR DAS ZEICHEN ──────────────────────────────
+            Gemessen bei 390 Bildpunkten: der Schriftzug allein belegte rund 180
+            davon, und rechts sind 148 fuer Tempolimit und Zoom reserviert. Fuer
+            Fahrzeugwahl und Suche blieb dann nichts -- sie rutschten unter das
+            Schild. Das Emblem traegt die Marke auch ohne Wort; der Name steht
+            fuer Screenreader weiter da (`sr-only`). */}
+        <h1 className="flex-shrink-0 pointer-events-auto flex items-center gap-2 bg-white/90 dark:bg-slate-900/90 rounded px-3 py-1 text-lg font-bold text-slate-900 dark:text-white shadow-md">
+          {/* ─── DAS ZEICHEN, NICHT DER GANZE SCHRIFTZUG ─────────────────────
+              Die Weitfassung des Logos traegt den Namen bereits als Schrift;
+              neben dem Wort „Yapaia Go" stuende er zweimal da. Hier also nur
+              das Emblem, freigestellt, damit es in Hell UND Dunkel sitzt.
 
-            `alt=""` und `aria-hidden`: die Ueberschrift SAGT bereits
-            „Yapaia Go". Ein Alternativtext am Bild liesse Screenreader den
-            Namen zweimal vorlesen. */}
-        <img
-          src={`${import.meta.env.BASE_URL}icons/emblem-128.png`}
-          alt=""
-          aria-hidden="true"
-          width={28}
-          height={28}
-          className="h-7 w-7 flex-shrink-0"
-          data-testid="brand-emblem"
-        />
-        <span className={schmal ? 'sr-only' : undefined}>Yapaia Go</span>
-      </h1>
-      <ProfilesPanel />
-      <SearchBar />
+              `alt=""` und `aria-hidden`: die Ueberschrift SAGT bereits
+              „Yapaia Go". Ein Alternativtext am Bild liesse Screenreader den
+              Namen zweimal vorlesen. */}
+          <img
+            src={`${import.meta.env.BASE_URL}icons/emblem-128.png`}
+            alt=""
+            aria-hidden="true"
+            width={28}
+            height={28}
+            className="h-7 w-7 flex-shrink-0"
+            data-testid="brand-emblem"
+          />
+          <span className={schmal ? 'sr-only' : undefined}>Yapaia Go</span>
+        </h1>
+        <ProfilesPanel />
+        <SearchBar />
+      </div>
+      {/* Die POI-Chips -- eine eigene Zeile, damit sie die Suche nie schmaler
+          machen. Welche hier stehen, entscheidet das 📌 in den Einstellungen. */}
+      <PoiChips />
     </header>
   );
 }

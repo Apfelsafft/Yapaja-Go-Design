@@ -53,6 +53,8 @@ function SonderzielSchalter(): React.ReactElement {
   const poiAus = useStyleStore((state) => state.options.poiAus);
   const setPoiKategorie = useStyleStore((state) => state.setPoiKategorie);
   const setPoiAus = useStyleStore((state) => state.setPoiAus);
+  const poiChips = useStyleStore((state) => state.poiChips);
+  const setPoiChip = useStyleStore((state) => state.setPoiChip);
   const alleAus = poiAus.length === POI_AUSWAHL.length;
 
   return (
@@ -86,12 +88,12 @@ function SonderzielSchalter(): React.ReactElement {
         {POI_AUSWAHL.map((eintrag) => {
           const an = !poiAus.includes(eintrag.schluessel);
           return (
-            <li key={eintrag.schluessel}>
+            <li key={eintrag.schluessel} className="flex items-center gap-1">
               {/* Ein echtes `<label>` mit Kontrollkästchen und nicht ein
                   angeklickter `<div>`: die Trefferfläche wird damit die ganze
                   Zeile, und das zählt auf einem wackelnden Bildschirm mehr
                   als das Aussehen. */}
-              <label className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer">
+              <label className="flex flex-1 items-center gap-2 px-2 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={an}
@@ -103,6 +105,22 @@ function SonderzielSchalter(): React.ReactElement {
                   {eintrag.name}
                 </span>
               </label>
+              {/* 📌 = „als Chip oben unter der Suche zeigen" (shell/PoiChips.tsx). */}
+              <button
+                type="button"
+                onClick={() => setPoiChip(eintrag.schluessel, !poiChips.includes(eintrag.schluessel))}
+                aria-pressed={poiChips.includes(eintrag.schluessel)}
+                aria-label={`${eintrag.name} als Chip oben zeigen`}
+                title="Als Chip oben zeigen"
+                data-testid={`poi-chip-markierung-${eintrag.schluessel}`}
+                className={`h-8 w-8 shrink-0 rounded-md text-sm ${
+                  poiChips.includes(eintrag.schluessel)
+                    ? 'bg-blue-100 dark:bg-blue-900/50'
+                    : 'opacity-30 grayscale hover:opacity-70'
+                }`}
+              >
+                📌
+              </button>
             </li>
           );
         })}
@@ -117,7 +135,8 @@ function SonderzielSchalter(): React.ReactElement {
           Ohne diesen Hinweis ist ein Schalter ohne Daten von einem kaputten
           Schalter nicht zu unterscheiden. */}
       <p className="text-[11px] leading-snug text-slate-500 dark:text-slate-400">
-        Entsorgung, Frischwasser, Müll und Dusche stammen aus dem Suchindex.
+        📌 = als Chip oben unter der Suche zeigen. Entsorgung, Frischwasser,
+        Müll und Dusche stammen aus dem Suchindex.
         Ohne gebauten Index bleiben sie leer — auch eingeschaltet.
       </p>
     </div>

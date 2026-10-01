@@ -30,7 +30,8 @@ export type {
 
 // Die Spur-Bitmaske ist ein WERT und kein Typ: sie wird gerechnet, nicht
 // nur beschrieben (`directions & SPUR.LINKS`).
-export { SPUR } from './types';
+export { SPUR, FUEL_TYPES, FUEL_TYPE_NAMEN } from './types';
+export type { FuelType } from './types';
 
 // Schemas (as const for validation)
 export { latLngSchema } from './schemas/latlng';

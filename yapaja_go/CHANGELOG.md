@@ -10,6 +10,37 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.22.0
+
+**POI-Chips, Zwischenziele auf der Karte, Übersicht auf Knopfdruck,
+Spritsorte im Profil.**
+
+- **POI-Chips unter der Suche** — wie bei Google Maps. Ein Tipp auf
+  „⛽ Tankstelle" zeigt nur noch Tankstellen; mehrere Chips zeigen die Summe;
+  alle aus = wieder die Auswahl aus den Einstellungen. Welche Kategorien als
+  Chip oben stehen, legst du im Kartenmenü unter „Sonderziele" mit dem 📌
+  fest. Die Einstellungen selbst ändert ein Chip nicht.
+- **Zwischenziele als nummerierte Pins** (1, 2, …) auf der Karte, orange —
+  so sieht man in der Routenübersicht, wo sie liegen.
+- **Knopf „ganze Route" ↔ „eigene Position"** (🗺️ / 📍) rechts auf dem
+  Bildschirm, sobald eine Route geplant ist oder läuft. Die Übersicht bleibt
+  stehen, bis du zurückschaltest.
+- **Zentrier-Knopf nur, wenn nötig**: er erscheint, sobald die Karte nicht
+  auf deiner Position steht (nach Verschieben oder Suchen), und verschwindet
+  wieder, wenn sie dort ist.
+- **„Unterwegs finden": erst ansehen, dann entscheiden.** Ein Tipp auf einen
+  Treffer zeigt ihn auf der Karte (violette Markierung). Mit ◀ ▶ blätterst du
+  durch die anderen Treffer, „Als Zwischenziel" fügt ihn ein, „Liste" führt
+  zurück, ✕ schließt.
+- **Spritsorte im Fahrzeugprofil** (Diesel, Benzin, Autogas, Erdgas,
+  Elektro) — für später, um Tankstellen passend anzuzeigen.
+- **Behoben: die Tempo-100-Zulassung ging beim Speichern verloren.** Sie wurde
+  nie in die Datenbank geschrieben; nach dem nächsten Laden war sie weg, und
+  über 3,5 t warnte Yapaia auf der Autobahn bei 80 statt 100. Bitte im Profil
+  einmal neu setzen, falls dein Fahrzeug sie hat.
+
+---
+
 ## 0.21.1
 
 **Die Anzeige passt immer in den sichtbaren Platz.**

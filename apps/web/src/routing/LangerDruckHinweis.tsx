@@ -49,7 +49,7 @@ export default function LangerDruckHinweis(): React.ReactElement | null {
       // `pointer-events-none`: der Hinweis darf den nächsten Versuch nicht
       // abfangen. Wer ihn liest und sofort lange drückt, drückt womöglich
       // genau dorthin, wo er steht.
-      className="pointer-events-none fixed inset-x-0 top-20 z-20 flex justify-center px-4"
+      className="pointer-events-none fixed inset-x-0 top-[calc(5rem+var(--kopf-mehr,0px))] z-20 flex justify-center px-4"
       // `status` und nicht `alert`: es ist eine Auskunft, keine Warnung.
       // Ein `alert` unterbricht Screenreader mitten im Satz.
       role="status"
