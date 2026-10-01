@@ -35,10 +35,13 @@
  * die Panel-Knöpfe (🗺️ 🧩 🩺). Deshalb `pr-16` statt symmetrischer Polsterung.
  */
 
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import ProfilesPanel from '../profiles/ProfilesPanel.js';
 import SearchBar from '../search/SearchBar.js';
 import PoiChips from './PoiChips.js';
+import EinstellungsMenue from './EinstellungsMenue.js';
+import { useBedienSeite, PANEL_BREITE_PX } from './bedienSeite.js';
 
 import { TOP_BAR_HEIGHT_PX, TOP_BAR_RIGHT_RESERVE_PX } from './mapControlLayout.js';
 import { useSchmal } from './useSchmal.js';
@@ -53,6 +56,8 @@ export default function TopBar(): React.ReactElement | null {
   // blieb eine Zeile, die Platz kostet und nichts anbietet.
   const fahrt = useFahrtAnsicht();
   const kopf = useRef<HTMLElement | null>(null);
+  const seite = useBedienSeite();
+  const [menueOffen, setMenueOffen] = useState(false);
 
   // ─── WIE VIEL HÖHER ALS FRÜHER ───────────────────────────────────────────
   // Die POI-Chips machen die Kopfzeile höher. Die Hinweise darunter (GPS,
@@ -88,43 +93,49 @@ export default function TopBar(): React.ReactElement | null {
     // gestartet" haengt an genau diesem Landmark, und Screenreader auch.
     <header
       ref={kopf}
-      className="fixed top-0 left-0 right-0 z-20 flex flex-col gap-2 p-3 pointer-events-none"
-      style={{ paddingRight: TOP_BAR_RIGHT_RESERVE_PX }}
+      className="fixed top-0 z-20 flex flex-col gap-2 p-3 pointer-events-none"
+      // ─── DAS SEITENPANEL (0.23) ───────────────────────────────────────
+      // Gewuenscht (Vorbild Google Maps): Menues und Suche im Drittel auf der
+      // Fahrerseite, der Rest bleibt frei fuer die Karte. Auf grossen
+      // Schirmen eine feste Breite (gewuenscht: „bei grossen Bildschirmen
+      // eine fixe Breite"); auf schmalen die ganze Breite, wie bisher mit
+      // Platz fuer Zoom und Tempolimit-Schild.
+      style={
+        schmal
+          ? { left: 0, right: 0, paddingRight: TOP_BAR_RIGHT_RESERVE_PX }
+          : { [seite]: 0, width: `min(${PANEL_BREITE_PX + 24}px, 100%)` }
+      }
       data-testid="top-bar"
     >
+      {/* Der Name steht seit 0.23 im ⚙-Menue (gewuenscht: „Yapaia Go kann
+          in das Einstellungsmenue"). Fuer Screenreader bleibt er die
+          Ueberschrift der Seite. */}
+      <h1 className="sr-only">Yapaia Go</h1>
       <div className="flex items-start gap-2">
-        {/* ─── AUF DEM TELEFON NUR DAS ZEICHEN ──────────────────────────────
-            Gemessen bei 390 Bildpunkten: der Schriftzug allein belegte rund 180
-            davon, und rechts sind 148 fuer Tempolimit und Zoom reserviert. Fuer
-            Fahrzeugwahl und Suche blieb dann nichts -- sie rutschten unter das
-            Schild. Das Emblem traegt die Marke auch ohne Wort; der Name steht
-            fuer Screenreader weiter da (`sr-only`). */}
-        <h1 className="flex-shrink-0 pointer-events-auto flex items-center gap-2 bg-white/90 dark:bg-slate-900/90 rounded px-3 py-1 text-lg font-bold text-slate-900 dark:text-white shadow-md">
-          {/* ─── DAS ZEICHEN, NICHT DER GANZE SCHRIFTZUG ─────────────────────
-              Die Weitfassung des Logos traegt den Namen bereits als Schrift;
-              neben dem Wort „Yapaia Go" stuende er zweimal da. Hier also nur
-              das Emblem, freigestellt, damit es in Hell UND Dunkel sitzt.
-
-              `alt=""` und `aria-hidden`: die Ueberschrift SAGT bereits
-              „Yapaia Go". Ein Alternativtext am Bild liesse Screenreader den
-              Namen zweimal vorlesen. */}
-          <img
-            src={`${import.meta.env.BASE_URL}icons/emblem-128.png`}
-            alt=""
-            aria-hidden="true"
-            width={28}
-            height={28}
-            className="h-7 w-7 flex-shrink-0"
-            data-testid="brand-emblem"
-          />
-          <span className={schmal ? 'sr-only' : undefined}>Yapaia Go</span>
-        </h1>
+        <button
+          type="button"
+          onClick={() => setMenueOffen(true)}
+          aria-label="Einstellungen"
+          aria-expanded={menueOffen}
+          title="Einstellungen"
+          className="pointer-events-auto flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-white/95 text-lg shadow-md hover:bg-slate-100 dark:bg-slate-800/95 dark:hover:bg-slate-700"
+          data-testid="einstellungen-toggle"
+        >
+          ⚙️
+        </button>
         <ProfilesPanel />
         <SearchBar />
       </div>
       {/* Die POI-Chips -- eine eigene Zeile, damit sie die Suche nie schmaler
           machen. Welche hier stehen, entscheidet das 📌 in den Einstellungen. */}
       <PoiChips />
+      {/* Ueber ein Portal an den Wurzelkasten: innerhalb der Kopfzeile (z-20)
+          laegen Hinweise mit z-30 ueber dem Menue. */}
+      {menueOffen &&
+        createPortal(
+          <EinstellungsMenue onSchliessen={() => setMenueOffen(false)} />,
+          document.getElementById('yapaia-sicht') ?? document.body,
+        )}
     </header>
   );
 }

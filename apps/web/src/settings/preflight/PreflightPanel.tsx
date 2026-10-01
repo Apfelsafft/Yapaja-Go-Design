@@ -151,8 +151,9 @@ function TrackerAuswahlFeld(): React.ReactElement | null {
   );
 }
 
-export default function PreflightPanel(): React.ReactElement {
-  const [isOpen, setIsOpen] = useState(false);
+export default function PreflightPanel({ eingebettet = false }: { eingebettet?: boolean } = {}): React.ReactElement {
+  // Eingebettet (im ⚙-Menü, shell/EinstellungsMenue.tsx) ist der Inhalt immer offen.
+  const [isOpen, setIsOpen] = useState(eingebettet);
   const [report, setReport] = useState<PreflightReport | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -187,10 +188,10 @@ export default function PreflightPanel(): React.ReactElement {
   const toggleOpen = useCallback(() => setIsOpen((open) => !open), []);
 
   return (
-    <div className="fixed z-10" style={{ top: topRightSlotPx('preflight'), right: TOP_RIGHT_INSET_PX }}>
+    <div className={eingebettet ? '' : 'fixed z-10'} style={eingebettet ? undefined : { top: topRightSlotPx('preflight'), right: TOP_RIGHT_INSET_PX }}>
       {isOpen && (
         <div
-          className="absolute top-14 right-0 mb-2 w-96 max-h-[calc(var(--sicht-h,100vh)*0.75)] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"
+          className={eingebettet ? 'space-y-4 text-sm text-slate-800 dark:text-slate-100' : "absolute top-14 right-0 mb-2 w-96 max-h-[calc(var(--sicht-h,100vh)*0.75)] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"}
           data-testid="preflight-panel"
         >
           <div className="flex items-center justify-between gap-2">
@@ -251,16 +252,18 @@ export default function PreflightPanel(): React.ReactElement {
         </div>
       )}
 
-      <button
-        onClick={toggleOpen}
-        className="w-12 h-12 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 text-lg"
-        aria-label="Installation prüfen"
-        aria-expanded={isOpen}
-        title="Installation prüfen"
-        data-testid="preflight-panel-toggle"
-      >
-        🩺
-      </button>
+      {!eingebettet && (
+        <button
+          onClick={toggleOpen}
+          className="w-12 h-12 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 text-lg"
+          aria-label="Installation prüfen"
+          aria-expanded={isOpen}
+          title="Installation prüfen"
+          data-testid="preflight-panel-toggle"
+        >
+          🩺
+        </button>
+      )}
     </div>
   );
 }

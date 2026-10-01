@@ -21,6 +21,7 @@ import { CORE_BASE_URL } from './support/constants.js';
 import { collectPageErrors } from './support/network.js';
 import { langDruecken, zielAufKartenmitte } from './support/zielGeste.js';
 import { formatDistance, formatDuration } from '../src/routing/format.js';
+import { oeffneEinstellung } from './support/einstellungen.js';
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
@@ -301,7 +302,7 @@ test('click destination -> request route -> tap alternative -> style switch surv
   // 7. Style-switch survival (acceptance #3): switch to the dark style, and
   // the route source/layer (and the routing store's state) must survive --
   // same pattern as the E01-T4 "dummy layer survives a switch" test.
-  await page.locator('[data-testid="style-panel-toggle"]').click();
+  await oeffneEinstellung(page, 'style-panel-toggle');
   await expect(page.locator('[data-testid="style-panel"]')).toBeVisible();
   await page.locator('[data-testid="style-option-yapaja-dark"]').click();
 

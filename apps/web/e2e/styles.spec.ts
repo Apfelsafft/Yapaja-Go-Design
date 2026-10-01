@@ -18,6 +18,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { CORE_BASE_URL } from './support/constants.js';
 import { trackRequests, collectPageErrors } from './support/network.js';
+import { oeffneEinstellung } from './support/einstellungen.js';
 
 async function waitForMapReady(page: Page): Promise<void> {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
@@ -68,9 +69,8 @@ function relativeLuminance([r, g, b]: [number, number, number, number]): number 
 }
 
 async function openStylePanel(page: Page): Promise<void> {
-  const toggle = page.locator('[data-testid="style-panel-toggle"]');
-  await expect(toggle).toBeVisible({ timeout: 5_000 });
-  await toggle.click();
+  await expect(page.getByTestId('einstellungen-toggle')).toBeVisible({ timeout: 5_000 });
+  await oeffneEinstellung(page, 'style-panel-toggle');
   await expect(page.locator('[data-testid="style-panel"]')).toBeVisible({ timeout: 5_000 });
 }
 

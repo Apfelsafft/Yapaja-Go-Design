@@ -100,11 +100,9 @@ const CONTROLS = [
   'compass-button',
   'viewmode-button',
   'recenter-button',
-  'style-panel-toggle',
-  'regions-panel-toggle',
-  'store-panel-toggle',
-  'preflight-panel-toggle',
-  'simulator-panel-toggle',
+  // Seit 0.23 EIN ⚙ im Seitenpanel statt fuenf runder Knoepfe auf der Karte.
+  'einstellungen-toggle',
+  'uebersicht-button',
   'speed-display',
   // Die Favoriten-Schublade, und zwar ihre KOPFZEILE: die ist immer da, das
   // aufgeklappte Innere nicht. Sie fehlte hier -- und genau sie lag auf dem
@@ -363,10 +361,7 @@ test.describe('Bedienelemente ueberlappen einander nicht', () => {
       'search-input',
       'profile-chip',
       'favorites-drawer-toggle',
-      'style-panel-toggle',
-      'regions-panel-toggle',
-      'store-panel-toggle',
-      'preflight-panel-toggle',
+      'einstellungen-toggle',
     ]) {
       expect(rects.map((r) => r.name), `${weg} waehrend der Fahrt`).not.toContain(weg);
     }

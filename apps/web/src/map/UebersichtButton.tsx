@@ -6,6 +6,7 @@
  * dem Screen liegen. Nicht in einem Menü." Logik in `uebersicht.ts`.
  */
 
+import { useKartenSeite } from '../shell/bedienSeite.js';
 import React from 'react';
 import { useRoutingStore, selectActiveRoute } from '../routing/store.js';
 import { useNavStore } from '../drive/navStore.js';
@@ -15,6 +16,8 @@ import { useSchmal } from '../shell/useSchmal.js';
 import { useUebersichtStore } from './uebersicht.js';
 
 export default function UebersichtButton(): React.ReactElement | null {
+  // Gegenüber dem Seitenpanel (shell/bedienSeite.ts).
+  const kartenSeite = useKartenSeite();
   const hatRoute = useRoutingStore((s) => selectActiveRoute(s) !== null);
   const driveActive = isDriveActive(useNavStore((s) => s.navState?.status));
   const schmal = useSchmal();
@@ -32,7 +35,7 @@ export default function UebersichtButton(): React.ReactElement | null {
       aria-pressed={aktiv}
       aria-label={titel}
       title={titel}
-      style={{ bottom: rightStackBottomPx('uebersicht', driveActive, schmal), right: EDGE_INSET_PX }}
+      style={{ bottom: rightStackBottomPx('uebersicht', driveActive, schmal), [kartenSeite]: EDGE_INSET_PX }}
       className={`fixed z-10 flex h-12 w-12 items-center justify-center rounded-full text-xl shadow-lg ${
         aktiv ? 'bg-blue-600 text-white' : 'bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100'
       }`}

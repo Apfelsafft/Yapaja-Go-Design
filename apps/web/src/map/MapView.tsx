@@ -20,6 +20,7 @@ import {
 import { applyStyle, trackCoreStyle } from './styleSwitch';
 import { ensureMaplibreWorkerUrl } from './maplibreWorker';
 import { useStyleStore, wirksamesPoiAus } from '../state/styleStore';
+import { useKartenSeite } from '../shell/bedienSeite.js';
 import { useDegradationStore } from '../perf/degrade';
 import { useViewModeStore, syncHeadingToBearing } from './viewMode';
 import { initializeFollowMe, updateFollowMePosition } from './followMe';
@@ -31,15 +32,9 @@ import CompassButton from './CompassButton';
 import ViewModeButton from './ViewModeButton';
 import ReCenterButton from './ReCenterButton';
 import UebersichtButton from './UebersichtButton';
-import StylePanel from './StylePanel';
 import SonderzieleLayer from './SonderzieleLayer.js';
-import RegionsPanel from '../settings/regions/RegionsPanel';
-import StorePanel from '../store/StorePanel';
-import PreflightPanel from '../settings/preflight/PreflightPanel';
 import PerfOverlay from '../perf/PerfOverlay';
 import { startPerfWatchdog } from '../perf/perfWatchdog';
-import SimulatorPanel from '../simulator/SimulatorPanel.js';
-import { useFahrtAnsicht } from '../drive/useFahrtAnsicht.js';
 
 /** Identifies which (styleId, options) combination is currently applied to
  *  the live map, so the live-switch effect can tell "this is the style we
@@ -121,7 +116,22 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
   const mapRef = useRef<maplibregl.Map | null>(null);
   const setMap = useMapStore((state) => state.setMap);
   const [status, setStatus] = useState<MapViewStatus>('loading');
-  const fahrt = useFahrtAnsicht();
+  const kartenSeite = useKartenSeite();
+
+  // ─── ZOOM GEGENUEBER DEM PANEL ─────────────────────────────────────────────
+  // Das Seitenpanel liegt auf der Fahrerseite (shell/bedienSeite.ts); MapLibres
+  // Zoomgruppe gehoert auf die andere. Bei einem Wechsel der Haendigkeit wird
+  // sie neu eingesetzt -- MapLibre kennt kein Verschieben.
+  const fertigeKarte = useMapStore((state) => state.map);
+  useEffect(() => {
+    const map = fertigeKarte;
+    if (!map) return undefined;
+    const zoom = new maplibregl.NavigationControl();
+    map.addControl(zoom, kartenSeite === 'right' ? 'top-right' : 'top-left');
+    return () => {
+      map.removeControl(zoom);
+    };
+  }, [fertigeKarte, kartenSeite]);
   // NUR die Region, mit der die Karte ERZEUGT wurde (fuer `bounds`). Sie wird
   // nach dem ersten Setzen nie wieder veraendert — sie steckt in den
   // Abhaengigkeiten von Schritt 2, und ein Wechsel dort wuerde die Karte
@@ -268,7 +278,8 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
       canvasContextAttributes: { preserveDrawingBuffer: true },
     });
 
-    newMap.addControl(new maplibregl.NavigationControl());
+    // Die Zoomgruppe setzt der Effekt „ZOOM GEGENUEBER DEM PANEL" unten --
+    // sie wechselt die Seite mit der Haendigkeit.
 
     // Missing/dummy vector tiles (e.g. an empty fixture archive) must never
     // crash the app: log and keep the map interactive.
@@ -446,20 +457,12 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
               die Kacheln werden gebaut (siehe
               `apps/core/src/map/regions/catalog.ts`). */}
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Für dieses Gerät sind noch keine Kartenkacheln vorhanden. Öffne „Installation
-            prüfen" (🩺) — dort steht, was genau fehlt und was dagegen zu tun ist.
+            Für dieses Gerät sind noch keine Kartenkacheln vorhanden. Öffne ⚙️ →
+            „Installation prüfen" — dort steht, was genau fehlt und was dagegen zu tun ist.
           </p>
         </div>
-        {/* E01-T5: reachable even with no map installed yet -- this is
-            exactly the state where downloading a first region matters most. */}
-        <RegionsPanel />
-        {/* E09-T7: the add-on Store is independent of any map region being
-            installed -- reachable here too. */}
-        <StorePanel />
-        {/* Genau der Zustand, für den die Installationsprüfung existiert --
-            hier muss sie erreichbar sein, nicht nur auf einer laufenden
-            Karte. */}
-        <PreflightPanel />
+        {/* Regionen, Store und Installationspruefung sind auch ohne Karte
+            erreichbar -- seit 0.23 ueber das ⚙-Menue im Seitenpanel. */}
       </div>
     );
   }
@@ -487,19 +490,12 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
               Knoepfe, die Platz kostet und nichts anbietet. Gemeldet: „wir
               haben so viele tolle Informationen dass man während der Fahrt zu
               viele Dinge sieht." */}
-          {!fahrt && (
-            <>
-              <StylePanel />
-              <RegionsPanel />
-              <StorePanel />
-              <PreflightPanel />
-            </>
-          )}
-          {/* Nur auf der laufenden Karte: der Testfahrer faehrt eine geplante
-              Route ab, und ohne Karte gibt es keine. Der Knopf erscheint
-              ausserdem nur, wenn der Simulator ueberhaupt freigeschaltet ist
-              (siehe SimulatorPanel). */}
-          <SimulatorPanel />
+          {/* ─── HIER STANDEN FUENF RUNDE KNOEPFE ────────────────────────
+              Karte (⚙️), Regionen (🗺️), Store (🧩), Pruefung (🩺) und
+              Testfahrt (🧪) -- jeder mit eigenem Ausklappfenster. Seit 0.23
+              liegen sie im ⚙-Menue des Seitenpanels
+              (shell/EinstellungsMenue.tsx). Gewuenscht: „Es gibt im
+              Ruhemodus nicht viele Menues oder Buttons." */}
           <PerfOverlay />
           <RegionCoverageNotice />
         </>

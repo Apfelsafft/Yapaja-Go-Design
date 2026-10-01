@@ -120,8 +120,9 @@ function IncompatibleNotice({ entry }: { entry: RegistryEntryView }): React.Reac
   );
 }
 
-export default function StorePanel(): React.ReactElement {
-  const [isOpen, setIsOpen] = useState(false);
+export default function StorePanel({ eingebettet = false }: { eingebettet?: boolean } = {}): React.ReactElement {
+  // Eingebettet (im ⚙-Menü, shell/EinstellungsMenue.tsx) ist der Inhalt immer offen.
+  const [isOpen, setIsOpen] = useState(eingebettet);
   const [tab, setTab] = useState<'catalog' | 'updates'>('catalog');
   const [catalog, setCatalog] = useState<RegistryCatalog>({
     entries: [],
@@ -311,10 +312,10 @@ export default function StorePanel(): React.ReactElement {
   // confirmed against gestures.spec.ts's zoom-in-button click (a `top-4`
   // placement here intercepted MapLibre's zoom control).
   return (
-    <div className="fixed z-10" style={{ top: topRightSlotPx('store'), right: TOP_RIGHT_INSET_PX }}>
+    <div className={eingebettet ? '' : 'fixed z-10'} style={eingebettet ? undefined : { top: topRightSlotPx('store'), right: TOP_RIGHT_INSET_PX }}>
       {isOpen && (
         <div
-          className="absolute top-14 right-0 mb-2 w-96 max-h-[calc(var(--sicht-h,100vh)*0.75)] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"
+          className={eingebettet ? 'space-y-4 text-sm text-slate-800 dark:text-slate-100' : "absolute top-14 right-0 mb-2 w-96 max-h-[calc(var(--sicht-h,100vh)*0.75)] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"}
           data-testid="store-panel"
         >
           <DriveLockGate controlId="addon-store">
@@ -661,16 +662,18 @@ export default function StorePanel(): React.ReactElement {
         </div>
       )}
 
-      <button
-        onClick={toggleOpen}
-        className="w-12 h-12 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 text-lg"
-        aria-label="Add-on-Store"
-        aria-expanded={isOpen}
-        title="Add-on-Store"
-        data-testid="store-panel-toggle"
-      >
-        🧩
-      </button>
+      {!eingebettet && (
+        <button
+          onClick={toggleOpen}
+          className="w-12 h-12 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 text-lg"
+          aria-label="Add-on-Store"
+          aria-expanded={isOpen}
+          title="Add-on-Store"
+          data-testid="store-panel-toggle"
+        >
+          🧩
+        </button>
+      )}
     </div>
   );
 }

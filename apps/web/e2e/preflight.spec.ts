@@ -12,6 +12,7 @@
 import { test, expect } from '@playwright/test';
 import { EMPTY_CORE_BASE_URL } from './support/constants.js';
 import { trackRequests, collectPageErrors } from './support/network.js';
+import { oeffneEinstellung } from './support/einstellungen.js';
 
 test('zeigt ohne Karte die Installationsprüfung mit echten Befunden und Handlungsanweisungen', async ({
   page,
@@ -26,7 +27,7 @@ test('zeigt ohne Karte die Installationsprüfung mit echten Befunden und Handlun
   // öffnet serverseitig TCP-Verbindungen und ist dafür zu teuer.
   await expect(page.getByTestId('preflight-panel')).toHaveCount(0);
 
-  await page.getByTestId('preflight-panel-toggle').click();
+  await oeffneEinstellung(page, 'preflight-panel-toggle');
   await expect(page.getByTestId('preflight-panel')).toBeVisible();
 
   const summary = page.getByTestId('preflight-summary');
@@ -71,7 +72,7 @@ test('zeigt ohne Karte die Installationsprüfung mit echten Befunden und Handlun
 
 test('prüft auf Knopfdruck erneut', async ({ page }) => {
   await page.goto(EMPTY_CORE_BASE_URL + '/');
-  await page.getByTestId('preflight-panel-toggle').click();
+  await oeffneEinstellung(page, 'preflight-panel-toggle');
   await expect(page.getByTestId('preflight-summary')).toBeVisible({ timeout: 20_000 });
 
   const first = await page.getByTestId('preflight-checked-at').textContent();

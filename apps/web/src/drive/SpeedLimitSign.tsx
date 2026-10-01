@@ -5,6 +5,7 @@
  * never renders anything at all for `null` rather than a placeholder/dash.
  */
 
+import { useKartenSeite } from '../shell/bedienSeite.js';
 import React from 'react';
 import type { NavState } from '@yapaia/shared';
 import { useNavState, useNavStore } from './navStore.js';
@@ -30,6 +31,8 @@ export interface SpeedLimitSignProps {
 }
 
 export default function SpeedLimitSign(props: SpeedLimitSignProps = {}): React.ReactElement | null {
+  // Gegenüber dem Seitenpanel (shell/bedienSeite.ts).
+  const kartenSeite = useKartenSeite();
   const hookNavState = useNavState();
   // W-19 (E04-T5): see `ManeuverPanel.tsx`'s identical gate.
   const hookDriveGateOpen = useNavStore((state) => state.resumeAcknowledged);
@@ -55,7 +58,7 @@ export default function SpeedLimitSign(props: SpeedLimitSignProps = {}): React.R
     <div
       data-testid="speed-limit-sign"
       data-speeding={speeding ? 'true' : 'false'}
-      style={{ right: TOP_RIGHT_INSET_PX }}
+      style={{ [kartenSeite]: TOP_RIGHT_INSET_PX }}
       className={`absolute top-3 z-20 flex items-center justify-center w-16 h-16 rounded-full border-4 shadow-lg ${
         speeding ? 'bg-red-600 border-red-700' : 'bg-white border-red-600'
       }`}

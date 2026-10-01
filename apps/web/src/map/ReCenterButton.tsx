@@ -18,6 +18,7 @@
  * keiner, und „zurück zu nichts" ist kein Ziel.
  */
 
+import { useKartenSeite } from '../shell/bedienSeite.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import { recenterOnPosition, useFollowMeIsPaused, useFollowMeStore } from './followMe';
 import { useMapStore } from '../state/mapStore';
@@ -31,6 +32,8 @@ import { isDriveActive } from '../drive/driveActive.js';
 export const WEG_AB_PX = 40;
 
 export default function ReCenterButton(): React.ReactElement | null {
+  // Gegenüber dem Seitenpanel (shell/bedienSeite.ts).
+  const kartenSeite = useKartenSeite();
   const driveActive = isDriveActive(useNavStore((state) => state.navState?.status));
   const schmal = useSchmal();
   const hasPosition = usePositionStore((state) => state.position !== null);
@@ -87,7 +90,7 @@ export default function ReCenterButton(): React.ReactElement | null {
   return (
     <button
       onClick={handleClick}
-      style={{ bottom: rightStackBottomPx('recenter', driveActive, schmal), right: EDGE_INSET_PX }}
+      style={{ bottom: rightStackBottomPx('recenter', driveActive, schmal), [kartenSeite]: EDGE_INSET_PX }}
       className="fixed w-12 h-12 rounded-full bg-blue-500 dark:bg-blue-600 text-white shadow-lg hover:shadow-xl hover:bg-blue-600 dark:hover:bg-blue-700 transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
       aria-label="Zur Position zurückkehren"
       title="Zur Position zurückkehren"
