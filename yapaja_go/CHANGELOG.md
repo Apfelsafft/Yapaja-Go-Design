@@ -27,6 +27,8 @@ des Sticks nicht sauber an, steht statt „u-blox_7" die Produktnummer im Namen.
   nie geöffnet.
 - **Tipp:** Am sichersten ist ein **leeres** Feld „USB-Gerät". Dann sucht
   Yapaia den Empfänger bei jedem Start selbst, egal wie er gerade heißt.
+- Sicherheit: der Webserver (fastify) ist auf 5.12.5 aktualisiert; vier als
+  „hoch" eingestufte Lücken der Vorversion sind damit geschlossen.
 
 ---
 
