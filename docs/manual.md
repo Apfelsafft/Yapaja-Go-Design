@@ -593,6 +593,20 @@ See the [Add-on Development Guide](addon-dev-guide.md) (German).
 
 ---
 
+### Arranging the screen
+
+Every button and panel on the map can be moved and resized. Open
+**⚙ → Bildschirm anpassen** for the resting/planning screen, or
+**Bildschirm anpassen** in the drive menu for the navigation screen (only when
+stopped or below 10 km/h). Drag an element to move it; drag the blue dot at
+its corner to make it bigger or smaller (60–200 %). **Zurücksetzen** restores
+the default layout, **Fertig** ends editing. The layout is stored per device,
+and an element that would end up off-screen — after rotating the tablet, for
+instance — is pulled back into view.
+
+The automatic return to your position after you pan the map is set under
+⚙ → Karte & Darstellung (5 s to 2 min, or off).
+
 ## Maps and regions
 
 Maps are OpenStreetMap data, converted into a single compressed file per region
