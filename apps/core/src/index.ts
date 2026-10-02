@@ -41,6 +41,8 @@ import { HaOutputChannel } from './ha/outputChannel.js';
 import { starteDashboardPflege } from './ha/dashboard.js';
 import { fetchHaStates, fetchHaStatesById, postHaState } from './ha/client.js';
 import { Sprachdialog } from './sprache/dialog.js';
+import { frageKi } from './ha/kiAgent.js';
+import { AUTOMATION_ID, HaSprachBruecke, SPRACH_EINGABE } from './ha/sprachBruecke.js';
 import { registriereSprache, sprachDeps } from './sprache/kern.js';
 import { resolveDestinationAndRoute } from './navigation/destinationResolver.js';
 import { BordDienst, bordKonfigurationAusUmgebung } from './bord/dienst.js';
@@ -858,8 +860,22 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // naechste Tankstelle?", „Stoppe die Navigation" … Siehe `sprache/`.
   // EINE Dialog-Instanz fuer App und Home Assistant: eine offene Rueckfrage
   // („Soll ich losfahren?") gilt fuer beide Wege.
-  const sprachdialog = new Sprachdialog(
-    sprachDeps({
+  const haLogger = {
+    info: (msg: string, meta?: Record<string, unknown>) => fastify.log.info(meta ?? {}, msg),
+    warn: (msg: string, meta?: Record<string, unknown>) => fastify.log.warn(meta ?? {}, msg),
+    error: (msg: string, meta?: Record<string, unknown>) => fastify.log.error(meta ?? {}, msg),
+  };
+  // Die KI von Home Assistant, falls in ⚙ → Sprache ein Gespraechsagent
+  // gewaehlt ist (`ha/kiAgent.ts`). Nur fuer Saetze, die die Regeln nicht
+  // verstehen.
+  const sprachKi = async (text: string) => {
+    const agent = settingsService.get('sprache_agent');
+    const v = resolveHaConnection({ settings: settingsService });
+    if (typeof agent !== 'string' || !agent.startsWith('conversation.') || !v) return null;
+    return frageKi(v, agent, text);
+  };
+  const sprachdialog = new Sprachdialog({
+    ...sprachDeps({
       sucheOrte: (q, nahe) => searchService.search({ q, limit: 5, ...(nahe ? { lat: nahe.lat, lon: nahe.lon } : {}) }),
       routeZu: async (ziel) =>
         (
@@ -884,8 +900,59 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
       },
       zeitzone: process.env.TZ || undefined,
     }),
-  );
+    ki: sprachKi,
+  });
   registriereSprache(fastify, sprachdialog);
+
+  // ─── … UND UEBER HOME ASSISTANT ASSIST (0.30) ───────────────────────────
+  // Satelliten und der Assist-Knopf der HA-App -- ohne HTTPS. Siehe
+  // `ha/sprachBruecke.ts`. Nur im Add-on (interner Kanal).
+  const sprachBruecke =
+    process.env.HA_INTERNAL === '1'
+      ? new HaSprachBruecke({
+          verbindung: () => resolveHaConnection({ settings: settingsService }),
+          leseZustaende: (v, ids) => fetchHaStatesById(v, ids, { logger: haLogger }),
+          schreibeZustand: (v, entityId, body) => postHaState(v, entityId, body, { logger: haLogger }),
+          verarbeite: (text) => sprachdialog.verarbeite(text),
+          ws: { logger: haLogger },
+          logger: haLogger,
+        })
+      : null;
+  fastify.addHook('onClose', async () => sprachBruecke?.dispose());
+
+  // GET /api/v1/sprache/ha -- Stand der Anbindung und die waehlbaren KI-Agenten.
+  fastify.get('/api/v1/sprache/ha', async (_request, reply) => {
+    const v = resolveHaConnection({ settings: settingsService });
+    const agent = settingsService.get('sprache_agent');
+    if (!sprachBruecke || !v) {
+      return reply.code(200).send({
+        data: { verfuegbar: false, helfer: false, automation: false, agent: typeof agent === 'string' ? agent : null, agenten: [] },
+      });
+    }
+    const zustaende = await fetchHaStates(v, { logger: haLogger }).catch(() => [] as Awaited<ReturnType<typeof fetchHaStates>>);
+    const liste = Array.isArray(zustaende) ? zustaende : [];
+    const agenten = liste
+      .filter((z) => z.entity_id.startsWith('conversation.'))
+      .map((z) => ({ id: z.entity_id, name: String(z.attributes?.friendly_name ?? z.entity_id) }));
+    return reply.code(200).send({
+      data: {
+        verfuegbar: true,
+        helfer: liste.some((z) => z.entity_id === SPRACH_EINGABE),
+        automation: liste.some((z) => z.entity_id.startsWith('automation.') && z.attributes?.id === AUTOMATION_ID),
+        agent: typeof agent === 'string' ? agent : null,
+        agenten,
+      },
+    });
+  });
+  // POST /api/v1/sprache/ha/einrichten -- Helfer + Automation anlegen.
+  fastify.post('/api/v1/sprache/ha/einrichten', async (_request, reply) => {
+    if (!sprachBruecke) {
+      return reply.code(409).send({
+        error: { code: 'HA_NICHT_VERFUEGBAR', message: 'Nur im Home-Assistant-Add-on verfügbar.' },
+      });
+    }
+    return reply.code(200).send({ data: await sprachBruecke.einrichten() });
+  });
 
   // GET /api/v1/unterwegs/kategorien -- was es zu suchen gibt, fuer die Knoepfe.
   fastify.get('/api/v1/unterwegs/kategorien', async (_request, reply) =>

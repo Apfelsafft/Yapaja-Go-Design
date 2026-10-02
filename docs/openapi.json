@@ -2825,6 +2825,52 @@
         }
       }
     },
+    "/api/v1/sprache/ha": {
+      "get": {
+        "summary": "Stand der Home-Assistant-Assist-Anbindung und wählbare KI-Agenten (conversation.*)",
+        "tags": [
+          "Navigation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sprache/ha/einrichten": {
+      "post": {
+        "summary": "Legt in Home Assistant den Helfer und die Automation für Sprachbefehle an",
+        "tags": [
+          "Navigation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/unterwegs/kategorien": {
       "get": {
         "summary": "Kategorien für „Unterwegs finden\"",

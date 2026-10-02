@@ -115,3 +115,47 @@ test('Auswahl: Treffer als Liste, ein Tipp wählt', async ({ page }) => {
   await liste.getByRole('button', { name: /Shell/ }).click();
   await expect(page.getByTestId('sprach-antwort').last()).toHaveText('Gewählt: nummer 2');
 });
+
+test('0.30: ⚙ → Sprache & Home Assistant -- ohne Add-on sagt die Seite das; mit Kern-Antwort zeigt sie den Stand', async ({
+  page,
+}) => {
+  await page.goto(CORE_BASE_URL + '/');
+  await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('einstellungen-toggle').click();
+  await page.getByTestId('sprache-einstellungen-toggle').click();
+  // Der Test-Kern läuft nicht als Add-on.
+  await expect(page.getByTestId('sprach-ha-nicht-verfuegbar')).toBeVisible();
+  await expect(page.getByTestId('sprach-ha-einrichten')).toBeDisabled();
+
+  // Mit Add-on (vorgegebene Antwort): Stand, Einrichten, KI-Auswahl.
+  await page.route('**/api/v1/sprache/ha', (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          verfuegbar: true,
+          helfer: true,
+          automation: false,
+          agent: null,
+          agenten: [{ id: 'conversation.openai', name: 'OpenAI' }],
+        },
+      }),
+    }),
+  );
+  await page.route('**/api/v1/sprache/ha/einrichten', (r) =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { helfer: true, automation: true } }) }),
+  );
+  const patches: unknown[] = [];
+  await page.route('**/api/v1/settings', async (r) => {
+    if (r.request().method() === 'PATCH') patches.push(r.request().postDataJSON());
+    await r.fallback();
+  });
+  await page.getByTestId('einstellungen-zurueck').click();
+  await page.getByTestId('sprache-einstellungen-toggle').click();
+  await expect(page.getByTestId('sprach-ha-stand')).toContainText('Automation');
+  await page.getByTestId('sprach-ha-einrichten').click();
+  await expect(page.getByTestId('sprach-ha-ergebnis')).toContainText('Eingerichtet');
+  await page.getByTestId('sprach-agent').selectOption('conversation.openai');
+  await expect.poll(() => patches).toContainEqual({ sprache_agent: 'conversation.openai' });
+});

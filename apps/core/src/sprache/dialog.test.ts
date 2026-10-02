@@ -130,4 +130,16 @@ describe('Sprachdialog', () => {
     expect(entfernungText(2_340)).toBe('2,3 Kilometer');
     expect(dauerText(65 * 60)).toBe('eine Stunde 5 Minuten');
   });
+
+  it('ohne Regel-Treffer fragt der Dialog die KI -- und bleibt bei ihrer Absicht', async () => {
+    const ki = vi.fn(async () => ({ art: 'naechste' as const, kategorie: 'caravan_site' }));
+    const s = new Sprachdialog(deps('idle', { ki }));
+    const a = await s.verarbeite('wo können wir heute Nacht pennen');
+    expect(ki).toHaveBeenCalledWith('wo können wir heute Nacht pennen');
+    expect(a.absicht).toBe('naechste');
+    // Was die Regeln verstehen, geht NICHT an die KI.
+    ki.mockClear();
+    await s.verarbeite('stoppe navigation');
+    expect(ki).not.toHaveBeenCalled();
+  });
 });
