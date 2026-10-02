@@ -10,6 +10,29 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.31.0
+
+**„Finde den nächsten Aldi" — und das Radio macht für Ansagen Pause.**
+
+- **Sprachbefehle mit Namen:** „Finde den nächsten Aldi", „Wo ist der
+  nächste Lidl?", „Fahr mich zum nächsten Bauhaus", „Wo ist hier ein
+  Edeka?". Gesucht wird in der Offline-Suche im Umkreis von 25 km — mit
+  Route zuerst, was voraus an der Strecke liegt. Bisher kannte Yapaia nur
+  Kategorien (Tankstelle, Stellplatz …) und sagte bei einem Namen „nicht
+  verstanden". Wie gewohnt: „Ja" führt hin, „die zweite" nimmt den nächsten.
+- **Über Home Assistant Assist** hören die Sätze „Finde den nächsten …" und
+  „Wo ist hier ein …" jetzt auch ohne „Yapaia" davor. Dafür einmal **⚙ →
+  Sprache & Home Assistant → Neu einrichten** tippen.
+- **Radio während Ansagen:** Gemeldet: „Der Sound von Yapaia Beats Radio wird
+  unterbrochen." Eine Ansage auf demselben Lautsprecher ersetzte den
+  Radio-Stream — danach war Stille. Jetzt hält Yapaia das Radio an, bevor es
+  spricht, und startet es danach wieder: bei Abbiege-Ansagen (im Browser und
+  über Home Assistant), Bordhinweisen und Antworten auf Sprachbefehle. War
+  das Radio aus, bleibt es aus. Abschaltbar unter ⚙ → Sprache & Home
+  Assistant → „Radio während Ansagen".
+
+---
+
 ## 0.30.0
 
 **Sprachbefehle — Stufe 2: über Home Assistant Assist sprechen, auch ohne

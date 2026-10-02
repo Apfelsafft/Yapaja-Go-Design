@@ -109,7 +109,7 @@ const EARTH_RADIUS_KM = 6371;
  *  file's doc comment: `packages/shared`'s Haversine is private/internal,
  *  and duplicating the ~6-line formula is cheaper than widening that
  *  package's public surface for it). */
-function haversineKm(a: RankOrigin, b: RankOrigin): number {
+export function haversineKm(a: RankOrigin, b: RankOrigin): number {
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLon = ((b.lon - a.lon) * Math.PI) / 180;
   const lat1 = (a.lat * Math.PI) / 180;

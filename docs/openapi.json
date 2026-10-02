@@ -2825,6 +2825,29 @@
         }
       }
     },
+    "/api/v1/ansage": {
+      "post": {
+        "summary": "Die App spricht gleich: hält das Radio (Yapaia Beat) an und startet es nach der Ansage wieder",
+        "tags": [
+          "Navigation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sprache/ha": {
       "get": {
         "summary": "Stand der Home-Assistant-Assist-Anbindung und wählbare KI-Agenten (conversation.*)",

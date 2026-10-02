@@ -602,6 +602,7 @@ speak or type a command in German, for example:
 |---|---|
 | „Fahre mich zur Ziolkowskistraße nach Magdeburg" | Searches, plans the route with your active vehicle, shows it — and starts only after „Ja" / „Los" |
 | „Wo ist die nächste Tankstelle?" | Nearest one ahead on the route (otherwise nearby); „die zweite" picks the next |
+| „Finde den nächsten Aldi" | Same, but by name or brand — any shop, chain or place in the offline search within 25 km |
 | „Stoppe die Navigation" / „Pause" / „Weiter" | Controls navigation |
 | „Wann sind wir da?" | Arrival time and remaining distance |
 | „Lies die Verkehrsmeldungen vor" | The next roadworks/closure ahead (needs online services) |
@@ -619,6 +620,13 @@ Then talk to a voice satellite or the Assist button of the Home Assistant app
 same page you can pick a Home Assistant conversation agent (AI) for free-form
 sentences — it only translates, Yapaia still asks before starting a route. A
 custom wake word „Yapaia" is described in `docs/aktivierungswort-yapaia.md`.
+
+**Radio during announcements.** If the Yapaia Beat radio is installed, Yapaia
+pauses it while it speaks — turn-by-turn announcements (in the browser or via
+Home Assistant TTS) and answers to voice commands — and resumes it afterwards.
+Without this, an announcement on the same speaker would replace the radio
+stream and leave silence. Switch it off under **⚙ → Sprache & Home Assistant →
+Radio während Ansagen**.
 
 ### Arranging the screen
 

@@ -38,6 +38,12 @@ describe('verstehe -- weitere Sätze', () => {
     ['nein', { art: 'nein' }],
     ['die zweite', { art: 'wahl', nummer: 2 }],
     ['nummer 3', { art: 'wahl', nummer: 3 }],
+    ['finde den nächsten Aldi', { art: 'naechste_name', name: 'aldi' }],
+    ['Yapaia, wo ist der nächste Lidl?', { art: 'naechste_name', name: 'lidl' }],
+    ['fahr mich zum nächsten Bauhaus', { art: 'naechste_name', name: 'bauhaus' }],
+    ['wo ist hier ein Edeka', { art: 'naechste_name', name: 'edeka' }],
+    ['nächster Aldi Süd in der Nähe', { art: 'naechste_name', name: 'aldi süd' }],
+    ['fahr zu Aldi', { art: 'ziel', ort: 'aldi' }],
   ])('%s', (satz, erwartet) => {
     expect(verstehe(satz)).toEqual(erwartet);
   });

@@ -18,6 +18,9 @@ export interface SearchQuery {
   lon?: number;
   /** Result language; falls back to the backend's own default. */
   lang?: string;
+  /** Nur Treffer im Umkreis (km) um `lat`/`lon`, die nächsten zuerst --
+   *  für „finde den nächsten Aldi". Beachtet nur der Offline-Index. */
+  umkreisKm?: number;
 }
 
 /** Reverse-geocode query, as resolved from `GET /search/reverse?lat&lon`. */

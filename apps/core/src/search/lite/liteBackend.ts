@@ -21,7 +21,7 @@ import { GeocoderBackendError } from '../errors.js';
 import type { GeocoderBackend, ReverseQuery, SearchLogger, SearchQuery } from '../types.js';
 import { LiteIndexReader, splitQueryTerms, type SuchKasten } from './reader.js';
 import { listLiteSearchDbFiles } from './paths.js';
-import { rankLiteCandidates, type LiteCandidate } from './ranking.js';
+import { haversineKm, rankLiteCandidates, type LiteCandidate } from './ranking.js';
 
 const noopLogger: SearchLogger = { info: () => {}, warn: () => {}, error: () => {} };
 
@@ -161,6 +161,9 @@ export class LiteBackend implements GeocoderBackend {
     // Abschnitten, und die gleichnamigen Abschnitte EINES Ortes werden unten
     // zu einem Treffer zusammengelegt.
     const holen = Math.max(query.limit * 3, 30);
+    if (query.umkreisKm && query.lat !== undefined && query.lon !== undefined) {
+      return this.imUmkreis(readers, query.q, { lat: query.lat, lon: query.lon }, query.umkreisKm, query.limit);
+    }
     const candidates = this.withErrorMapping('search', () =>
       readers.flatMap((reader) => reader.searchByPrefix(query.q, holen)),
     );
@@ -177,6 +180,31 @@ export class LiteBackend implements GeocoderBackend {
       ...rankLiteCandidates(dedupe(candidates), bereinigt(query.q), origin),
     ];
     return strassenZusammenlegen(dedupe(ergebnis)).slice(0, query.limit).map(candidateToResult);
+  }
+
+  /**
+   * „Finde den nächsten Aldi": Sonderziele dieses Namens im Umkreis, die
+   * nächsten zuerst. Die gewöhnliche Suche rankt nach Namensgüte und holt
+   * bundesweit nur die besten Treffer -- der Laden um die Ecke wäre darunter
+   * reiner Zufall.
+   */
+  private imUmkreis(
+    readers: LiteIndexReader[],
+    q: string,
+    mitte: { lat: number; lon: number },
+    km: number,
+    limit: number,
+  ): SearchResult[] {
+    const kasten = kastenUm(mitte.lat, mitte.lon, km);
+    const treffer = this.withErrorMapping('search', () =>
+      readers.flatMap((r) => r.searchByPrefix(q, 50, kasten)).filter((t) => t.kind === 'poi'),
+    );
+    return dedupe(treffer)
+      .map((t) => ({ t, d: haversineKm(mitte, { lat: t.lat, lon: t.lon }) }))
+      .filter((x) => x.d <= km)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, limit)
+      .map((x) => candidateToResult(x.t));
   }
 
   /**

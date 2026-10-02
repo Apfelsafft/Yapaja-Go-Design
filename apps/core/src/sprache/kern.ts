@@ -14,6 +14,22 @@ import { naechsteStationen } from '../bord/entlangRoute.js';
 import { leseKandidaten, unterwegsKategorie } from '../search/unterwegs.js';
 import { holeVerkehr, type VerkehrDeps } from '../online/verkehr.js';
 import { onlineEingeschaltet } from '../online/routes.js';
+import { sprechdauerMs } from '../ha/ansagePause.js';
+
+/** So weit um die Position sucht „der nächste Aldi". */
+export const UMKREIS_NAME_KM = 25;
+
+/** Klein, ohne Akzente, ß→ss -- für den Namensvergleich. */
+function faltungEinfach(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 /** Eine Autobahnkennung wie „A 61" in Straßennamen und Ansagen. */
 const AUTOBAHN = /\bA[\s-]?(\d{1,4})\b/gi;
@@ -30,7 +46,7 @@ export function autobahnenDerRoute(route: Route | null): string[] {
 }
 
 export interface KernDienste {
-  sucheOrte(q: string, nahe: LatLng | null): Promise<SearchResult[]>;
+  sucheOrte(q: string, nahe: LatLng | null, umkreisKm?: number): Promise<SearchResult[]>;
   routeZu(ziel: LatLng): Promise<Route>;
   starte(route: Route, ziel: { latlng: LatLng; name: string | null }): void;
   navigation: {
@@ -56,6 +72,28 @@ export function sprachDeps(k: KernDienste): SprachDeps {
         beschreibung: t.label || t.name,
         lat: t.latlng.lat,
         lon: t.latlng.lon,
+      }));
+    },
+    async naechsteNamens(name) {
+      const p = k.position();
+      if (!p) return [];
+      const gesucht = faltungEinfach(name);
+      const treffer = (await k.sucheOrte(name, p, UMKREIS_NAME_KM)).filter((t) =>
+        // Nur, was wirklich so heißt: „Aldi" passt zu „ALDI Süd", nicht zu
+        // einem Laden in der Aldinger Straße.
+        ` ${faltungEinfach(t.name)}`.includes(` ${gesucht}`),
+      );
+      const kandidaten = treffer.map((t) => ({ name: t.label || t.name, lat: t.latlng.lat, lon: t.latlng.lon }));
+      const route = k.navigation.getFortschritt();
+      // Mit Route zuerst, was voraus an der Strecke liegt; sonst Luftlinie.
+      let funde = route ? naechsteStationen(kandidaten, { route, position: p }, 3) : [];
+      if (funde.length === 0) funde = naechsteStationen(kandidaten, { route: null, position: p }, 3);
+      return funde.map((f) => ({
+        name: f.name.split(',')[0]!.trim(),
+        beschreibung: f.name,
+        lat: f.lat,
+        lon: f.lon,
+        entfernung_m: f.voraus_m ?? f.abseits_m,
       }));
     },
     route: (ziel) => k.routeZu({ lat: ziel.lat, lon: ziel.lon }),
@@ -122,7 +160,11 @@ export function sprachDeps(k: KernDienste): SprachDeps {
 }
 
 /** POST /api/v1/sprache -- ein Satz rein, Antwort (und ggf. Aktion) raus. */
-export function registriereSprache(fastify: FastifyInstance, dialog: Sprachdialog): void {
+export function registriereSprache(
+  fastify: FastifyInstance,
+  dialog: Sprachdialog,
+  ansagePause?: { beginne(): Promise<void>; ende(nachlaufMs?: number): void },
+): void {
   fastify.post<{ Body: unknown }>('/api/v1/sprache', async (request, reply) => {
     const body = (request.body ?? {}) as { text?: unknown };
     const text = typeof body.text === 'string' ? body.text.trim() : '';
@@ -131,7 +173,28 @@ export function registriereSprache(fastify: FastifyInstance, dialog: Sprachdialo
     }
     const antwort = await dialog.verarbeite(text);
     fastify.log.info({ absicht: antwort.absicht }, `sprache: „${text}" → ${antwort.antwort}`);
+    // Die App liest die Antwort gleich vor: das Radio hält vorher an.
+    if (ansagePause) {
+      await ansagePause.beginne();
+      ansagePause.ende(sprechdauerMs(antwort.antwort));
+    }
     return reply.code(200).send({ data: antwort });
+  });
+
+  // POST /api/v1/ansage -- die App spricht gleich (Abbiege-Ansage im
+  // Browser): das Radio hält an und spielt danach weiter. Antwortet, sobald
+  // es still ist.
+  fastify.post<{ Body: unknown }>('/api/v1/ansage', async (request, reply) => {
+    const body = (request.body ?? {}) as { text?: unknown };
+    const text = typeof body.text === 'string' ? body.text.trim() : '';
+    if (!text || text.length > 500) {
+      return reply.code(400).send({ error: { code: 'VALIDATION_ERROR', message: '"text" (1–500 Zeichen) fehlt' } });
+    }
+    if (ansagePause) {
+      await ansagePause.beginne();
+      ansagePause.ende(sprechdauerMs(text));
+    }
+    return reply.code(200).send({ data: { ok: true } });
   });
 }
 

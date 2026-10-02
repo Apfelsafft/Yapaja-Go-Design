@@ -87,6 +87,25 @@ describe('Sprachdialog', () => {
     expect(d.starte).toHaveBeenCalledTimes(1);
   });
 
+  it('„finde den nächsten Aldi": Name statt Kategorie, dann „ja"', async () => {
+    const aldi: Treffer = { name: 'ALDI Süd', beschreibung: 'ALDI Süd, Hauptstraße 3, Worms', lat: 49.6, lon: 8.3, entfernung_m: 1800 };
+    const naechsteNamens = vi.fn(async () => [aldi]);
+    const d = deps('idle', { naechsteNamens });
+    const s = new Sprachdialog(d);
+    const a = await s.verarbeite('finde den nächsten Aldi');
+    expect(naechsteNamens).toHaveBeenCalledWith('aldi');
+    expect(a.antwort).toBe('Am nächsten: ALDI Süd, Hauptstraße 3, Worms, in 1,8 Kilometer. Soll ich dich hinführen?');
+    expect(a.aktion).toEqual({ art: 'auswahl', treffer: [aldi] });
+    const b = await s.verarbeite('ja');
+    expect(d.route).toHaveBeenCalledWith(aldi);
+    expect(b.aktion?.art).toBe('route_vorschlag');
+  });
+
+  it('Name nicht in der Nähe: ehrlich gesagt', async () => {
+    const s = new Sprachdialog(deps('idle', { naechsteNamens: async () => [] }));
+    expect((await s.verarbeite('wo ist der nächste Lidl')).antwort).toBe('„lidl" habe ich in der Nähe nicht gefunden.');
+  });
+
   it('Stopp nur, wenn etwas läuft', async () => {
     const d = deps('navigating');
     expect((await new Sprachdialog(d).verarbeite('stoppe navigation')).antwort).toBe('Navigation beendet.');
