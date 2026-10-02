@@ -50,18 +50,6 @@ describe('HaSprachBruecke', () => {
     expect(new Set(geschrieben.map((g) => g.body.state)).size).toBe(3);
   });
 
-  it('das Radio hält an, solange Yapaia antwortet', async () => {
-    const ansagePause = { beginne: vi.fn(async () => undefined), ende: vi.fn((_ms?: number) => undefined) };
-    const { b, verarbeite } = bruecke(['1|alt', '2|wo ist der nächste Aldi'], { ansagePause });
-    await b.takt();
-    expect(ansagePause.beginne).not.toHaveBeenCalled();
-    await b.takt();
-    expect(ansagePause.beginne).toHaveBeenCalledTimes(1);
-    expect(verarbeite).toHaveBeenCalledTimes(1);
-    // Nachlauf: Sprechdauer plus die Zeit, bis Home Assistant spricht.
-    expect(ansagePause.ende.mock.calls[0]?.[0]).toBeGreaterThan(3_000);
-  });
-
   it('leseEingabe', () => {
     expect(leseEingabe('17|Yapaia, stopp')).toEqual({ schluessel: '17|Yapaia, stopp', text: 'Yapaia, stopp' });
     expect(leseEingabe('unknown')).toBeNull();

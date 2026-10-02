@@ -621,12 +621,14 @@ same page you can pick a Home Assistant conversation agent (AI) for free-form
 sentences — it only translates, Yapaia still asks before starting a route. A
 custom wake word „Yapaia" is described in `docs/aktivierungswort-yapaia.md`.
 
-**Radio during announcements.** If the Yapaia Beat radio is installed, Yapaia
-pauses it while it speaks — turn-by-turn announcements (in the browser or via
-Home Assistant TTS) and answers to voice commands — and resumes it afterwards.
-Without this, an announcement on the same speaker would replace the radio
-stream and leave silence. Switch it off under **⚙ → Sprache & Home Assistant →
-Radio während Ansagen**.
+**Announcements and the radio.** If the Yapaia Beat radio (1.6 or newer) is
+playing, Yapaia hands its announcements — turn-by-turn instructions, on-board
+notices and answers to voice commands — to Beat, which mixes them into the
+radio: the music is turned down, the announcement plays on top, then the music
+comes back. Nothing is stopped or restarted. When Beat is not playing, Yapaia
+speaks as before (browser or Home Assistant TTS). Switch it off under
+**⚙ → Sprache & Home Assistant → Ansagen und Radio**; how far the music is
+turned down is set in Beat's add-on options (`announce_music_level`).
 
 ### Arranging the screen
 

@@ -14,7 +14,7 @@ import { naechsteStationen } from '../bord/entlangRoute.js';
 import { leseKandidaten, unterwegsKategorie } from '../search/unterwegs.js';
 import { holeVerkehr, type VerkehrDeps } from '../online/verkehr.js';
 import { onlineEingeschaltet } from '../online/routes.js';
-import { sprechdauerMs } from '../ha/ansagePause.js';
+import type { AnsageZiel, AnsagePrioritaet } from '../ha/beatAnsage.js';
 
 /** So weit um die Position sucht „der nächste Aldi". */
 export const UMKREIS_NAME_KM = 25;
@@ -163,7 +163,7 @@ export function sprachDeps(k: KernDienste): SprachDeps {
 export function registriereSprache(
   fastify: FastifyInstance,
   dialog: Sprachdialog,
-  ansagePause?: { beginne(): Promise<void>; ende(nachlaufMs?: number): void },
+  ansageZiel?: AnsageZiel,
 ): void {
   fastify.post<{ Body: unknown }>('/api/v1/sprache', async (request, reply) => {
     const body = (request.body ?? {}) as { text?: unknown };
@@ -173,28 +173,25 @@ export function registriereSprache(
     }
     const antwort = await dialog.verarbeite(text);
     fastify.log.info({ absicht: antwort.absicht }, `sprache: „${text}" → ${antwort.antwort}`);
-    // Die App liest die Antwort gleich vor: das Radio hält vorher an.
-    if (ansagePause) {
-      await ansagePause.beginne();
-      ansagePause.ende(sprechdauerMs(antwort.antwort));
-    }
-    return reply.code(200).send({ data: antwort });
+    // Läuft das Radio, spricht Yapaia Beat die Antwort ins Radio -- die App
+    // liest sie dann nicht noch einmal vor.
+    const gesprochen = (await ansageZiel?.sage(antwort.antwort, 'hinweis')) ?? false;
+    return reply.code(200).send({ data: { ...antwort, gesprochen } });
   });
 
-  // POST /api/v1/ansage -- die App spricht gleich (Abbiege-Ansage im
-  // Browser): das Radio hält an und spielt danach weiter. Antwortet, sobald
-  // es still ist.
+  // POST /api/v1/ansage -- die App will etwas sagen (Abbiege-Ansage,
+  // Bordhinweis). Läuft das Radio, mischt Yapaia Beat die Ansage ein
+  // (`ueber_radio: true`); sonst spricht die App selbst.
   fastify.post<{ Body: unknown }>('/api/v1/ansage', async (request, reply) => {
-    const body = (request.body ?? {}) as { text?: unknown };
+    const body = (request.body ?? {}) as { text?: unknown; prioritaet?: unknown };
     const text = typeof body.text === 'string' ? body.text.trim() : '';
     if (!text || text.length > 500) {
       return reply.code(400).send({ error: { code: 'VALIDATION_ERROR', message: '"text" (1–500 Zeichen) fehlt' } });
     }
-    if (ansagePause) {
-      await ansagePause.beginne();
-      ansagePause.ende(sprechdauerMs(text));
-    }
-    return reply.code(200).send({ data: { ok: true } });
+    const prioritaet: AnsagePrioritaet =
+      body.prioritaet === 'navigation' || body.prioritaet === 'info' ? body.prioritaet : 'hinweis';
+    const ueberRadio = (await ansageZiel?.sage(text, prioritaet)) ?? false;
+    return reply.code(200).send({ data: { ueber_radio: ueberRadio } });
   });
 }
 

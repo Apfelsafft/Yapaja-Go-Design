@@ -10,6 +10,27 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.32.0
+
+**Ansagen kommen ins Radio, statt es zu unterbrechen.**
+
+- Gemeldet: „Go hat Beat angehalten. Das ging gut. Allerdings geht er von
+  alleine nicht wieder an." Das Anhalten und Wiederstarten aus 0.31 ist
+  entfernt.
+- Stattdessen: Läuft **Yapaia Beat (ab 1.6)**, mischt es Yapaias Ansagen
+  selbst ein — die Musik wird leiser, die Ansage kommt darüber, danach wird
+  die Musik wieder lauter. Nichts wird gestoppt, das Radio läuft durch. Das
+  gilt für Abbiege-Ansagen (im Browser und über Home Assistant),
+  Bordhinweise und Antworten auf Sprachbefehle aus der App.
+- Läuft Beat nicht, spricht Yapaia wie bisher selbst.
+- Abschaltbar unter **⚙ → Sprache & Home Assistant → „Ansagen und
+  Radio"**. Wie leise die Musik wird, stellt man in den Optionen von
+  Yapaia Beat ein (`announce_music_level`, Standard 20 %).
+- Antworten über einen Sprachsatelliten (Assist) spricht weiter der
+  Satellit selbst.
+
+---
+
 ## 0.31.0
 
 **„Finde den nächsten Aldi" — und das Radio macht für Ansagen Pause.**

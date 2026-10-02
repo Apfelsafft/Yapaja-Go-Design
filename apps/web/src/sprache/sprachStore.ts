@@ -69,7 +69,8 @@ export const useSprachStore = create<SprachState>((set, get) => ({
     wende(a);
     // Die Antwort auf eine gestellte Frage wird immer vorgelesen -- auch wenn
     // die Abbiege-Ansagen aus sind; wer fragt, will die Antwort hören.
-    if (isSpeechAvailable()) speak(a.antwort);
+    // Hat Yapaia Beat sie schon ins Radio gesprochen, nicht doppelt.
+    if (!a.gesprochen && isSpeechAvailable()) speak(a.antwort);
     return a;
   },
 }));

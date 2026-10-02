@@ -139,7 +139,7 @@ test('0.30: ⚙ → Sprache & Home Assistant -- ohne Add-on sagt die Seite das; 
           automation: false,
           agent: null,
           agenten: [{ id: 'conversation.openai', name: 'OpenAI' }],
-          radioPause: true,
+          ansagenBeat: true,
           radio: true,
         },
       }),
@@ -161,8 +161,8 @@ test('0.30: ⚙ → Sprache & Home Assistant -- ohne Add-on sagt die Seite das; 
   await page.getByTestId('sprach-agent').selectOption('conversation.openai');
   await expect.poll(() => patches).toContainEqual({ sprache_agent: 'conversation.openai' });
 
-  // 0.31: Radio während Ansagen anhalten -- an ist die Vorgabe, aus speichert "".
-  await expect(page.getByTestId('sprach-radio-pause')).toBeChecked();
-  await page.getByTestId('sprach-radio-pause').uncheck();
-  await expect.poll(() => patches).toContainEqual({ ansage_pause: '' });
+  // 0.32: Ansagen ins Radio einmischen -- an ist die Vorgabe.
+  await expect(page.getByTestId('sprach-ansagen-beat')).toBeChecked();
+  await page.getByTestId('sprach-ansagen-beat').uncheck();
+  await expect.poll(() => patches).toContainEqual({ ansagen_beat: false });
 });

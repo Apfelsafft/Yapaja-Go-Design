@@ -23,7 +23,7 @@ import ProfileChangeBanner from '../profiles/ProfileChangeBanner.js';
 import { announce, cancelSpeech, isSpeechAvailable } from './tts.js';
 import { applyAutoZoomNow } from '../map/followMe.js';
 import FahrtMenue from './FahrtMenue.js';
-import { ansageNachRadioPause } from './radioPause.js';
+import { sageAn } from './ansageZiel.js';
 
 export default function DriveOverlay(): React.ReactElement {
   const navState = useNavStore((state) => state.navState);
@@ -47,8 +47,8 @@ export default function DriveOverlay(): React.ReactElement {
     if (instructionSeq === 0 || instructionSeq === lastAnnouncedSeq.current) return;
     lastAnnouncedSeq.current = instructionSeq;
     if (!ttsEnabled || !lastInstruction) return;
-    // Läuft das Radio, hält es vorher an (und spielt danach weiter).
-    void ansageNachRadioPause(lastInstruction.say, (t) => announce(t));
+    // Läuft Yapaia Beat, mischt es die Ansage ins Radio; sonst spricht die App.
+    void sageAn(lastInstruction.say, 'navigation', (t) => announce(t));
   }, [instructionSeq, lastInstruction, ttsEnabled]);
 
   // Stop any in-flight utterance the moment TTS is toggled off.

@@ -25,6 +25,8 @@ export interface SprachAntwort {
   absicht: string;
   aktion?: SprachAktion;
   rueckfrage?: boolean;
+  /** Yapaia Beat hat die Antwort schon ins Radio gesprochen. */
+  gesprochen?: boolean;
 }
 
 export async function sendeSprachbefehl(text: string): Promise<SprachAntwort> {
