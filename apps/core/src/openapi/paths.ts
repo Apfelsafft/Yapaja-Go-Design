@@ -119,6 +119,14 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     summary: 'Baustellen und Sperrungen für die genannten Autobahnen',
     tags: ['Online'],
   },
+  'POST /api/v1/online/ort': {
+    summary: 'OSM-Angaben, Wikipedia-Auszug und Bilder zu einem Ort (nur mit Online-Diensten)',
+    tags: ['Online'],
+  },
+  'POST /api/v1/sprache': {
+    summary: 'Sprachbefehl als Text: Antwort zum Vorlesen und ggf. Aktion (Ziel, Stopp, Verkehr …)',
+    tags: ['Navigation'],
+  },
   'GET /api/v1/unterwegs': {
     summary: 'Nächste Treffer einer Kategorie voraus auf der Route (ohne Route: im Umkreis)',
     tags: ['Suche'],

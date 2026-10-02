@@ -593,6 +593,26 @@ See the [Add-on Development Guide](addon-dev-guide.md) (German).
 
 ---
 
+### Voice commands
+
+Tap 🎤 (next to the search field, or in the button column while driving) and
+speak or type a command in German, for example:
+
+| Say | What happens |
+|---|---|
+| „Fahre mich zur Ziolkowskistraße nach Magdeburg" | Searches, plans the route with your active vehicle, shows it — and starts only after „Ja" / „Los" |
+| „Wo ist die nächste Tankstelle?" | Nearest one ahead on the route (otherwise nearby); „die zweite" picks the next |
+| „Stoppe die Navigation" / „Pause" / „Weiter" | Controls navigation |
+| „Wann sind wir da?" | Arrival time and remaining distance |
+| „Lies die Verkehrsmeldungen vor" | The next roadworks/closure ahead (needs online services) |
+| „Ansagen aus" / „Ansagen an" | Turn-by-turn announcements |
+
+The answer is read aloud. Commands are understood offline, without any AI.
+Browsers only allow the microphone on **HTTPS** pages; over plain
+`http://…:8123` the voice window is a text field. Speaking without HTTPS will
+work through Home Assistant Assist (satellites, the Assist button in the HA
+app) in the next version.
+
 ### Arranging the screen
 
 Every button and panel on the map can be moved and resized. Open

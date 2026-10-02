@@ -36,6 +36,7 @@ import { useNavStore } from './navStore.js';
 import { useTtsStore } from './ttsStore.js';
 import { announce, cancelSpeech, unlockAudio } from './tts.js';
 import TripInfoPanel from './TripInfoPanel.js';
+import FahrtMikrofon from '../sprache/FahrtMikrofon.js';
 import { useIsControlLocked } from './driveLockStore.js';
 import UnterwegsFinden, { type UnterwegsErgebnis } from './UnterwegsFinden.js';
 import UnterwegsVorschau, { type Vorschau } from './UnterwegsVorschau.js';
@@ -442,6 +443,7 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
       )}
 
       <TripInfoPanel navState={navState} offen={offen} onToggle={() => setOffen((o) => !o)} />
+      <FahrtMikrofon />
     </>
   );
 }

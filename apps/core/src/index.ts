@@ -40,6 +40,9 @@ import { authPlugin } from './auth/plugin.js';
 import { HaOutputChannel } from './ha/outputChannel.js';
 import { starteDashboardPflege } from './ha/dashboard.js';
 import { fetchHaStates, fetchHaStatesById, postHaState } from './ha/client.js';
+import { Sprachdialog } from './sprache/dialog.js';
+import { registriereSprache, sprachDeps } from './sprache/kern.js';
+import { resolveDestinationAndRoute } from './navigation/destinationResolver.js';
 import { BordDienst, bordKonfigurationAusUmgebung } from './bord/dienst.js';
 import { leseSonderziele } from './map/sonderziele/ausIndex.js';
 import {
@@ -850,6 +853,40 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     );
     return reply.code(200).send({ data: ergebnis });
   });
+  // ─── SPRACHBEFEHLE (0.29) ────────────────────────────────────────────────
+  // POST /api/v1/sprache {text} -- „Fahre mich nach Magdeburg", „Wo ist die
+  // naechste Tankstelle?", „Stoppe die Navigation" … Siehe `sprache/`.
+  // EINE Dialog-Instanz fuer App und Home Assistant: eine offene Rueckfrage
+  // („Soll ich losfahren?") gilt fuer beide Wege.
+  const sprachdialog = new Sprachdialog(
+    sprachDeps({
+      sucheOrte: (q, nahe) => searchService.search({ q, limit: 5, ...(nahe ? { lat: nahe.lat, lon: nahe.lon } : {}) }),
+      routeZu: async (ziel) =>
+        (
+          await resolveDestinationAndRoute(
+            {
+              navigationService,
+              rerouteProvider: routingService,
+              profileProvider: profileService,
+              searchProvider: searchService,
+              logger: navigationLogger,
+            },
+            { latlng: ziel, autostart: false },
+          )
+        ).route,
+      starte: (route, ziel) => {
+        navigationService.start({ route, destination: ziel });
+      },
+      navigation: navigationService,
+      position: () => {
+        const p = positionService.getLast();
+        return p ? { lat: p.lat, lon: p.lon } : null;
+      },
+      zeitzone: process.env.TZ || undefined,
+    }),
+  );
+  registriereSprache(fastify, sprachdialog);
+
   // GET /api/v1/unterwegs/kategorien -- was es zu suchen gibt, fuer die Knoepfe.
   fastify.get('/api/v1/unterwegs/kategorien', async (_request, reply) =>
     reply.code(200).send({ data: UNTERWEGS_KATEGORIEN }),

@@ -10,6 +10,36 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.29.0
+
+**Sprachbefehle — Stufe 1: Yapaia versteht gesprochene und getippte
+Befehle, ohne Internet und ohne KI.**
+
+Gewünscht: „Bitte fahre mich zur Ziolkowskistraße nach Magdeburg", „Wo ist
+die nächste Tankstelle?", „Stoppe Navigation", „Lies mir die nächste
+Verkehrsinfo auf der Route vor".
+
+- **🎤-Knopf** neben der Suche und während der Fahrt oben in der
+  Knopfspalte. Er öffnet das Sprachfenster: sprechen (wo der Browser das
+  Mikrofon freigibt) oder tippen. Yapaia antwortet kurz und liest die
+  Antwort vor.
+- Verstanden werden u. a.:
+  - **Ziel**: „Fahre mich nach …", „Navigiere zur … in …", „Bring uns zum …"
+    — Yapaia sucht, rechnet die Route mit dem aktiven Fahrzeug und zeigt
+    sie. **Gestartet wird erst nach „Ja" / „Los".**
+  - **Nächste Tankstelle, Entsorgung, Frischwasser, Stellplatz, Camping,
+    Parkplatz, Supermarkt, Gas, Toilette** — voraus auf der Route, sonst in
+    der Nähe; „die zweite" wählt den nächsten Treffer.
+  - **Stopp, Pause, Weiter**, **„Wann sind wir da?"**, **„Lies die
+    Verkehrsmeldungen vor"** (die nächste oder „alle"), **„Ansagen aus/an"**,
+    **„Hilfe"**.
+- Was nicht verstanden wird, sagt Yapaia so — es wird nicht geraten.
+- **Mikrofon im Browser:** Browser geben es nur über **HTTPS** frei. Über
+  `http://…:8123` (auch in der Home-Assistant-App) bleibt das Fenster ein
+  Eingabefeld. Sprechen ohne HTTPS kommt mit der nächsten Version über
+  Home Assistant Assist (Sprachsatelliten und Assist-Knopf der HA-App).
+- Schnittstelle für eigene Automationen: `POST /api/v1/sprache {"text": "…"}`.
+
 ## 0.28.0
 
 **Bildschirm anpassen: Knöpfe und Fenster selbst verschieben und
