@@ -132,3 +132,15 @@ describe('3. Strasse und Ort', () => {
     expect(r.map((x) => x.name)).toContain('Netto Marken-Discount');
   });
 });
+
+describe('4. Strasse mit Hausnummer, ohne Ort (Rueckmeldung zu 0.26)', () => {
+  it('„Ziolkowskistraße 8" zeigt die Strassen vor den Laeden darin', async () => {
+    const r = await backend().search({ q: 'Ziolkowskistraße 8', limit: 3, ...PFALZ });
+    expect(r.slice(0, 2).map((x) => x.name)).toEqual(['Ziolkowskistraße', 'Ziolkowskistraße']);
+  });
+
+  it('auch mit ss geschrieben', async () => {
+    const r = await backend().search({ q: 'ziolkowskistrasse 8', limit: 3, ...PFALZ });
+    expect(r[0]?.name).toBe('Ziolkowskistraße');
+  });
+});

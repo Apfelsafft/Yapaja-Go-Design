@@ -45,9 +45,9 @@ import { iconForFavoriteCategory } from '../favorites/icons.js';
 import { useRoutingStore } from '../routing/store.js';
 import { useProfileStore } from '../profiles/store.js';
 import WaypointList from '../routing/WaypointList.js';
-import { useBedienSeite } from '../shell/bedienSeite.js';
+import { useKartenSeite } from '../shell/bedienSeite.js';
 import { useSchmal } from '../shell/useSchmal.js';
-import { STACK_GAP_PX, TRIP_BAR_HEIGHT_PX, tripInfoBottomPx } from '../shell/mapControlLayout.js';
+import { FAHRT_SEITENABSTAND_PX, STACK_GAP_PX, TRIP_BAR_HEIGHT_PX, tripInfoBottomPx } from '../shell/mapControlLayout.js';
 
 /** Wie viele zuletzt angefahrene Ziele im Menü stehen. */
 export const VERLAUF_IM_MENUE = 5;
@@ -110,7 +110,7 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
   const profilAktivieren = useProfileStore((s) => s.activateProfile);
   const profileLaden = useProfileStore((s) => s.fetchProfiles);
   const zwischenziele = useRoutingStore((s) => s.waypoints);
-  const seite = useBedienSeite();
+  const kartenSeite = useKartenSeite();
   const schmal = useSchmal();
 
   const [offen, setOffen] = useState(false);
@@ -236,14 +236,15 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
           id="fahrt-menue"
           role="dialog"
           aria-label="Fahrtmenü"
-          // ─── AUF DER FAHRERSEITE (0.26) ────────────────────────────────
+          // ─── SEITLICH, GEGENUEBER DEM BLAUEN PUNKT (0.27) ──────────────
           // Gewuenscht: „Das Navi-Menue darf jetzt auch gerne eher links
-          // oder rechts angeordnet sein. Je nach LHD oder RHD." Mittig lag es
-          // ueber der Route vor dem Fahrzeug; an der Seite bleibt die Mitte
-          // frei und der Fahrer erreicht es. Auf dem Telefon bleibt es mittig.
+          // oder rechts angeordnet sein." In 0.26 auf der Fahrerseite --
+          // dort sitzt aber der blaue Punkt, und das Menue verdeckte ihn.
+          // Jetzt auf der Kartenseite, ueber der Fahrtleiste (TripInfoPanel).
+          // Auf dem Telefon bleibt es mittig.
           style={{
             bottom: tripInfoBottomPx() + TRIP_BAR_HEIGHT_PX + STACK_GAP_PX,
-            ...(schmal ? {} : { [seite]: 12 }),
+            ...(schmal ? {} : { [kartenSeite]: FAHRT_SEITENABSTAND_PX }),
           }}
           className={`absolute z-30 max-h-[calc(var(--sicht-h,100vh)*0.7)] space-y-3 overflow-y-auto rounded-xl bg-white/95 p-3 text-sm text-slate-800 shadow-xl dark:bg-slate-800/95 dark:text-slate-100 ${
             schmal

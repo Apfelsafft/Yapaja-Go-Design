@@ -16,6 +16,7 @@ import { fetchStyleSummaries, type StyleLang, type StylePoiDensity, type StyleSu
 import ThemeToggle from '../theme/ThemeToggle.js';
 import FaltAbschnitt from './FaltAbschnitt.js';
 import LabelGroesseRegler from './LabelGroesseRegler.js';
+import ZentrierenRegler from './ZentrierenRegler.js';
 import StilJeThema from './StilJeThema.js';
 import DriveLockGate from '../drive/DriveLockGate.js';
 import HandednessToggle from '../shell/HandednessToggle.js';
@@ -254,6 +255,16 @@ export default function StylePanel({ eingebettet = false }: { eingebettet?: bool
                   Label-Größe
                 </h3>
                 <LabelGroesseRegler wert={options.labelScale} onWert={setLabelScale} />
+              </div>
+
+              <div>
+                <h3 className="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  Zurück zur eigenen Position nach
+                </h3>
+                <ZentrierenRegler />
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Wie lange die Karte bleibt, wo du sie hingeschoben hast. „aus": bis du ⌖ drückst.
+                </p>
               </div>
 
               <div>

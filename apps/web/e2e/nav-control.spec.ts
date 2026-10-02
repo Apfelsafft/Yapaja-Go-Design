@@ -507,7 +507,7 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test('0.26: Zwischenziele sind waehrend der Fahrt im Fahrtmenue umsortierbar; das Menue sitzt auf der Fahrerseite', async ({
+  test('0.26: Zwischenziele sind waehrend der Fahrt im Fahrtmenue umsortierbar; das Menue sitzt gegenueber dem Punkt', async ({
     page,
   }) => {
     test.setTimeout(30_000);
@@ -546,10 +546,23 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
     await expect(page.getByTestId('fahrt-menue-zwischenziele')).toBeVisible();
     await expect(page.getByTestId('waypoint-label-wp-a')).toHaveText('Erster Halt');
 
-    // Fahrerseite: das Menue liegt an einem Rand, nicht mittig.
+    // Seit 0.27 auf der KARTENSEITE, gegenueber dem blauen Punkt (der sitzt
+    // auf der Fahrerseite), neben der Knopfspalte -- und mit der Fahrtleiste
+    // auf derselben Seite.
     const kasten = (await menue.boundingBox())!;
+    const leiste = (await page.getByTestId('trip-info-panel').boundingBox())!;
     const breite = page.viewportSize()!.width;
-    expect(kasten.x < 40 || kasten.x + kasten.width > breite - 40).toBe(true);
+    // Der Tacho sitzt auf der Fahrerseite -- Menue und Leiste auf der anderen.
+    const tacho = (await page.getByTestId('speed-display').boundingBox())!;
+    const mitte = breite / 2;
+    const tachoLinks = tacho.x + tacho.width / 2 < mitte;
+    for (const k of [kasten, leiste]) {
+      const links = k.x + k.width / 2 < mitte;
+      expect(links).toBe(!tachoLinks);
+      // Am Rand, neben der Knopfspalte (76 px), nicht in der Mitte.
+      if (links) expect(k.x).toBeLessThan(120);
+      else expect(k.x + k.width).toBeGreaterThan(breite - 120);
+    }
 
     // Umsortieren geht an den Core -- die laufende Route wird neu gerechnet.
     await page.getByTestId('waypoint-down-wp-a').click();

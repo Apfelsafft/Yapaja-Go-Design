@@ -99,12 +99,24 @@ function kastenUm(lat: number, lon: number, km: number): SuchKasten {
  * Abschnitt ist ein eigener OSM-Weg; gemeint ist trotzdem eine Strasse, und
  * die übrigen sieben verdrängten den Treffer in Magdeburg aus der Liste.
  */
+/** Die Eingabe ohne Hausnummern und Satzzeichen, wie die Suche sie versteht. */
+function bereinigt(q: string): string {
+  const begriffe = splitQueryTerms(q);
+  return begriffe.length > 0 ? begriffe.join(' ') : q;
+}
+
 function strassenZusammenlegen(candidates: readonly LiteCandidate[]): LiteCandidate[] {
   const gesehen = new Set<string>();
   const out: LiteCandidate[] = [];
   for (const c of candidates) {
     if (c.kind === 'street') {
       const key = `${c.name}|${c.locality ?? `${c.lat.toFixed(2)},${c.lon.toFixed(2)}`}`;
+      if (gesehen.has(key)) continue;
+      gesehen.add(key);
+    } else if (c.kind === 'poi' && c.address) {
+      // Derselbe Ort als Punkt UND als Flaeche in OSM: zweimal „Sportzentrum,
+      // Ziolkowskistraße 12, Ilmenau" untereinander.
+      const key = `poi|${c.name}|${c.address}|${c.locality ?? ''}`;
       if (gesehen.has(key)) continue;
       gesehen.add(key);
     }
@@ -159,7 +171,10 @@ export class LiteBackend implements GeocoderBackend {
       // mit „Ziolkowskistraße", nicht mit „Ziolkowskistraße Magdeburg" --
       // sonst gewönne der Laden in derselben Strasse.
       ...rankLiteCandidates(dedupe(imOrt.treffer), imOrt.rest, origin),
-      ...rankLiteCandidates(dedupe(candidates), query.q, origin),
+      // Gerankt gegen die BEREINIGTE Eingabe: „Ziolkowskistraße 8" -- die 8
+      // steht in keinem Namen. Gegen die rohe Eingabe begann keine Strasse
+      // mehr mit dem Gesuchten, und die Laeden darin rutschten davor.
+      ...rankLiteCandidates(dedupe(candidates), bereinigt(query.q), origin),
     ];
     return strassenZusammenlegen(dedupe(ergebnis)).slice(0, query.limit).map(candidateToResult);
   }
