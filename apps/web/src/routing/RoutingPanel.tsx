@@ -37,6 +37,10 @@ import { useNavStore } from '../drive/navStore.js';
 import { isDriveActive } from '../drive/ManeuverPanel.js';
 import { useOnboardingStore, selectNavigationAllowed } from '../onboarding/store.js';
 import WaypointList from './WaypointList.js';
+import ProfilWahl from './ProfilWahl.js';
+import { useBreit } from '../shell/useBreit.js';
+import { useBedienSeite, PANEL_BREITE_PX } from '../shell/bedienSeite.js';
+import { TOP_BAR_HEIGHT_PX } from '../shell/mapControlLayout.js';
 import { toRequestWaypoints } from './waypoints.js';
 
 const AVOID_FLAGS = ['motorway', 'toll', 'ferry', 'unpaved'] as const;
@@ -78,6 +82,9 @@ export default function RoutingPanel(): React.ReactElement | null {
   // still showing the SAME route (this store is untouched by starting/
   // stopping navigation) so "Navigation starten" can be pressed again.
   const navStatus = useNavStore((state) => state.navState?.status ?? null);
+  // Unten als Blatt, wenn neben dem Panel zu wenig Karte bliebe (useBreit.ts).
+  const schmal = !useBreit();
+  const seite = useBedienSeite();
 
   const handleRequestRoute = useCallback(() => {
     void requestRoute({ origin: 'current', profileId: activeProfile?.id });
@@ -252,7 +259,26 @@ export default function RoutingPanel(): React.ReactElement | null {
       // frueher oder spaeter die Karte, um die es geht. 45 % der Hoehe
       // laesst die Mehrheit der Karte frei -- und der Inhalt bleibt ueber
       // das Scrollen vollstaendig erreichbar.
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 w-[min(calc(var(--sicht-b,100vw)*0.92),28rem)] max-h-[calc(var(--sicht-h,100vh)*0.45)] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"
+      //
+      // ─── SEIT 0.25 IM SEITENPANEL ───────────────────────────────────────
+      // Auf breiten Schirmen sitzt das Fenster als Zustand 4 aus
+      // `docs/entwurf-ui-umbau.md` auf der Fahrerseite unter Suche und
+      // Chips; dort darf es bis zum unteren Rand reichen, die Karte daneben
+      // bleibt frei. Auf Telefon und Tablet hochkant bleibt es das Blatt von unten.
+      className={`fixed z-20 overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3 ${
+        schmal
+          ? 'bottom-4 left-1/2 -translate-x-1/2 w-[min(calc(var(--sicht-b,100vw)*0.92),28rem)] max-h-[calc(var(--sicht-h,100vh)*0.45)]'
+          : 'bottom-3'
+      }`}
+      style={
+        schmal
+          ? undefined
+          : {
+              [seite]: 12,
+              top: `calc(${TOP_BAR_HEIGHT_PX}px + var(--kopf-mehr, 0px) + 4px)`,
+              width: `min(${PANEL_BREITE_PX}px, calc(100% - 24px))`,
+            }
+      }
       data-testid="destination-sheet"
     >
       <div className="flex items-start justify-between gap-2">
@@ -277,6 +303,8 @@ export default function RoutingPanel(): React.ReactElement | null {
           Abbrechen
         </button>
       </div>
+
+      <ProfilWahl />
 
       {/* ─── START ────────────────────────────────────────────────────────
           Bis 2026-09-03 gab es diese Zeile nicht: die Oberflaeche konnte nur

@@ -95,7 +95,6 @@ const CONTROLS = [
   // NICHT `top-bar`: das ist ein durchsichtiger Container ueber die volle
   // Breite mit `pointer-events-none`. Er ueberlappt zwangslaeufig alles und
   // blockiert nichts -- gemessen werden seine BEDIENBAREN Kinder.
-  'profile-chip',
   'search-input',
   'compass-button',
   'viewmode-button',
@@ -414,11 +413,17 @@ test.describe('Das Ziel-Fenster', () => {
 
       const sheet = await page.getByTestId('destination-sheet').boundingBox();
       expect(sheet).not.toBeNull();
+      // Seit 0.25 sitzt das Fenster auf breiten Schirmen im Seitenpanel --
+      // dann liegt es NEBEN der Mitte statt darunter. Beides laesst sie frei.
+      const mitteX = canvas!.x + canvas!.width / 2;
+      const daneben = mitteX < sheet!.x || mitteX > sheet!.x + sheet!.width;
+      const darunter = sheet!.y > mitteY;
       expect(
-        sheet!.y,
-        `Das Ziel-Fenster beginnt bei ${Math.round(sheet!.y)} und liegt damit ueber der ` +
-          `Kartenmitte (${Math.round(mitteY)}) -- Gesten in der Mitte treffen dann das Fenster.`,
-      ).toBeGreaterThan(mitteY);
+        daneben || darunter,
+        `Das Ziel-Fenster (${Math.round(sheet!.x)},${Math.round(sheet!.y)} ` +
+          `${Math.round(sheet!.width)}x${Math.round(sheet!.height)}) deckt die Kartenmitte ` +
+          `(${Math.round(mitteX)},${Math.round(mitteY)}) -- Gesten in der Mitte treffen dann das Fenster.`,
+      ).toBe(true);
     });
   }
 });

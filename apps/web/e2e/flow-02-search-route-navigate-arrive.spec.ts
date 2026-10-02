@@ -211,8 +211,11 @@ test.describe('docs/07 §5 Flow 2 (end-to-end chain)', () => {
     await page.goto(FLOW2_CORE_BASE_URL + '/');
     await waitForMapReady(page);
 
-    // UI: the active profile chip shows the Camper.
-    await expect(page.getByTestId('profile-chip')).toContainText('Camper 3,2 m');
+    // The Camper is the active profile (seit 0.25 im Routen-Panel waehlbar,
+    // siehe weiter unten `routing-profil-wahl`).
+    await expect
+      .poll(() => page.evaluate(() => window.__yapaiaProfileStore?.getState().activeProfile?.name))
+      .toContain('Camper 3,2 m');
 
     // === 1. Search "Vaduz" ===================================================
     const searchResponse = page.waitForResponse(
@@ -229,6 +232,8 @@ test.describe('docs/07 §5 Flow 2 (end-to-end chain)', () => {
     // === 2. Pick the result -> destination sheet with the REAL name =========
     await firstResult.click();
     await expect(page.getByTestId('destination-sheet')).toBeVisible();
+    // Zustand 4: das Fahrzeug ist im Routen-Panel gewaehlt.
+    await expect(page.getByTestId('routing-profil-wahl').locator('option:checked')).toContainText('Camper 3,2 m');
     await expect(page.getByTestId('destination-title')).toHaveText('Vaduz');
 
     // === 3. Route with the active profile ===================================

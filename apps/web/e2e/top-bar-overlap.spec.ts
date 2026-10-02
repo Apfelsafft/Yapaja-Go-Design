@@ -38,7 +38,8 @@ import { CORE_BASE_URL } from './support/constants.js';
 const WIDTHS = [1280, 900, 600];
 
 /** Die Bedienelemente der Kopfzeile, die einander nicht verdecken dürfen. */
-const TOP_BAR_CONTROLS = ['profile-chip-name', 'search-input'];
+// Seit 0.25 steht das Fahrzeug nicht mehr in der Kopfzeile (⚙ → Fahrzeuge).
+const TOP_BAR_CONTROLS = ['einstellungen-toggle', 'search-input'];
 
 interface Coverage {
   testid: string;
@@ -110,22 +111,22 @@ for (const width of WIDTHS) {
  * aus dem sichtbaren Bereich rutscht, wird von der Überlagerungsprüfung oben
  * nicht erfasst — es verdeckt ja niemand, es ist nur weg.
  */
-test('das Fahrzeugprofil ist auf jeder Breite sichtbar und im Fenster', async ({ page }) => {
+test('das ⚙ (dort stehen seit 0.25 die Fahrzeuge) ist auf jeder Breite sichtbar und im Fenster', async ({ page }) => {
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(CORE_BASE_URL + '/');
     await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
 
-    const chip = page.getByTestId('profile-chip-name');
-    await expect(chip, `Profil-Chip fehlt bei ${width}px`).toBeVisible();
+    const chip = page.getByTestId('einstellungen-toggle');
+    await expect(chip, `⚙ fehlt bei ${width}px`).toBeVisible();
 
     const box = await chip.boundingBox();
-    expect(box, `Profil-Chip hat bei ${width}px keine Fläche`).not.toBeNull();
+    expect(box, `⚙ hat bei ${width}px keine Fläche`).not.toBeNull();
     if (box) {
-      expect(box.x, `Profil-Chip ist bei ${width}px links aus dem Fenster gerutscht`).toBeGreaterThanOrEqual(0);
+      expect(box.x, `⚙ ist bei ${width}px links aus dem Fenster gerutscht`).toBeGreaterThanOrEqual(0);
       expect(
         box.x + box.width,
-        `Profil-Chip ragt bei ${width}px rechts aus dem Fenster`,
+        `⚙ ragt bei ${width}px rechts aus dem Fenster`,
       ).toBeLessThanOrEqual(width);
     }
   }
