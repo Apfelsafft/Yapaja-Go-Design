@@ -41,6 +41,7 @@ import SearchBar from '../search/SearchBar.js';
 import PoiChips from './PoiChips.js';
 import EinstellungsMenue from './EinstellungsMenue.js';
 import OrtKarte from '../ort/OrtKarte.js';
+import SprachKnopf from '../sprache/SprachKnopf.js';
 import { useOrtStore } from '../ort/ortStore.js';
 import { useBedienSeite, useKartenSeite, PANEL_BREITE_PX } from './bedienSeite.js';
 
@@ -146,6 +147,7 @@ export default function TopBar(): React.ReactElement | null {
             ⚙️
           </button>
           <SearchBar />
+          <SprachKnopf />
         </div>
         {!schmal && (
           <div className="min-w-0 flex-1 pt-0.5">
