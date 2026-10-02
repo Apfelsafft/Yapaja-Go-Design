@@ -57,8 +57,11 @@ test('Kopfzeile und untere Knöpfe liegen im sichtbaren Teil des Rahmens', async
   const kopf = await sichtbarImRahmen(f, '[data-testid="top-bar"]');
   expect(kopf.oben).toBeGreaterThanOrEqual(GESCROLLT);
 
-  const zahnrad = await sichtbarImRahmen(f, '[data-testid="style-panel-toggle"]');
-  expect(zahnrad.unten).toBeLessThanOrEqual(RAHMEN_HOEHE - verdecktUnten);
+  // Unten: die Namensnennung (ODbL-Pflicht) steht in der Ecke -- sie muss
+  // im sichtbaren Teil liegen. (Das Zahnrad, das hier frueher geprueft
+  // wurde, sitzt seit 0.23 oben im Seitenpanel.)
+  const unten = await sichtbarImRahmen(f, '.maplibregl-ctrl-attrib');
+  expect(unten.unten).toBeLessThanOrEqual(RAHMEN_HOEHE - verdecktUnten);
 
   // Scrollt die Hülle zurück, folgt die Oberfläche.
   await page.evaluate(() => window.scrollTo(0, 0));

@@ -58,7 +58,7 @@ export default function RegionCoverageNotice(): React.ReactElement | null {
           aktuelle Position liegt außerhalb aller installierten Regionen
           {regions.length > 0 && ` (${regions.map((r) => r.region).join(', ')})`} — die Karte
           bleibt hier leer, obwohl mit ihr nichts nicht in Ordnung ist. Passende Region unter
-          „Karten verwalten" (🗺️) installieren.
+          ⚙️ → „Karten verwalten" installieren.
         </p>
       </div>
     </div>

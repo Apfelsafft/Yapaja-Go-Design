@@ -30,6 +30,7 @@ import { collectPageErrors, trackRequests } from './support/network.js';
 import { startRegistryStub, type RegistryStub } from './support/registryStub.js';
 import { buildValidAddonTarball } from '../../core/src/addons/__fixtures__/buildTarball.js';
 import { readPackageVersion } from '../../core/src/version.js';
+import { oeffneEinstellung } from './support/einstellungen.js';
 
 function sha256(buf: Buffer): string {
   return createHash('sha256').update(buf).digest('hex');
@@ -43,7 +44,7 @@ function incompatibleCoreApiRange(version: string): string {
 async function openStorePanel(page: Page): Promise<void> {
   await page.goto(STORE_CORE_BASE_URL + '/');
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.getByTestId('store-panel-toggle').click();
+  await oeffneEinstellung(page, 'store-panel-toggle');
   await expect(page.getByTestId('store-panel')).toBeVisible();
 }
 
@@ -199,7 +200,7 @@ test.describe.serial('Add-on Store (E09-T7)', () => {
     await expect(mqttToggle).toHaveText('In Home Assistant verfügbar');
     await page.reload();
     await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId('store-panel-toggle').click();
+    await oeffneEinstellung(page, 'store-panel-toggle');
     await page.getByTestId('store-tab-updates').click();
     // Persisted server-side, still off after a full page reload.
     await expect(page.getByTestId(`toggle-mqtt-${COMPATIBLE_ID}`)).toHaveText('In Home Assistant verfügbar');

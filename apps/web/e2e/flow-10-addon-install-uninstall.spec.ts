@@ -42,6 +42,7 @@ import {
 } from './support/constants.js';
 import { collectPageErrors, trackRequests } from './support/network.js';
 import { startRegistryStub, type RegistryStub } from './support/registryStub.js';
+import { oeffneEinstellung } from './support/einstellungen.js';
 
 // Same rationale as addon-ui.spec.ts / addon-examples-poi.spec.ts: the default
 // `serviceWorkers: 'block'` instrumentation touches `navigator.serviceWorker`
@@ -130,7 +131,7 @@ test.describe.serial('docs/07 §5 Flow 10 (add-on install from registry -> unins
     expect(await hasMapLayer(page)).toBe(false);
 
     // --- install THROUGH THE STORE UI, from the registry --------------------
-    await page.getByTestId('store-panel-toggle').click();
+    await oeffneEinstellung(page, 'store-panel-toggle');
     await expect(page.getByTestId('store-panel')).toBeVisible();
     await page.getByTestId('store-sync-button').click();
     await expect(page.getByTestId(`catalog-entry-${ADDON_ID}`)).toBeVisible({ timeout: 15_000 });

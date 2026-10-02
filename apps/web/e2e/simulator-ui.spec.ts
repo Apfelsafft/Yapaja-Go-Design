@@ -31,6 +31,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { SIMULATOR_UI_CORE_BASE_URL, SIMULATOR_UI_VALHALLA_PORT } from './support/constants.js';
 import { startValhallaStub, type ValhallaStub } from './support/valhallaStub.js';
 import type { LatLon } from '../../core/src/routing/polyline.js';
+import { oeffneEinstellung } from './support/einstellungen.js';
 
 const BASE_LAT = 47.4;
 const BASE_LON = 9.7;
@@ -97,8 +98,9 @@ async function planRoute(page: Page): Promise<string> {
 }
 
 async function openPanel(page: Page): Promise<void> {
+  await page.getByTestId('einstellungen-toggle').click();
   await expect(page.getByTestId('simulator-panel-toggle')).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId('simulator-panel-toggle').click();
+  await oeffneEinstellung(page, 'simulator-panel-toggle');
   await expect(page.getByTestId('simulator-panel')).toBeVisible();
 }
 

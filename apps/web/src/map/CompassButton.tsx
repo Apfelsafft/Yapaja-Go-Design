@@ -6,6 +6,7 @@
  * Click: returns to bearing 0 (north) with smooth animation and switches to 2d-north mode.
  */
 
+import { useKartenSeite } from '../shell/bedienSeite.js';
 import React, { useEffect, useState, useCallback } from 'react';
 import { mapController, useMapStore } from '../state/mapStore';
 import { useSetViewMode } from './viewMode';
@@ -15,6 +16,8 @@ import { useNavStore } from '../drive/navStore.js';
 import { isDriveActive } from '../drive/driveActive.js';
 
 export default function CompassButton(): React.ReactElement | null {
+  // Gegenüber dem Seitenpanel (shell/bedienSeite.ts).
+  const kartenSeite = useKartenSeite();
   const driveActive = isDriveActive(useNavStore((state) => state.navState?.status));
   const schmal = useSchmal();
   const [bearing, setBearing] = useState(0);
@@ -65,7 +68,7 @@ export default function CompassButton(): React.ReactElement | null {
   return (
     <button
       onClick={handleClick}
-      style={{ bottom: rightStackBottomPx('compass', driveActive, schmal), right: EDGE_INSET_PX }}
+      style={{ bottom: rightStackBottomPx('compass', driveActive, schmal), [kartenSeite]: EDGE_INSET_PX }}
       className="fixed w-12 h-12 rounded-full bg-white dark:bg-slate-800 shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
       aria-label="Zurück zu Nord"
       title="Zurück zu Nord"

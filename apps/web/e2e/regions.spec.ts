@@ -44,6 +44,7 @@
 import { test, expect } from '@playwright/test';
 import { CORE_BASE_URL, EMPTY_CORE_BASE_URL, FIXTURE_REGION } from './support/constants.js';
 import { trackRequests, collectPageErrors } from './support/network.js';
+import { oeffneEinstellung } from './support/einstellungen.js';
 
 test('regions panel shows the installed region and refuses to delete the last one (409)', async ({
   page,
@@ -54,7 +55,7 @@ test('regions panel shows the installed region and refuses to delete the last on
   await page.goto(CORE_BASE_URL + '/');
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
 
-  await page.getByTestId('regions-panel-toggle').click();
+  await oeffneEinstellung(page, 'regions-panel-toggle');
   await expect(page.getByTestId('regions-panel')).toBeVisible();
 
   const installedEntry = page.getByTestId(`karte-${FIXTURE_REGION}`);
@@ -104,7 +105,7 @@ test('regions panel is reachable and shows the catalog even with no map installe
   await page.goto(EMPTY_CORE_BASE_URL + '/');
   await expect(page.getByTestId('map-no-region')).toBeVisible({ timeout: 10_000 });
 
-  await page.getByTestId('regions-panel-toggle').click();
+  await oeffneEinstellung(page, 'regions-panel-toggle');
   await expect(page.getByTestId('regions-panel')).toBeVisible();
   // Ohne installierte Karte ist die Liste nicht leer — der Katalog steht
   // darin. Was fehlt, ist etwas zu BAUEN, und das sagt der gemeinsame Knopf.
@@ -170,7 +171,7 @@ test('nur ein Eintrag MIT Quelle bekommt einen Knopf', async ({
 
   await page.goto(EMPTY_CORE_BASE_URL + '/');
   await expect(page.getByTestId('map-no-region')).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId('regions-panel-toggle').click();
+  await oeffneEinstellung(page, 'regions-panel-toggle');
   await expect(page.getByTestId('regions-panel')).toBeVisible();
 
   // Beide Quellen ergeben DENSELBEN Knopf — das ist der Punkt: für den
@@ -279,7 +280,7 @@ test('der gemeinsame Bau zeigt Schritt und Restzeit', async ({ page }) => {
 
   await page.goto(CORE_BASE_URL + '/');
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.getByTestId('regions-panel-toggle').click();
+  await oeffneEinstellung(page, 'regions-panel-toggle');
   await expect(page.getByTestId('regions-panel')).toBeVisible();
 
   // Der Gesamtbau steht an SEINER Stelle — nicht unter einer einzelnen Karte.
@@ -332,7 +333,7 @@ test('ohne Erfahrungswerte nennt der Bau keine Restzeit', async ({ page }) => {
 
   await page.goto(CORE_BASE_URL + '/');
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
-  await page.getByTestId('regions-panel-toggle').click();
+  await oeffneEinstellung(page, 'regions-panel-toggle');
   await expect(page.getByTestId('regions-panel')).toBeVisible();
 
   const rest = page.getByTestId('gesamtbau-restzeit');
@@ -385,7 +386,7 @@ test('ein laufender Bau ist nach dem Neuladen der Seite weiterhin sichtbar', asy
   await page.goto(CORE_BASE_URL + '/');
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
 
-  await page.getByTestId('regions-panel-toggle').click();
+  await oeffneEinstellung(page, 'regions-panel-toggle');
   await expect(page.getByTestId('regions-panel')).toBeVisible();
 
   // Der Fortschritt steht unter DER Region, zu der er gehört — nicht

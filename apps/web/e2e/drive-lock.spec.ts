@@ -18,6 +18,7 @@ import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js
 import { DRIVE_LOCK_CORE_BASE_URL, FIXTURE_REGION } from './support/constants.js';
 import { oeffneFahrtMenue } from './support/fahrtMenue.js';
 import { collectPageErrors } from './support/network.js';
+import { oeffneEinstellung, schliesseEinstellungen } from './support/einstellungen.js';
 
 const BASE_LAT = 47.05;
 const BASE_LON = 9.55;
@@ -112,7 +113,7 @@ test.describe('Speed-Lock (E07-T4)', () => {
     await page.goto(DRIVE_LOCK_CORE_BASE_URL + '/');
     await waitForMapReady(page);
 
-    await page.getByTestId('style-panel-toggle').click();
+    await oeffneEinstellung(page, 'style-panel-toggle');
     await expect(page.getByTestId('style-panel')).toBeVisible();
     // Was hier geprueft wird, ist „die Klappe zeigt ihren normalen Inhalt".
     // Bis 0.12.2 stand dafuer `theme-toggle`. Seit die Optionen nach
@@ -149,22 +150,23 @@ test.describe('Speed-Lock (E07-T4)', () => {
     // Store (RegionsPanel) -- the fixture region is installed (see
     // globalSetup.ts), so its normal content includes `karte-fixture`;
     // while locked, that's replaced by the overlay instead.
-    await page.getByTestId('regions-panel-toggle').click();
+    await oeffneEinstellung(page, 'regions-panel-toggle');
     await expect(page.getByTestId('regions-panel')).toBeVisible();
     await expect(page.getByTestId('drive-lock-overlay')).toBeVisible();
     await expect(page.getByTestId(`karte-${FIXTURE_REGION}`)).toHaveCount(0);
 
     // Profile editor: open the profiles panel, create-new -> editor form is gated.
+    // Seit 0.23 liegt das ⚙-Menue UEBER dem Seitenpanel -- erst schliessen.
+    await schliesseEinstellungen(page);
     await page.getByTestId('profile-chip').click();
     await expect(page.getByTestId('profiles-panel')).toBeVisible();
     // The LIST view itself is not gated (only the editor form) -- create button reachable.
     await page.getByTestId('create-profile-button').click();
-    await expect(page.getByTestId('drive-lock-overlay')).toHaveCount(2); // Store panel (still open) + Profile editor
+    await expect(page.getByTestId('drive-lock-overlay')).toHaveCount(1); // Profile editor
     await expect(page.getByTestId('profile-name-input')).toHaveCount(0);
 
     await postSpeed(page, 0);
     await expect(page.getByTestId('profile-name-input')).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByTestId(`karte-${FIXTURE_REGION}`)).toBeVisible();
 
     expect(pageErrors).toEqual([]);
   });
@@ -178,7 +180,7 @@ test.describe('Speed-Lock (E07-T4)', () => {
     await waitForMapReady(page);
 
     await postSpeed(page, 5); // locked
-    await page.getByTestId('style-panel-toggle').click();
+    await oeffneEinstellung(page, 'style-panel-toggle');
     await expect(page.getByTestId('drive-lock-overlay')).toBeVisible();
 
     await page.getByTestId('drive-lock-passenger-button').click();
@@ -202,15 +204,15 @@ test.describe('Speed-Lock (E07-T4)', () => {
 
     // Close the panel and reopen it -- still unlocked (session-remembered),
     // no need to run the countdown again.
-    await page.getByTestId('style-panel-toggle').click(); // close
+    await schliesseEinstellungen(page); // close
     await expect(page.getByTestId('style-panel')).toHaveCount(0);
-    await page.getByTestId('style-panel-toggle').click(); // reopen
+    await oeffneEinstellung(page, 'style-panel-toggle'); // reopen
     await expect(page.getByTestId('style-panel')).toBeVisible();
     await expect(page.getByTestId('drive-lock-overlay')).toHaveCount(0);
     await expect(page.getByTestId('panel-abschnitt-schalter-darstellung')).toBeVisible();
 
     // A DIFFERENT gated surface is unlocked too (the override is global, not per-surface).
-    await page.getByTestId('regions-panel-toggle').click();
+    await oeffneEinstellung(page, 'regions-panel-toggle');
     await expect(page.getByTestId('regions-panel')).toBeVisible();
     await expect(page.getByTestId('drive-lock-overlay')).toHaveCount(0);
 
@@ -271,7 +273,7 @@ test.describe('Speed-Lock (E07-T4)', () => {
       })
       .toBe(20);
 
-    await page.getByTestId('style-panel-toggle').click();
+    await oeffneEinstellung(page, 'style-panel-toggle');
 
     // 15 km/h -- above the OLD default (10) but below the NEW threshold (20): unlocked.
     await postSpeed(page, 15 / 3.6);

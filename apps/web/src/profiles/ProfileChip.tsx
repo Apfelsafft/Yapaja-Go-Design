@@ -18,12 +18,12 @@ export default function ProfileChip({ activeProfile, onClick }: ProfileChipProps
       onClick={onClick}
       type="button"
       aria-label={`Fahrzeugprofil wechseln (aktiv: ${activeProfile?.name ?? 'kein Profil'})`}
-      className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow text-sm text-slate-800 dark:text-slate-100 pointer-events-auto"
+      className="inline-flex min-h-[40px] max-w-[10rem] items-center gap-2 px-3 py-1 rounded-full bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow text-sm text-slate-800 dark:text-slate-100 pointer-events-auto"
       title="Fahrzeugprofil wechseln"
       data-testid="profile-chip"
     >
       <span className="text-lg">🚐</span>
-      <span data-testid="profile-chip-name">
+      <span className="truncate" data-testid="profile-chip-name">
         {activeProfile?.name ?? 'Profil'}
       </span>
     </button>

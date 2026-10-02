@@ -46,9 +46,10 @@ import {
 /** Wie oft der Fortschritt nachgefragt wird, waehrend etwas laeuft. */
 const POLL_MS = 1000;
 
-export default function SimulatorPanel(): React.ReactElement | null {
+export default function SimulatorPanel({ eingebettet = false }: { eingebettet?: boolean } = {}): React.ReactElement | null {
   const [available, setAvailable] = useState<boolean | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
+  // Eingebettet (im ⚙-Menü, shell/EinstellungsMenue.tsx) ist der Inhalt immer offen.
+  const [isOpen, setIsOpen] = useState(eingebettet);
   const [status, setStatus] = useState<SimulatorStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -127,10 +128,10 @@ export default function SimulatorPanel(): React.ReactElement | null {
   const stepIndex = speedStepIndex(speedFactor);
 
   return (
-    <div className="fixed z-10" style={{ top: topRightSlotPx('simulator'), right: TOP_RIGHT_INSET_PX }}>
+    <div className={eingebettet ? '' : 'fixed z-10'} style={eingebettet ? undefined : { top: topRightSlotPx('simulator'), right: TOP_RIGHT_INSET_PX }}>
       {isOpen && (
         <div
-          className="absolute top-14 right-0 mb-2 w-80 rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"
+          className={eingebettet ? 'space-y-4 text-sm text-slate-800 dark:text-slate-100' : "absolute top-14 right-0 mb-2 w-80 rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-3"}
           data-testid="simulator-panel"
         >
           <h2 className="font-semibold">Testfahrt</h2>
@@ -258,17 +259,19 @@ export default function SimulatorPanel(): React.ReactElement | null {
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => setIsOpen((open) => !open)}
-        className="w-12 h-12 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 text-lg"
-        aria-label="Testfahrt"
-        aria-expanded={isOpen}
-        title="Testfahrt (GPS-Simulator)"
-        data-testid="simulator-panel-toggle"
-      >
-        🧪
-      </button>
+      {!eingebettet && (
+        <button
+          type="button"
+          onClick={() => setIsOpen((open) => !open)}
+          className="w-12 h-12 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 text-lg"
+          aria-label="Testfahrt"
+          aria-expanded={isOpen}
+          title="Testfahrt (GPS-Simulator)"
+          data-testid="simulator-panel-toggle"
+        >
+          🧪
+        </button>
+      )}
     </div>
   );
 }

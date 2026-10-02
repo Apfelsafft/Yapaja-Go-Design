@@ -15,6 +15,7 @@ import { test, expect, type Page } from '@playwright/test';
 import type { Route } from '@yapaia/shared';
 import { encodePolyline6, type LatLon } from '../../core/src/routing/polyline.js';
 import { CORE_BASE_URL } from './support/constants.js';
+import { oeffneEinstellung } from './support/einstellungen.js';
 
 test.use({ serviceWorkers: 'block' });
 
@@ -68,7 +69,7 @@ test('das 📌 in den Einstellungen legt fest, welche Chips oben stehen', async 
   await bereit(page);
   await expect(page.getByTestId('poi-chip-poi-dusche')).toHaveCount(0);
 
-  await page.getByTestId('style-panel-toggle').click();
+  await oeffneEinstellung(page, 'style-panel-toggle');
   await page.getByTestId('panel-abschnitt-schalter-sonderziele').click();
   await page.getByTestId('poi-chip-markierung-poi-dusche').click();
   await expect(page.getByTestId('poi-chip-poi-dusche')).toBeVisible();

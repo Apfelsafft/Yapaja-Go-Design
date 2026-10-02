@@ -266,8 +266,9 @@ function GesamtFortschritt({ job }: { job: JobSnapshot }): React.ReactElement {
   );
 }
 
-export default function RegionsPanel(): React.ReactElement {
-  const [isOpen, setIsOpen] = useState(false);
+export default function RegionsPanel({ eingebettet = false }: { eingebettet?: boolean } = {}): React.ReactElement {
+  // Eingebettet (im ⚙-Menü, shell/EinstellungsMenue.tsx) ist der Inhalt immer offen.
+  const [isOpen, setIsOpen] = useState(eingebettet);
   const [installed, setInstalled] = useState<InstalledRegion[]>([]);
   const [catalog, setCatalog] = useState<CatalogRegion[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -433,10 +434,10 @@ export default function RegionsPanel(): React.ReactElement {
   );
 
   return (
-    <div className="fixed z-10" style={{ top: topRightSlotPx('regions'), right: TOP_RIGHT_INSET_PX }}>
+    <div className={eingebettet ? '' : 'fixed z-10'} style={eingebettet ? undefined : { top: topRightSlotPx('regions'), right: TOP_RIGHT_INSET_PX }}>
       {isOpen && (
         <div
-          className="absolute top-14 right-0 mb-2 w-80 max-h-[calc(var(--sicht-h,100vh)*0.7)] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"
+          className={eingebettet ? 'space-y-4 text-sm text-slate-800 dark:text-slate-100' : "absolute top-14 right-0 mb-2 w-80 max-h-[calc(var(--sicht-h,100vh)*0.7)] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4"}
           data-testid="regions-panel"
         >
           {/* Speed-Lock (E07-T4): "Store" (region/map management) is one of
@@ -599,16 +600,18 @@ export default function RegionsPanel(): React.ReactElement {
         </div>
       )}
 
-      <button
-        onClick={toggleOpen}
-        className="w-12 h-12 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 text-lg"
-        aria-label="Karten verwalten"
-        aria-expanded={isOpen}
-        title="Karten verwalten"
-        data-testid="regions-panel-toggle"
-      >
-        🗺️
-      </button>
+      {!eingebettet && (
+        <button
+          onClick={toggleOpen}
+          className="w-12 h-12 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 text-lg"
+          aria-label="Karten verwalten"
+          aria-expanded={isOpen}
+          title="Karten verwalten"
+          data-testid="regions-panel-toggle"
+        >
+          🗺️
+        </button>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 # Entwurf: Oberfläche im Stil von Google Maps (Paket B)
 
-Stand: Entwurf zur Abstimmung, noch nicht umgesetzt. Paket A (Chips,
+Stand: abgestimmt, in Umsetzung (siehe unten). Paket A (Chips,
 Zwischenziel-Pins, Übersicht-Knopf, Vorschau, Spritsorte) ist mit 0.22.0
 ausgeliefert.
 
@@ -135,10 +135,13 @@ gehen auf die andere Seite. Der blaue Punkt sitzt im freien Kartenbereich
 
 Jeder Schritt ist für sich nutzbar und wird einzeln ausgeliefert.
 
-## Offene Fragen
+## Entscheidungen (beantwortet)
 
-1. Soll die Marke „Yapaia Go" sichtbar bleiben (z. B. klein im ⚙-Menü) oder
-   ganz weg?
-2. Panelbreite: festes Drittel, oder fest ~380 px auf großen Schirmen?
-3. Infos online: reichen OSM-Angaben (Website, Telefon, Öffnungszeiten), oder
-   zusätzlich Wikipedia/Bilder?
+1. „Yapaia Go" steht im ⚙-Menü.
+2. Auf großen Schirmen feste Breite (380 px).
+3. Infos online: OSM-Angaben und zusätzlich Wikipedia und Bilder.
+
+## Stand
+
+- Schritt 1 (Panel + ⚙-Menü) und 2 (Such-Zustand) — 0.23.0.
+- Schritt 3 und 4 folgen.

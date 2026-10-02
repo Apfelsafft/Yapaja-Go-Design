@@ -10,6 +10,31 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.23.0
+
+**Neue Aufteilung im Stil von Google Maps — Schritt 1 und 2.**
+
+Gewünscht: Menüs und Suche im Drittel auf der Fahrerseite, der Rest frei
+für die Karte; im Ruhezustand wenige Knöpfe; das meiste passiert erst, wenn
+man auf die Suche tippt.
+
+- **Seitenpanel auf der Fahrerseite** (Linkslenker links, Rechtslenker
+  rechts; einstellbar unter ⚙ → Karte & Darstellung → Gerät). Auf großen
+  Bildschirmen 380 Punkte breit. Oben ⚙ und die Suche, darunter das
+  Fahrzeug und die POI-Chips.
+- **Das ⚙-Menü** ersetzt die fünf runden Knöpfe (Karte, Regionen, Store,
+  Prüfung, Testfahrt). Oben steht „Yapaia Go", darunter die Bereiche; ein
+  Tipp öffnet den Bereich, ← führt zurück.
+- **Favoriten und Verlauf** erscheinen jetzt, wenn du in die Suche tippst —
+  die Leiste am unteren Rand ist weg.
+- Zoom, Kompass, Zentrieren, Übersicht und das Tempolimit-Schild liegen auf
+  der Seite gegenüber dem Panel; der Tacho auf der Fahrerseite.
+
+Als Nächstes: Pins auf der Karte antippbar mit Infos (auch Wikipedia und
+Bilder) und die Routenplanung im Panel mit Fahrzeugwahl.
+
+---
+
 ## 0.22.0
 
 **POI-Chips, Zwischenziele auf der Karte, Übersicht auf Knopfdruck,
