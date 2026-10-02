@@ -127,6 +127,14 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     summary: 'Sprachbefehl als Text: Antwort zum Vorlesen und ggf. Aktion (Ziel, Stopp, Verkehr …)',
     tags: ['Navigation'],
   },
+  'GET /api/v1/sprache/ha': {
+    summary: 'Stand der Home-Assistant-Assist-Anbindung und wählbare KI-Agenten (conversation.*)',
+    tags: ['Navigation'],
+  },
+  'POST /api/v1/sprache/ha/einrichten': {
+    summary: 'Legt in Home Assistant den Helfer und die Automation für Sprachbefehle an',
+    tags: ['Navigation'],
+  },
   'GET /api/v1/unterwegs': {
     summary: 'Nächste Treffer einer Kategorie voraus auf der Route (ohne Route: im Umkreis)',
     tags: ['Suche'],

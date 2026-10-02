@@ -42,7 +42,7 @@
 
 import type { HaConnection } from './config.js';
 
-export type HelferTyp = 'input_button' | 'input_select';
+export type HelferTyp = 'input_button' | 'input_select' | 'input_text';
 
 export interface HelferSoll {
   /** Die Entity-ID, die Home Assistant aus dem Namen bildet. */
@@ -52,7 +52,7 @@ export interface HelferSoll {
   name: string;
   icon: string;
   /** Was der Druck ausloest. Bei `input_select` steht hier die Bedeutung. */
-  befehl: 'pause' | 'resume' | 'stop' | 'profile';
+  befehl: 'pause' | 'resume' | 'stop' | 'profile' | 'sprache';
 }
 
 /** Die Helfer, die Yapaia anlegt und beobachtet. */
@@ -259,7 +259,11 @@ export async function legeHelferAn(
                     // Abgleich ersetzt.
                     options: optionen.profile?.length ? optionen.profile : ['—'],
                   }
-                : { id, type: 'input_button/create', name: helfer.name, icon: helfer.icon },
+                : helfer.typ === 'input_text'
+                  ? // Der Sprachbefehl (ha/sprachBruecke.ts): 255 ist das
+                    // Hoechstmass, das Home Assistant fuer Text-Helfer zulaesst.
+                    { id, type: 'input_text/create', name: helfer.name, icon: helfer.icon, min: 0, max: 255 }
+                  : { id, type: 'input_button/create', name: helfer.name, icon: helfer.icon },
             ),
           );
         }

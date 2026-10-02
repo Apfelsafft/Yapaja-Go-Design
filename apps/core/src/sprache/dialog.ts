@@ -49,6 +49,11 @@ export interface SprachDeps {
   /** Uhrzeit für die Ankunft in Ortszeit formatieren („15:29"). */
   uhrzeit(iso: string): string;
   jetzt(): number;
+  /**
+   * Optional: die KI von Home Assistant für Sätze, die die Regeln nicht
+   * verstehen (`ha/kiAgent.ts`). Liefert eine Absicht oder `null`.
+   */
+  ki?: (text: string) => Promise<Absicht | null>;
 }
 
 /** Was die Oberfläche nach der Antwort tun soll. */
@@ -101,7 +106,12 @@ export class Sprachdialog {
   constructor(private readonly deps: SprachDeps) {}
 
   async verarbeite(text: string): Promise<Antwort> {
-    const absicht = verstehe(text);
+    let absicht = verstehe(text);
+    if (absicht.art === 'unbekannt' && this.deps.ki) {
+      // Erst die Regeln, dann die KI: was die Regeln können, geht auch ohne
+      // Netz und ohne Wartezeit.
+      absicht = (await this.deps.ki(text).catch(() => null)) ?? absicht;
+    }
     const jetzt = this.deps.jetzt();
     if (this.offen && this.offen.bis < jetzt) this.offen = null;
 

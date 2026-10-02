@@ -10,6 +10,31 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.30.0
+
+**Sprachbefehle — Stufe 2: über Home Assistant Assist sprechen, auch ohne
+HTTPS. Optional mit der KI aus Home Assistant.**
+
+- **⚙ → Sprache & Home Assistant → „In Home Assistant einrichten"**: Yapaia
+  legt in Home Assistant den Helfer „Yapaia Sprachbefehl", den Sensor
+  „Yapaia Antwort" und die Automation „Yapaia Sprachbefehle" an — ohne
+  YAML.
+- Danach geht es über **Sprachsatelliten** und den **Assist-Knopf der
+  Home-Assistant-App**: „Yapaia, fahre mich nach Magdeburg", „Wo ist die
+  nächste Tankstelle?", „Stoppe die Navigation" … Assist spricht Yapaias
+  Antwort; „Ja" startet die Route.
+- **KI für freie Sätze:** Auf derselben Seite lässt sich ein
+  Gesprächsagent aus Home Assistant wählen (OpenAI, Claude, Google, Ollama
+  …). Er wird nur gefragt, wenn die eingebauten Befehle einen Satz nicht
+  verstehen, und übersetzt nur — ausgeführt wird von Yapaia, eine Route
+  startet erst nach „Ja". Ohne KI geht alles Eingebaute weiter offline.
+- Nutzt Assist selbst eine KI, muss dort „Befehle bevorzugt lokal
+  verarbeiten" eingeschaltet sein.
+- **Aktivierungswort „Yapaia":** Anleitung in
+  `docs/aktivierungswort-yapaia.md` — sofort mit dem vorhandenen Wort
+  („Okay Nabu, Yapaia …"), oder „Yapaia" als eigenes Wort für openWakeWord
+  trainieren.
+
 ## 0.29.0
 
 **Sprachbefehle — Stufe 1: Yapaia versteht gesprochene und getippte

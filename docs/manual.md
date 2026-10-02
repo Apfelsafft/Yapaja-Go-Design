@@ -609,9 +609,16 @@ speak or type a command in German, for example:
 
 The answer is read aloud. Commands are understood offline, without any AI.
 Browsers only allow the microphone on **HTTPS** pages; over plain
-`http://…:8123` the voice window is a text field. Speaking without HTTPS will
-work through Home Assistant Assist (satellites, the Assist button in the HA
-app) in the next version.
+`http://…:8123` the voice window is a text field.
+
+**Speaking through Home Assistant Assist** works without HTTPS: open
+**⚙ → Sprache & Home Assistant → In Home Assistant einrichten**. Yapaia
+creates a helper, an answer sensor and the automation „Yapaia Sprachbefehle".
+Then talk to a voice satellite or the Assist button of the Home Assistant app
+(„Yapaia, fahre mich nach Magdeburg"); Assist speaks Yapaia's answer. On the
+same page you can pick a Home Assistant conversation agent (AI) for free-form
+sentences — it only translates, Yapaia still asks before starting a route. A
+custom wake word „Yapaia" is described in `docs/aktivierungswort-yapaia.md`.
 
 ### Arranging the screen
 
