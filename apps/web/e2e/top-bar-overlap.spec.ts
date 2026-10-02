@@ -131,3 +131,22 @@ test('das ⚙ (dort stehen seit 0.25 die Fahrzeuge) ist auf jeder Breite sichtba
     }
   }
 });
+
+test('0.26: die POI-Chips stehen auf breiten Schirmen NEBEN der Suche, die Kopfzeile geht über die ganze Breite', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(CORE_BASE_URL + '/');
+  await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
+
+  const suche = (await page.getByTestId('search-input').boundingBox())!;
+  const chips = (await page.getByTestId('poi-chips').boundingBox())!;
+  const kopf = (await page.getByTestId('top-bar').boundingBox())!;
+
+  // Dieselbe Zeile: die Oberkanten liegen höchstens ein paar Punkte auseinander.
+  expect(Math.abs(chips.y - suche.y)).toBeLessThan(16);
+  // Nebeneinander, nicht übereinander.
+  const nebeneinander = chips.x >= suche.x + suche.width || chips.x + chips.width <= suche.x;
+  expect(nebeneinander).toBe(true);
+  expect(kopf.width).toBeGreaterThan(1200);
+});

@@ -44,6 +44,9 @@ import { useFavoritesStore } from '../favorites/store.js';
 import { iconForFavoriteCategory } from '../favorites/icons.js';
 import { useRoutingStore } from '../routing/store.js';
 import { useProfileStore } from '../profiles/store.js';
+import WaypointList from '../routing/WaypointList.js';
+import { useBedienSeite } from '../shell/bedienSeite.js';
+import { useSchmal } from '../shell/useSchmal.js';
 import { STACK_GAP_PX, TRIP_BAR_HEIGHT_PX, tripInfoBottomPx } from '../shell/mapControlLayout.js';
 
 /** Wie viele zuletzt angefahrene Ziele im Menü stehen. */
@@ -106,6 +109,9 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
   const aktivesProfil = useProfileStore((s) => s.activeProfile);
   const profilAktivieren = useProfileStore((s) => s.activateProfile);
   const profileLaden = useProfileStore((s) => s.fetchProfiles);
+  const zwischenziele = useRoutingStore((s) => s.waypoints);
+  const seite = useBedienSeite();
+  const schmal = useSchmal();
 
   const [offen, setOffen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -230,8 +236,20 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
           id="fahrt-menue"
           role="dialog"
           aria-label="Fahrtmenü"
-          style={{ bottom: tripInfoBottomPx() + TRIP_BAR_HEIGHT_PX + STACK_GAP_PX }}
-          className="absolute left-1/2 z-30 max-h-[calc(var(--sicht-h,100vh)*0.55)] w-[min(calc(var(--sicht-b,100vw)*0.92),26rem)] -translate-x-1/2 space-y-3 overflow-y-auto rounded-xl bg-white/95 p-3 text-sm text-slate-800 shadow-xl dark:bg-slate-800/95 dark:text-slate-100"
+          // ─── AUF DER FAHRERSEITE (0.26) ────────────────────────────────
+          // Gewuenscht: „Das Navi-Menue darf jetzt auch gerne eher links
+          // oder rechts angeordnet sein. Je nach LHD oder RHD." Mittig lag es
+          // ueber der Route vor dem Fahrzeug; an der Seite bleibt die Mitte
+          // frei und der Fahrer erreicht es. Auf dem Telefon bleibt es mittig.
+          style={{
+            bottom: tripInfoBottomPx() + TRIP_BAR_HEIGHT_PX + STACK_GAP_PX,
+            ...(schmal ? {} : { [seite]: 12 }),
+          }}
+          className={`absolute z-30 max-h-[calc(var(--sicht-h,100vh)*0.7)] space-y-3 overflow-y-auto rounded-xl bg-white/95 p-3 text-sm text-slate-800 shadow-xl dark:bg-slate-800/95 dark:text-slate-100 ${
+            schmal
+              ? 'left-1/2 w-[min(calc(var(--sicht-b,100vw)*0.92),26rem)] -translate-x-1/2'
+              : 'w-[min(calc(100%-24px),26rem)]'
+          }`}
           data-testid="fahrt-menue"
         >
           {error && (
@@ -305,6 +323,19 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
                   </li>
                 ))}
               </ul>
+            </section>
+          )}
+
+          {zwischenziele.length > 0 && (
+            // ─── ZWISCHENZIELE WAEHREND DER FAHRT (0.26) ─────────────────
+            // Gemeldet: „Wenn navigiert wird, kann ich zwar Zwischenziele
+            // setzen und sie werden auch nummeriert, aber ich finde sie nicht
+            // mehr wieder, um sie bspw. in der Reihenfolge zu verschieben."
+            // Dieselbe Liste wie beim Planen; waehrend der Fahrt geht jede
+            // Aenderung an den Core (`routing/store.ts#applyWaypointChange`),
+            // der die laufende Route neu rechnet.
+            <section aria-label="Zwischenziele" data-testid="fahrt-menue-zwischenziele">
+              <WaypointList rerouteParams={null} />
             </section>
           )}
 

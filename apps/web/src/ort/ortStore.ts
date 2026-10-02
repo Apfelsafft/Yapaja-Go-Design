@@ -17,6 +17,12 @@ export interface GewaehlterOrt {
   /** Sprite-Name des Symbols, falls bekannt (`poi-wohnmobil` …). */
   symbol: string | null;
   adresse: string | null;
+  /**
+   * Eine Verkehrsmeldung (Baustelle, Sperrung) statt eines Ortes: Titel und
+   * Beschreibung kommen von der Autobahn GmbH, Route/Favorit/Online-Infos
+   * ergeben dafür keinen Sinn.
+   */
+  verkehr?: { beschreibung: string; strasse: string } | null;
 }
 
 interface OrtState {

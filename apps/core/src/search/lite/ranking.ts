@@ -40,6 +40,8 @@
  * `Record<LiteKind, number>` Vollstaendigkeit, und `reader.ts` baut seine
  * Menge daraus. Eine neue Art kann nicht mehr an einer Stelle fehlen.
  */
+import { faltung } from './faltung.js';
+
 export const LITE_KINDS = [
   'city',
   'town',
@@ -116,8 +118,10 @@ function haversineKm(a: RankOrigin, b: RankOrigin): number {
   return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
+// ß/ss und Umlaute zählen beim Vergleich nicht -- „Ziolkowskistrasse"
+// beginnt wie „Ziolkowskistraße" (siehe `reader.ts#termVarianten`).
 function normalize(s: string): string {
-  return s.trim().toLowerCase();
+  return faltung(s);
 }
 
 /** 0 = prefix match, 1 = not. */

@@ -90,7 +90,11 @@ function OnlineTeil({ ort }: { ort: GewaehlterOrt }): React.ReactElement {
 
   return (
     <div className="flex flex-col gap-2 text-sm" data-testid="ort-online">
-      {leer && <p className="text-slate-500 dark:text-slate-400">Im Internet ist zu diesem Ort nichts zu finden.</p>}
+      {leer && (
+        <p className="text-slate-500 dark:text-slate-400">
+          Im Internet ist zu diesem Ort nichts zu finden.
+        </p>
+      )}
       {osm && (
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1" data-testid="ort-osm">
           {osm.oeffnungszeiten && (
@@ -103,7 +107,12 @@ function OnlineTeil({ ort }: { ort: GewaehlterOrt }): React.ReactElement {
             <>
               <dt className="text-slate-500">🌐</dt>
               <dd className="truncate">
-                <a href={web} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline dark:text-blue-400">
+                <a
+                  href={web}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline dark:text-blue-400"
+                >
                   {web.replace(/^https?:\/\//, '').replace(/\/$/, '')}
                 </a>
               </dd>
@@ -113,7 +122,10 @@ function OnlineTeil({ ort }: { ort: GewaehlterOrt }): React.ReactElement {
             <>
               <dt className="text-slate-500">📞</dt>
               <dd>
-                <a href={`tel:${osm.telefon.replace(/[^+\d]/g, '')}`} className="text-blue-600 underline dark:text-blue-400">
+                <a
+                  href={`tel:${osm.telefon.replace(/[^+\d]/g, '')}`}
+                  className="text-blue-600 underline dark:text-blue-400"
+                >
                   {osm.telefon}
                 </a>
               </dd>
@@ -145,7 +157,12 @@ function OnlineTeil({ ort }: { ort: GewaehlterOrt }): React.ReactElement {
       {wikipedia && (
         <div data-testid="ort-wikipedia">
           <p className="line-clamp-6">{wikipedia.auszug}</p>
-          <a href={wikipedia.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline dark:text-blue-400">
+          <a
+            href={wikipedia.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-blue-600 underline dark:text-blue-400"
+          >
             Wikipedia: {wikipedia.titel}
           </a>
         </div>
@@ -153,7 +170,13 @@ function OnlineTeil({ ort }: { ort: GewaehlterOrt }): React.ReactElement {
       {bilder.length > 0 && (
         <div className="grid grid-cols-3 gap-1" data-testid="ort-bilder">
           {bilder.map((b) => (
-            <a key={b.quelle} href={b.quelle} target="_blank" rel="noopener noreferrer" className="relative block">
+            <a
+              key={b.quelle}
+              href={b.quelle}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative block"
+            >
               <img src={b.daten} alt="" className="aspect-square w-full rounded object-cover" />
               {b.art === 'umgebung' && (
                 <span className="absolute bottom-0 left-0 right-0 rounded-b bg-black/50 px-1 text-[10px] text-white">
@@ -184,13 +207,17 @@ export default function OrtKarte(): React.ReactElement | null {
       useRoutingStore.subscribe((s, vorher) => {
         if (s.destination !== vorher.destination) useOrtStore.getState().schliesse();
       }),
-    [],
+    []
   );
 
   if (!ort) return null;
 
   const abstand = position ? haversineMeters({ lat: position.lat, lon: position.lon }, ort) : null;
-  const zeichen = (ort.symbol && CHIP_ZEICHEN[ort.symbol]) || '📍';
+  const zeichen = ort.verkehr
+    ? ort.kategorie === 'Sperrung'
+      ? '⛔'
+      : '🚧'
+    : (ort.symbol && CHIP_ZEICHEN[ort.symbol]) || '📍';
   const titel = ort.name ?? ort.kategorie ?? 'Ort';
 
   const route = (): void => {
@@ -237,7 +264,9 @@ export default function OrtKarte(): React.ReactElement | null {
               {ort.kategorie}
             </p>
           )}
-          {ort.adresse && <p className="text-sm text-slate-600 dark:text-slate-300">{ort.adresse}</p>}
+          {ort.adresse && (
+            <p className="text-sm text-slate-600 dark:text-slate-300">{ort.adresse}</p>
+          )}
           {abstand !== null && (
             <p className="text-xs text-slate-500 dark:text-slate-400" data-testid="ort-abstand">
               {entfernungText(abstand)} Luftlinie
@@ -255,28 +284,47 @@ export default function OrtKarte(): React.ReactElement | null {
         </button>
       </div>
 
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={route}
-          className="flex-1 rounded-full bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
-          data-testid="ort-route"
-        >
-          Route
-        </button>
-        <button
-          type="button"
-          onClick={() => void merken()}
-          disabled={favorit === 'gespeichert'}
-          className="rounded-full border border-slate-300 px-4 py-2 hover:bg-slate-100 disabled:opacity-70 dark:border-slate-600 dark:hover:bg-slate-700"
-          data-testid="ort-favorit"
-        >
-          {favorit === 'gespeichert' ? '★ Gemerkt' : '☆ Favorit'}
-        </button>
-      </div>
-      {favorit === 'fehler' && <p className="text-sm text-red-600">Favorit konnte nicht gespeichert werden.</p>}
+      {ort.verkehr ? (
+        // Eine Baustelle oder Sperrung: was die Autobahn GmbH dazu meldet.
+        <div className="space-y-1 text-sm" data-testid="ort-verkehr">
+          {ort.verkehr.strasse && <p className="font-medium">{ort.verkehr.strasse}</p>}
+          {ort.verkehr.beschreibung && (
+            <p className="whitespace-pre-line text-slate-700 dark:text-slate-200">
+              {ort.verkehr.beschreibung}
+            </p>
+          )}
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Quelle: Autobahn GmbH des Bundes
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={route}
+              className="flex-1 rounded-full bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
+              data-testid="ort-route"
+            >
+              Route
+            </button>
+            <button
+              type="button"
+              onClick={() => void merken()}
+              disabled={favorit === 'gespeichert'}
+              className="rounded-full border border-slate-300 px-4 py-2 hover:bg-slate-100 disabled:opacity-70 dark:border-slate-600 dark:hover:bg-slate-700"
+              data-testid="ort-favorit"
+            >
+              {favorit === 'gespeichert' ? '★ Gemerkt' : '☆ Favorit'}
+            </button>
+          </div>
+          {favorit === 'fehler' && (
+            <p className="text-sm text-red-600">Favorit konnte nicht gespeichert werden.</p>
+          )}
 
-      <OnlineTeil ort={ort} />
+          <OnlineTeil ort={ort} />
+        </>
+      )}
     </section>
   );
 }

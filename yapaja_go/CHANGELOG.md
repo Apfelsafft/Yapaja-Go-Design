@@ -10,6 +10,32 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.26.0
+
+**Suche findet Straße + Ort, Fahrtmenü auf der Fahrerseite, Zwischenziele
+während der Fahrt.**
+
+- **Suche:**
+  - „ziolkowskistrasse" findet die „Ziolkowskistraße" — ss/ß und ae/ä,
+    oe/ö, ue/ü sind gleichwertig.
+  - **Straße + Ort** („Ziolkowskistraße Magdeburg") findet die Straße in
+    diesem Ort. Vorher fielen die Straßen weg und nur Läden blieben: im
+    Suchindex trägt eine Straße den nächsten Ortsteil („Neue Neustadt"),
+    nicht die Stadt.
+  - Die vielen Abschnitte derselben Straße in einem Ort sind **ein**
+    Treffer (vorher achtmal „Ziolkowskistraße, Ilmenau").
+  - Hausnummer und „Str." stören nicht. Gefahren wird zur Straße;
+    Hausnummern stehen nicht im Suchindex.
+  - Gilt sofort, ein neuer Suchindex ist nicht nötig.
+- **Kopfzeile:** Die POI-Chips stehen neben der Suche, die Kopfzeile geht
+  über die ganze Breite.
+- **Fahrtmenü** auf der Fahrerseite statt in der Mitte. Darin jetzt die
+  **Zwischenziele** mit ↑ ↓ ✕ — umsortieren und entfernen während der
+  Fahrt, die Route wird neu berechnet.
+- **Baustellen und Sperrungen** (gelbe und rote Marken an Autobahnen, von
+  der Autobahn GmbH, nur bei geplanter Route und eingeschaltetem „online")
+  sind antippbar und zeigen die Meldung.
+
 ## 0.25.0
 
 **Routenplanung im Seitenpanel, Fahrzeuge in den Einstellungen — Schritt 4,
