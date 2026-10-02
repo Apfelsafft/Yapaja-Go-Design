@@ -84,7 +84,7 @@ configuration:
     description: Ergänzungen, die eine Internetverbindung brauchen. Yapaia navigiert auch ohne sie vollständig.
     enabled:
       name: Online-Dienste erlauben
-      description: 'Aus als Vorgabe. Eingeschaltet darf Yapaia bei bestehender Verbindung Baustellen, Sperrungen und Warnungen der Autobahn GmbH abrufen. Es geht dabei nur die Anfrage hinaus — keine Position, keine Route, keine Gerätekennung. Ohne Netz fällt nur das weg; die Navigation arbeitet unverändert offline.'
+      description: 'Aus als Vorgabe. Eingeschaltet darf Yapaia bei bestehender Verbindung Baustellen, Sperrungen und Warnungen der Autobahn GmbH abrufen und zu einem angetippten Ort Infos von OpenStreetMap, Wikipedia und Wikimedia Commons holen. Hinaus gehen nur die Anfrage und beim Ort dessen Koordinaten und Name — nie die eigene Position, die Route oder eine Gerätekennung. Ohne Netz fällt nur das weg; die Navigation arbeitet unverändert offline.'
   bord:
     name: Bordsensoren
     description: 'Füllstände, Batterie und Außentemperatur aus Home Assistant. Ist eine

@@ -10,6 +10,28 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.24.0
+
+**Pins auf der Karte sind antippbar — Schritt 3 der neuen Aufteilung.**
+
+Gewünscht: „Wenn man ein Ziel ausgewählt hat, kann man die Route suchen
+bzw. dann die Navigation starten. Oder auch nur die Infos (Internet
+vorausgesetzt) zu dem markierten Punkt lesen."
+
+- **Ein Tipp auf ein Symbol** (Stellplatz, Tankstelle, Entsorgung …) öffnet
+  im Seitenpanel eine **Ortskarte**: Name, Art, Adresse und Entfernung
+  (Luftlinie). Ein Tipp daneben auf die leere Karte schließt sie wieder.
+  Ein Ziel setzt weiterhin nur der lange Druck.
+- **Route** berechnet den Weg dorthin mit dem gewählten Fahrzeug.
+  **☆ Favorit** merkt sich den Ort.
+- **Infos aus dem Internet**, wenn „online" in der Add-on-Konfiguration
+  eingeschaltet ist: Öffnungszeiten, Website, Telefon, Gebühr und
+  Ausstattung aus OpenStreetMap, ein Auszug aus Wikipedia und Bilder von
+  Wikimedia Commons. Bilder aus der Umgebung statt vom Ort selbst sind als
+  „in der Nähe" beschriftet. Hinaus gehen nur Koordinaten und Name des
+  angetippten Ortes — nie die eigene Position.
+- Ohne „online" steht in der Karte, wie es mehr Infos gibt.
+
 ## 0.23.0
 
 **Neue Aufteilung im Stil von Google Maps — Schritt 1 und 2.**

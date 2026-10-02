@@ -39,6 +39,9 @@ import { buildAvoidSquare } from './exclusionGeometry.js';
 import { mapTapIntent, ROUTE_TAP_RADIUS_PX, type Geste } from './mapTapIntent.js';
 import { langerDruckUeberwachen } from './langerDruck.js';
 import { useNavStore } from '../drive/navStore.js';
+import { SONDERZIELE_LAYER_ID } from '../map/SonderzieleLayer.js';
+import { useOrtStore } from '../ort/ortStore.js';
+import { ortAusMerkmal } from '../ort/ortAusMerkmal.js';
 import {
   ALT_ROUTE_LAYER_ID,
   MAIN_ROUTE_CASING_LAYER_ID,
@@ -61,6 +64,34 @@ function tapBox(e: MapMouseEvent): [PointLike, PointLike] {
     [e.point.x - r, e.point.y - r],
     [e.point.x + r, e.point.y + r],
   ];
+}
+
+/** Die Ebenen mit antippbaren Orten: Kachel-POIs und Sonderziele. */
+const ORT_LAYER_IDS = ['poi-labels', SONDERZIELE_LAYER_ID];
+
+/**
+ * Ein Tipper auf einen Pin oeffnet die Ortskarte (Zustand 3 aus
+ * `docs/entwurf-ui-umbau.md`). Gewuenscht: „Das meiste passiert, wenn man
+ * auf Suche klickt oder einen Pin auf der Karte."
+ *
+ * Nur das Symbol selbst zaehlt, nicht irgendein Punkt daneben -- ein Tipper
+ * ins Leere bleibt, was er war (der Hinweis auf den langen Druck).
+ */
+function pickOrtAtPoint(map: MapLibreMap, e: MapMouseEvent): boolean {
+  const layers = ORT_LAYER_IDS.filter((id) => map.getLayer(id));
+  if (layers.length === 0) return false;
+  const treffer = map.queryRenderedFeatures(tapBox(e), { layers })[0];
+  if (!treffer) return false;
+  const lang = useStyleStore.getState().options.lang;
+  const g = treffer.geometry;
+  const punkt =
+    g.type === 'Point'
+      ? { lat: g.coordinates[1] as number, lon: g.coordinates[0] as number }
+      : { lat: e.lngLat.lat, lon: e.lngLat.lng };
+  const ort = ortAusMerkmal(treffer.properties, punkt, lang === 'name' ? undefined : lang);
+  if (!ort) return false;
+  useOrtStore.getState().oeffne(ort);
+  return true;
 }
 
 function pickRouteIdAtPoint(map: MapLibreMap, e: MapMouseEvent): string | null {
@@ -128,6 +159,14 @@ export default function DestinationSelector(): null {
         // laenger zu versuchen. Genau diese Sorte unerreichbarer Antwort
         // zieht sich durch die halbe Fehlergeschichte dieses Projekts.
         if (intent.reason === 'nur-langer-druck') {
+          if (pickOrtAtPoint(map, e)) return;
+          // Ein Tipper ins Leere schliesst eine offene Ortskarte -- wie bei
+          // Google Maps. Der Hinweis auf den langen Druck waere dann die
+          // falsche Antwort: gemeint war „weg damit", nicht „Ziel setzen".
+          if (useOrtStore.getState().ort) {
+            useOrtStore.getState().schliesse();
+            return;
+          }
           useRoutingStore.getState().zeigeLangerDruckHinweis();
         }
         return;
