@@ -139,3 +139,44 @@ test('ohne Online-Teil sagt die Karte, wie es mehr Infos gibt; Tipp ins Leere sc
   // Kein Ziel gesetzt -- ein Tipper ist kein langer Druck.
   expect(await page.evaluate(() => window.__yapaiaRoutingStore!.getState().destination)).toBeNull();
 });
+
+test('0.26: Tipp auf eine Baustelle zeigt die Meldung der Autobahn GmbH', async ({ page }) => {
+  const pin = await bereitMitPin(page);
+  // Eine Baustelle genau auf den Pin legen -- sie liegt obenauf und gewinnt.
+  await expect
+    .poll(
+      () =>
+        page.evaluate((p) => {
+          const map = window.__yapaiaMapController!.getMap()!;
+          const quelle = map.getSource('yapaja-verkehr') as unknown as { setData: (d: unknown) => void } | undefined;
+          if (!quelle || !map.getLayer('yapaja-verkehr-marken')) return 0;
+          quelle.setData({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+                properties: {
+                  id: 'b1',
+                  symbol: 'verkehr-baustelle',
+                  art: 'baustelle',
+                  strasse: 'A 5',
+                  titel: 'A5 | Walldorf - Wiesloch',
+                  beschreibung: 'Fahrbahnverengung bis Ende Oktober',
+                },
+              },
+            ],
+          });
+          const pt = map.project([p.lon, p.lat]);
+          return map.queryRenderedFeatures([pt.x, pt.y], { layers: ['yapaja-verkehr-marken'] }).length;
+        }, PIN),
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(0);
+
+  await page.mouse.click(pin.x, pin.y);
+  await expect(page.getByTestId('ort-name')).toHaveText('A5 | Walldorf - Wiesloch');
+  await expect(page.getByTestId('ort-verkehr')).toContainText('Fahrbahnverengung bis Ende Oktober');
+  // Keine Route und kein Favorit zu einer Baustelle.
+  await expect(page.getByTestId('ort-route')).toHaveCount(0);
+});

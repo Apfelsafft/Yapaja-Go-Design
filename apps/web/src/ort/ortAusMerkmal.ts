@@ -31,12 +31,32 @@ export function kategorieAusKachel(
   return k ? { name: k.name, symbol: k.symbol } : null;
 }
 
+const VERKEHR_ART: Readonly<Record<string, string>> = {
+  baustelle: 'Baustelle',
+  sperrung: 'Sperrung',
+  warnung: 'Warnung',
+};
+
 export function ortAusMerkmal(
   eigenschaften: Record<string, unknown> | null | undefined,
   punkt: { lat: number; lon: number },
   sprache?: string,
 ): GewaehlterOrt | null {
   const p = eigenschaften ?? {};
+
+  // Eine Verkehrsmeldung aus `online/verkehrGeoJson.ts`: hat `art` und `titel`.
+  const art = text(p.art);
+  if (art && text(p.titel) !== null && VERKEHR_ART[art]) {
+    return {
+      lat: punkt.lat,
+      lon: punkt.lon,
+      name: text(p.titel),
+      kategorie: VERKEHR_ART[art] ?? null,
+      symbol: null,
+      adresse: null,
+      verkehr: { beschreibung: text(p.beschreibung) ?? '', strasse: text(p.strasse) ?? '' },
+    };
+  }
   const name = (sprache ? text(p[`name:${sprache}`]) : null) ?? text(p.name);
   const symbol = text(p.symbol);
   const bezeichnung = text(p.bezeichnung);

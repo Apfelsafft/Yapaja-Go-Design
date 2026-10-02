@@ -34,4 +34,16 @@ describe('ortAusMerkmal', () => {
     expect(ortAusMerkmal({ class: 'nichts' }, P)).toBeNull();
     expect(ortAusMerkmal(null, P)).toBeNull();
   });
+
+  it('Verkehrsmeldung: Titel, Art und Beschreibung', () => {
+    const o = ortAusMerkmal(
+      { id: 'x', symbol: 'verkehr-baustelle', art: 'baustelle', strasse: 'A 5', titel: 'A5 | AK Walldorf', beschreibung: 'Fahrbahnverengung' },
+      P,
+    );
+    expect(o).toMatchObject({
+      name: 'A5 | AK Walldorf',
+      kategorie: 'Baustelle',
+      verkehr: { beschreibung: 'Fahrbahnverengung', strasse: 'A 5' },
+    });
+  });
 });

@@ -19,7 +19,7 @@ import { statSync } from 'fs';
 import type { SearchResult } from '@yapaia/shared';
 import { GeocoderBackendError } from '../errors.js';
 import type { GeocoderBackend, ReverseQuery, SearchLogger, SearchQuery } from '../types.js';
-import { LiteIndexReader } from './reader.js';
+import { LiteIndexReader, splitQueryTerms, type SuchKasten } from './reader.js';
 import { listLiteSearchDbFiles } from './paths.js';
 import { rankLiteCandidates, type LiteCandidate } from './ranking.js';
 
@@ -81,6 +81,38 @@ function dedupeKey(candidate: LiteCandidate): string {
   return `${candidate.name}|${candidate.kind}|${candidate.lat.toFixed(5)}|${candidate.lon.toFixed(5)}`;
 }
 
+/** Wie weit um den Ortspunkt gesucht wird, je nach Grösse des Ortes. */
+const UMKREIS_KM: Partial<Record<string, number>> = { city: 15, town: 7, village: 3, borough: 4, suburb: 3 };
+
+const ORTS_KINDS: ReadonlySet<string> = new Set(['city', 'town', 'village', 'borough', 'suburb', 'quarter', 'hamlet']);
+
+function kastenUm(lat: number, lon: number, km: number): SuchKasten {
+  const dLat = km / 111;
+  const dLon = km / (111 * Math.max(0.2, Math.cos((lat * Math.PI) / 180)));
+  return { sued: lat - dLat, nord: lat + dLat, west: lon - dLon, ost: lon + dLon };
+}
+
+/**
+ * Gleichnamige Strassenabschnitte EINES Ortes werden ein Treffer.
+ *
+ * Gemeldet: achtmal „Ziolkowskistraße, Ilmenau" untereinander. Jeder
+ * Abschnitt ist ein eigener OSM-Weg; gemeint ist trotzdem eine Strasse, und
+ * die übrigen sieben verdrängten den Treffer in Magdeburg aus der Liste.
+ */
+function strassenZusammenlegen(candidates: readonly LiteCandidate[]): LiteCandidate[] {
+  const gesehen = new Set<string>();
+  const out: LiteCandidate[] = [];
+  for (const c of candidates) {
+    if (c.kind === 'street') {
+      const key = `${c.name}|${c.locality ?? `${c.lat.toFixed(2)},${c.lon.toFixed(2)}`}`;
+      if (gesehen.has(key)) continue;
+      gesehen.add(key);
+    }
+    out.push(c);
+  }
+  return out;
+}
+
 function dedupe(candidates: readonly LiteCandidate[]): LiteCandidate[] {
   const seen = new Set<string>();
   const out: LiteCandidate[] = [];
@@ -113,13 +145,68 @@ export class LiteBackend implements GeocoderBackend {
     // JEDER Index wird gefragt, nicht nur der der aktuellen Region. Wer an
     // der Grenze steht, sucht regelmaessig etwas auf der anderen Seite -- und
     // welche Region gerade „die richtige" ist, waere ohnehin eine Annahme.
+    // Mehr holen als gezeigt wird: eine Strasse besteht im Index aus vielen
+    // Abschnitten, und die gleichnamigen Abschnitte EINES Ortes werden unten
+    // zu einem Treffer zusammengelegt.
+    const holen = Math.max(query.limit * 3, 30);
     const candidates = this.withErrorMapping('search', () =>
-      readers.flatMap((reader) => reader.searchByPrefix(query.q, query.limit)),
+      readers.flatMap((reader) => reader.searchByPrefix(query.q, holen)),
     );
     const origin = query.lat !== undefined && query.lon !== undefined ? { lat: query.lat, lon: query.lon } : undefined;
-    return rankLiteCandidates(dedupe(candidates), query.q, origin)
-      .slice(0, query.limit)
-      .map(candidateToResult);
+    const imOrt = this.withErrorMapping('search', () => this.imGenanntenOrt(readers, query.q, holen));
+    const ergebnis = [
+      // Gerankt gegen die Eingabe OHNE den Ort: „Ziolkowskistraße" beginnt
+      // mit „Ziolkowskistraße", nicht mit „Ziolkowskistraße Magdeburg" --
+      // sonst gewönne der Laden in derselben Strasse.
+      ...rankLiteCandidates(dedupe(imOrt.treffer), imOrt.rest, origin),
+      ...rankLiteCandidates(dedupe(candidates), query.q, origin),
+    ];
+    return strassenZusammenlegen(dedupe(ergebnis)).slice(0, query.limit).map(candidateToResult);
+  }
+
+  /**
+   * „Ziolkowskistraße Magdeburg": die Strasse IN diesem Ort.
+   *
+   * ─── DIE MELDUNG ──────────────────────────────────────────────────────────
+   * „Wenn ich Magdeburg dazufüge verschwinden die Straßen und es kommen nur
+   * POIs." Die UND-Suche verlangt „Magdeburg" im Eintrag. Läden tragen das
+   * als `addr:city`; Strassen tragen den NÄCHSTEN Ort, der beim Bauen
+   * abgeleitet wird -- in einer Grossstadt fast immer ein Stadtteil. Die
+   * Strasse fiel also heraus, obwohl sie genau dort liegt.
+   *
+   * Deshalb: steht in der Eingabe ein Ortsname, wird der Rest der Eingabe im
+   * Umkreis dieses Ortes gesucht. Ohne Neubau des Index, weil die Ortspunkte
+   * schon darin stehen.
+   */
+  private imGenanntenOrt(
+    readers: LiteIndexReader[],
+    q: string,
+    holen: number,
+  ): { treffer: LiteCandidate[]; rest: string } {
+    const nichts = { treffer: [], rest: '' };
+    const begriffe = splitQueryTerms(q);
+    if (begriffe.length < 2) return nichts;
+    // Der Ort steht meist am Ende („… Magdeburg"), manchmal vorn.
+    const reihenfolge = [begriffe.length - 1, ...begriffe.map((_, i) => i).slice(0, -1)];
+    for (const i of reihenfolge) {
+      const orte = readers.flatMap((r) => r.orte(begriffe[i] as string));
+      if (orte.length === 0) continue;
+      const rest = begriffe.filter((_, j) => j !== i).map((b) => (/\s/.test(b) ? `"${b}"` : b)).join(' ');
+      if (rest.trim().length === 0) return nichts;
+      const treffer: LiteCandidate[] = [];
+      for (const ort of orte.slice(0, 5)) {
+        const kasten = kastenUm(ort.lat, ort.lon, UMKREIS_KM[ort.kind] ?? 4);
+        for (const r of readers) {
+          for (const t of r.searchByPrefix(rest, holen, kasten)) {
+            // Der Ort selbst ist hier kein Treffer -- gesucht war etwas darin.
+            if (ORTS_KINDS.has(t.kind)) continue;
+            treffer.push({ ...t, locality: ort.name });
+          }
+        }
+      }
+      return { treffer, rest: rest.replace(/"/g, '') };
+    }
+    return nichts;
   }
 
   async reverse(query: ReverseQuery): Promise<SearchResult[]> {

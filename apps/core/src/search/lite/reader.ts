@@ -7,6 +7,7 @@
  */
 import Database from 'better-sqlite3';
 import { LITE_KINDS, type LiteCandidate, type LiteKind } from './ranking.js';
+import { faltung } from './faltung.js';
 
 interface LiteSearchRow {
   name: string;
@@ -35,6 +36,17 @@ export interface LiteAllRow {
 // Aenderung verpasst und damit alle Sonderziele lautlos aus jedem
 // Suchergebnis entfernt.
 const KNOWN_KINDS: ReadonlySet<string> = new Set<string>(LITE_KINDS);
+
+/** Arten, die als Ortsangabe in einer Suche taugen. */
+const ORTS_ARTEN: ReadonlySet<string> = new Set(['city', 'town', 'village', 'borough', 'suburb']);
+
+/** Ein Rechteck in Grad, für die Suche in der Umgebung eines Ortes. */
+export interface SuchKasten {
+  sued: number;
+  nord: number;
+  west: number;
+  ost: number;
+}
 
 function isLiteKind(kind: string): kind is LiteKind {
   return KNOWN_KINDS.has(kind);
@@ -82,8 +94,44 @@ function escapeFtsTerm(term: string): string {
 export function escapeFtsQuery(query: string): string {
   const terms = splitQueryTerms(query);
   if (terms.length === 0) return escapeFtsTerm(query.trim());
-  return terms.map(escapeFtsTerm).join(' AND ');
+  return terms.map(termAlsFts).join(' AND ');
 }
+
+/** Ein Begriff mit seinen Schreibvarianten: `("a" OR "b")`. */
+function termAlsFts(term: string): string {
+  const varianten = termVarianten(term);
+  if (varianten.length === 1) return escapeFtsTerm(term);
+  return `(${varianten.map(escapeFtsTerm).join(' OR ')})`;
+}
+
+/**
+ * Schreibweisen, die dasselbe meinen.
+ *
+ * ─── DIE MELDUNG ────────────────────────────────────────────────────────────
+ * „Ich möchte die Ziolkowskistrasse 8 in Magdeburg ansteuern. Er erkennt die
+ * (falsche) Schreibweise mit ss anstatt ß nicht."
+ *
+ * Der Trigramm-Tokenizer vergleicht Zeichen, keine Sprache: „strasse" und
+ * „straße" haben kein einziges gemeinsames Trigramm am Ende. Auf einer
+ * Tastatur ohne ß, oder aus Gewohnheit, schreibt man aber genau so -- und
+ * ebenso „ae/oe/ue" für Umlaute („Muenchen").
+ *
+ * Gesucht wird deshalb mit ODER über die Varianten. Mehr Treffer sind hier
+ * richtig: jede Variante meint denselben Namen.
+ */
+export function termVarianten(term: string): string[] {
+  const t = term;
+  const kandidaten = [
+    t,
+    t.replace(/strasse/gi, 'straße'),
+    t.replace(/ss/g, 'ß'),
+    t.replace(/ß/g, 'ss'),
+    t.replace(/ae/g, 'ä').replace(/oe/g, 'ö').replace(/ue/g, 'ü'),
+    t.replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue'),
+  ];
+  return [...new Set(kandidaten)].filter((v) => v.length >= MIN_QUERY_LENGTH);
+}
+
 
 /**
  * Zerlegt die Eingabe in Begriffe.
@@ -101,7 +149,12 @@ export function splitQueryTerms(query: string): string[] {
   const pattern = /"([^"]*)"|(\S+)/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(query)) !== null) {
-    const term = (match[1] ?? match[2] ?? '').trim();
+    // „Ziolkowskistr. 8": der Punkt der Abkürzung steht in keinem Namen.
+    const term = (match[1] ?? match[2] ?? '').trim().replace(/[.,;]+$/, '');
+    // Eine Hausnummer (1 bis 4 Ziffern, ggf. mit Buchstabe) steht in keinem
+    // Namen; „Weg 128" darf daran nicht scheitern. Fünf Ziffern sind eine
+    // Postleitzahl -- die bleibt, sie steht im Index.
+    if (match[2] !== undefined && /^\d{1,4}[a-z]?$/i.test(term)) continue;
     if (term.length >= MIN_QUERY_LENGTH) terms.push(term);
   }
   return terms;
@@ -192,24 +245,46 @@ export class LiteIndexReader {
    *  over-fetches (`limit * OVERFETCH_FACTOR`) so the ranking tiers (prefix,
    *  kind) have enough raw material to reorder before the caller trims to
    *  the actually-requested page size. */
-  searchByPrefix(query: string, limit: number): LiteCandidate[] {
+  searchByPrefix(query: string, limit: number, box?: SuchKasten): LiteCandidate[] {
     if (query.trim().length < MIN_QUERY_LENGTH) return [];
 
     const db = this.open();
     const overfetch = Math.max(limit * 4, 20);
+    const imKasten = box ? 'AND p.lat BETWEEN ? AND ? AND p.lon BETWEEN ? AND ?' : '';
+    const kastenWerte = box ? [box.sued, box.nord, box.west, box.ost] : [];
     const rows = db
       .prepare(
         `SELECT p.name as name, p.kind as kind, p.lat as lat, p.lon as lon,
                 ${this.selectList(db)}, bm25(lite_search) as ftsRank
          FROM lite_search
          JOIN places p ON p.id = lite_search.rowid
-         WHERE lite_search MATCH ?
+         WHERE lite_search MATCH ? ${imKasten}
          ORDER BY ftsRank
          LIMIT ?`,
       )
-      .all(escapeFtsQuery(query), overfetch) as LiteSearchRow[];
+      .all(escapeFtsQuery(query), ...kastenWerte, overfetch) as LiteSearchRow[];
 
     return rows.filter((r): r is LiteSearchRow & { kind: LiteKind } => isLiteKind(r.kind));
+  }
+
+  /**
+   * Orte (Stadt, Gemeinde, Ortsteil), deren Name zu `begriff` passt.
+   *
+   * Für „Ziolkowskistraße Magdeburg": „Magdeburg" ist ein Ort, gesucht wird
+   * dann die Straße IN seiner Umgebung (`LiteBackend.search`). Über den
+   * Ortsbezug im Index allein geht das nicht -- Straßen tragen dort den
+   * NÄCHSTEN Ort, und in einer Großstadt ist das fast immer ein Stadtteil
+   * („Neue Neustadt"), nicht die Stadt.
+   */
+  orte(begriff: string): LiteCandidate[] {
+    if (begriff.trim().length < MIN_QUERY_LENGTH) return [];
+    const gesucht = faltung(begriff);
+    return this.searchByPrefix(begriff, 25).filter((r) => {
+      if (!ORTS_ARTEN.has(r.kind)) return false;
+      const name = faltung(r.name);
+      // „Frankfurt" passt zu „Frankfurt am Main", „Magdeburg" nicht zu „Magdeburger Platz".
+      return name === gesucht || name.startsWith(`${gesucht} `);
+    });
   }
 
   /** Nearest-neighbor lookup for reverse geocoding. The index has no

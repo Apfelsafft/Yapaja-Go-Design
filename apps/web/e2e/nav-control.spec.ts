@@ -507,6 +507,58 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test('0.26: Zwischenziele sind waehrend der Fahrt im Fahrtmenue umsortierbar; das Menue sitzt auf der Fahrerseite', async ({
+    page,
+  }) => {
+    test.setTimeout(30_000);
+    const pageErrors = collectPageErrors(page);
+    const gesendet: Array<{ waypoints: Array<{ lat: number; lon: number }> }> = [];
+    await page.route('**/api/v1/navigation/waypoints', async (route) => {
+      gesendet.push(route.request().postDataJSON());
+      await route.continue();
+    });
+
+    await page.goto(NAV_CONTROL_CORE_BASE_URL + '/');
+    await waitForMapReady(page);
+    const startResponse = await page.request.post(`${NAV_CONTROL_CORE_BASE_URL}/api/v1/navigation/start`, {
+      data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'Zwischenziel Ziel' } },
+    });
+    expect(startResponse.ok()).toBe(true);
+    await driveTo(page, 100);
+    await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('navigating');
+
+    const erster = { lat: latForProgressM(400), lon: BASE_LON + 0.001 };
+    const zweiter = { lat: latForProgressM(800), lon: BASE_LON + 0.001 };
+    await page.evaluate(
+      ({ a, b }) => {
+        window.__yapaiaRoutingStore?.setState({
+          waypoints: [
+            { id: 'wp-a', latlng: a, name: 'Erster Halt' },
+            { id: 'wp-b', latlng: b, name: 'Zweiter Halt' },
+          ] as never,
+        });
+      },
+      { a: erster, b: zweiter },
+    );
+
+    await oeffneFahrtMenue(page);
+    const menue = page.getByTestId('fahrt-menue');
+    await expect(page.getByTestId('fahrt-menue-zwischenziele')).toBeVisible();
+    await expect(page.getByTestId('waypoint-label-wp-a')).toHaveText('Erster Halt');
+
+    // Fahrerseite: das Menue liegt an einem Rand, nicht mittig.
+    const kasten = (await menue.boundingBox())!;
+    const breite = page.viewportSize()!.width;
+    expect(kasten.x < 40 || kasten.x + kasten.width > breite - 40).toBe(true);
+
+    // Umsortieren geht an den Core -- die laufende Route wird neu gerechnet.
+    await page.getByTestId('waypoint-down-wp-a').click();
+    await expect.poll(() => gesendet.length, { timeout: 5_000 }).toBeGreaterThan(0);
+    expect(gesendet.at(-1)!.waypoints).toEqual([zweiter, erster]);
+
+    expect(pageErrors).toEqual([]);
+  });
+
   test('Flow 5 (prepared): changing the active profile mid-navigation does not crash the app or corrupt nav/state', async ({
     page,
   }) => {

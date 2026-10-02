@@ -41,7 +41,8 @@ import SearchBar from '../search/SearchBar.js';
 import PoiChips from './PoiChips.js';
 import EinstellungsMenue from './EinstellungsMenue.js';
 import OrtKarte from '../ort/OrtKarte.js';
-import { useBedienSeite, PANEL_BREITE_PX } from './bedienSeite.js';
+import { useOrtStore } from '../ort/ortStore.js';
+import { useBedienSeite, useKartenSeite, PANEL_BREITE_PX } from './bedienSeite.js';
 
 import { TOP_BAR_HEIGHT_PX, TOP_BAR_RIGHT_RESERVE_PX } from './mapControlLayout.js';
 import { useSchmal } from './useSchmal.js';
@@ -57,6 +58,8 @@ export default function TopBar(): React.ReactElement | null {
   const fahrt = useFahrtAnsicht();
   const kopf = useRef<HTMLElement | null>(null);
   const seite = useBedienSeite();
+  const kartenSeite = useKartenSeite();
+  const ortOffen = useOrtStore((s) => s.ort !== null);
   const [menueOffen, setMenueOffen] = useState(false);
 
   // ─── WIE VIEL HÖHER ALS FRÜHER ───────────────────────────────────────────
@@ -100,10 +103,21 @@ export default function TopBar(): React.ReactElement | null {
       // Schirmen eine feste Breite (gewuenscht: „bei grossen Bildschirmen
       // eine fixe Breite"); auf schmalen die ganze Breite, wie bisher mit
       // Platz fuer Zoom und Tempolimit-Schild.
+      //
+      // ─── SEIT 0.26: EINE ZEILE UEBER DIE GANZE BREITE ─────────────────
+      // Gewuenscht: „Die Chips fuer die POIs kannst du als Kopfzeile neben
+      // die Suche machen. Die Kopfzeile darf dann insgesamt gerne ueber den
+      // ganzen Screen gehen." Die Suche behaelt die Panelbreite auf der
+      // Fahrerseite, die Chips nehmen den Rest. Auf der Kartenseite bleibt
+      // Platz fuer Zoom und Tempolimit-Schild.
       style={
         schmal
           ? { left: 0, right: 0, paddingRight: TOP_BAR_RIGHT_RESERVE_PX }
-          : { [seite]: 0, width: `min(${PANEL_BREITE_PX + 24}px, 100%)` }
+          : {
+              left: 0,
+              right: 0,
+              [kartenSeite === 'right' ? 'paddingRight' : 'paddingLeft']: TOP_BAR_RIGHT_RESERVE_PX,
+            }
       }
       data-testid="top-bar"
     >
@@ -112,33 +126,54 @@ export default function TopBar(): React.ReactElement | null {
           Ueberschrift der Seite. */}
       <h1 className="sr-only">Yapaia Go</h1>
       {/* `z-10`: die Ausklappfenster der Suche (Treffer, Favoriten) liegen
-          ueber der zweiten Zeile, nicht darunter. */}
-      <div className="relative z-10 flex items-start gap-2">
-        <button
-          type="button"
-          onClick={() => setMenueOffen(true)}
-          aria-label="Einstellungen"
-          aria-expanded={menueOffen}
-          title="Einstellungen"
-          className="pointer-events-auto flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-white/95 text-lg shadow-md hover:bg-slate-100 dark:bg-slate-800/95 dark:hover:bg-slate-700"
-          data-testid="einstellungen-toggle"
+          ueber den Chips und der Ortskarte, nicht darunter. */}
+      <div
+        className={`relative z-10 flex items-start gap-3 ${!schmal && seite === 'right' ? 'flex-row-reverse' : ''}`}
+      >
+        <div
+          className="flex flex-shrink-0 items-start gap-2"
+          style={{ width: schmal ? '100%' : `min(${PANEL_BREITE_PX}px, 100%)` }}
         >
-          ⚙️
-        </button>
-        <SearchBar />
+          <button
+            type="button"
+            onClick={() => setMenueOffen(true)}
+            aria-label="Einstellungen"
+            aria-expanded={menueOffen}
+            title="Einstellungen"
+            className="pointer-events-auto flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-white/95 text-lg shadow-md hover:bg-slate-100 dark:bg-slate-800/95 dark:hover:bg-slate-700"
+            data-testid="einstellungen-toggle"
+          >
+            ⚙️
+          </button>
+          <SearchBar />
+        </div>
+        {!schmal && (
+          <div className="min-w-0 flex-1 pt-0.5">
+            <PoiChips />
+          </div>
+        )}
       </div>
-      {/* ─── ZWEITE ZEILE: CHIPS ──────────────────────────────────────────
-          Das Fahrzeug stand hier bis 0.24; seit 0.25 wird es in ⚙ →
-          Fahrzeuge verwaltet und beim Planen der Route gewaehlt. */}
-      <PoiChips />
-      {/* Zustand 3: ein angetippter Ort. */}
-      <OrtKarte />
+      {/* Auf dem Telefon reicht die Breite nicht -- dort stehen die Chips
+          darunter. */}
+      {schmal && <PoiChips />}
+      {/* Zustand 3: ein angetippter Ort -- in Panelbreite auf der Fahrerseite. */}
+      {ortOffen && (
+        <div
+          className="min-w-0"
+          style={{
+            width: schmal ? '100%' : `min(${PANEL_BREITE_PX}px, 100%)`,
+            alignSelf: !schmal && seite === 'right' ? 'flex-end' : 'flex-start',
+          }}
+        >
+          <OrtKarte />
+        </div>
+      )}
       {/* Ueber ein Portal an den Wurzelkasten: innerhalb der Kopfzeile (z-20)
           laegen Hinweise mit z-30 ueber dem Menue. */}
       {menueOffen &&
         createPortal(
           <EinstellungsMenue onSchliessen={() => setMenueOffen(false)} />,
-          document.getElementById('yapaia-sicht') ?? document.body,
+          document.getElementById('yapaia-sicht') ?? document.body
         )}
     </header>
   );

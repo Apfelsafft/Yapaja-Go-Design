@@ -40,6 +40,7 @@ import { mapTapIntent, ROUTE_TAP_RADIUS_PX, type Geste } from './mapTapIntent.js
 import { langerDruckUeberwachen } from './langerDruck.js';
 import { useNavStore } from '../drive/navStore.js';
 import { SONDERZIELE_LAYER_ID } from '../map/SonderzieleLayer.js';
+import { VERKEHR_LAYER_ID } from '../online/VerkehrLayer.js';
 import { useOrtStore } from '../ort/ortStore.js';
 import { ortAusMerkmal } from '../ort/ortAusMerkmal.js';
 import {
@@ -67,7 +68,9 @@ function tapBox(e: MapMouseEvent): [PointLike, PointLike] {
 }
 
 /** Die Ebenen mit antippbaren Orten: Kachel-POIs und Sonderziele. */
-const ORT_LAYER_IDS = ['poi-labels', SONDERZIELE_LAYER_ID];
+// Die Verkehrsmarken zuerst: sie liegen obenauf, und wer auf eine Baustelle
+// tippt, meint sie, nicht den Laden darunter.
+const ORT_LAYER_IDS = [VERKEHR_LAYER_ID, 'poi-labels', SONDERZIELE_LAYER_ID];
 
 /**
  * Ein Tipper auf einen Pin oeffnet die Ortskarte (Zustand 3 aus
