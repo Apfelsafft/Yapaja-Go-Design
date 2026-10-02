@@ -144,4 +144,5 @@ Jeder Schritt ist für sich nutzbar und wird einzeln ausgeliefert.
 ## Stand
 
 - Schritt 1 (Panel + ⚙-Menü) und 2 (Such-Zustand) — 0.23.0.
-- Schritt 3 und 4 folgen.
+- Schritt 3 (Pins antippbar, Ortskarte mit Online-Infos) — 0.24.0.
+- Schritt 4 folgt.

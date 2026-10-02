@@ -41,6 +41,7 @@ import ProfilesPanel from '../profiles/ProfilesPanel.js';
 import SearchBar from '../search/SearchBar.js';
 import PoiChips from './PoiChips.js';
 import EinstellungsMenue from './EinstellungsMenue.js';
+import OrtKarte from '../ort/OrtKarte.js';
 import { useBedienSeite, PANEL_BREITE_PX } from './bedienSeite.js';
 
 import { TOP_BAR_HEIGHT_PX, TOP_BAR_RIGHT_RESERVE_PX } from './mapControlLayout.js';
@@ -138,6 +139,8 @@ export default function TopBar(): React.ReactElement | null {
           <PoiChips />
         </div>
       </div>
+      {/* Zustand 3: ein angetippter Ort. */}
+      <OrtKarte />
       {/* Ueber ein Portal an den Wurzelkasten: innerhalb der Kopfzeile (z-20)
           laegen Hinweise mit z-30 ueber dem Menue. */}
       {menueOffen &&

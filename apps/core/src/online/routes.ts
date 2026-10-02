@@ -29,6 +29,7 @@ import type { ApiError } from '@yapaia/shared';
 import { diagnoseAutobahn, gesamturteil, type DiagnoseDeps, type DiagnoseZeile } from './diagnose.js';
 import { holeVerkehr, verkehrUrteil, type VerkehrBefund, type VerkehrDeps } from './verkehr.js';
 import { VerkehrCache } from './verkehrCache.js';
+import { holeOrtInfo, type OrtDeps, type OrtInfo } from './ort.js';
 
 /** Fährt Yapaia die Online-Dienste überhaupt? */
 export function onlineEingeschaltet(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -56,6 +57,12 @@ export function onlineStatus(aktiv: boolean): OnlineStatus {
           'Baustellen, Sperrungen, Warnungen, Rastanlagen und LKW-Parkplätze auf Bundesautobahnen.',
         schluessel_noetig: false,
       },
+      {
+        name: 'OpenStreetMap, Wikipedia, Wikimedia Commons',
+        beschreibung:
+          'Infos zu einem angetippten Ort: Öffnungszeiten, Website, Telefon, Wikipedia-Auszug und Bilder. Hinaus gehen nur Koordinaten und Name dieses Ortes.',
+        schluessel_noetig: false,
+      },
     ],
   };
 }
@@ -69,6 +76,7 @@ export interface OnlinePluginOptions {
   env?: NodeJS.ProcessEnv;
   diagnoseDeps?: DiagnoseDeps;
   verkehrDeps?: VerkehrDeps;
+  ortDeps?: OrtDeps;
   /** Injizierbar, damit ein Test die Uhr stellen kann. In Produktion gehört
    *  er zur Plugin-Instanz und lebt so lange wie der Kern. */
   verkehrCache?: VerkehrCache;
@@ -194,6 +202,49 @@ export const onlinePlugin: FastifyPluginAsync<OnlinePluginOptions> = async (fast
         `online: Verkehr abgefragt — ${verkehrUrteil(befund)}`,
       );
       return reply.code(200).send({ data: { ...befund, urteil: verkehrUrteil(befund) } });
+    },
+  );
+
+  // POST /api/v1/online/ort -- OpenStreetMap, Wikipedia und Bilder zu einem
+  // Ort (online/ort.ts). POST aus demselben Grund wie oben: die Anfrage
+  // verlässt das Haus, und das nur, wenn jemand einen Ort angetippt hat.
+  //
+  // Zwischengespeichert für einen Tag: wer denselben Stellplatz zweimal
+  // antippt, soll nicht zweimal drei Dienste anfragen.
+  const ortCache = new Map<string, { bis: number; info: OrtInfo }>();
+  fastify.post<{ Body: { lat?: unknown; lon?: unknown; name?: unknown }; Reply: { data: OrtInfo } | ApiError }>(
+    '/api/v1/online/ort',
+    async (request, reply) => {
+      if (!onlineEingeschaltet(env)) {
+        return reply
+          .code(409)
+          .send(
+            fehler(
+              'ONLINE_DISABLED',
+              'Die Online-Dienste sind ausgeschaltet. Einschalten in der Add-on-Konfiguration ' +
+                'unter „online" → „enabled"; danach verlässt eine Anfrage das Haus.',
+            ),
+          );
+      }
+      const { lat, lon, name } = request.body ?? {};
+      if (typeof lat !== 'number' || typeof lon !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lon) ||
+          Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        return reply.code(400).send(fehler('INVALID_POSITION', 'lat/lon fehlen oder liegen außerhalb der Erde.'));
+      }
+      const ortsname = typeof name === 'string' && name.trim() ? name.trim().slice(0, 200) : undefined;
+      const schluessel = `${lat.toFixed(4)}|${lon.toFixed(4)}|${ortsname ?? ''}`;
+      const jetzt = Date.now();
+      const gemerkt = ortCache.get(schluessel);
+      if (gemerkt && gemerkt.bis > jetzt) return reply.code(200).send({ data: gemerkt.info });
+
+      const info = await holeOrtInfo({ lat, lon, name: ortsname }, opts.ortDeps);
+      if (ortCache.size > 200) ortCache.delete(ortCache.keys().next().value as string);
+      ortCache.set(schluessel, { bis: jetzt + 24 * 3600_000, info });
+      fastify.log.info(
+        { osm: info.osm !== null, wikipedia: info.wikipedia?.titel ?? null, bilder: info.bilder.length },
+        'online: Ortsinfo abgefragt',
+      );
+      return reply.code(200).send({ data: info });
     },
   );
 };
