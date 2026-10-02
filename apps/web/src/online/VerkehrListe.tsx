@@ -16,6 +16,7 @@ import { useSchmal } from '../shell/useSchmal.js';
 import { EDGE_INSET_PX, FAB_SIZE_PX, MANEUVER_PANEL_TOP_PX, STACK_GAP_PX } from '../shell/mapControlLayout.js';
 import { lageAufRoute, naechsteMeldungen } from './entlangDerRoute.js';
 import { useRoutenMeldungen } from './useRoutenMeldungen.js';
+import { useAnordnung } from '../shell/useAnordnung.js';
 
 const SCHLUESSEL = 'yapaja.verkehrListeZu';
 
@@ -34,6 +35,7 @@ function km(m: number): string {
 }
 
 export default function VerkehrListe(): React.ReactElement | null {
+  const anordnung = useAnordnung('verkehr');
   const { linie, entlang } = useRoutenMeldungen();
   const position = usePositionStore((s) => s.position);
   const kartenSeite = useKartenSeite();
@@ -58,6 +60,7 @@ export default function VerkehrListe(): React.ReactElement | null {
 
   return (
     <section
+      ref={anordnung.ref}
       aria-label="Verkehr auf der Route"
       data-testid="verkehr-liste"
       className="pointer-events-auto absolute z-20 rounded-xl bg-white/95 text-sm text-slate-800 shadow-lg dark:bg-slate-800/95 dark:text-slate-100"
@@ -100,6 +103,7 @@ export default function VerkehrListe(): React.ReactElement | null {
           ))}
         </ol>
       )}
+      {anordnung.griff}
     </section>
   );
 }

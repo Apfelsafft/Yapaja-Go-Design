@@ -14,8 +14,10 @@ import { isDriveActive } from '../drive/driveActive.js';
 import { rightStackBottomPx, EDGE_INSET_PX } from '../shell/mapControlLayout.js';
 import { useSchmal } from '../shell/useSchmal.js';
 import { useUebersichtStore } from './uebersicht.js';
+import { useAnordnung } from '../shell/useAnordnung.js';
 
 export default function UebersichtButton(): React.ReactElement | null {
+  const anordnung = useAnordnung('uebersicht');
   // Gegenüber dem Seitenpanel (shell/bedienSeite.ts).
   const kartenSeite = useKartenSeite();
   const hatRoute = useRoutingStore((s) => selectActiveRoute(s) !== null);
@@ -30,6 +32,7 @@ export default function UebersichtButton(): React.ReactElement | null {
   const titel = aktiv ? 'Zurück zur eigenen Position' : 'Ganze Route zeigen';
   return (
     <button
+      ref={anordnung.ref}
       type="button"
       onClick={() => (aktiv ? zurPosition() : zeigeRoute())}
       aria-pressed={aktiv}
@@ -42,6 +45,7 @@ export default function UebersichtButton(): React.ReactElement | null {
       data-testid="uebersicht-button"
     >
       <span aria-hidden="true">{aktiv ? '📍' : '🗺️'}</span>
+      {anordnung.griff}
     </button>
   );
 }

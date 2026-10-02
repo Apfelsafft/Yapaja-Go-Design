@@ -23,6 +23,7 @@ import {
 import { useSchmal } from '../shell/useSchmal.js';
 import { ManeuverArrow } from './arrows.js';
 import { formatDistance } from '../routing/format.js';
+import { useAnordnung } from '../shell/useAnordnung.js';
 
 // Liegt seit 0.5.5 in `driveActive.ts` -- ein komponentenfreies Modul, damit
 // auch die Karten-Knoepfe es benutzen koennen, ohne eine React-Komponente zu
@@ -72,6 +73,7 @@ export interface ManeuverPanelProps {
 }
 
 export default function ManeuverPanel(props: ManeuverPanelProps = {}): React.ReactElement | null {
+  const anordnung = useAnordnung('maneuver');
   const hookNavState = useNavState();
   const schmal = useSchmal();
   const routes = useRoutingStore((state) => state.routes);
@@ -99,6 +101,7 @@ export default function ManeuverPanel(props: ManeuverPanelProps = {}): React.Rea
 
   return (
     <div
+      ref={anordnung.ref}
       data-testid="maneuver-panel"
       // Die Breite ist begrenzt, sonst stoesst die Kachel in die Knopfspalte
       // am rechten Rand -- gemessen bei 390 Bildpunkten, siehe
@@ -152,6 +155,7 @@ export default function ManeuverPanel(props: ManeuverPanelProps = {}): React.Rea
       )}
       </div>
       {spuren && <SpurLeiste spuren={spuren} />}
+      {anordnung.griff}
     </div>
   );
 }

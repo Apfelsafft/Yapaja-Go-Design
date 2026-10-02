@@ -16,6 +16,7 @@
 import React, { useEffect, useState } from 'react';
 import StylePanel from '../map/StylePanel.js';
 import ProfilesPanel from '../profiles/ProfilesPanel.js';
+import { useAnordnungStore } from './anordnung.js';
 import RegionsPanel from '../settings/regions/RegionsPanel.js';
 import StorePanel from '../store/StorePanel.js';
 import PreflightPanel from '../settings/preflight/PreflightPanel.js';
@@ -144,6 +145,32 @@ export default function EinstellungsMenue({ onSchliessen }: { onSchliessen: () =
                 </button>
               </li>
             ))}
+            <li>
+              {/* Kein Bereich mit eigenem Inhalt: startet den Bearbeitungsmodus
+                  auf der Karte selbst (`anordnung.ts`) und schliesst das Menue,
+                  damit man sieht, was man anordnet. */}
+              <button
+                type="button"
+                onClick={() => {
+                  useAnordnungStore.getState().starte('ruhe');
+                  onSchliessen();
+                }}
+                className="flex min-h-[52px] w-full items-center gap-3 rounded-lg px-3 text-left text-slate-800 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-700"
+                data-testid="anordnung-starten"
+              >
+                <span aria-hidden="true" className="text-xl">
+                  🧱
+                </span>
+                <span className="flex-1">Bildschirm anpassen</span>
+                <span aria-hidden="true" className="text-slate-400">
+                  ›
+                </span>
+              </button>
+              <p className="px-3 pb-2 text-xs text-slate-500 dark:text-slate-400">
+                Knöpfe und Fenster verschieben und vergrößern. Die Ansicht während der Navigation
+                passt du im Fahrtmenü an.
+              </p>
+            </li>
           </ul>
         )}
       </div>

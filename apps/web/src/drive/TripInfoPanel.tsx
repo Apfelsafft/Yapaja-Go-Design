@@ -31,6 +31,7 @@ import { tripInfoBottomPx } from '../shell/mapControlLayout.js';
 import { useKartenSeite } from '../shell/bedienSeite.js';
 import { FAHRT_SEITENABSTAND_PX } from '../shell/mapControlLayout.js';
 import { useSchmal } from '../shell/useSchmal.js';
+import { useAnordnung } from '../shell/useAnordnung.js';
 
 /** Was angezeigt wird, wenn ein Wert fehlt. */
 export const MISSING = '–';
@@ -105,12 +106,14 @@ export interface TripInfoPanelProps {
  * eine reine Anzeige, durch die ein Tipp auf die Karte fiel.
  */
 export default function TripInfoPanel({ navState, offen = false, onToggle }: TripInfoPanelProps): React.ReactElement {
+  const anordnung = useAnordnung('fahrtleiste');
   const labels = tripInfoLabels(navState);
   const schmal = useSchmal();
   const kartenSeite = useKartenSeite();
 
   return (
     <button
+      ref={anordnung.ref}
       type="button"
       data-testid="trip-info-panel"
       aria-expanded={offen}
@@ -140,6 +143,7 @@ export default function TripInfoPanel({ navState, offen = false, onToggle }: Tri
       <span aria-hidden="true" className="text-sm text-slate-300">
         {offen ? '▾' : '▴'}
       </span>
+      {anordnung.griff}
     </button>
   );
 }
