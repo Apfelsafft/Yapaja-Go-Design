@@ -10,6 +10,25 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.25.0
+
+**Routenplanung im Seitenpanel, Fahrzeuge in den Einstellungen — Schritt 4,
+damit ist die neue Aufteilung komplett.**
+
+Gewünscht: „Wir können unser Camper-Profil in den Einstellungen
+konfigurieren und dann für die Navigation auswählbar machen aus der Liste
+der Profile."
+
+- **Fahrzeuge** anlegen, bearbeiten und löschen: ⚙ → Fahrzeuge. Der
+  Fahrzeug-Knopf oben im Panel ist weg.
+- **Fahrzeug wählen** beim Planen: Das Routenfenster hat oben eine Auswahl
+  mit allen Fahrzeugen (Name, Höhe, Gewicht). Ein Wechsel aktiviert das
+  Fahrzeug und rechnet die Route sofort mit seinen Maßen neu.
+- **Das Routenfenster** sitzt auf breiten Bildschirmen im Seitenpanel auf
+  der Fahrerseite, unter Suche und Chips; die Karte daneben bleibt frei.
+  Auf dem Telefon und auf einem Tablet hochkant bleibt es unten — dort
+  würde es sonst die Kartenmitte verdecken.
+
 ## 0.24.0
 
 **Pins auf der Karte sind antippbar — Schritt 3 der neuen Aufteilung.**

@@ -1,6 +1,6 @@
 # Entwurf: Oberfläche im Stil von Google Maps (Paket B)
 
-Stand: abgestimmt, in Umsetzung (siehe unten). Paket A (Chips,
+Stand: umgesetzt bis Schritt 4 (siehe unten). Paket A (Chips,
 Zwischenziel-Pins, Übersicht-Knopf, Vorschau, Spritsorte) ist mit 0.22.0
 ausgeliefert.
 
@@ -145,4 +145,6 @@ Jeder Schritt ist für sich nutzbar und wird einzeln ausgeliefert.
 
 - Schritt 1 (Panel + ⚙-Menü) und 2 (Such-Zustand) — 0.23.0.
 - Schritt 3 (Pins antippbar, Ortskarte mit Online-Infos) — 0.24.0.
-- Schritt 4 folgt.
+- Schritt 4 (Routen-Zustand im Panel, Fahrzeugwahl, Profile in ⚙ → Fahrzeuge) — 0.25.0.
+  Auf Bildschirmen unter 960 Punkten bleibt das Routenfenster unten.
+- Offen aus dem Entwurf: Bottom-Sheet statt Seitenpanel auf dem Telefon.

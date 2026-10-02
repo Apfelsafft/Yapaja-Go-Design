@@ -137,6 +137,10 @@ navigation system and a truck navigation system.
 
 ![The vehicle profile list](media/fahrzeugprofil.png)
 
+Profiles live under **⚙ → Fahrzeuge** (create, edit, delete). Which one is
+used for a route you pick in the route panel: it has a vehicle selector at the
+top, and switching it recalculates the route with that vehicle's dimensions.
+
 Enter the dimensions of your camper:
 
 | Value | Range | What it does |
