@@ -28,13 +28,7 @@ import {
   type ResolveHaConfigInput,
 } from './config.js';
 import { callHaService, type HaClientLogger, type HaFetchLike } from './client.js';
-import { sprechdauerMs } from './ansagePause.js';
-
-/** Was die Ansage braucht, um das Radio anzuhalten (`ha/ansagePause.ts`). */
-export interface RadioPauseLike {
-  beginne(): Promise<void>;
-  ende(nachlaufMs?: number): void;
-}
+import type { AnsageZiel } from './beatAnsage.js';
 
 /** Splits a `"domain.service"` string; returns `null` when malformed. */
 function splitService(full: string): { domain: string; service: string } | null {
@@ -61,8 +55,8 @@ export interface HaOutputChannelOptions {
   fetch?: HaFetchLike;
   /** Overrides HA request timeout (ms); mainly for tests. */
   timeoutMs?: number;
-  /** Hält das Radio während einer HA-Ansage an. */
-  ansagePause?: RadioPauseLike;
+  /** Mischt die Ansage ins laufende Radio (Yapaia Beat), wenn es geht. */
+  ansageZiel?: AnsageZiel;
 }
 
 export class HaOutputChannel {
@@ -72,7 +66,7 @@ export class HaOutputChannel {
   private readonly env?: Record<string, string | undefined>;
   private readonly fetchImpl?: HaFetchLike;
   private readonly timeoutMs?: number;
-  private readonly ansagePause?: RadioPauseLike;
+  private readonly ansageZiel?: AnsageZiel;
   private readonly unsubscribers: Array<() => void> = [];
 
   constructor(opts: HaOutputChannelOptions) {
@@ -82,7 +76,7 @@ export class HaOutputChannel {
     this.env = opts.env;
     this.fetchImpl = opts.fetch;
     this.timeoutMs = opts.timeoutMs;
-    this.ansagePause = opts.ansagePause;
+    this.ansageZiel = opts.ansageZiel;
 
     this.unsubscribers.push(
       this.bus.subscribe('nav/instruction', (payload) => {
@@ -143,14 +137,11 @@ export class HaOutputChannel {
     if (config.tts.language) {
       data.language = config.tts.language;
     }
-    // Läuft das Radio auf demselben Lautsprecher, würde die Ansage seinen
-    // Stream ersetzen -- danach wäre Stille. Also: anhalten, sprechen, weiter.
-    await this.ansagePause?.beginne();
-    try {
-      await this.call(config, config.tts.service, data);
-    } finally {
-      this.ansagePause?.ende(sprechdauerMs(payload.say) + 1_500);
-    }
+    // Läuft das Radio, mischt Yapaia Beat die Ansage ein (Musik leiser,
+    // danach wieder lauter). Ein `tts.speak` auf denselben Lautsprecher würde
+    // den Radio-Stream ersetzen -- danach wäre Stille.
+    if (await this.ansageZiel?.sage(payload.say, 'navigation')) return;
+    await this.call(config, config.tts.service, data);
   }
 
   /** `event/arrived` -> HA notification (gated by `notify.enabled`). */

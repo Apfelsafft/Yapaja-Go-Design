@@ -128,7 +128,7 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     tags: ['Navigation'],
   },
   'POST /api/v1/ansage': {
-    summary: 'Die App spricht gleich: hält das Radio (Yapaia Beat) an und startet es nach der Ansage wieder',
+    summary: 'Eine Ansage der App: läuft Yapaia Beat, wird sie ins Radio gemischt (ueber_radio), sonst spricht die App selbst',
     tags: ['Navigation'],
   },
   'GET /api/v1/sprache/ha': {

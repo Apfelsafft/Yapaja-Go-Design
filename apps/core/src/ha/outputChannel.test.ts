@@ -103,29 +103,38 @@ describe('HaOutputChannel', () => {
     channel.dispose();
   });
 
-  it('sink=ha: hält das Radio vor der Ansage an und gibt es danach frei', async () => {
+  it('sink=ha: läuft Yapaia Beat, mischt es die Ansage ein -- kein tts.speak', async () => {
     const { fetch, calls } = recordingFetch();
-    const reihenfolge: string[] = [];
-    const ansagePause = {
-      beginne: vi.fn(async () => {
-        reihenfolge.push(`pause bei ${calls.length} Aufrufen`);
-      }),
-      ende: vi.fn((_ms?: number) => {
-        reihenfolge.push(`weiter nach ${calls.length} Aufrufen`);
-      }),
-    };
+    const ansageZiel = { sage: vi.fn(async (_t: string, _p: string) => true) };
     const channel = new HaOutputChannel({
       bus,
       settings: settings({ announce_sink: 'ha', tts_media_player: 'media_player.wohnmobil' }),
       logger: silentLogger,
       env: {},
       fetch,
-      ansagePause,
+      ansageZiel,
     });
     bus.publish('nav/instruction', navInstruction('Jetzt rechts'));
     await flush();
-    expect(reihenfolge).toEqual(['pause bei 0 Aufrufen', 'weiter nach 1 Aufrufen']);
-    expect(ansagePause.ende.mock.calls[0]?.[0]).toBeGreaterThan(1_500);
+    expect(ansageZiel.sage).toHaveBeenCalledWith('Jetzt rechts', 'navigation');
+    expect(calls).toHaveLength(0);
+    channel.dispose();
+  });
+
+  it('sink=ha: Beat lehnt ab (Radio aus) -- tts.speak wie bisher', async () => {
+    const { fetch, calls } = recordingFetch();
+    const channel = new HaOutputChannel({
+      bus,
+      settings: settings({ announce_sink: 'ha', tts_media_player: 'media_player.wohnmobil' }),
+      logger: silentLogger,
+      env: {},
+      fetch,
+      ansageZiel: { sage: async () => false },
+    });
+    bus.publish('nav/instruction', navInstruction('Jetzt rechts'));
+    await flush();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toContain('/services/tts/speak');
     channel.dispose();
   });
 

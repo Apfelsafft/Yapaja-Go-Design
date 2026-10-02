@@ -20,8 +20,8 @@ import { simulatorPlugin } from './position/simulator/routes.js';
 import { GpsdSource } from './position/gpsd/index.js';
 import { HaTrackerSource, listGpsTrackers } from './position/haTracker/index.js';
 import { istCompanionAppQuelle } from './position/gpsSourceOption.js';
-import { resolveHaConnection, resolveTrackerEntityId } from './ha/config.js';
-import { AnsagePause, RADIO_ENTITAET, ansagePauseEntitaet } from './ha/ansagePause.js';
+import { resolveHaConfig, resolveHaConnection, resolveTrackerEntityId } from './ha/config.js';
+import { BEAT_AKTION, BEAT_ENTITAET, BeatAnsage, beatAnsagenAn } from './ha/beatAnsage.js';
 import { mapPlugin } from './map/routes.js';
 import { routingPlugin, buildRoutingService } from './routing/routes.js';
 import { onlinePlugin } from './online/routes.js';
@@ -664,30 +664,34 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // NOTHING until HA is configured in Settings (or via env `SUPERVISOR_TOKEN`
   // as an add-on) -- see `ha/config.ts`. Every HA REST call has a 5 s timeout
   // and swallows errors, so a down/misconfigured HA never affects navigation.
-  // Das Radio (Yapaia Beat) hält während einer Ansage an und spielt danach
-  // weiter -- für HA-Ansagen, Assist-Antworten und Ansagen im Browser
-  // (`ha/ansagePause.ts`). Ohne Yapaia Beat passiert nichts.
+  // Ansagen ins laufende Radio einmischen (Yapaia Beat 1.6): Musik leiser,
+  // Ansage darüber, Musik wieder lauter. Sonst spricht Go wie bisher.
+  // Siehe `ha/beatAnsage.ts`.
   const ansageLogger = {
     info: (msg: string, meta?: Record<string, unknown>) => fastify.log.info(meta ?? {}, msg),
     warn: (msg: string, meta?: Record<string, unknown>) => fastify.log.warn(meta ?? {}, msg),
     error: (msg: string, meta?: Record<string, unknown>) => fastify.log.error(meta ?? {}, msg),
   };
-  const ansagePause = new AnsagePause({
+  const ansageZiel = new BeatAnsage({
     verbindung: () => resolveHaConnection({ settings: settingsService }),
-    entitaet: () => ansagePauseEntitaet(settingsService.get('ansage_pause')),
+    eingeschaltet: () => beatAnsagenAn(settingsService.get('ansagen_beat')),
+    stimme: () => {
+      const tts = resolveHaConfig({ settings: settingsService })?.tts;
+      return { engine: tts?.ttsEntityId, language: tts?.language };
+    },
     leseZustaende: (v, ids) => fetchHaStatesById(v, ids, { logger: ansageLogger, timeoutMs: 2_000 }),
-    dienst: (v, dienst, entityId) =>
+    rufe: (v, data) =>
       callHaService(
-        { connection: v, domain: 'media_player', service: dienst, data: { entity_id: entityId } },
-        { logger: ansageLogger, timeoutMs: 3_000 },
+        { connection: v, domain: BEAT_AKTION.domain, service: BEAT_AKTION.service, data },
+        // Die Sprache erzeugen dauert, bei Cloud-Stimmen auch mal Sekunden.
+        { logger: ansageLogger, timeoutMs: 10_000 },
       ),
   });
-  fastify.addHook('onClose', async () => ansagePause.dispose());
 
   const haOutputChannel = new HaOutputChannel({
     bus: eventBus,
     settings: settingsService,
-    ansagePause,
+    ansageZiel,
     logger: {
       info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
       warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
@@ -930,7 +934,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     }),
     ki: sprachKi,
   });
-  registriereSprache(fastify, sprachdialog, ansagePause);
+  registriereSprache(fastify, sprachdialog, ansageZiel);
 
   // ─── … UND UEBER HOME ASSISTANT ASSIST (0.30) ───────────────────────────
   // Satelliten und der Assist-Knopf der HA-App -- ohne HTTPS. Siehe
@@ -942,7 +946,6 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
           leseZustaende: (v, ids) => fetchHaStatesById(v, ids, { logger: haLogger }),
           schreibeZustand: (v, entityId, body) => postHaState(v, entityId, body, { logger: haLogger }),
           verarbeite: (text) => sprachdialog.verarbeite(text),
-          ansagePause,
           ws: { logger: haLogger },
           logger: haLogger,
         })
@@ -961,7 +964,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
           automation: false,
           agent: typeof agent === 'string' ? agent : null,
           agenten: [],
-          radioPause: ansagePauseEntitaet(settingsService.get('ansage_pause')) !== null,
+          ansagenBeat: beatAnsagenAn(settingsService.get('ansagen_beat')),
           radio: false,
         },
       });
@@ -978,10 +981,10 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
         automation: liste.some((z) => z.entity_id.startsWith('automation.') && z.attributes?.id === AUTOMATION_ID),
         agent: typeof agent === 'string' ? agent : null,
         agenten,
-        // Radio bei Ansagen anhalten (`ha/ansagePause.ts`) -- und ob es
+        // Ansagen ins Radio einmischen (`ha/beatAnsage.ts`) -- und ob es
         // Yapaia Beat in dieser Anlage überhaupt gibt.
-        radioPause: ansagePauseEntitaet(settingsService.get('ansage_pause')) !== null,
-        radio: liste.some((z) => z.entity_id === RADIO_ENTITAET),
+        ansagenBeat: beatAnsagenAn(settingsService.get('ansagen_beat')),
+        radio: liste.some((z) => z.entity_id === BEAT_ENTITAET),
       },
     });
   });

@@ -14,8 +14,8 @@ interface Stand {
   automation: boolean;
   agent: string | null;
   agenten: Array<{ id: string; name: string }>;
-  /** Radio (Yapaia Beat) während Ansagen anhalten. */
-  radioPause?: boolean;
+  /** Ansagen ins laufende Radio (Yapaia Beat) einmischen. */
+  ansagenBeat?: boolean;
   /** Gibt es Yapaia Beat in Home Assistant? */
   radio?: boolean;
 }
@@ -79,14 +79,13 @@ export default function SprachEinstellungen(): React.ReactElement {
     }
   };
 
-  const radioPauseSetzen = async (an: boolean): Promise<void> => {
-    setStand((s) => (s ? { ...s, radioPause: an } : s));
+  const ansagenBeatSetzen = async (an: boolean): Promise<void> => {
+    setStand((s) => (s ? { ...s, ansagenBeat: an } : s));
     try {
       await fetch(url('api/v1/settings'), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        // null = Vorgabe (Yapaia Beat), "" = aus.
-        body: JSON.stringify({ ansage_pause: an ? null : '' }),
+        body: JSON.stringify({ ansagen_beat: an }),
       });
     } catch {
       // Beim nächsten Öffnen zeigt der Stand vom Kern, was gilt.
@@ -148,18 +147,19 @@ export default function SprachEinstellungen(): React.ReactElement {
       </section>
 
       <section className="space-y-2">
-        <h3 className="font-semibold">Radio während Ansagen</h3>
+        <h3 className="font-semibold">Ansagen und Radio</h3>
         <label className="flex items-start gap-2">
           <input
             type="checkbox"
-            checked={stand?.radioPause ?? true}
-            onChange={(e) => void radioPauseSetzen(e.target.checked)}
+            checked={stand?.ansagenBeat ?? true}
+            onChange={(e) => void ansagenBeatSetzen(e.target.checked)}
             disabled={!stand}
             className="mt-1 h-4 w-4"
-            data-testid="sprach-radio-pause"
+            data-testid="sprach-ansagen-beat"
           />
           <span>
-            Yapaia Beat anhalten, solange Yapaia spricht, und danach weiterspielen.
+            Läuft Yapaia Beat, Ansagen ins Radio einmischen: die Musik wird leiser, die Ansage kommt darüber, danach
+            wird die Musik wieder lauter. Braucht Yapaia Beat 1.6.
             {stand?.verfuegbar && !stand.radio && (
               <span className="block text-xs text-slate-500">Yapaia Beat ist in Home Assistant nicht eingerichtet.</span>
             )}
