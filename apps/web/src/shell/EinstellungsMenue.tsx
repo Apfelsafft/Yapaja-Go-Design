@@ -15,6 +15,7 @@
 
 import React, { useEffect, useState } from 'react';
 import StylePanel from '../map/StylePanel.js';
+import ProfilesPanel from '../profiles/ProfilesPanel.js';
 import RegionsPanel from '../settings/regions/RegionsPanel.js';
 import StorePanel from '../store/StorePanel.js';
 import PreflightPanel from '../settings/preflight/PreflightPanel.js';
@@ -22,7 +23,7 @@ import SimulatorPanel from '../simulator/SimulatorPanel.js';
 import { fetchSimulatorStatus, SimulatorDisabledError } from '../simulator/client.js';
 import { useBedienSeite, PANEL_BREITE_PX } from './bedienSeite.js';
 
-type Bereich = 'karte' | 'regionen' | 'store' | 'pruefung' | 'testfahrt';
+type Bereich = 'fahrzeuge' | 'karte' | 'regionen' | 'store' | 'pruefung' | 'testfahrt';
 
 interface Eintrag {
   bereich: Bereich;
@@ -33,6 +34,7 @@ interface Eintrag {
 }
 
 const EINTRAEGE: readonly Eintrag[] = [
+  { bereich: 'fahrzeuge', symbol: '🚐', titel: 'Fahrzeuge', testId: 'profile-chip' },
   { bereich: 'karte', symbol: '🎨', titel: 'Karte & Darstellung', testId: 'style-panel-toggle' },
   { bereich: 'regionen', symbol: '🗺️', titel: 'Karten verwalten', testId: 'regions-panel-toggle' },
   { bereich: 'store', symbol: '🧩', titel: 'Add-on-Store', testId: 'store-panel-toggle' },
@@ -42,6 +44,8 @@ const EINTRAEGE: readonly Eintrag[] = [
 
 function Inhalt({ bereich }: { bereich: Bereich }): React.ReactElement | null {
   switch (bereich) {
+    case 'fahrzeuge':
+      return <ProfilesPanel />;
     case 'karte':
       return <StylePanel eingebettet />;
     case 'regionen':

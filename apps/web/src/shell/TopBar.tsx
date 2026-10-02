@@ -37,7 +37,6 @@
 
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import ProfilesPanel from '../profiles/ProfilesPanel.js';
 import SearchBar from '../search/SearchBar.js';
 import PoiChips from './PoiChips.js';
 import EinstellungsMenue from './EinstellungsMenue.js';
@@ -128,17 +127,10 @@ export default function TopBar(): React.ReactElement | null {
         </button>
         <SearchBar />
       </div>
-      {/* ─── ZWEITE ZEILE: FAHRZEUG UND CHIPS ─────────────────────────────
-          Das Fahrzeug stand neben der Suche und drückte sie im 380-px-Panel
-          bei einem langen Profilnamen auf ein paar Bildpunkte zusammen --
-          samt der Favoritenliste darunter. Die Suche bekommt die ganze
-          erste Zeile; das Fahrzeug steht vor den POI-Chips. */}
-      <div className="flex min-w-0 items-start gap-2">
-        <ProfilesPanel />
-        <div className="min-w-0 flex-1">
-          <PoiChips />
-        </div>
-      </div>
+      {/* ─── ZWEITE ZEILE: CHIPS ──────────────────────────────────────────
+          Das Fahrzeug stand hier bis 0.24; seit 0.25 wird es in ⚙ →
+          Fahrzeuge verwaltet und beim Planen der Route gewaehlt. */}
+      <PoiChips />
       {/* Zustand 3: ein angetippter Ort. */}
       <OrtKarte />
       {/* Ueber ein Portal an den Wurzelkasten: innerhalb der Kopfzeile (z-20)

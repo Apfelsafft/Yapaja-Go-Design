@@ -156,9 +156,8 @@ test.describe('Speed-Lock (E07-T4)', () => {
     await expect(page.getByTestId(`karte-${FIXTURE_REGION}`)).toHaveCount(0);
 
     // Profile editor: open the profiles panel, create-new -> editor form is gated.
-    // Seit 0.23 liegt das ⚙-Menue UEBER dem Seitenpanel -- erst schliessen.
-    await schliesseEinstellungen(page);
-    await page.getByTestId('profile-chip').click();
+    // Seit 0.25 stehen die Fahrzeuge im ⚙-Menue.
+    await oeffneEinstellung(page, 'profile-chip');
     await expect(page.getByTestId('profiles-panel')).toBeVisible();
     // The LIST view itself is not gated (only the editor form) -- create button reachable.
     await page.getByTestId('create-profile-button').click();

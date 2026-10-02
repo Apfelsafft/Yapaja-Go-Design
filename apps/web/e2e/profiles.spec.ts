@@ -17,6 +17,7 @@
 import { test, expect } from '@playwright/test';
 import { CORE_BASE_URL } from './support/constants.js';
 import { trackRequests, collectPageErrors } from './support/network.js';
+import { oeffneEinstellung } from './support/einstellungen.js';
 
 test('complete profile editor flow: create, validate, correct, save, activate, delete', async ({
   page,
@@ -28,12 +29,12 @@ test('complete profile editor flow: create, validate, correct, save, activate, d
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
 
   // 1. Open profiles panel by clicking the chip
-  await page.getByTestId('profile-chip').click();
+  await oeffneEinstellung(page, 'profile-chip');
   await expect(page.getByTestId('profiles-panel')).toBeVisible();
 
   // 2. Click "Neues Profil" to open editor
   await page.getByTestId('create-profile-button').click();
-  await expect(page.locator('h2')).toContainText('Neues Profil');
+  await expect(page.getByRole('heading', { name: 'Neues Profil' })).toBeVisible();
 
   // 3. Try to save with empty name → should show error
   const nameInput = page.getByTestId('profile-name-input');
@@ -90,9 +91,11 @@ test('complete profile editor flow: create, validate, correct, save, activate, d
   // 9. Activate the profile (click on it)
   await newProfileItem.click();
 
-  // Chip should update immediately to show new profile name
-  const chipName = page.getByTestId('profile-chip-name');
-  await expect(chipName).toContainText('Test Kastenwagen');
+  // Das aktive Profil wechselt sofort (seit 0.25 gibt es keinen Chip mehr;
+  // gewaehlt wird es beim Planen der Route).
+  await expect
+    .poll(() => page.evaluate(() => window.__yapaiaProfileStore?.getState().activeProfile?.name))
+    .toBe('Test Kastenwagen');
 
   // Panel should still be visible after activation
   await page.waitForTimeout(100); // Small delay to allow re-render
@@ -163,7 +166,7 @@ test('height disclaimer shows when height_m > 2.7', async ({ page }) => {
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
 
   // Open panel and create new profile
-  await page.getByTestId('profile-chip').click();
+  await oeffneEinstellung(page, 'profile-chip');
   await page.getByTestId('create-profile-button').click();
 
   // Set up a valid profile with name and base dimensions
@@ -196,7 +199,7 @@ test('height disclaimer shows when height_m > 2.7', async ({ page }) => {
   await expect(disclaimerDialog).not.toBeVisible();
 
   // Editor should still be open
-  await expect(page.locator('h2')).toContainText('Neues Profil');
+  await expect(page.getByRole('heading', { name: 'Neues Profil' })).toBeVisible();
 
   // Try again to save, and this time confirm
   await page.getByTestId('save-button').click();
@@ -228,7 +231,7 @@ test('suspicious profile warning appears for height < 1.8 m AND weight > 3.0 t',
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
 
   // Open panel and create new profile
-  await page.getByTestId('profile-chip').click();
+  await oeffneEinstellung(page, 'profile-chip');
   await page.getByTestId('create-profile-button').click();
 
   // Set suspicious values: height 1.7 m, weight 3.1 t
@@ -293,9 +296,9 @@ test('das Gewicht lässt sich auf zehn Kilogramm genau eintippen', async ({ page
   await page.goto(CORE_BASE_URL + '/');
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
 
-  await page.getByTestId('profile-chip').click();
+  await oeffneEinstellung(page, 'profile-chip');
   await page.getByTestId('create-profile-button').click();
-  await expect(page.locator('h2')).toContainText('Neues Profil');
+  await expect(page.getByRole('heading', { name: 'Neues Profil' })).toBeVisible();
 
   const gewicht = page.getByTestId('weight-input-number');
 

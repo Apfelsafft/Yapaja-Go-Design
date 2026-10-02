@@ -9,7 +9,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { VehicleProfile } from '@yapaia/shared';
 import { useProfileStore, type ProfileState } from './store.js';
-import ProfileChip from './ProfileChip.js';
 import ProfileEditor from './ProfileEditor.js';
 import { ProfileApiError } from './client.js';
 import DriveLockGate from '../drive/DriveLockGate.js';
@@ -17,7 +16,6 @@ import DriveLockGate from '../drive/DriveLockGate.js';
 type EditorMode = 'create' | 'edit' | null;
 
 export default function ProfilesPanel(): React.ReactElement {
-  const [isOpen, setIsOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<EditorMode>(null);
   const [editingProfile, setEditingProfile] = useState<Partial<VehicleProfile> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -25,7 +23,6 @@ export default function ProfilesPanel(): React.ReactElement {
 
   const {
     profiles,
-    activeProfile,
     fetchProfiles,
     activateProfile,
     createProfile,
@@ -33,7 +30,6 @@ export default function ProfilesPanel(): React.ReactElement {
     deleteProfile,
   } = useProfileStore((state: ProfileState) => ({
     profiles: state.profiles,
-    activeProfile: state.activeProfile,
     fetchProfiles: state.fetchProfiles,
     activateProfile: state.activateProfile,
     createProfile: state.createProfile,
@@ -41,15 +37,11 @@ export default function ProfilesPanel(): React.ReactElement {
     deleteProfile: state.deleteProfile,
   }));
 
-  // Load profiles on mount or when panel opens
+  // Seit 0.25 steht die Liste im ⚙-Menue (Einstellungen → Fahrzeuge) und
+  // wird beim Oeffnen frisch geholt.
   useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
     void fetchProfiles();
-  }, [isOpen, fetchProfiles]);
-
-  const handleToggleOpen = useCallback(() => setIsOpen((open) => !open), []);
+  }, [fetchProfiles]);
 
   const handleCreateNew = useCallback(() => {
     setEditingProfile({
@@ -131,25 +123,14 @@ export default function ProfilesPanel(): React.ReactElement {
   }, []);
 
   return (
-    // Sitzt in der Kopfzeile (shell/TopBar.tsx) und positioniert sich NICHT
-    // mehr selbst. Bis 0.3.2 stand hier `fixed top-4 left-44 z-10`: eine
-    // absolute Position, die nichts von der Suchleiste daneben wusste. Sobald
-    // deren `w-[min(92vw,26rem)]` auf einem schmaleren Fenster die 92 vw zog,
-    // lag sie mit z-20 ueber diesem Chip -- das Fahrzeugprofil war schlicht
-    // nicht mehr zu finden. `relative` + `flex-shrink-0`: die Zeile teilt den
-    // Platz auf, statt dass zwei Elemente um dieselbe Stelle streiten.
-    <div className="relative flex-shrink-0 pointer-events-none">
-      {/* Chip in header (always visible) */}
-      <div className="pointer-events-auto">
-        <ProfileChip activeProfile={activeProfile} onClick={handleToggleOpen} />
-      </div>
-
-      {/* Panel (Sheet-style, appears when isOpen) */}
-      {isOpen && !editorMode && (
-        <div
-          className="absolute top-12 left-0 mt-2 w-96 max-h-[calc(var(--sicht-h,100vh)*0.7)] overflow-y-auto rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-xl p-4 text-sm text-slate-800 dark:text-slate-100 space-y-4 pointer-events-auto"
-          data-testid="profiles-panel"
-        >
+    // ─── IM ⚙-MENUE, NICHT MEHR IN DER KOPFZEILE ─────────────────────────
+    // Gewuenscht: „Wir koennen unser Camper-Profil in den Einstellungen
+    // konfigurieren und dann fuer die Navigation auswaehlbar machen aus der
+    // Liste der Profile." Angelegt und bearbeitet wird hier; gewaehlt wird
+    // beim Planen der Route (`RoutingPanel`, Profil-Auswahl).
+    <div>
+      {!editorMode && (
+        <div className="space-y-4 text-sm text-slate-800 dark:text-slate-100" data-testid="profiles-panel">
           {/* Profiles list */}
           <section>
             <h2 className="font-semibold mb-3">Profile</h2>
