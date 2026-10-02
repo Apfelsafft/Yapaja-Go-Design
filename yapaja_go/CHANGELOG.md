@@ -10,6 +10,29 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.27.0
+
+**Rückmeldungen zu 0.26: Suche mit Hausnummer, Verkehr nur an der Route,
+Fahrtanzeige gegenüber dem blauen Punkt, Zentrieren einstellbar.**
+
+- **Suche:** „Ziolkowskistraße 8" (ohne Ort) zeigt wieder die Straßen statt
+  nur der Läden darin. Die Hausnummer wurde zwar ignoriert, verdarb aber die
+  Rangfolge. Derselbe Laden als Punkt und als Fläche erscheint nur noch
+  einmal.
+- **Verkehrsmeldungen:**
+  - Auf der Karte nur noch Meldungen **auf oder direkt an der Route**
+    (bis 600 m daneben) — nicht mehr die ganze Autobahn.
+  - Neue Textbox **„Verkehr auf der Route"**: die nächsten fünf Meldungen
+    vor dir, die nächste zuerst, mit Entfernung entlang der Route.
+    Einklappbar.
+  - Ein Tipp auf eine Marke zeigt die Meldung, statt die Alternativroute
+    darunter auszuwählen und herauszuzoomen.
+- **Fahrtleiste (Ankunft, Restzeit, km) und Fahrtmenü** liegen auf der
+  Kartenseite, gegenüber dem blauen Punkt — in 0.26 verdeckte das Menü ihn.
+- **Zurück zur eigenen Position nach …**: neuer Regler unter ⚙ → Karte &
+  Darstellung, von 5 s bis 2 min oder **aus** (dann bleibt die Karte, bis
+  du ⌖ drückst). Vorher fest 10 s. Je Gerät gespeichert.
+
 ## 0.26.0
 
 **Suche findet Straße + Ort, Fahrtmenü auf der Fahrerseite, Zwischenziele

@@ -18,7 +18,7 @@ import { useNavStore } from '../drive/navStore.js';
 import { isDriveActive } from '../drive/driveActive.js';
 import { useViewModeStore, BEARING_TOLERANCE_DEG } from './viewMode.js';
 import { anglesMatch } from './angles.js';
-const PAUSE_DURATION = 10_000; // 10 seconds
+import { useZentrierenStore } from './zentrieren.js';
 
 /**
  * Mindest-Zoomstufe, auf die der Zurück-zur-Position-Knopf heranholt.
@@ -37,7 +37,7 @@ interface FollowMeState {
   isPaused: boolean;
   /** Resume Follow-Me and clear pause state */
   resume: () => void;
-  /** Pause Follow-Me for PAUSE_DURATION */
+  /** Pause Follow-Me for the configured time (`zentrieren.ts`), or until resume() when 0 */
   pause: () => void;
   /**
    * Pausieren OHNE automatisches Weiterfolgen -- bis `resume()`.
@@ -76,12 +76,14 @@ export const useFollowMeStore = create<FollowMeState>((set, get) => {
 
       set({ isPaused: true });
 
-      // Auto-resume after PAUSE_DURATION
-      if (typeof window !== 'undefined') {
+      // Automatisch zurueck nach der eingestellten Zeit (`zentrieren.ts`);
+      // 0 heisst aus -- dann bleibt die Karte, bis jemand ⌖ drueckt.
+      const sekunden = useZentrierenStore.getState().sekunden;
+      if (typeof window !== 'undefined' && sekunden > 0) {
         pauseTimer = window.setTimeout(() => {
           pauseTimer = null;
           get().resume();
-        }, PAUSE_DURATION);
+        }, sekunden * 1000);
       }
     },
 

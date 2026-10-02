@@ -39,6 +39,7 @@ import { buildAvoidSquare } from './exclusionGeometry.js';
 import { mapTapIntent, ROUTE_TAP_RADIUS_PX, type Geste } from './mapTapIntent.js';
 import { langerDruckUeberwachen } from './langerDruck.js';
 import { useNavStore } from '../drive/navStore.js';
+import { isDriveActive } from '../drive/driveActive.js';
 import { SONDERZIELE_LAYER_ID } from '../map/SonderzieleLayer.js';
 import { VERKEHR_LAYER_ID } from '../online/VerkehrLayer.js';
 import { useOrtStore } from '../ort/ortStore.js';
@@ -138,6 +139,21 @@ export default function DestinationSelector(): null {
       // dieser Effekt haengt bewusst nur an `map`, damit die Kartenlistener
       // nicht bei jeder Zustandsaenderung ab- und wieder angemeldet werden.
       // Ein Hook-Wert waere in diesem Closure eingefroren.
+      // ─── EINE MARKE GEWINNT VOR DER LINIE DARUNTER ────────────────────
+      // Gemeldet: „Wenn ich auf eine Meldung klicke, dann zoomt die Karte
+      // raus. Eine Info bekomme ich nicht." Baustellen liegen AUF der Route;
+      // der Tipp traf zuerst die Alternativroute darunter, die wurde aktiv,
+      // und die Karte passte sich an die ganze Strecke an. Wer auf ein
+      // Symbol tippt, meint das Symbol.
+      if (
+        geste === 'tipp' &&
+        useRoutingStore.getState().pickTarget === 'destination' &&
+        !isDriveActive(useNavStore.getState().navState?.status) &&
+        pickOrtAtPoint(map, e)
+      ) {
+        return;
+      }
+
       const intent = mapTapIntent({
         tappedRouteId: pickRouteIdAtPoint(map, e),
         pickTarget: useRoutingStore.getState().pickTarget,

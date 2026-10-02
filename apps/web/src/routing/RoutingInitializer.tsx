@@ -11,6 +11,7 @@ import RouteRestorer from './RouteRestorer.js';
 import DestinationSelector from './DestinationSelector.js';
 import LangerDruckHinweis from './LangerDruckHinweis.js';
 import RoutingPanel from './RoutingPanel.js';
+import VerkehrListe from '../online/VerkehrListe.js';
 import VerkehrLayer from '../online/VerkehrLayer.js';
 import VerkehrHinweis from '../online/VerkehrHinweis.js';
 
@@ -48,6 +49,7 @@ export default function RoutingInitializer(): React.ReactElement {
           alter Stand, Meldungen ohne Ort. Ohne ihn sähe eine unvollständige
           Karte aus wie eine leere Strecke. */}
       <VerkehrHinweis />
+      <VerkehrListe />
       <DestinationSelector />
       {/* Sagt, warum ein kurzer Tipper nichts tut. Ohne ihn sähe die neue
           Bedienung (Ziel nur noch per langem Druck) aus wie ein Defekt. */}

@@ -38,6 +38,7 @@ import { useRoutingStore, selectActiveRoute } from '../routing/store.js';
 import { autobahnenAusRoute } from './autobahnenAusRoute.js';
 import { verkehrGeoJson } from './verkehrGeoJson.js';
 import { useVerkehrStore } from './verkehrStore.js';
+import { useRoutenMeldungen } from './useRoutenMeldungen.js';
 
 export const VERKEHR_SOURCE_ID = 'yapaja-verkehr';
 export const VERKEHR_LAYER_ID = 'yapaja-verkehr-marken';
@@ -51,7 +52,7 @@ interface GeoJSONQuelle {
 export default function VerkehrLayer(): null {
   const map = useMapStore((state) => state.map);
   const route = useRoutingStore(selectActiveRoute);
-  const meldungen = useVerkehrStore((s) => s.meldungen);
+  const { entlang } = useRoutenMeldungen();
   const abrufen = useVerkehrStore((s) => s.abrufen);
 
   /**
@@ -117,8 +118,10 @@ export default function VerkehrLayer(): null {
     if (!map) return;
     const quelle = map.getSource(VERKEHR_SOURCE_ID) as unknown as GeoJSONQuelle | undefined;
     if (!quelle) return;
-    quelle.setData(verkehrGeoJson(meldungen).geojson);
-  }, [map, meldungen]);
+    // Nur was auf oder direkt an der Route liegt (`entlangDerRoute.ts`):
+    // gemeldet war ein gelber Teppich ueber halb Deutschland.
+    quelle.setData(verkehrGeoJson(entlang.map((e) => e.meldung)).geojson);
+  }, [map, entlang]);
 
   return null;
 }

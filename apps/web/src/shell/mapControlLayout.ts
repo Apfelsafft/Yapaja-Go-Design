@@ -76,6 +76,12 @@ export const SCHMAL_MAX_PX = 480;
 export const TRIP_BAR_HEIGHT_PX = 68;
 
 /**
+ * Abstand von Fahrtleiste und Fahrtmenue zum Rand der KARTENSEITE (0.27):
+ * neben der Knopfspalte (Kompass, Zentrieren, Uebersicht), nicht darueber.
+ */
+export const FAHRT_SEITENABSTAND_PX = 16 + 48 + 12;
+
+/**
  * Der unterste Streifen gehoert der Namensnennung.
  *
  * ─── WARUM DAS EINE EIGENE ZAHL IST ─────────────────────────────────────────

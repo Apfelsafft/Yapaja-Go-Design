@@ -28,6 +28,8 @@ import type { NavState } from '@yapaia/shared';
 import { formatEta } from '@yapaia/shared';
 import { formatDistance, formatDuration } from '../routing/format.js';
 import { tripInfoBottomPx } from '../shell/mapControlLayout.js';
+import { useKartenSeite } from '../shell/bedienSeite.js';
+import { FAHRT_SEITENABSTAND_PX } from '../shell/mapControlLayout.js';
 import { useSchmal } from '../shell/useSchmal.js';
 
 /** Was angezeigt wird, wenn ein Wert fehlt. */
@@ -105,6 +107,7 @@ export interface TripInfoPanelProps {
 export default function TripInfoPanel({ navState, offen = false, onToggle }: TripInfoPanelProps): React.ReactElement {
   const labels = tripInfoLabels(navState);
   const schmal = useSchmal();
+  const kartenSeite = useKartenSeite();
 
   return (
     <button
@@ -114,11 +117,18 @@ export default function TripInfoPanel({ navState, offen = false, onToggle }: Tri
       aria-controls="fahrt-menue"
       aria-label={`Fahrtmenü ${offen ? 'schließen' : 'öffnen'} — Ankunft ${labels.eta}, Restzeit ${labels.duration}, Entfernung ${labels.distance}`}
       onClick={onToggle}
-      style={{ bottom: tripInfoBottomPx() }}
+      // ─── GEGENUEBER DEM BLAUEN PUNKT (0.27) ──────────────────────────
+      // Gemeldet: das Fahrtmenue auf der Fahrerseite „verdeckt dann die
+      // aktuelle Position. Ist die falsche Seite. Kannst du bitte nicht nur
+      // das aufgeklappte Menue, sondern auch die Anzeige mit ETA, km usw.
+      // verschieben?" Der Punkt sitzt im unteren Viertel der FAHRERseite
+      // (`map/drivePadding.ts`); Leiste und Menue gehen auf die Kartenseite,
+      // neben die Knopfspalte.
+      style={{ bottom: tripInfoBottomPx(), ...(schmal ? {} : { [kartenSeite]: FAHRT_SEITENABSTAND_PX }) }}
       className={
         (schmal
           ? 'absolute inset-x-2 z-20 flex min-h-[64px] items-center justify-around gap-2 rounded-2xl bg-slate-900/90 px-2 py-2 text-white shadow-lg'
-          : 'absolute left-1/2 z-20 flex min-h-[64px] -translate-x-1/2 items-center gap-6 rounded-2xl bg-slate-900/90 px-5 py-2 text-white shadow-lg') +
+          : 'absolute z-20 flex min-h-[64px] items-center gap-6 rounded-2xl bg-slate-900/90 px-5 py-2 text-white shadow-lg') +
         (offen ? ' ring-2 ring-blue-400' : '')
       }
     >
