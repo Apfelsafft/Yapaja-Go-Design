@@ -21,6 +21,7 @@ import { GpsdSource } from './position/gpsd/index.js';
 import { HaTrackerSource, listGpsTrackers } from './position/haTracker/index.js';
 import { istCompanionAppQuelle } from './position/gpsSourceOption.js';
 import { resolveHaConnection, resolveTrackerEntityId } from './ha/config.js';
+import { AnsagePause, RADIO_ENTITAET, ansagePauseEntitaet } from './ha/ansagePause.js';
 import { mapPlugin } from './map/routes.js';
 import { routingPlugin, buildRoutingService } from './routing/routes.js';
 import { onlinePlugin } from './online/routes.js';
@@ -39,7 +40,7 @@ import { AuthGuard } from './auth/authGuard.js';
 import { authPlugin } from './auth/plugin.js';
 import { HaOutputChannel } from './ha/outputChannel.js';
 import { starteDashboardPflege } from './ha/dashboard.js';
-import { fetchHaStates, fetchHaStatesById, postHaState } from './ha/client.js';
+import { callHaService, fetchHaStates, fetchHaStatesById, postHaState } from './ha/client.js';
 import { Sprachdialog } from './sprache/dialog.js';
 import { frageKi } from './ha/kiAgent.js';
 import { AUTOMATION_ID, HaSprachBruecke, SPRACH_EINGABE } from './ha/sprachBruecke.js';
@@ -663,9 +664,30 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // NOTHING until HA is configured in Settings (or via env `SUPERVISOR_TOKEN`
   // as an add-on) -- see `ha/config.ts`. Every HA REST call has a 5 s timeout
   // and swallows errors, so a down/misconfigured HA never affects navigation.
+  // Das Radio (Yapaia Beat) hält während einer Ansage an und spielt danach
+  // weiter -- für HA-Ansagen, Assist-Antworten und Ansagen im Browser
+  // (`ha/ansagePause.ts`). Ohne Yapaia Beat passiert nichts.
+  const ansageLogger = {
+    info: (msg: string, meta?: Record<string, unknown>) => fastify.log.info(meta ?? {}, msg),
+    warn: (msg: string, meta?: Record<string, unknown>) => fastify.log.warn(meta ?? {}, msg),
+    error: (msg: string, meta?: Record<string, unknown>) => fastify.log.error(meta ?? {}, msg),
+  };
+  const ansagePause = new AnsagePause({
+    verbindung: () => resolveHaConnection({ settings: settingsService }),
+    entitaet: () => ansagePauseEntitaet(settingsService.get('ansage_pause')),
+    leseZustaende: (v, ids) => fetchHaStatesById(v, ids, { logger: ansageLogger, timeoutMs: 2_000 }),
+    dienst: (v, dienst, entityId) =>
+      callHaService(
+        { connection: v, domain: 'media_player', service: dienst, data: { entity_id: entityId } },
+        { logger: ansageLogger, timeoutMs: 3_000 },
+      ),
+  });
+  fastify.addHook('onClose', async () => ansagePause.dispose());
+
   const haOutputChannel = new HaOutputChannel({
     bus: eventBus,
     settings: settingsService,
+    ansagePause,
     logger: {
       info: (msg, meta) => fastify.log.info(meta ?? {}, msg),
       warn: (msg, meta) => fastify.log.warn(meta ?? {}, msg),
@@ -876,7 +898,13 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   };
   const sprachdialog = new Sprachdialog({
     ...sprachDeps({
-      sucheOrte: (q, nahe) => searchService.search({ q, limit: 5, ...(nahe ? { lat: nahe.lat, lon: nahe.lon } : {}) }),
+      sucheOrte: (q, nahe, umkreisKm) =>
+        searchService.search({
+          q,
+          limit: umkreisKm ? 30 : 5,
+          ...(nahe ? { lat: nahe.lat, lon: nahe.lon } : {}),
+          ...(umkreisKm ? { umkreisKm } : {}),
+        }),
       routeZu: async (ziel) =>
         (
           await resolveDestinationAndRoute(
@@ -902,7 +930,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     }),
     ki: sprachKi,
   });
-  registriereSprache(fastify, sprachdialog);
+  registriereSprache(fastify, sprachdialog, ansagePause);
 
   // ─── … UND UEBER HOME ASSISTANT ASSIST (0.30) ───────────────────────────
   // Satelliten und der Assist-Knopf der HA-App -- ohne HTTPS. Siehe
@@ -914,6 +942,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
           leseZustaende: (v, ids) => fetchHaStatesById(v, ids, { logger: haLogger }),
           schreibeZustand: (v, entityId, body) => postHaState(v, entityId, body, { logger: haLogger }),
           verarbeite: (text) => sprachdialog.verarbeite(text),
+          ansagePause,
           ws: { logger: haLogger },
           logger: haLogger,
         })
@@ -926,7 +955,15 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     const agent = settingsService.get('sprache_agent');
     if (!sprachBruecke || !v) {
       return reply.code(200).send({
-        data: { verfuegbar: false, helfer: false, automation: false, agent: typeof agent === 'string' ? agent : null, agenten: [] },
+        data: {
+          verfuegbar: false,
+          helfer: false,
+          automation: false,
+          agent: typeof agent === 'string' ? agent : null,
+          agenten: [],
+          radioPause: ansagePauseEntitaet(settingsService.get('ansage_pause')) !== null,
+          radio: false,
+        },
       });
     }
     const zustaende = await fetchHaStates(v, { logger: haLogger }).catch(() => [] as Awaited<ReturnType<typeof fetchHaStates>>);
@@ -941,6 +978,10 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
         automation: liste.some((z) => z.entity_id.startsWith('automation.') && z.attributes?.id === AUTOMATION_ID),
         agent: typeof agent === 'string' ? agent : null,
         agenten,
+        // Radio bei Ansagen anhalten (`ha/ansagePause.ts`) -- und ob es
+        // Yapaia Beat in dieser Anlage überhaupt gibt.
+        radioPause: ansagePauseEntitaet(settingsService.get('ansage_pause')) !== null,
+        radio: liste.some((z) => z.entity_id === RADIO_ENTITAET),
       },
     });
   });

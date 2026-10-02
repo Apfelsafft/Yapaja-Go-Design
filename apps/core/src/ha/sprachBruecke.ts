@@ -33,6 +33,7 @@
 import type { HaConnection } from './config.js';
 import { legeHelferAn, type HelferSoll, type WsDeps } from './commandHelpers.js';
 import { defaultHaFetch, type HaFetchLike } from './client.js';
+import { sprechdauerMs } from './ansagePause.js';
 
 export const SPRACH_EINGABE = 'input_text.yapaia_sprachbefehl';
 export const SPRACH_ANTWORT = 'sensor.yapaia_sprachantwort';
@@ -68,6 +69,13 @@ export const SAETZE: readonly string[] = [
   'wo ist die nächste {befehl}',
   'wo ist der nächste {befehl}',
   'wo ist das nächste {befehl}',
+  'finde den nächsten {befehl}',
+  'finde die nächste {befehl}',
+  'finde das nächste {befehl}',
+  'such den nächsten {befehl}',
+  'such die nächste {befehl}',
+  'wo ist hier ein {befehl}',
+  'wo ist hier eine {befehl}',
   'stoppe die navigation',
   'navigation stoppen',
   'navigation beenden',
@@ -128,6 +136,8 @@ export interface SprachBrueckeDeps {
   ws: WsDeps;
   fetch?: HaFetchLike;
   logger: { info: (m: string, meta?: Record<string, unknown>) => void; warn: (m: string, meta?: Record<string, unknown>) => void };
+  /** Hält das Radio an, solange Yapaia antwortet (`ha/ansagePause.ts`). */
+  ansagePause?: { beginne(): Promise<void>; ende(nachlaufMs?: number): void };
   intervallMs?: number;
   setIntervalImpl?: (fn: () => void, ms: number) => unknown;
   clearIntervalImpl?: (h: unknown) => void;
@@ -190,7 +200,18 @@ export class HaSprachBruecke {
       const eingabe = leseEingabe(wert);
       if (!eingabe) return;
 
-      const antwort = await this.deps.verarbeite(eingabe.text);
+      // Der Satellit liest die Antwort gleich vor -- das Radio hält solange an.
+      await this.deps.ansagePause?.beginne();
+      let antwort: Awaited<ReturnType<SprachBrueckeDeps['verarbeite']>>;
+      try {
+        antwort = await this.deps.verarbeite(eingabe.text);
+      } catch (err) {
+        this.deps.ansagePause?.ende(0);
+        throw err;
+      }
+      // Nachlauf: Home Assistant holt die Antwort, erzeugt die Sprache und
+      // spielt sie ab -- erst danach soll die Musik zurückkommen.
+      this.deps.ansagePause?.ende(sprechdauerMs(antwort.antwort) + 3_000);
       this.zaehler += 1;
       await this.deps.schreibeZustand(v, SPRACH_ANTWORT, {
         state: `${Date.now()}-${this.zaehler}`,

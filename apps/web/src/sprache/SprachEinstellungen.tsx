@@ -14,6 +14,10 @@ interface Stand {
   automation: boolean;
   agent: string | null;
   agenten: Array<{ id: string; name: string }>;
+  /** Radio (Yapaia Beat) während Ansagen anhalten. */
+  radioPause?: boolean;
+  /** Gibt es Yapaia Beat in Home Assistant? */
+  radio?: boolean;
 }
 
 interface Ergebnis {
@@ -75,6 +79,20 @@ export default function SprachEinstellungen(): React.ReactElement {
     }
   };
 
+  const radioPauseSetzen = async (an: boolean): Promise<void> => {
+    setStand((s) => (s ? { ...s, radioPause: an } : s));
+    try {
+      await fetch(url('api/v1/settings'), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        // null = Vorgabe (Yapaia Beat), "" = aus.
+        body: JSON.stringify({ ansage_pause: an ? null : '' }),
+      });
+    } catch {
+      // Beim nächsten Öffnen zeigt der Stand vom Kern, was gilt.
+    }
+  };
+
   return (
     <div className="space-y-5 text-sm text-slate-800 dark:text-slate-100" data-testid="sprach-einstellungen">
       <section className="space-y-2">
@@ -127,6 +145,26 @@ export default function SprachEinstellungen(): React.ReactElement {
             erreichen die Sätze Yapaia nicht.
           </li>
         </ul>
+      </section>
+
+      <section className="space-y-2">
+        <h3 className="font-semibold">Radio während Ansagen</h3>
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={stand?.radioPause ?? true}
+            onChange={(e) => void radioPauseSetzen(e.target.checked)}
+            disabled={!stand}
+            className="mt-1 h-4 w-4"
+            data-testid="sprach-radio-pause"
+          />
+          <span>
+            Yapaia Beat anhalten, solange Yapaia spricht, und danach weiterspielen.
+            {stand?.verfuegbar && !stand.radio && (
+              <span className="block text-xs text-slate-500">Yapaia Beat ist in Home Assistant nicht eingerichtet.</span>
+            )}
+          </span>
+        </label>
       </section>
 
       <section className="space-y-2">

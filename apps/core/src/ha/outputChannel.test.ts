@@ -8,7 +8,7 @@
  * timeout/HTTP-error is swallowed so the Core/nav keeps working.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EventBus } from '../bus/index.js';
 import { HaOutputChannel } from './outputChannel.js';
 import type { HaFetchLike, HaHttpResponseLike, HaClientLogger } from './client.js';
@@ -100,6 +100,32 @@ describe('HaOutputChannel', () => {
       entity_id: 'tts.google_de',
       language: 'de-DE',
     });
+    channel.dispose();
+  });
+
+  it('sink=ha: hält das Radio vor der Ansage an und gibt es danach frei', async () => {
+    const { fetch, calls } = recordingFetch();
+    const reihenfolge: string[] = [];
+    const ansagePause = {
+      beginne: vi.fn(async () => {
+        reihenfolge.push(`pause bei ${calls.length} Aufrufen`);
+      }),
+      ende: vi.fn((_ms?: number) => {
+        reihenfolge.push(`weiter nach ${calls.length} Aufrufen`);
+      }),
+    };
+    const channel = new HaOutputChannel({
+      bus,
+      settings: settings({ announce_sink: 'ha', tts_media_player: 'media_player.wohnmobil' }),
+      logger: silentLogger,
+      env: {},
+      fetch,
+      ansagePause,
+    });
+    bus.publish('nav/instruction', navInstruction('Jetzt rechts'));
+    await flush();
+    expect(reihenfolge).toEqual(['pause bei 0 Aufrufen', 'weiter nach 1 Aufrufen']);
+    expect(ansagePause.ende.mock.calls[0]?.[0]).toBeGreaterThan(1_500);
     channel.dispose();
   });
 

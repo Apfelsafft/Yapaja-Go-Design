@@ -21,6 +21,7 @@ import { UNTERWEGS_KATEGORIEN } from '@yapaia/shared';
 export type Absicht =
   | { art: 'ziel'; ort: string }
   | { art: 'naechste'; kategorie: string }
+  | { art: 'naechste_name'; name: string }
   | { art: 'stopp' }
   | { art: 'pause' }
   | { art: 'weiter' }
@@ -85,6 +86,18 @@ export function ortAus(rest: string): string {
     .trim();
 }
 
+/** Aus „finde den nächsten Aldi in der Nähe" wird „aldi". */
+export function nameAus(t: string): string {
+  return t
+    .replace(/\b(in der nähe|um die ecke|von hier( aus)?|hier)\b/g, ' ')
+    .replace(
+      /\b(wo|ist|gibt|es|finde ich|find\w*|such\w*|zeig\w*|fahre?|fahr\w*|bring\w*|navigier\w*|führ\w*|lotse?|ich|wir|brauche\w*|will|wollen|möchte\w*|mich|uns|mir|der|die|das|den|dem|des|zu[mr]?|nach|ein|eine|einen|einem|einer|nächst\w*|nächstgelegen\w*|gelegen\w*|liegt|befindet sich)\b/g,
+      ' ',
+    )
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function verstehe(roh: string): Absicht {
   const t = glaetten(roh);
   if (!t) return { art: 'unbekannt', text: roh };
@@ -138,6 +151,13 @@ export function verstehe(roh: string): Absicht {
   if (/\b(nächst\w*|nächstgelegen\w*|in der nähe|nahe|um die ecke)\b|^(wo|such\w*|find\w*|zeig\w*|brauche?|wir brauchen|ich brauche)\b/.test(t)) {
     const kat = kategorieAus(t);
     if (kat) return { art: 'naechste', kategorie: kat };
+  }
+  // „Finde den nächsten Aldi", „wo ist hier ein Lidl": ein NAME statt einer
+  // Kategorie. Nur mit „nächst…"/„in der Nähe"/„wo ist ein" -- „fahr zu
+  // Aldi" allein bleibt ein Ziel.
+  if (/\b(nächst\w*|nächstgelegen\w*|in der nähe|um die ecke)\b|^wo (ist|gibt es|finde ich) (hier )?(ein|eine|einen)\b/.test(t)) {
+    const name = nameAus(t);
+    if (name.length >= 2) return { art: 'naechste_name', name };
   }
 
   // ─── ZIEL ───────────────────────────────────────────────────────────────

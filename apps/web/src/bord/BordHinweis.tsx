@@ -19,6 +19,7 @@ import { useRoutingStore } from '../routing/store.js';
 import { useProfileStore } from '../profiles/store.js';
 import { useTtsStore } from '../drive/ttsStore.js';
 import { announce } from '../drive/tts.js';
+import { ansageNachRadioPause } from '../drive/radioPause.js';
 import { useFahrtAnsicht } from '../drive/useFahrtAnsicht.js';
 
 const SYMBOL: Record<Hinweis['art'], string> = {
@@ -64,7 +65,7 @@ export default function BordHinweis(): React.ReactElement | null {
       const k = hinweisSchluessel(h);
       if (angesagt.current.has(k)) continue;
       angesagt.current.add(k);
-      announce(h.station ? `${h.text} ${stationsZeile(h.station)}.` : h.text);
+      void ansageNachRadioPause(h.station ? `${h.text} ${stationsZeile(h.station)}.` : h.text, (t) => announce(t));
     }
   }, [sichtbar, fahrt, ttsAn]);
 

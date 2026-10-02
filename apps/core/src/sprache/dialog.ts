@@ -44,6 +44,9 @@ export interface SprachDeps {
   stopp(): void;
   /** Nächste Treffer einer Kategorie: voraus auf der Route, sonst im Umkreis. */
   naechste(kategorie: string): Treffer[];
+  /** „Der nächste Aldi": Sonderziele mit diesem Namen, die nächsten zuerst
+   *  (entlang der Route, wenn eine läuft). */
+  naechsteNamens?(name: string): Promise<Treffer[]>;
   /** Verkehrsmeldungen voraus auf der Route; `null`, wenn nichts abrufbar. */
   verkehr(): Promise<{ meldungen: VerkehrsMeldung[] } | { fehler: string }>;
   /** Uhrzeit für die Ankunft in Ortszeit formatieren („15:29"). */
@@ -98,7 +101,7 @@ export function dauerText(s: number): string {
 const AKTIV = new Set<NavState['status']>(['navigating', 'paused', 'off_route', 'routing']);
 
 export const HILFE =
-  'Du kannst zum Beispiel sagen: „Fahre mich nach Magdeburg", „Wo ist die nächste Tankstelle?", „Lies die Verkehrsmeldungen vor", „Wann sind wir da?" oder „Stoppe die Navigation".';
+  'Du kannst zum Beispiel sagen: „Fahre mich nach Magdeburg", „Wo ist die nächste Tankstelle?", „Finde den nächsten Aldi", „Lies die Verkehrsmeldungen vor", „Wann sind wir da?" oder „Stoppe die Navigation".';
 
 export class Sprachdialog {
   private offen: Offen | null = null;
@@ -127,6 +130,8 @@ export class Sprachdialog {
         return this.ziel(absicht.ort);
       case 'naechste':
         return this.naechste(absicht.kategorie);
+      case 'naechste_name':
+        return this.naechsteNamens(absicht.name);
       case 'stopp': {
         if (!AKTIV.has(this.deps.navigation().status)) {
           return { antwort: 'Es läuft gerade keine Navigation.', absicht: 'stopp' };
@@ -215,6 +220,28 @@ export class Sprachdialog {
     return {
       antwort: `Nächste ${name}: ${erste.beschreibung}${wo}. Soll ich dich hinführen?${weitere}`,
       absicht: 'naechste',
+      aktion: { art: 'auswahl', treffer },
+      rueckfrage: true,
+    };
+  }
+
+  private async naechsteNamens(name: string): Promise<Antwort> {
+    let treffer: Treffer[] = [];
+    try {
+      treffer = (await this.deps.naechsteNamens?.(name)) ?? [];
+    } catch {
+      return { antwort: 'Die Suche ist gerade nicht erreichbar.', absicht: 'naechste_name' };
+    }
+    if (treffer.length === 0) {
+      return { antwort: `„${name}" habe ich in der Nähe nicht gefunden.`, absicht: 'naechste_name' };
+    }
+    this.offen = { art: 'auswahl', treffer, bis: this.deps.jetzt() + RUECKFRAGE_MS };
+    const erste = treffer[0]!;
+    const wo = typeof erste.entfernung_m === 'number' ? `, in ${entfernungText(erste.entfernung_m)}` : '';
+    const weitere = treffer.length > 1 ? ` Ich habe ${treffer.length} gefunden; sag „die zweite" für die nächste.` : '';
+    return {
+      antwort: `Am nächsten: ${erste.beschreibung}${wo}. Soll ich dich hinführen?${weitere}`,
+      absicht: 'naechste_name',
       aktion: { art: 'auswahl', treffer },
       rueckfrage: true,
     };

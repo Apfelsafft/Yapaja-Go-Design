@@ -32,6 +32,7 @@ export function kiAnweisung(satz: string): string {
     'Erlaubt sind nur diese Formen:',
     '{"art":"ziel","ort":"<Adresse oder Ort, so vollständig wie genannt>"}',
     `{"art":"naechste","kategorie":"<eine von: ${KATEGORIEN}>"}`,
+    '{"art":"naechste_name","name":"<Name/Marke, z. B. Aldi, wenn keine Kategorie passt>"}',
     '{"art":"stopp"} {"art":"pause"} {"art":"weiter"} {"art":"ankunft"}',
     '{"art":"verkehr","anzahl":<1-5>} {"art":"ansagen","an":<true|false>}',
     '{"art":"unbekannt"}',
@@ -55,6 +56,10 @@ export function absichtAusText(text: string): Absicht | null {
     case 'naechste':
       return typeof o.kategorie === 'string' && UNTERWEGS_KATEGORIEN.some((k) => k.id === o.kategorie)
         ? { art: 'naechste', kategorie: o.kategorie }
+        : null;
+    case 'naechste_name':
+      return typeof o.name === 'string' && o.name.trim().length >= 2 && o.name.length <= 60
+        ? { art: 'naechste_name', name: o.name.trim() }
         : null;
     case 'stopp':
     case 'pause':

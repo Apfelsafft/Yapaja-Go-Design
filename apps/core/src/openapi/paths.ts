@@ -127,6 +127,10 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     summary: 'Sprachbefehl als Text: Antwort zum Vorlesen und ggf. Aktion (Ziel, Stopp, Verkehr …)',
     tags: ['Navigation'],
   },
+  'POST /api/v1/ansage': {
+    summary: 'Die App spricht gleich: hält das Radio (Yapaia Beat) an und startet es nach der Ansage wieder',
+    tags: ['Navigation'],
+  },
   'GET /api/v1/sprache/ha': {
     summary: 'Stand der Home-Assistant-Assist-Anbindung und wählbare KI-Agenten (conversation.*)',
     tags: ['Navigation'],

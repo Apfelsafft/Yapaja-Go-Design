@@ -28,6 +28,13 @@ import {
   type ResolveHaConfigInput,
 } from './config.js';
 import { callHaService, type HaClientLogger, type HaFetchLike } from './client.js';
+import { sprechdauerMs } from './ansagePause.js';
+
+/** Was die Ansage braucht, um das Radio anzuhalten (`ha/ansagePause.ts`). */
+export interface RadioPauseLike {
+  beginne(): Promise<void>;
+  ende(nachlaufMs?: number): void;
+}
 
 /** Splits a `"domain.service"` string; returns `null` when malformed. */
 function splitService(full: string): { domain: string; service: string } | null {
@@ -54,6 +61,8 @@ export interface HaOutputChannelOptions {
   fetch?: HaFetchLike;
   /** Overrides HA request timeout (ms); mainly for tests. */
   timeoutMs?: number;
+  /** Hält das Radio während einer HA-Ansage an. */
+  ansagePause?: RadioPauseLike;
 }
 
 export class HaOutputChannel {
@@ -63,6 +72,7 @@ export class HaOutputChannel {
   private readonly env?: Record<string, string | undefined>;
   private readonly fetchImpl?: HaFetchLike;
   private readonly timeoutMs?: number;
+  private readonly ansagePause?: RadioPauseLike;
   private readonly unsubscribers: Array<() => void> = [];
 
   constructor(opts: HaOutputChannelOptions) {
@@ -72,6 +82,7 @@ export class HaOutputChannel {
     this.env = opts.env;
     this.fetchImpl = opts.fetch;
     this.timeoutMs = opts.timeoutMs;
+    this.ansagePause = opts.ansagePause;
 
     this.unsubscribers.push(
       this.bus.subscribe('nav/instruction', (payload) => {
@@ -132,7 +143,14 @@ export class HaOutputChannel {
     if (config.tts.language) {
       data.language = config.tts.language;
     }
-    await this.call(config, config.tts.service, data);
+    // Läuft das Radio auf demselben Lautsprecher, würde die Ansage seinen
+    // Stream ersetzen -- danach wäre Stille. Also: anhalten, sprechen, weiter.
+    await this.ansagePause?.beginne();
+    try {
+      await this.call(config, config.tts.service, data);
+    } finally {
+      this.ansagePause?.ende(sprechdauerMs(payload.say) + 1_500);
+    }
   }
 
   /** `event/arrived` -> HA notification (gated by `notify.enabled`). */
