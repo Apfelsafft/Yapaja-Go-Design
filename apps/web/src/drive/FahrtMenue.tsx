@@ -36,7 +36,7 @@ import { useNavStore } from './navStore.js';
 import { useTtsStore } from './ttsStore.js';
 import { announce, cancelSpeech, unlockAudio } from './tts.js';
 import TripInfoPanel from './TripInfoPanel.js';
-import DriveLockGate from './DriveLockGate.js';
+import { useIsControlLocked } from './driveLockStore.js';
 import UnterwegsFinden, { type UnterwegsErgebnis } from './UnterwegsFinden.js';
 import UnterwegsVorschau, { type Vorschau } from './UnterwegsVorschau.js';
 import { stationsZeile, useBordStore } from '../bord/bordStore.js';
@@ -113,6 +113,7 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
   const profileLaden = useProfileStore((s) => s.fetchProfiles);
   const zwischenziele = useRoutingStore((s) => s.waypoints);
   const leistenPlatz = useAnordnungStore((s) => s.werte.fahrt['fahrtleiste']);
+  const anpassenGesperrt = useIsControlLocked('settings');
   const kartenSeite = useKartenSeite();
   const schmal = useSchmal();
 
@@ -346,7 +347,12 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
             </section>
           )}
 
-          <DriveLockGate controlId="settings">
+          {/* Nur im Stand bzw. unter der Sperrgeschwindigkeit -- und dann
+              AUSGEBLENDET statt gesperrt: im Fahrtmenue darf nichts hinter
+              einer Sperre liegen (Stopp muss immer erreichbar sein, siehe
+              drive-lock.spec.ts), und ein Sperrschild mehr waere waehrend
+              der Fahrt nur Ablenkung. */}
+          {!anpassenGesperrt && (
             <button
               type="button"
               onClick={() => {
@@ -358,7 +364,7 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
             >
               🧱 Bildschirm anpassen
             </button>
-          </DriveLockGate>
+          )}
 
           <UnterwegsFinden
             anfang={letztesUnterwegs}

@@ -124,6 +124,8 @@ test.describe('Speed-Lock (E07-T4)', () => {
     // haengt nicht mehr daran, welcher einzelne Schalter gerade obenauf liegt.
     await expect(page.getByTestId('panel-abschnitt-schalter-darstellung')).toBeVisible();
     await expect(page.getByTestId('drive-lock-overlay')).toHaveCount(0);
+    // „Bildschirm anpassen" ist bei dieser Geschwindigkeit ausgeblendet, nicht gesperrt.
+    await expect(page.getByTestId('anordnung-starten-fahrt')).toHaveCount(0);
 
     // 18 km/h (5 m/s) -- above the default 10 km/h threshold.
     await postSpeed(page, 5);

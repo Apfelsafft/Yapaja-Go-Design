@@ -20,8 +20,8 @@ Navigation usw.) selber konfigurieren kann … die einzelnen Objekte an
 gewünschte Stellen verschieben und vielleicht auch in der Größe ändern."
 
 - **Ruhe & Planung:** ⚙ → „Bildschirm anpassen". **Navigation:** im
-  Fahrtmenü „Bildschirm anpassen" — nur im Stand bzw. unter 10 km/h, wie die
-  anderen Einstellungen.
+  Fahrtmenü „Bildschirm anpassen" — der Knopf erscheint nur im Stand bzw.
+  unter 10 km/h.
 - Jedes Element bekommt einen blauen Rahmen: **ziehen** verschiebt, der
   **blaue Punkt** an der Ecke ändert die Größe (60 – 200 %). „Zurücksetzen"
   holt die Standardanordnung zurück, „Fertig" beendet.
