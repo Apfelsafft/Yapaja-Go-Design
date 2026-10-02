@@ -42,6 +42,7 @@ import { useBreit } from '../shell/useBreit.js';
 import { useBedienSeite, PANEL_BREITE_PX } from '../shell/bedienSeite.js';
 import { TOP_BAR_HEIGHT_PX } from '../shell/mapControlLayout.js';
 import { toRequestWaypoints } from './waypoints.js';
+import { useAnordnung } from '../shell/useAnordnung.js';
 
 const AVOID_FLAGS = ['motorway', 'toll', 'ferry', 'unpaved'] as const;
 const AVOID_LABELS: Record<(typeof AVOID_FLAGS)[number], string> = {
@@ -52,6 +53,7 @@ const AVOID_LABELS: Record<(typeof AVOID_FLAGS)[number], string> = {
 };
 
 export default function RoutingPanel(): React.ReactElement | null {
+  const anordnung = useAnordnung('routenfenster');
   const destination = useRoutingStore((state) => state.destination);
   const routeMode = useRoutingStore((state) => state.routeMode);
   const setRouteMode = useRoutingStore((state) => state.setRouteMode);
@@ -247,6 +249,7 @@ export default function RoutingPanel(): React.ReactElement | null {
 
   return (
     <div
+      ref={anordnung.ref}
       // ─── HOEHE BEGRENZT, INHALT SCROLLT ─────────────────────────────────
       // Dieses Fenster hatte keine Obergrenze: es wuchs mit jedem Abschnitt,
       // den es bekam. Mit den Zwischenzielen (0.5.9) reichte es erstmals
@@ -718,6 +721,7 @@ export default function RoutingPanel(): React.ReactElement | null {
           )}
         </div>
       )}
+      {anordnung.griff}
     </div>
   );
 }

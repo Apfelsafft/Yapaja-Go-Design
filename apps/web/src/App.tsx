@@ -3,6 +3,7 @@ import MapView from './map/MapView';
 import PositionInitializer from './position/PositionInitializer';
 import RoutingInitializer from './routing/RoutingInitializer.js';
 import DriveOverlay from './drive/DriveOverlay.js';
+import AnordnungsLeiste from './shell/AnordnungsLeiste.js';
 import SpeedDisplay from './drive/SpeedDisplay.js';
 import ThemeController from './theme/ThemeController.js';
 import DriveLockController from './drive/DriveLockController.js';
@@ -39,6 +40,8 @@ export default function App(): React.ReactElement {
       <FavoritenLader />
       <RoutingInitializer />
       <DriveOverlay />
+      {/* Bearbeitungsmodus „Bildschirm anpassen" (shell/anordnung.ts). */}
+      <AnordnungsLeiste />
       {/* Bordsensoren: Grau-/Frischwasser, Batterie, Frost -- mit der
           passenden Station voraus (bord/BordHinweis.tsx). */}
       <BordHinweis />

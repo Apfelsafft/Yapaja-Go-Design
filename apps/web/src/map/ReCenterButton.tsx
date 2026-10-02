@@ -27,11 +27,13 @@ import { rightStackBottomPx, EDGE_INSET_PX } from '../shell/mapControlLayout.js'
 import { useSchmal } from '../shell/useSchmal.js';
 import { useNavStore } from '../drive/navStore.js';
 import { isDriveActive } from '../drive/driveActive.js';
+import { useAnordnung } from '../shell/useAnordnung.js';
 
 /** Ab dieser Entfernung zwischen Kartenmitte und Position gilt die Karte als woanders. */
 export const WEG_AB_PX = 40;
 
 export default function ReCenterButton(): React.ReactElement | null {
+  const anordnung = useAnordnung('zentrieren');
   // Gegenüber dem Seitenpanel (shell/bedienSeite.ts).
   const kartenSeite = useKartenSeite();
   const driveActive = isDriveActive(useNavStore((state) => state.navState?.status));
@@ -89,6 +91,7 @@ export default function ReCenterButton(): React.ReactElement | null {
 
   return (
     <button
+      ref={anordnung.ref}
       onClick={handleClick}
       style={{ bottom: rightStackBottomPx('recenter', driveActive, schmal), [kartenSeite]: EDGE_INSET_PX }}
       className="fixed w-12 h-12 rounded-full bg-blue-500 dark:bg-blue-600 text-white shadow-lg hover:shadow-xl hover:bg-blue-600 dark:hover:bg-blue-700 transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
@@ -109,6 +112,7 @@ export default function ReCenterButton(): React.ReactElement | null {
         <circle cx="12" cy="12" r="1" />
         <path d="M12 8v-2M12 18v2M8 12H6M18 12h2" />
       </svg>
+      {anordnung.griff}
     </button>
   );
 }

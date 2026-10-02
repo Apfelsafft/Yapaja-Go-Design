@@ -11,6 +11,7 @@ import type { NavState } from '@yapaia/shared';
 import { useNavState, useNavStore } from './navStore.js';
 import { isDriveActive } from './ManeuverPanel.js';
 import { TOP_RIGHT_INSET_PX } from '../shell/mapControlLayout.js';
+import { useAnordnung } from '../shell/useAnordnung.js';
 
 /**
  * Ab wie viel km/h ueber dem Limit das Schild rot wird.
@@ -31,6 +32,7 @@ export interface SpeedLimitSignProps {
 }
 
 export default function SpeedLimitSign(props: SpeedLimitSignProps = {}): React.ReactElement | null {
+  const anordnung = useAnordnung('tempolimit');
   // Gegenüber dem Seitenpanel (shell/bedienSeite.ts).
   const kartenSeite = useKartenSeite();
   const hookNavState = useNavState();
@@ -56,6 +58,7 @@ export default function SpeedLimitSign(props: SpeedLimitSignProps = {}): React.R
 
   return (
     <div
+      ref={anordnung.ref}
       data-testid="speed-limit-sign"
       data-speeding={speeding ? 'true' : 'false'}
       style={{ [kartenSeite]: TOP_RIGHT_INSET_PX }}
@@ -71,6 +74,7 @@ export default function SpeedLimitSign(props: SpeedLimitSignProps = {}): React.R
       >
         {kmh}
       </span>
+      {anordnung.griff}
     </div>
   );
 }

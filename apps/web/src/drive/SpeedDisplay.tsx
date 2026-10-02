@@ -20,8 +20,10 @@ import { usePosition } from '../position/positionStore.js';
 import { displayedSpeedKmh } from './speedDisplay.js';
 import { FAB_SIZE_PX, STACK_GAP_PX, bottomInsetPx } from '../shell/mapControlLayout.js';
 import { useSchmal } from '../shell/useSchmal.js';
+import { useAnordnung } from '../shell/useAnordnung.js';
 
 export default function SpeedDisplay(): React.ReactElement | null {
+  const anordnung = useAnordnung('tacho');
   const position = usePosition();
   const kmh = displayedSpeedKmh(position?.speed ?? null);
   const schmal = useSchmal();
@@ -32,6 +34,7 @@ export default function SpeedDisplay(): React.ReactElement | null {
 
   return (
     <div
+      ref={anordnung.ref}
       data-testid="speed-display"
       // Auf schmalen Schirmen ueber der Fahrtdaten-Leiste, sonst wie bisher.
       style={{ bottom: schmal ? bottomInsetPx(true, true) + FAB_SIZE_PX + STACK_GAP_PX : undefined, [seite]: 16 }}
@@ -46,6 +49,7 @@ export default function SpeedDisplay(): React.ReactElement | null {
         {kmh}
       </span>
       <span className="text-xs text-slate-500 dark:text-slate-400">km/h</span>
+      {anordnung.griff}
     </div>
   );
 }

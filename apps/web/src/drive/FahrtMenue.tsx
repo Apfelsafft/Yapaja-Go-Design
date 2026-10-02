@@ -36,6 +36,7 @@ import { useNavStore } from './navStore.js';
 import { useTtsStore } from './ttsStore.js';
 import { announce, cancelSpeech, unlockAudio } from './tts.js';
 import TripInfoPanel from './TripInfoPanel.js';
+import { useIsControlLocked } from './driveLockStore.js';
 import UnterwegsFinden, { type UnterwegsErgebnis } from './UnterwegsFinden.js';
 import UnterwegsVorschau, { type Vorschau } from './UnterwegsVorschau.js';
 import { stationsZeile, useBordStore } from '../bord/bordStore.js';
@@ -45,6 +46,7 @@ import { iconForFavoriteCategory } from '../favorites/icons.js';
 import { useRoutingStore } from '../routing/store.js';
 import { useProfileStore } from '../profiles/store.js';
 import WaypointList from '../routing/WaypointList.js';
+import { useAnordnungStore } from '../shell/anordnung.js';
 import { useKartenSeite } from '../shell/bedienSeite.js';
 import { useSchmal } from '../shell/useSchmal.js';
 import { FAHRT_SEITENABSTAND_PX, STACK_GAP_PX, TRIP_BAR_HEIGHT_PX, tripInfoBottomPx } from '../shell/mapControlLayout.js';
@@ -110,6 +112,8 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
   const profilAktivieren = useProfileStore((s) => s.activateProfile);
   const profileLaden = useProfileStore((s) => s.fetchProfiles);
   const zwischenziele = useRoutingStore((s) => s.waypoints);
+  const leistenPlatz = useAnordnungStore((s) => s.werte.fahrt['fahrtleiste']);
+  const anpassenGesperrt = useIsControlLocked('settings');
   const kartenSeite = useKartenSeite();
   const schmal = useSchmal();
 
@@ -243,6 +247,9 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
           // Jetzt auf der Kartenseite, ueber der Fahrtleiste (TripInfoPanel).
           // Auf dem Telefon bleibt es mittig.
           style={{
+            // Folgt der Fahrtleiste, wenn sie verschoben wurde (anordnung.ts) --
+            // das Menue klappt immer ueber ihr auf.
+            translate: leistenPlatz ? `${leistenPlatz.dx}px ${leistenPlatz.dy}px` : undefined,
             bottom: tripInfoBottomPx() + TRIP_BAR_HEIGHT_PX + STACK_GAP_PX,
             ...(schmal ? {} : { [kartenSeite]: FAHRT_SEITENABSTAND_PX }),
           }}
@@ -338,6 +345,25 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
             <section aria-label="Zwischenziele" data-testid="fahrt-menue-zwischenziele">
               <WaypointList rerouteParams={null} />
             </section>
+          )}
+
+          {/* Nur im Stand bzw. unter der Sperrgeschwindigkeit -- und dann
+              AUSGEBLENDET statt gesperrt: im Fahrtmenue darf nichts hinter
+              einer Sperre liegen (Stopp muss immer erreichbar sein, siehe
+              drive-lock.spec.ts), und ein Sperrschild mehr waere waehrend
+              der Fahrt nur Ablenkung. */}
+          {!anpassenGesperrt && (
+            <button
+              type="button"
+              onClick={() => {
+                useAnordnungStore.getState().starte('fahrt');
+                setOffen(false);
+              }}
+              className="min-h-[48px] w-full rounded-xl bg-slate-100 px-3 py-2 text-left hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600"
+              data-testid="anordnung-starten-fahrt"
+            >
+              🧱 Bildschirm anpassen
+            </button>
           )}
 
           <UnterwegsFinden

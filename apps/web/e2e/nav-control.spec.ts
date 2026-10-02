@@ -572,6 +572,55 @@ test.describe('Navigation control end-to-end (E04-T5, Flow 2 + W-19)', () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test('0.28: Bildschirm anpassen waehrend der Navigation -- die Fahrtleiste verschieben, das Menue folgt', async ({
+    page,
+  }) => {
+    test.setTimeout(30_000);
+    const pageErrors = collectPageErrors(page);
+    await page.goto(NAV_CONTROL_CORE_BASE_URL + '/');
+    await page.evaluate(() => localStorage.removeItem('yapaja.anordnung'));
+    await waitForMapReady(page);
+    const startResponse = await page.request.post(`${NAV_CONTROL_CORE_BASE_URL}/api/v1/navigation/start`, {
+      data: { route: ROUTE, destination: { latlng: ROUTE_POINTS[10], name: 'Anordnung Ziel' } },
+    });
+    expect(startResponse.ok()).toBe(true);
+    // Stehend: ueber 10 km/h ist das Anpassen gesperrt (DriveLockGate).
+    await driveTo(page, 100, 0);
+    await expect.poll(() => navStatus(page), { timeout: 5_000 }).toBe('navigating');
+
+    try {
+      await oeffneFahrtMenue(page);
+      await page.getByTestId('anordnung-starten-fahrt').click();
+      await expect(page.getByTestId('anordnung-leiste')).toContainText('Navigation');
+
+      const leiste = page.getByTestId('trip-info-panel');
+      const vorher = (await leiste.boundingBox())!;
+      const griff = (await page.getByTestId('anordnung-griff-fahrtleiste').boundingBox())!;
+      const x = griff.x + griff.width / 2;
+      const y = griff.y + griff.height / 2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x, y - 60, { steps: 5 });
+      await page.mouse.move(x, y - 120, { steps: 5 });
+      await page.mouse.up();
+      const nachher = (await leiste.boundingBox())!;
+      expect(vorher.y - nachher.y).toBeGreaterThan(100);
+      // Beim Anordnen oeffnet ein Tipp auf die Leiste NICHT das Menue.
+      await expect(page.getByTestId('fahrt-menue')).toHaveCount(0);
+
+      await page.getByTestId('anordnung-fertig').click();
+      // Das Menue klappt ueber der verschobenen Leiste auf.
+      await oeffneFahrtMenue(page);
+      const menue = (await page.getByTestId('fahrt-menue').boundingBox())!;
+      const leisteJetzt = (await leiste.boundingBox())!;
+      expect(menue.y + menue.height).toBeLessThanOrEqual(leisteJetzt.y + 2);
+    } finally {
+      await page.evaluate(() => localStorage.removeItem('yapaja.anordnung'));
+    }
+
+    expect(pageErrors).toEqual([]);
+  });
+
   test('Flow 5 (prepared): changing the active profile mid-navigation does not crash the app or corrupt nav/state', async ({
     page,
   }) => {

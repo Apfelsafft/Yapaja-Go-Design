@@ -10,6 +10,29 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.28.0
+
+**Bildschirm anpassen: Knöpfe und Fenster selbst verschieben und
+vergrößern.**
+
+Gewünscht: „… eine Funktion, in der der User sich die Screens (Ruhemodus,
+Navigation usw.) selber konfigurieren kann … die einzelnen Objekte an
+gewünschte Stellen verschieben und vielleicht auch in der Größe ändern."
+
+- **Ruhe & Planung:** ⚙ → „Bildschirm anpassen". **Navigation:** im
+  Fahrtmenü „Bildschirm anpassen" — der Knopf erscheint nur im Stand bzw.
+  unter 10 km/h.
+- Jedes Element bekommt einen blauen Rahmen: **ziehen** verschiebt, der
+  **blaue Punkt** an der Ecke ändert die Größe (60 – 200 %). „Zurücksetzen"
+  holt die Standardanordnung zurück, „Fertig" beendet.
+- Anpassbar: Fahrtleiste (Ankunft/Restzeit/km — das Fahrtmenü klappt über
+  ihr auf und folgt ihr), Abbiegeanzeige, Tacho, Tempolimit-Schild,
+  Verkehrsbox, Routenfenster sowie die Knöpfe Kompass, Zentrieren,
+  Übersicht und Ansicht.
+- Gespeichert **je Gerät**. Nach einer Drehung oder auf einem kleineren
+  Fenster holt Yapaia ein Element zurück ins Bild, statt es draußen zu
+  lassen.
+
 ## 0.27.0
 
 **Rückmeldungen zu 0.26: Suche mit Hausnummer, Verkehr nur an der Route,
