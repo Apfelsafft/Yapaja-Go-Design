@@ -45,12 +45,12 @@ describe('findeStimme', () => {
           gesendet.push(d);
           const n = JSON.parse(d) as { type: string };
           const raus = n.type === 'auth' ? { type: 'auth_ok' } : { type: 'result', id: 1, success: true, result: antwort };
-          queueMicrotask(() => hoerer.message?.forEach((h) => h({ data: JSON.stringify(raus) })));
+          void Promise.resolve().then(() => hoerer.message?.forEach((h) => h({ data: JSON.stringify(raus) })));
         },
         close: () => undefined,
         addEventListener: ((typ: string, h: (e: { data: unknown }) => void) => {
           (hoerer[typ] ??= []).push(h);
-          if (typ === 'message') queueMicrotask(() => h({ data: JSON.stringify({ type: 'auth_required' }) }));
+          if (typ === 'message') void Promise.resolve().then(() => h({ data: JSON.stringify({ type: 'auth_required' }) }));
         }) as WebSocketAehnlich['addEventListener'],
       };
       return sock;
