@@ -10,6 +10,20 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.37.2
+
+- **Ansagen über Music Assistant: Go sagt jetzt, warum es nicht klappt.**
+  Bisher stand dort nur „media_player.… hat die Ansage nicht angenommen“.
+  Jetzt kommt der Grund von Home Assistant dazu, ebenso welche Stimme und
+  Sprache Go verwendet hat
+- **Sprache passend zur Stimme:** Auch eine in Go eingestellte Sprache wird
+  in die Schreibweise der Stimme gebracht (z. B. „de“ → „de-DE“ bei Home
+  Assistant Cloud). Mit der falschen Schreibweise lehnt Home Assistant die
+  Ansage ab
+- Eine Ansage, die Music Assistant gerade spricht, gilt nicht mehr als
+  Fehler, nur weil die Antwort von Home Assistant erst nach dem Sprechen
+  kommt
+
 ## 0.37.1
 
 - **Sehen, ob Ansagen über Music Assistant laufen:** Unter ⚙ → Sprache &

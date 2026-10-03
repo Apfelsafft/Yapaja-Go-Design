@@ -50,10 +50,11 @@ import { AuthGuard } from './auth/authGuard.js';
 import { authPlugin } from './auth/plugin.js';
 import { HaOutputChannel } from './ha/outputChannel.js';
 import { starteDashboardPflege } from './ha/dashboard.js';
-import { callHaService, fetchHaStates, fetchHaStatesById, postHaState } from './ha/client.js';
+import { fetchHaStates, fetchHaStatesById, postHaState } from './ha/client.js';
 import { Sprachdialog } from './sprache/dialog.js';
 import { frageKi } from './ha/kiAgent.js';
 import { AUTOMATION_ID, HaSprachBruecke, SPRACH_EINGABE } from './ha/sprachBruecke.js';
+import { wsBefehlErgebnis } from './ha/wsBefehl.js';
 import { registriereSprache, sprachDeps } from './sprache/kern.js';
 import { resolveDestinationAndRoute } from './navigation/destinationResolver.js';
 import { BordDienst, bordKonfigurationAusUmgebung } from './bord/dienst.js';
@@ -720,12 +721,18 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
       stimmeCache = { bis: Date.now() + 10 * 60_000, stimme };
       return stimme;
     },
-    rufe: async (v, data) => ({
-      ok: await callHaService(
-        { connection: v, domain: 'tts', service: 'speak', data },
-        { logger: ansageLogger, timeoutMs: 10_000 },
-      ),
-    }),
+    // Über WebSocket statt REST: so nennt Home Assistant den Grund, wenn es
+    // nicht geht. Die Aktion endet erst, wenn die Ansage gesprochen ist --
+    // keine Antwort nach 4 s heißt darum „läuft", nicht „Fehler".
+    rufe: async (v, data) => {
+      const { entity_id: engine, ...rest } = data;
+      const e = await wsBefehlErgebnis(
+        v,
+        { type: 'call_service', domain: 'tts', service: 'speak', service_data: rest, target: { entity_id: engine } },
+        { timeoutMs: 4_000 },
+      );
+      return e.ok || e.zeitUm ? { ok: true } : { ok: false, ...(e.fehler ? { fehler: e.fehler } : {}) };
+    },
   });
   const ansageZiel = new AnsageKette(lautsprecherAnsage, beatAnsage);
 
