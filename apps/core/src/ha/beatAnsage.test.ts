@@ -60,6 +60,9 @@ describe('BeatAnsage', () => {
       (await ziel('playing', { rufe: async () => ({ ok: false, status: 200, fehler: 'Niemand hört Yapaia Beat gerade zu' }) }).z.pruefe())
         .grund,
     ).toBe('Yapaia Beat: Niemand hört Yapaia Beat gerade zu');
+    expect((await ziel('playing', { rufe: async () => ({ ok: true, status: 200, ttsS: 2.34 }) }).z.pruefe()).grund).toBe(
+      'Yapaia Beat hat die Ansage ins Radio gemischt. Die Sprache zu erzeugen dauerte 2,3 s.',
+    );
     const gut = await ziel('playing', { aktionVorhanden: async () => true }).z.pruefe();
     expect(gut).toEqual({ ok: true, grund: 'Yapaia Beat hat die Ansage ins Radio gemischt.' });
   });

@@ -55,6 +55,8 @@ export interface RufErgebnis {
   status?: number;
   /** Was Yapaia Beat (ab 1.6.2) als Grund nennt. */
   fehler?: string;
+  /** Wie lange Home Assistant für die Sprache brauchte (Beat ab 1.6.3), in s. */
+  ttsS?: number;
 }
 
 /** Das Ergebnis von „Ansage ins Radio testen" -- in Klartext. */
@@ -106,7 +108,13 @@ export class BeatAnsage implements AnsageZiel {
         ...(engine ? { engine } : {}),
         ...(language ? { language } : {}),
       });
-      if (r.ok) return { ok: true, grund: 'Yapaia Beat hat die Ansage ins Radio gemischt.' };
+      if (r.ok) {
+        // Die Dauer hilft, eine späte Ansage einzuordnen: Erzeugen der Sprache
+        // in Home Assistant oder Vorrat im Browser.
+        const dauer =
+          typeof r.ttsS === 'number' ? ` Die Sprache zu erzeugen dauerte ${r.ttsS.toFixed(1).replace('.', ',')} s.` : '';
+        return { ok: true, grund: `Yapaia Beat hat die Ansage ins Radio gemischt.${dauer}` };
+      }
       if (r.fehler) return { ok: false, grund: `Yapaia Beat: ${r.fehler}` };
       if (r.status === 400) {
         return { ok: false, grund: 'Home Assistant kennt die Aktion yapaia_beat.announce nicht: Home Assistant neu starten.' };
@@ -163,11 +171,12 @@ export async function rufeBeat(
       { method: 'POST', body: data },
       { timeoutMs: 10_000, ...deps },
     );
-    const antwort = (r.json as { service_response?: { ok?: unknown; error?: unknown } } | undefined)?.service_response;
+    const antwort = (r.json as { service_response?: { ok?: unknown; error?: unknown; tts_s?: unknown } } | undefined)
+      ?.service_response;
     if (r.ok && antwort?.ok === false) {
       return { ok: false, status: r.status, fehler: typeof antwort.error === 'string' ? antwort.error : undefined };
     }
-    return { ok: r.ok, status: r.status };
+    return { ok: r.ok, status: r.status, ...(typeof antwort?.tts_s === 'number' ? { ttsS: antwort.tts_s } : {}) };
   } catch {
     return { ok: false };
   }
