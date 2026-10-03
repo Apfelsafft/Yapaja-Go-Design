@@ -10,6 +10,18 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.35.0
+
+- „Ansage ins Radio testen" zeigt, wie lange Home Assistant gebraucht hat,
+  die Sprache zu erzeugen (mit Yapaia Beat ab 1.6.3). Gemeldet: die Ansage
+  kommt erst nach ~7 s. Ein Teil davon ist das Erzeugen der Sprache, der
+  andere der Vorrat des Browsers — den baut Beat 1.6.3 ab; die angezeigte
+  Dauer zeigt, wie groß der erste Teil ist.
+- Die „lustige" Aussprache behebt Yapaia Beat 1.6.3: Ansagen kommen in der
+  Sprache von Home Assistant (Deutsch) statt der Standardsprache der Stimme.
+
+---
+
 ## 0.34.0
 
 - **„Ansage ins Radio testen" nennt den echten Grund.** Gemeldet: der Test
