@@ -23,7 +23,7 @@ export default function AnordnungsLeiste(): React.ReactElement | null {
       <span className="font-semibold">
         {bearbeiten === 'fahrt' ? 'Navigation' : 'Ruhe & Planung'} anpassen
       </span>
-      <span className="text-xs text-slate-300">Ziehen verschiebt · blauer Punkt: Größe</span>
+      <span className="text-xs text-slate-300">Ziehen verschiebt · blauer Punkt: Größe · Fadenkreuz: Position</span>
       <button
         type="button"
         onClick={() => zuruecksetzen(bearbeiten)}

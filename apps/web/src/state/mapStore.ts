@@ -83,7 +83,7 @@ interface MapControllerState {
    *
    * `null` stellt den Zustand ohne Verschiebung wieder her.
    */
-  setDrivePadding: (raender: { top: number; left: number; right: number } | null) => void;
+  setDrivePadding: (raender: { top: number; left: number; right: number; bottom?: number } | null) => void;
   /** Die Breite der Kartenflaeche in CSS-Bildpunkten, oder `null` ohne Karte. */
   getWidthPx: () => number | null;
   /** Die Hoehe der Kartenflaeche in CSS-Bildpunkten, oder `null` ohne Karte. */
@@ -122,12 +122,13 @@ export const useMapStore = create<MapControllerState>((set, get) => ({
     if (!map) {
       return;
     }
-    // Nur `top`, `left` und `right` anfassen: `bottom` gehoert anderen, und
-    // es hier mitzusetzen hiesse, dessen Wert stillschweigend zu
-    // ueberschreiben.
+    // Seit der verschiebbaren Position (`map/kartenAnker.ts`) auch `bottom`:
+    // liegt der Anker oberhalb der Mitte, braucht es unten einen Rand. Sonst
+    // setzt niemand die Ränder der Karte.
     map.setPadding({
       ...map.getPadding(),
       top: raender?.top ?? 0,
+      bottom: raender?.bottom ?? 0,
       left: raender?.left ?? 0,
       right: raender?.right ?? 0,
     });
@@ -170,7 +171,7 @@ export const mapController = {
   getMap: (): MapLibreMap | null => useMapStore.getState().getMap(),
   setCamera: (camera: CameraOptions, options?: SetCameraOptions): void =>
     useMapStore.getState().setCamera(camera, options),
-  setDrivePadding: (raender: { top: number; left: number; right: number } | null): void =>
+  setDrivePadding: (raender: { top: number; left: number; right: number; bottom?: number } | null): void =>
     useMapStore.getState().setDrivePadding(raender),
   getWidthPx: (): number | null => useMapStore.getState().getWidthPx(),
   getHeightPx: (): number | null => useMapStore.getState().getHeightPx(),

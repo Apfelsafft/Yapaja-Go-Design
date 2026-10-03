@@ -11,7 +11,30 @@
 
 import React, { useEffect, useState } from 'react';
 import { browserSource, type BrowserSourceState } from './browserSource';
-import { positionWSManager } from './positionStore';
+import { positionWSManager, usePositionStore } from './positionStore';
+import type { Position } from '@yapaia/shared';
+
+/**
+ * Die letzte bekannte Position einmal beim Start holen.
+ *
+ * Gemeldet: „Wenn die Ansicht das erste Mal geladen wird, wird die ganze Karte
+ * angezeigt." Über den WS kommt eine Position erst mit der NÄCHSTEN Meldung --
+ * steht das Fahrzeug, meldet manche Quelle lange nichts Neues, und bis dahin
+ * kennt die App keinen Punkt, auf den sie zoomen könnte. Der Kern weiß ihn
+ * längst (`GET /api/v1/position`). Eine Meldung über den WS, die früher
+ * ankommt, gewinnt.
+ */
+async function letztePositionHolen(): Promise<void> {
+  try {
+    const r = await fetch(`${import.meta.env.BASE_URL}api/v1/position`);
+    if (r.status !== 200) return;
+    const p = (await r.json()) as Position;
+    if (typeof p?.lat !== 'number' || typeof p?.lon !== 'number') return;
+    if (!usePositionStore.getState().position) usePositionStore.getState().setPosition(p);
+  } catch {
+    // Ohne Kern: dann eben mit der ersten Meldung.
+  }
+}
 import PositionPuck from './PositionPuck';
 import GeolocationHints from './GeolocationHints';
 import GpsLossBanner from './GpsLossBanner';
@@ -29,6 +52,7 @@ export default function PositionInitializer(): React.ReactElement {
 
     // Start WS connection to Core
     void positionWSManager.connect();
+    void letztePositionHolen();
 
     // Listen to browser source state changes
     const unsubscribe = browserSource.onStateChange((state) => {

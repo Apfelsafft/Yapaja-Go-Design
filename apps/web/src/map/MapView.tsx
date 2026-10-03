@@ -23,7 +23,7 @@ import { useStyleStore, wirksamesPoiAus } from '../state/styleStore';
 import { useKartenSeite } from '../shell/bedienSeite.js';
 import { useDegradationStore } from '../perf/degrade';
 import { useViewModeStore, syncHeadingToBearing } from './viewMode';
-import { initializeFollowMe, updateFollowMePosition } from './followMe';
+import { initializeFollowMe, recenterOnPosition, updateFollowMePosition } from './followMe';
 import { usePosition, usePositionStore } from '../position/positionStore';
 import { pickActiveRegion } from './activeRegion';
 import { useRegionStore } from './regionStore';
@@ -379,9 +379,23 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
     return cleanup;
   }, [map]);
 
+  // ─── BEIM ERSTEN LADEN: HERAN AN DIE POSITION ───────────────────────────
+  // Gemeldet: „Wenn die Ansicht das erste Mal geladen wird, wird die ganze
+  // Karte angezeigt. Bitte zoome dann auf den aktuellen Punkt, als ob man
+  // Zentrieren drücken würde." Die Karte startet über der ganzen Region
+  // (`bounds` oben) -- sinnvoll, solange keine Position da ist. Kommt die
+  // erste, geschieht genau das, was der Zentrieren-Knopf tut. Einmal je
+  // Karte: danach bestimmt der Mensch, wohin er schaut.
+  const ersteZentrierung = useRef<maplibregl.Map | null>(null);
+
   // Update Follow-Me position when position changes.
   useEffect(() => {
     if (!map || !position) {
+      return;
+    }
+    if (ersteZentrierung.current !== map) {
+      ersteZentrierung.current = map;
+      recenterOnPosition();
       return;
     }
     // ─── EINE KAMERAFAHRT, MITTE UND WINKEL ZUSAMMEN ────────────────────────

@@ -89,3 +89,40 @@ test('ein weit hinausgeschobenes Element bleibt im sichtbaren Bereich', async ({
   expect(box.y).toBeLessThan(fenster.height);
   expect(box.y + box.height).toBeGreaterThan(0);
 });
+
+test('0.36: beim ersten Laden heran an die Position; im Anpassen lässt sich die Position verschieben', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['geolocation']);
+  await context.setGeolocation({ latitude: 47.1410, longitude: 9.5209, accuracy: 10 });
+  await bereit(page);
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, { timeout: 15_000 });
+
+  // Wie „Zentrieren": mindestens Stufe 15 statt der ganzen Region.
+  await expect
+    .poll(() => page.evaluate(() => window.__yapaiaMapController!.getMap()!.getZoom()), { timeout: 15_000 })
+    .toBeGreaterThanOrEqual(14.9);
+
+  const raender = () => page.evaluate(() => window.__yapaiaMapController!.getMap()!.getPadding());
+  expect(await raender()).toMatchObject({ top: 0, bottom: 0, left: 0, right: 0 });
+
+  await oeffneEinstellung(page, 'anordnung-starten');
+  await expect(page.getByTestId('anordnung-anker')).toBeVisible();
+  // Nach links unten ziehen: Ränder oben und rechts schieben die Mitte dorthin.
+  await ziehe(page, 'anordnung-anker', -200, 150);
+  await expect.poll(async () => (await raender()).top).toBeGreaterThan(100);
+  expect((await raender()).right).toBeGreaterThan(100);
+  expect((await raender()).bottom).toBe(0);
+  await page.getByTestId('anordnung-fertig').click();
+  await expect(page.getByTestId('anordnung-anker')).toHaveCount(0);
+
+  // Bleibt nach dem Neuladen; Zurücksetzen holt die Mitte zurück.
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, { timeout: 15_000 });
+  await expect.poll(async () => (await raender()).top).toBeGreaterThan(100);
+  await oeffneEinstellung(page, 'anordnung-starten');
+  await page.getByTestId('anordnung-zuruecksetzen').click();
+  await expect.poll(async () => (await raender()).top).toBe(0);
+  expect(await raender()).toMatchObject({ bottom: 0, left: 0, right: 0 });
+});

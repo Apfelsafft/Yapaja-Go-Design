@@ -4,6 +4,7 @@ import PositionInitializer from './position/PositionInitializer';
 import RoutingInitializer from './routing/RoutingInitializer.js';
 import DriveOverlay from './drive/DriveOverlay.js';
 import AnordnungsLeiste from './shell/AnordnungsLeiste.js';
+import AnkerGriff from './shell/AnkerGriff.js';
 import SprachFenster from './sprache/SprachFenster.js';
 import SpeedDisplay from './drive/SpeedDisplay.js';
 import ThemeController from './theme/ThemeController.js';
@@ -43,6 +44,7 @@ export default function App(): React.ReactElement {
       <DriveOverlay />
       {/* Bearbeitungsmodus „Bildschirm anpassen" (shell/anordnung.ts). */}
       <AnordnungsLeiste />
+      <AnkerGriff />
       {/* Sprachbefehle (0.29): 🎤 in Kopfzeile und Fahrt. */}
       <SprachFenster />
       {/* Bordsensoren: Grau-/Frischwasser, Batterie, Frost -- mit der
