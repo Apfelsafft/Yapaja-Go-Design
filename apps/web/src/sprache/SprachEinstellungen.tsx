@@ -18,6 +18,10 @@ interface Stand {
   ansagenBeat?: boolean;
   /** Gibt es Yapaia Beat in Home Assistant? */
   radio?: boolean;
+  /** Die Player von Music Assistant. */
+  lautsprecher?: Array<{ id: string; name: string }>;
+  /** Gewählter Lautsprecher für Ansagen, '' = automatisch. */
+  lautsprecherWahl?: string;
 }
 
 interface Ergebnis {
@@ -88,6 +92,19 @@ export default function SprachEinstellungen(): React.ReactElement {
       setTest(body.data ?? { ok: false, grund: `HTTP ${r.status}` });
     } catch {
       setTest({ ok: false, grund: 'Yapaia ist nicht erreichbar.' });
+    }
+  };
+
+  const lautsprecherSetzen = async (id: string): Promise<void> => {
+    setStand((s) => (s ? { ...s, lautsprecherWahl: id } : s));
+    try {
+      await fetch(url('api/v1/settings'), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ansage_lautsprecher: id || null }),
+      });
+    } catch {
+      // Beim nächsten Öffnen zeigt der Stand vom Kern, was gilt.
     }
   };
 
@@ -175,6 +192,28 @@ export default function SprachEinstellungen(): React.ReactElement {
             {stand?.verfuegbar && !stand.radio && (
               <span className="block text-xs text-slate-500">Yapaia Beat ist in Home Assistant nicht eingerichtet.</span>
             )}
+          </span>
+        </label>
+        <label className="block space-y-1">
+          <span>Ansagen über</span>
+          <select
+            value={stand?.lautsprecherWahl ?? ''}
+            onChange={(e) => void lautsprecherSetzen(e.target.value)}
+            disabled={!stand?.verfuegbar}
+            className="w-full rounded-md border border-slate-300 bg-white px-2 py-2 dark:border-slate-600 dark:bg-slate-700"
+            data-testid="sprach-lautsprecher"
+          >
+            <option value="">Automatisch</option>
+            {(stand?.lautsprecher ?? []).map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name} (Music Assistant)
+              </option>
+            ))}
+          </select>
+          <span className="block text-xs text-slate-500 dark:text-slate-400">
+            Automatisch: Spielt Yapaia Beat auf einem Music-Assistant-Player, laufen Radio und Ansage gemeinsam
+            darüber. Läuft Beat anders, mischt Beat die Ansage ein. Ohne Beat geht sie an Music Assistant, wenn es
+            genau einen Player gibt. Sonst spricht Yapaia selbst.
           </span>
         </label>
         <button

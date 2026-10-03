@@ -629,6 +629,12 @@ comes back. Nothing is stopped or restarted. When Beat is not playing, Yapaia
 speaks as before (browser or Home Assistant TTS). Switch it off under
 **⚙ → Sprache & Home Assistant → Ansagen und Radio**; how far the music is
 turned down is set in Beat's add-on options (`announce_music_level`).
+With **Music Assistant**, choose a player under **Ansagen über** (or leave
+it on *Automatisch*): announcements then go to Music Assistant, which pauses
+the music briefly — or, with Snapcast and Sonos, mixes it under the voice —
+and resumes it afterwards. If Yapaia Beat plays on a Music Assistant player,
+radio and announcements run together through it, without the browser
+stream's delay.
 **Ansage ins Radio testen** on the same page plays a test announcement through
 Beat and tells you in plain words why it fails, if it does (for example:
 restart Home Assistant after updating Beat, or no text-to-speech set up).
@@ -642,7 +648,8 @@ stopped or below 10 km/h). Drag an element to move it; drag the blue dot at
 its corner to make it bigger or smaller (60–200 %). **Zurücksetzen** restores
 the default layout, **Fertig** ends editing. The layout is stored per device,
 and an element that would end up off-screen — after rotating the tablet, for
-instance — is pulled back into view. The crosshair **Position** sets where
+instance — is pulled back into view. The editing bar can be dragged out of the way by its ⠿ handle. The crosshair
+**Position** sets where
 your own location sits on the map (centre by default, lower quarter on the
 driver's side while navigating).
 

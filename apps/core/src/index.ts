@@ -22,6 +22,7 @@ import { HaTrackerSource, listGpsTrackers } from './position/haTracker/index.js'
 import { istCompanionAppQuelle } from './position/gpsSourceOption.js';
 import { resolveHaConfig, resolveHaConnection, resolveTrackerEntityId } from './ha/config.js';
 import { BEAT_ENTITAET, BeatAnsage, beatAktionVorhanden, beatAnsagenAn, rufeBeat } from './ha/beatAnsage.js';
+import { AnsageKette, LautsprecherAnsage, findeStimme, lautsprecherWahl, maLautsprecher, type Stimme } from './ha/lautsprecherAnsage.js';
 import { mapPlugin } from './map/routes.js';
 import { routingPlugin, buildRoutingService } from './routing/routes.js';
 import { onlinePlugin } from './online/routes.js';
@@ -40,7 +41,7 @@ import { AuthGuard } from './auth/authGuard.js';
 import { authPlugin } from './auth/plugin.js';
 import { HaOutputChannel } from './ha/outputChannel.js';
 import { starteDashboardPflege } from './ha/dashboard.js';
-import { fetchHaStates, fetchHaStatesById, postHaState } from './ha/client.js';
+import { callHaService, fetchHaStates, fetchHaStatesById, postHaState } from './ha/client.js';
 import { Sprachdialog } from './sprache/dialog.js';
 import { frageKi } from './ha/kiAgent.js';
 import { AUTOMATION_ID, HaSprachBruecke, SPRACH_EINGABE } from './ha/sprachBruecke.js';
@@ -672,7 +673,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     warn: (msg: string, meta?: Record<string, unknown>) => fastify.log.warn(meta ?? {}, msg),
     error: (msg: string, meta?: Record<string, unknown>) => fastify.log.error(meta ?? {}, msg),
   };
-  const ansageZiel = new BeatAnsage({
+  const beatAnsage = new BeatAnsage({
     verbindung: () => resolveHaConnection({ settings: settingsService }),
     eingeschaltet: () => beatAnsagenAn(settingsService.get('ansagen_beat')),
     stimme: () => {
@@ -683,6 +684,41 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     rufe: (v, data) => rufeBeat(v, data),
     aktionVorhanden: (v) => beatAktionVorhanden(v),
   });
+  // Ansagen über Music Assistant (Stufe 3) bzw. den gewählten Lautsprecher;
+  // sonst Beat (Stufe 2/4), sonst Go selbst (Stufe 1). `ha/lautsprecherAnsage.ts`.
+  let zustaendeCache: { bis: number; liste: Awaited<ReturnType<typeof fetchHaStates>> } | null = null;
+  const zustaendeKurz = async (v: Parameters<typeof fetchHaStates>[0]) => {
+    if (zustaendeCache && zustaendeCache.bis > Date.now()) return zustaendeCache.liste;
+    const liste = await fetchHaStates(v, { logger: ansageLogger }).catch(() => []);
+    zustaendeCache = { bis: Date.now() + 30_000, liste: Array.isArray(liste) ? liste : [] };
+    return zustaendeCache.liste;
+  };
+  let stimmeCache: { bis: number; stimme: Stimme | null } | null = null;
+  const lautsprecherAnsage = new LautsprecherAnsage({
+    verbindung: () => resolveHaConnection({ settings: settingsService }),
+    ziel: async (v) => {
+      const liste = await zustaendeKurz(v);
+      return lautsprecherWahl(
+        settingsService.get('ansage_lautsprecher'),
+        liste,
+        liste.some((z) => z.entity_id === BEAT_ENTITAET),
+      );
+    },
+    stimme: async (v) => {
+      if (stimmeCache && stimmeCache.bis > Date.now()) return stimmeCache.stimme;
+      const tts = resolveHaConfig({ settings: settingsService })?.tts;
+      const stimme = await findeStimme(v, { engine: tts?.ttsEntityId, language: tts?.language });
+      stimmeCache = { bis: Date.now() + 10 * 60_000, stimme };
+      return stimme;
+    },
+    rufe: async (v, data) => ({
+      ok: await callHaService(
+        { connection: v, domain: 'tts', service: 'speak', data },
+        { logger: ansageLogger, timeoutMs: 10_000 },
+      ),
+    }),
+  });
+  const ansageZiel = new AnsageKette(lautsprecherAnsage, beatAnsage);
 
   const haOutputChannel = new HaOutputChannel({
     bus: eventBus,
@@ -962,6 +998,8 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
           agenten: [],
           ansagenBeat: beatAnsagenAn(settingsService.get('ansagen_beat')),
           radio: false,
+          lautsprecher: [],
+          lautsprecherWahl: '',
         },
       });
     }
@@ -981,6 +1019,9 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
         // Yapaia Beat in dieser Anlage überhaupt gibt.
         ansagenBeat: beatAnsagenAn(settingsService.get('ansagen_beat')),
         radio: liste.some((z) => z.entity_id === BEAT_ENTITAET),
+        // Music Assistant: wählbare Lautsprecher für Ansagen und die Wahl.
+        lautsprecher: maLautsprecher(liste),
+        lautsprecherWahl: typeof settingsService.get('ansage_lautsprecher') === 'string' ? settingsService.get('ansage_lautsprecher') : '',
       },
     });
   });
