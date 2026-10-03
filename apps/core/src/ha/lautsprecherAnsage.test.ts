@@ -103,7 +103,23 @@ describe('findeStimme', () => {
     expect(JSON.parse(w.gesendet[1]!)).toMatchObject({ type: 'tts/engine/list', language: 'de' });
   });
 
-  it('eine eingestellte Stimme wird bevorzugt; Stimme und Sprache eingestellt -> keine Anfrage', async () => {
+  it('auch eine eingestellte Sprache wird in die Schreibweise der Stimme gebracht ("de" -> "de-DE")', async () => {
+    const w = ws({ providers: [{ engine_id: 'tts.home_assistant_cloud', supported_languages: ['de-DE'] }] });
+    expect(
+      await findeStimme(V, { engine: 'tts.home_assistant_cloud', language: 'de' }, { ws: { erzeugeSocket: w.erzeugeSocket } }),
+    ).toEqual({ engine: 'tts.home_assistant_cloud', language: 'de-DE' });
+    expect(JSON.parse(w.gesendet[1]!)).toMatchObject({ type: 'tts/engine/list', language: 'de' });
+  });
+
+  it('kennt die Liste die gewählte Stimme nicht, bleibt es bei der Einstellung', async () => {
+    const w = ws({ providers: [{ engine_id: 'tts.andere', supported_languages: ['de'] }] });
+    expect(await findeStimme(V, { engine: 'tts.x', language: 'de-DE' }, { ws: { erzeugeSocket: w.erzeugeSocket } })).toEqual({
+      engine: 'tts.x',
+      language: 'de-DE',
+    });
+  });
+
+  it('eine eingestellte Stimme wird bevorzugt', async () => {
     const w = ws({
       providers: [
         { engine_id: 'tts.a', supported_languages: ['de'] },
@@ -114,7 +130,6 @@ describe('findeStimme', () => {
       engine: 'tts.piper',
       language: 'de_DE',
     });
-    expect(await findeStimme(V, { engine: 'tts.x', language: 'de-DE' })).toEqual({ engine: 'tts.x', language: 'de-DE' });
   });
 });
 
@@ -152,5 +167,19 @@ describe('LautsprecherAnsage + Kette', () => {
     const kaputt = aufbau('media_player.ma_bus', false);
     expect(await kaputt.kette.sage('x', 'hinweis')).toBe(true);
     expect(kaputt.beat.sage).toHaveBeenCalled();
+  });
+
+  it('nennt den Grund, den Home Assistant angibt', async () => {
+    const deps: LautsprecherAnsageDeps = {
+      verbindung: () => V,
+      ziel: async () => 'media_player.yapaia_ipad',
+      stimme: async () => ({ engine: 'tts.cloud', language: 'de' }),
+      rufe: async () => ({ ok: false, fehler: 'Language de not supported' }),
+    };
+    const r = await new LautsprecherAnsage(deps).pruefe();
+    expect(r.ok).toBe(false);
+    expect(r.grund).toContain('media_player.yapaia_ipad');
+    expect(r.grund).toContain('tts.cloud, de');
+    expect(r.grund).toContain('Language de not supported');
   });
 });

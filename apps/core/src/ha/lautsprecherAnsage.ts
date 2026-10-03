@@ -135,7 +135,8 @@ export async function findeStimme(
   wunsch: { engine?: string; language?: string },
   deps: { fetch?: HaFetchLike; ws?: WsBefehlDeps } = {},
 ): Promise<Stimme | null> {
-  if (wunsch.engine && wunsch.language) return { engine: wunsch.engine, language: wunsch.language };
+  // Auch eine eingestellte Sprache wird nachgeschlagen: „de" kennt etwa die
+  // Cloud-Stimme nicht, nur „de-DE" -- und `tts.speak` lehnt dann ab.
   let sprache = wunsch.language;
   if (!sprache) {
     const abbruch = new AbortController();
@@ -160,6 +161,11 @@ export async function findeStimme(
   const anbieter = (liste?.providers ?? []).filter(
     (p): p is { engine_id: string; supported_languages?: unknown } => typeof p.engine_id === 'string',
   );
+  if (wunsch.engine && !anbieter.some((p) => p.engine_id === wunsch.engine)) {
+    // Die gewählte Stimme taucht nicht auf (spricht die Sprache nicht, oder
+    // die Liste fehlt): so nehmen, wie eingestellt.
+    return { engine: wunsch.engine, ...(wunsch.language ? { language: wunsch.language } : {}) };
+  }
   const passend =
     anbieter.find((p) => p.engine_id === wunsch.engine) ??
     anbieter.find((p) => Array.isArray(p.supported_languages) && p.supported_languages.length > 0) ??
@@ -203,12 +209,16 @@ export class LautsprecherAnsage implements AnsageZiel {
         message: text.trim().slice(0, 1000),
         ...(stimme.language ? { language: stimme.language } : {}),
       });
+      const stimmeText = `${stimme.engine}${stimme.language ? `, ${stimme.language}` : ''}`;
       return r.ok
-        ? { ok: true, zustaendig: true, grund: `Die Ansage ging an ${ziel} (Music Assistant).` }
+        ? { ok: true, zustaendig: true, grund: `Die Ansage ging an ${ziel} (Music Assistant, Stimme ${stimmeText}).` }
         : {
             ok: false,
             zustaendig: true,
-            grund: `${ziel} hat die Ansage nicht angenommen${r.status ? ` (HTTP ${r.status})` : ''}.`,
+            // Gewünscht: sagen, WARUM -- Home Assistant nennt den Grund.
+            grund:
+              `${ziel} hat die Ansage nicht angenommen (Stimme ${stimmeText})` +
+              (r.fehler ? `: ${r.fehler}` : r.status ? ` (HTTP ${r.status}).` : '.'),
           };
     } catch {
       return { ok: false, zustaendig: true, grund: 'Home Assistant hat nicht geantwortet.' };

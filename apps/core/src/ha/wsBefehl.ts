@@ -23,11 +23,36 @@ export async function wsBefehl(
   befehl: Record<string, unknown>,
   deps: WsBefehlDeps = {},
 ): Promise<unknown> {
+  const e = await wsBefehlErgebnis(verbindung, befehl, deps);
+  return e.ok ? (e.result ?? null) : null;
+}
+
+export interface WsErgebnis {
+  ok: boolean;
+  result?: unknown;
+  /** Die Fehlermeldung von Home Assistant, in seinen Worten. */
+  fehler?: string;
+  /** Keine Antwort binnen `timeoutMs` -- bei einer laufenden Aktion (eine
+   *  Ansage dauert, bis sie gesprochen ist) heißt das nicht „Fehler". */
+  zeitUm?: boolean;
+}
+
+/**
+ * Wie {@link wsBefehl}, aber mit der Fehlermeldung von Home Assistant. Die
+ * REST-Schnittstelle antwortet bei einer fehlgeschlagenen Aktion nur mit
+ * einem Status; über WebSocket sagt Home Assistant, was nicht ging (etwa
+ * „Sprache nicht unterstützt").
+ */
+export async function wsBefehlErgebnis(
+  verbindung: HaConnection,
+  befehl: Record<string, unknown>,
+  deps: WsBefehlDeps = {},
+): Promise<WsErgebnis> {
   const erzeuge = deps.erzeugeSocket ?? ((url: string) => new WebSocket(url) as unknown as WebSocketAehnlich);
-  return new Promise((fertig) => {
+  return new Promise<WsErgebnis>((fertig) => {
     let socket: WebSocketAehnlich | null = null;
     let erledigt = false;
-    const ende = (ergebnis: unknown): void => {
+    const ende = (ergebnis: WsErgebnis): void => {
       if (erledigt) return;
       erledigt = true;
       clearTimeout(uhr);
@@ -38,15 +63,15 @@ export async function wsBefehl(
       }
       fertig(ergebnis);
     };
-    const uhr = setTimeout(() => ende(null), deps.timeoutMs ?? 8_000);
+    const uhr = setTimeout(() => ende({ ok: false, zeitUm: true, fehler: 'Home Assistant hat nicht rechtzeitig geantwortet.' }), deps.timeoutMs ?? 8_000);
     try {
       socket = erzeuge(wsUrlFor(verbindung.apiBase));
     } catch {
-      ende(null);
+      ende({ ok: false, fehler: 'Home Assistant ist nicht erreichbar.' });
       return;
     }
-    socket.addEventListener('error', () => ende(null));
-    socket.addEventListener('close', () => ende(null));
+    socket.addEventListener('error', () => ende({ ok: false, fehler: 'Home Assistant ist nicht erreichbar.' }));
+    socket.addEventListener('close', () => ende({ ok: false, fehler: 'Home Assistant hat die Verbindung beendet.' }));
     socket.addEventListener('message', (e) => {
       let n: Record<string, unknown>;
       try {
@@ -55,9 +80,15 @@ export async function wsBefehl(
         return;
       }
       if (n.type === 'auth_required') socket?.send(JSON.stringify({ type: 'auth', access_token: verbindung.token }));
-      else if (n.type === 'auth_invalid') ende(null);
+      else if (n.type === 'auth_invalid') ende({ ok: false, fehler: 'Home Assistant hat die Anmeldung abgelehnt.' });
       else if (n.type === 'auth_ok') socket?.send(JSON.stringify({ id: 1, ...befehl }));
-      else if (n.type === 'result' && n.id === 1) ende(n.success === true ? (n.result ?? null) : null);
+      else if (n.type === 'result' && n.id === 1) {
+        if (n.success === true) ende({ ok: true, result: n.result ?? null });
+        else {
+          const f = n.error as { message?: unknown; code?: unknown } | undefined;
+          ende({ ok: false, fehler: typeof f?.message === 'string' ? f.message : typeof f?.code === 'string' ? f.code : undefined });
+        }
+      }
     });
   });
 }
