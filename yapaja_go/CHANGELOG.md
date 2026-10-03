@@ -10,6 +10,32 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.37.0
+
+**Ansagen über Music Assistant.**
+
+Je nachdem, was installiert ist, wählt Yapaia den besten Weg:
+
+1. Nur Yapaia Go: Yapaia spricht selbst (Browser oder Home-Assistant-TTS).
+2. Mit Yapaia Beat: Beat mischt die Ansage ins Radio.
+3. Mit Music Assistant: die Ansage geht an Music Assistant — läuft dort
+   Musik, wird sie kurz pausiert bzw. bei Snapcast und Sonos leiser
+   gemischt und läuft danach weiter.
+4. Mit Beat und Music Assistant: Spielt Beat (ab 1.7) auf einem
+   Music-Assistant-Player, laufen Radio und Ansage gemeinsam darüber —
+   ohne die Verzögerung des Browser-Streams.
+
+- Neu unter **⚙ → Sprache & Home Assistant → „Ansagen über"**: Automatisch
+  oder ein bestimmter Music-Assistant-Player. Automatisch nimmt ohne Beat
+  den Music-Assistant-Player, wenn es genau einen gibt.
+- Stimme und Sprache für die Ansage fragt Yapaia bei Home Assistant ab
+  (Sprache des Systems), damit nichts mit Akzent vorgelesen wird.
+- **Bildschirm anpassen:** Gemeldet: die Leiste lag über Suche und Chips,
+  die man dadurch nicht verschieben konnte. Die Leiste lässt sich jetzt am
+  Griff ⠿ wegziehen.
+
+---
+
 ## 0.36.0
 
 - **Position verschiebbar:** Im **Bildschirm anpassen** (Ruhe & Planung

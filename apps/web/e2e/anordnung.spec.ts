@@ -43,6 +43,12 @@ test('ein Knopf lässt sich verschieben und vergrößern, bleibt nach dem Neulad
   await expect(page.getByTestId('anordnung-leiste')).toBeVisible();
   await expect(page.getByTestId('einstellungen-menue')).toHaveCount(0);
 
+  // 0.37: Die Leiste lässt sich wegziehen -- sie lag über Suche und Chips.
+  const leisteVorher = (await page.getByTestId('anordnung-leiste').boundingBox())!;
+  await ziehe(page, 'anordnung-leiste-griff', 0, 300);
+  const leisteNachher = (await page.getByTestId('anordnung-leiste').boundingBox())!;
+  expect(leisteNachher.y - leisteVorher.y).toBeGreaterThan(250);
+
   // Verschieben: 150 nach links/rechts zur Mitte hin, 100 nach oben.
   const richtung = vorher.x > page.viewportSize()!.width / 2 ? -1 : 1;
   await ziehe(page, 'anordnung-griff-ansicht', 150 * richtung, -100);

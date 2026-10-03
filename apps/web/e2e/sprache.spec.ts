@@ -141,6 +141,8 @@ test('0.30: ⚙ → Sprache & Home Assistant -- ohne Add-on sagt die Seite das; 
           agenten: [{ id: 'conversation.openai', name: 'OpenAI' }],
           ansagenBeat: true,
           radio: true,
+          lautsprecher: [{ id: 'media_player.ma_bus', name: 'Bus' }],
+          lautsprecherWahl: '',
         },
       }),
     }),
@@ -165,6 +167,10 @@ test('0.30: ⚙ → Sprache & Home Assistant -- ohne Add-on sagt die Seite das; 
   await expect(page.getByTestId('sprach-ansagen-beat')).toBeChecked();
   await page.getByTestId('sprach-ansagen-beat').uncheck();
   await expect.poll(() => patches).toContainEqual({ ansagen_beat: false });
+
+  // 0.37: Ansagen über einen Music-Assistant-Player.
+  await page.getByTestId('sprach-lautsprecher').selectOption('media_player.ma_bus');
+  await expect.poll(() => patches).toContainEqual({ ansage_lautsprecher: 'media_player.ma_bus' });
 
   // 0.33: „Ansage ins Radio testen" zeigt den Grund in Klartext (Test-Kern: kein Add-on).
   await page.getByTestId('sprach-ansage-test').click();
