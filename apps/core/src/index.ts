@@ -688,7 +688,11 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     eingeschaltet: () => beatAnsagenAn(settingsService.get('ansagen_beat')),
     stimme: () => {
       const tts = resolveHaConfig({ settings: settingsService })?.tts;
-      return { engine: tts?.ttsEntityId, language: tts?.language };
+      // Beat nimmt nur eine Stimme als Entität (`tts.…`); ein alter
+      // Plattform-Name („google_translate") scheitert dort an der Prüfung --
+      // dann nimmt Beat die Standardstimme von Home Assistant.
+      const engine = tts?.ttsEntityId?.startsWith('tts.') ? tts.ttsEntityId : undefined;
+      return { engine, language: tts?.language };
     },
     leseZustaende: (v, ids) => fetchHaStatesById(v, ids, { logger: ansageLogger, timeoutMs: 2_000 }),
     rufe: (v, data) => rufeBeat(v, data),
@@ -725,12 +729,20 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     // nicht geht. Die Aktion endet erst, wenn die Ansage gesprochen ist --
     // keine Antwort nach 4 s heißt darum „läuft", nicht „Fehler".
     rufe: async (v, data) => {
-      const { entity_id: engine, ...rest } = data;
-      const e = await wsBefehlErgebnis(
-        v,
-        { type: 'call_service', domain: 'tts', service: 'speak', service_data: rest, target: { entity_id: engine } },
-        { timeoutMs: 4_000 },
-      );
+      const { entity_id: engine, media_player_entity_id: ziel, ...rest } = data;
+      // Eine Stimme ohne Entität (alte Plattform, z. B. „google_translate")
+      // spricht nur über ihre eigene Aktion `tts.<name>_say`.
+      const befehl =
+        typeof engine === 'string' && !engine.startsWith('tts.')
+          ? { type: 'call_service', domain: 'tts', service: `${engine}_say`, service_data: { entity_id: ziel, ...rest } }
+          : {
+              type: 'call_service',
+              domain: 'tts',
+              service: 'speak',
+              service_data: { media_player_entity_id: ziel, ...rest },
+              target: { entity_id: engine },
+            };
+      const e = await wsBefehlErgebnis(v, befehl, { timeoutMs: 4_000 });
       return e.ok || e.zeitUm ? { ok: true } : { ok: false, ...(e.fehler ? { fehler: e.fehler } : {}) };
     },
   });

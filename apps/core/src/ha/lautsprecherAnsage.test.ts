@@ -119,6 +119,26 @@ describe('findeStimme', () => {
     });
   });
 
+  it('eine Stimme beim Plattform-Namen ("google_translate") wird zur Entität', async () => {
+    const w = ws({
+      providers: [
+        { engine_id: 'google_translate', supported_languages: ['de'] },
+        { engine_id: 'tts.piper', supported_languages: ['de_DE'] },
+        { engine_id: 'tts.google_translate_en_com', supported_languages: ['de'] },
+      ],
+    });
+    expect(
+      await findeStimme(V, { engine: 'google_translate', language: 'de' }, { ws: { erzeugeSocket: w.erzeugeSocket } }),
+    ).toEqual({ engine: 'tts.google_translate_en_com', language: 'de' });
+  });
+
+  it('ohne jede Entität bleibt der Plattform-Name (für tts.<name>_say)', async () => {
+    const w = ws({ providers: [{ engine_id: 'google_translate', supported_languages: ['de'] }] });
+    expect(
+      await findeStimme(V, { engine: 'google_translate', language: 'de' }, { ws: { erzeugeSocket: w.erzeugeSocket } }),
+    ).toEqual({ engine: 'google_translate', language: 'de' });
+  });
+
   it('eine eingestellte Stimme wird bevorzugt', async () => {
     const w = ws({
       providers: [

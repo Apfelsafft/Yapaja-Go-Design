@@ -158,9 +158,22 @@ export async function findeStimme(
   const liste = (await wsBefehl(v, { type: 'tts/engine/list', ...(sprache ? { language: sprache } : {}) }, deps.ws)) as {
     providers?: Array<{ engine_id?: unknown; supported_languages?: unknown }>;
   } | null;
-  const anbieter = (liste?.providers ?? []).filter(
+  const alle = (liste?.providers ?? []).filter(
     (p): p is { engine_id: string; supported_languages?: unknown } => typeof p.engine_id === 'string',
   );
+  // `tts.speak` braucht die Stimme als Entität (`tts.google_translate_en_com`).
+  // Ältere Einrichtungen nennen sie beim Namen der Plattform
+  // („google_translate") -- damit lehnt Home Assistant ab ("expected 'all'
+  // or 'none' at 'target.entity_id'"). Dann die passende Entität nehmen,
+  // sonst irgendeine; nur wenn es keine gibt, bleibt der alte Name (und
+  // `rufe` nimmt die alte Aktion `tts.<name>_say`).
+  const anbieter = alle.filter((p) => p.engine_id.startsWith('tts.'));
+  if (wunsch.engine && !wunsch.engine.startsWith('tts.')) {
+    const alt = wunsch.engine;
+    const ersatz = anbieter.find((p) => p.engine_id.startsWith(`tts.${alt}`)) ?? anbieter[0];
+    if (ersatz) return mitSprache(ersatz, sprache);
+    return { engine: alt, ...(sprache ? { language: alleSprache(alle.find((p) => p.engine_id === alt), sprache) } : {}) };
+  }
   if (wunsch.engine && !anbieter.some((p) => p.engine_id === wunsch.engine)) {
     // Die gewählte Stimme taucht nicht auf (spricht die Sprache nicht, oder
     // die Liste fehlt): so nehmen, wie eingestellt.
@@ -169,11 +182,22 @@ export async function findeStimme(
   const passend =
     anbieter.find((p) => p.engine_id === wunsch.engine) ??
     anbieter.find((p) => Array.isArray(p.supported_languages) && p.supported_languages.length > 0) ??
-    anbieter[0];
+    anbieter[0] ??
+    alle[0]; // nur alte Plattformen: dann eben über `tts.<name>_say`
   if (!passend) return wunsch.engine ? { engine: wunsch.engine } : null;
-  const sprachen = Array.isArray(passend.supported_languages) ? (passend.supported_languages as unknown[]) : [];
+  return mitSprache(passend, sprache);
+}
+
+/** Die erste Schreibweise der Sprache, die die Stimme kennt, sonst die gesuchte. */
+function alleSprache(p: { supported_languages?: unknown } | undefined, sprache: string): string {
+  const sprachen = Array.isArray(p?.supported_languages) ? (p.supported_languages as unknown[]) : [];
+  return sprachen.find((s): s is string => typeof s === 'string') ?? sprache;
+}
+
+function mitSprache(p: { engine_id: string; supported_languages?: unknown }, sprache: string | undefined): Stimme {
+  const sprachen = Array.isArray(p.supported_languages) ? (p.supported_languages as unknown[]) : [];
   const genau = sprachen.find((s): s is string => typeof s === 'string');
-  return { engine: passend.engine_id, ...(genau ? { language: genau } : sprache ? { language: sprache } : {}) };
+  return { engine: p.engine_id, ...(genau ? { language: genau } : sprache ? { language: sprache } : {}) };
 }
 
 export interface LautsprecherAnsageDeps {
