@@ -22,6 +22,36 @@ interface Stand {
   lautsprecher?: Array<{ id: string; name: string }>;
   /** Gewählter Lautsprecher für Ansagen, '' = automatisch. */
   lautsprecherWahl?: string;
+  /** Music Assistant als Integration eingerichtet? null = unbekannt. */
+  musicAssistant?: boolean | null;
+  /** Welchen Weg eine Ansage gerade nähme. */
+  ansageWeg?: { art: 'lautsprecher' | 'beat-ma' | 'beat' | 'selbst'; ziel?: string; radioLaeuft?: boolean };
+}
+
+/** In Klartext: wie eine Ansage gerade ankommt. */
+export function wegText(w: NonNullable<Stand['ansageWeg']>): string {
+  switch (w.art) {
+    case 'lautsprecher':
+      return `Über Music Assistant an „${w.ziel ?? '?'}“ – ohne Verzögerung.`;
+    case 'beat-ma':
+      return `Über Music Assistant: Yapaia Beat spielt auf „${w.ziel ?? '?'}“, die Ansage kommt dort ohne Verzögerung und hat Vorrang.`;
+    case 'beat':
+      return w.radioLaeuft
+        ? 'Yapaia Beat mischt die Ansage ins Radio (einige Sekunden verzögert).'
+        : 'Yapaia spricht selbst – läuft das Radio von Yapaia Beat, mischt Beat die Ansage ein.';
+    default:
+      return 'Yapaia spricht selbst.';
+  }
+}
+
+/** Warum es (k)einen Player von Music Assistant gibt. */
+export function maText(s: Stand): string {
+  const n = s.lautsprecher?.length ?? 0;
+  if (n > 0) return `Music Assistant: ${n === 1 ? 'ein Player' : `${n} Player`} gefunden.`;
+  if (s.musicAssistant) {
+    return 'Music Assistant ist eingerichtet, gibt aber keinen Player an Home Assistant weiter. In Music Assistant: Einstellungen → Wiedergabegeräte → Player wählen → „Dieses Wiedergabegerät für Home Assistant freigeben“ einschalten und speichern.';
+  }
+  return 'Music Assistant ist in Home Assistant nicht als Integration eingerichtet (Einstellungen → Geräte & Dienste). Das Add-on allein reicht nicht.';
 }
 
 interface Ergebnis {
@@ -54,6 +84,18 @@ export default function SprachEinstellungen(): React.ReactElement {
   useEffect(() => {
     void laden();
   }, [laden]);
+
+  // Nach einer Änderung oder einem Test: den Weg der Ansagen neu holen, ohne
+  // dass die Seite kurz „lädt".
+  const stillNeu = async (): Promise<void> => {
+    try {
+      const r = await fetch(url('api/v1/sprache/ha'));
+      const body = (await r.json()) as { data?: Stand };
+      if (body.data) setStand(body.data);
+    } catch {
+      // bleibt beim alten Stand
+    }
+  };
 
   const einrichten = async (): Promise<void> => {
     setRichtetEin(true);
@@ -93,6 +135,7 @@ export default function SprachEinstellungen(): React.ReactElement {
     } catch {
       setTest({ ok: false, grund: 'Yapaia ist nicht erreichbar.' });
     }
+    void stillNeu();
   };
 
   const lautsprecherSetzen = async (id: string): Promise<void> => {
@@ -103,6 +146,7 @@ export default function SprachEinstellungen(): React.ReactElement {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ansage_lautsprecher: id || null }),
       });
+      void stillNeu();
     } catch {
       // Beim nächsten Öffnen zeigt der Stand vom Kern, was gilt.
     }
@@ -116,6 +160,7 @@ export default function SprachEinstellungen(): React.ReactElement {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ansagen_beat: an }),
       });
+      void stillNeu();
     } catch {
       // Beim nächsten Öffnen zeigt der Stand vom Kern, was gilt.
     }
@@ -216,6 +261,17 @@ export default function SprachEinstellungen(): React.ReactElement {
             genau einen Player gibt. Sonst spricht Yapaia selbst.
           </span>
         </label>
+        {stand?.verfuegbar && (
+          <div className="space-y-1 rounded-md bg-slate-100 p-2 text-sm dark:bg-slate-700/60" data-testid="sprach-ansage-weg">
+            <p>
+              <span className="font-medium">So kommen Ansagen gerade an: </span>
+              {wegText(stand.ansageWeg ?? { art: 'selbst' })}
+            </p>
+            <p className="text-xs text-slate-600 dark:text-slate-300" data-testid="sprach-ma-stand">
+              {maText(stand)}
+            </p>
+          </div>
+        )}
         <button
           type="button"
           onClick={() => void testen()}

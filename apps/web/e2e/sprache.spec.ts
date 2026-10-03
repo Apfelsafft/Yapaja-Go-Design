@@ -143,6 +143,8 @@ test('0.30: ⚙ → Sprache & Home Assistant -- ohne Add-on sagt die Seite das; 
           radio: true,
           lautsprecher: [{ id: 'media_player.ma_bus', name: 'Bus' }],
           lautsprecherWahl: '',
+          musicAssistant: true,
+          ansageWeg: { art: 'beat-ma', ziel: 'Bus' },
         },
       }),
     }),
@@ -167,6 +169,10 @@ test('0.30: ⚙ → Sprache & Home Assistant -- ohne Add-on sagt die Seite das; 
   await expect(page.getByTestId('sprach-ansagen-beat')).toBeChecked();
   await page.getByTestId('sprach-ansagen-beat').uncheck();
   await expect.poll(() => patches).toContainEqual({ ansagen_beat: false });
+
+  // 0.37.1: man sieht, welchen Weg Ansagen nehmen und ob Music Assistant da ist.
+  await expect(page.getByTestId('sprach-ansage-weg')).toContainText('Über Music Assistant');
+  await expect(page.getByTestId('sprach-ma-stand')).toContainText('ein Player gefunden');
 
   // 0.37: Ansagen über einen Music-Assistant-Player.
   await page.getByTestId('sprach-lautsprecher').selectOption('media_player.ma_bus');

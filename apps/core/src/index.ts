@@ -22,7 +22,16 @@ import { HaTrackerSource, listGpsTrackers } from './position/haTracker/index.js'
 import { istCompanionAppQuelle } from './position/gpsSourceOption.js';
 import { resolveHaConfig, resolveHaConnection, resolveTrackerEntityId } from './ha/config.js';
 import { BEAT_ENTITAET, BeatAnsage, beatAktionVorhanden, beatAnsagenAn, rufeBeat } from './ha/beatAnsage.js';
-import { AnsageKette, LautsprecherAnsage, findeStimme, lautsprecherWahl, maLautsprecher, type Stimme } from './ha/lautsprecherAnsage.js';
+import {
+  AnsageKette,
+  LautsprecherAnsage,
+  ansageWeg,
+  findeStimme,
+  lautsprecherWahl,
+  maEingerichtet,
+  maLautsprecher,
+  type Stimme,
+} from './ha/lautsprecherAnsage.js';
 import { mapPlugin } from './map/routes.js';
 import { routingPlugin, buildRoutingService } from './routing/routes.js';
 import { onlinePlugin } from './online/routes.js';
@@ -1000,10 +1009,15 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
           radio: false,
           lautsprecher: [],
           lautsprecherWahl: '',
+          musicAssistant: null,
+          ansageWeg: { art: 'selbst' },
         },
       });
     }
-    const zustaende = await fetchHaStates(v, { logger: haLogger }).catch(() => [] as Awaited<ReturnType<typeof fetchHaStates>>);
+    const [zustaende, musicAssistant] = await Promise.all([
+      fetchHaStates(v, { logger: haLogger }).catch(() => [] as Awaited<ReturnType<typeof fetchHaStates>>),
+      maEingerichtet(v),
+    ]);
     const liste = Array.isArray(zustaende) ? zustaende : [];
     const agenten = liste
       .filter((z) => z.entity_id.startsWith('conversation.'))
@@ -1022,6 +1036,10 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
         // Music Assistant: wählbare Lautsprecher für Ansagen und die Wahl.
         lautsprecher: maLautsprecher(liste),
         lautsprecherWahl: typeof settingsService.get('ansage_lautsprecher') === 'string' ? settingsService.get('ansage_lautsprecher') : '',
+        // Gewünscht: sehen, ob Ansagen über Music Assistant gehen -- und
+        // wenn nicht, warum.
+        musicAssistant,
+        ansageWeg: ansageWeg(settingsService.get('ansage_lautsprecher'), liste, beatAnsagenAn(settingsService.get('ansagen_beat'))),
       },
     });
   });
