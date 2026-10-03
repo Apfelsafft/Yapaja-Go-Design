@@ -53,6 +53,8 @@ export interface RufErgebnis {
   ok: boolean;
   /** HTTP-Status von Home Assistant, wenn es einen gab. */
   status?: number;
+  /** Was Yapaia Beat (ab 1.6.2) als Grund nennt. */
+  fehler?: string;
 }
 
 /** Das Ergebnis von „Ansage ins Radio testen" -- in Klartext. */
@@ -105,6 +107,7 @@ export class BeatAnsage implements AnsageZiel {
         ...(language ? { language } : {}),
       });
       if (r.ok) return { ok: true, grund: 'Yapaia Beat hat die Ansage ins Radio gemischt.' };
+      if (r.fehler) return { ok: false, grund: `Yapaia Beat: ${r.fehler}` };
       if (r.status === 400) {
         return { ok: false, grund: 'Home Assistant kennt die Aktion yapaia_beat.announce nicht: Home Assistant neu starten.' };
       }
@@ -127,6 +130,7 @@ async function haAnfrage(
   init: { method: 'GET' | 'POST'; body?: unknown },
   deps: { fetch?: HaFetchLike; timeoutMs?: number },
 ): Promise<{ status: number; ok: boolean; json?: unknown }> {
+  // GET und Aktionen mit Antwort (`?return_response`) liefern JSON.
   const controller = new AbortController();
   const uhr = setTimeout(() => controller.abort(), deps.timeoutMs ?? 10_000);
   try {
@@ -136,7 +140,7 @@ async function haAnfrage(
       ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
       signal: controller.signal,
     });
-    const json = init.method === 'GET' && res.ok && res.json ? await res.json() : undefined;
+    const json = res.ok && res.json ? await res.json().catch(() => undefined) : undefined;
     return { status: res.status, ok: res.ok, json };
   } finally {
     clearTimeout(uhr);
@@ -151,10 +155,18 @@ export async function rufeBeat(
 ): Promise<RufErgebnis> {
   try {
     // Die Sprache erzeugen dauert, bei Cloud-Stimmen auch mal Sekunden.
-    const r = await haAnfrage(v, `/services/${BEAT_AKTION.domain}/${BEAT_AKTION.service}`, { method: 'POST', body: data }, {
-      timeoutMs: 10_000,
-      ...deps,
-    });
+    // Mit Antwort: Beat (ab 1.6.2) sagt dann in Klartext, warum es nicht
+    // geht, statt nur mit HTTP 500 zu scheitern.
+    const r = await haAnfrage(
+      v,
+      `/services/${BEAT_AKTION.domain}/${BEAT_AKTION.service}?return_response`,
+      { method: 'POST', body: data },
+      { timeoutMs: 10_000, ...deps },
+    );
+    const antwort = (r.json as { service_response?: { ok?: unknown; error?: unknown } } | undefined)?.service_response;
+    if (r.ok && antwort?.ok === false) {
+      return { ok: false, status: r.status, fehler: typeof antwort.error === 'string' ? antwort.error : undefined };
+    }
     return { ok: r.ok, status: r.status };
   } catch {
     return { ok: false };

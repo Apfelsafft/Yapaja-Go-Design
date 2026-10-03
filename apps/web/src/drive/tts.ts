@@ -121,6 +121,15 @@ export function unlockAudio(): void {
       // als „der Mensch wollte Sprachausgabe".
       const stumm = new SpeechSynthesisUtterance('');
       stumm.volume = 0;
+      // Auch die stumme Äusserung lässt das iPad das Radio von Yapaia Beat
+      // im selben Browser anhalten -- Beat bekommt Bescheid und spielt weiter.
+      const beat = beatImBrowser();
+      if (beat?.wanted) {
+        beat.ansageBeginnt?.();
+        const fertig = (): void => beat.ansageEndet?.();
+        stumm.onend = fertig;
+        stumm.onerror = fertig;
+      }
       window.speechSynthesis.speak(stumm);
     } catch {
       // Best-effort -- siehe Modulkommentar.
