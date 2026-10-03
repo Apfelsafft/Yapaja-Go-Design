@@ -642,9 +642,15 @@ stopped or below 10 km/h). Drag an element to move it; drag the blue dot at
 its corner to make it bigger or smaller (60–200 %). **Zurücksetzen** restores
 the default layout, **Fertig** ends editing. The layout is stored per device,
 and an element that would end up off-screen — after rotating the tablet, for
-instance — is pulled back into view.
+instance — is pulled back into view. The crosshair **Position** sets where
+your own location sits on the map (centre by default, lower quarter on the
+driver's side while navigating).
 
-The automatic return to your position after you pan the map is set under
+When the app opens, the map zooms to your current position, just like the
+re-centre button.
+
+After you pan the map it stays where you left it until you tap the re-centre
+button. An automatic return (off by default) can be set under
 ⚙ → Karte & Darstellung (5 s to 2 min, or off).
 
 ## Maps and regions

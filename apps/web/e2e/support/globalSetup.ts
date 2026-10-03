@@ -81,6 +81,8 @@ import {
   FLOW11_CORE_BASE_URL,
   DIMENSIONS_CORE_PORT,
   CONTROL_OVERLAP_CORE_PORT,
+  ANKER_CORE_PORT,
+  ANKER_CORE_BASE_URL,
   SIMULATOR_UI_CORE_PORT,
   LONG_DRIVE_CORE_PORT,
   LONG_DRIVE_VALHALLA_BASE_URL,
@@ -370,6 +372,8 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   // control-overlap.spec.ts: eigener Core, damit seine Fahrt und die von
   // drive.spec.ts einander nicht sehen -- siehe CONTROL_OVERLAP_CORE_PORT.
   const controlOverlapCore = startCore(CONTROL_OVERLAP_CORE_PORT, FIXTURE_TILES_DIR);
+  // anordnung.spec.ts (Position): eigener Core -- siehe ANKER_CORE_PORT.
+  const ankerCore = startCore(ANKER_CORE_PORT, FIXTURE_TILES_DIR);
   // simulator-ui.spec.ts: eigener Core mit echtem (Stub-)Valhalla, damit
   // die Route wirklich im Routen-Zwischenspeicher landet und der Simulator
   // sie per `routeId` findet -- siehe SIMULATOR_UI_CORE_PORT.
@@ -415,6 +419,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     flow11Core,
     dimensionsCore,
     controlOverlapCore,
+    ankerCore,
     simulatorUiCore,
     waypointsCore,
     longDriveCore,
@@ -448,6 +453,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       waitForHealth(FLOW11_CORE_BASE_URL, 20_000),
       waitForHealth(DIMENSIONS_CORE_BASE_URL, 20_000),
       waitForHealth(CONTROL_OVERLAP_CORE_BASE_URL, 20_000),
+      waitForHealth(ANKER_CORE_BASE_URL, 20_000),
       waitForHealth(SIMULATOR_UI_CORE_BASE_URL, 20_000),
       waitForHealth(WAYPOINTS_CORE_BASE_URL, 20_000),
     ]);
@@ -488,6 +494,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       FLOW10_CORE_BASE_URL,
       FLOW11_CORE_BASE_URL,
       CONTROL_OVERLAP_CORE_BASE_URL,
+      ANKER_CORE_BASE_URL,
       SIMULATOR_UI_CORE_BASE_URL,
       WAYPOINTS_CORE_BASE_URL,
       // Onboarding ja -- sonst laege der Assistent vor dem Dialog, den
@@ -524,6 +531,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       FLOW10_CORE_BASE_URL,
       FLOW11_CORE_BASE_URL,
       CONTROL_OVERLAP_CORE_BASE_URL,
+      ANKER_CORE_BASE_URL,
       SIMULATOR_UI_CORE_BASE_URL,
       WAYPOINTS_CORE_BASE_URL,
     ].map((baseUrl) => seedDimensionsConfirmed(baseUrl)),

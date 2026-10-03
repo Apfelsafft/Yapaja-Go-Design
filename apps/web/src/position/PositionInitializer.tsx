@@ -11,7 +11,39 @@
 
 import React, { useEffect, useState } from 'react';
 import { browserSource, type BrowserSourceState } from './browserSource';
+import { create } from 'zustand';
 import { positionWSManager } from './positionStore';
+import type { Position } from '@yapaia/shared';
+
+/**
+ * Die letzte bekannte Position des Kerns beim Start -- NUR für das erste
+ * Heranzoomen (`MapView`). Bewusst nicht im Positionsspeicher: dort löste
+ * sie alles aus, was an einer echten Meldung hängt (Mitverfolgen, Tag/Nacht
+ * nach Sonnenstand, Stillstand) -- mit einem womöglich alten Punkt.
+ */
+export const useStartPosition = create<{ position: Position | null }>(() => ({ position: null }));
+
+/**
+ * Die letzte bekannte Position einmal beim Start holen.
+ *
+ * Gemeldet: „Wenn die Ansicht das erste Mal geladen wird, wird die ganze Karte
+ * angezeigt." Über den WS kommt eine Position erst mit der NÄCHSTEN Meldung --
+ * steht das Fahrzeug, meldet manche Quelle lange nichts Neues, und bis dahin
+ * kennt die App keinen Punkt, auf den sie zoomen könnte. Der Kern weiß ihn
+ * längst (`GET /api/v1/position`). Eine Meldung über den WS, die früher
+ * ankommt, gewinnt (`MapView`).
+ */
+async function letztePositionHolen(): Promise<void> {
+  try {
+    const r = await fetch(`${import.meta.env.BASE_URL}api/v1/position`);
+    if (r.status !== 200) return;
+    const p = (await r.json()) as Position;
+    if (typeof p?.lat !== 'number' || typeof p?.lon !== 'number') return;
+    useStartPosition.setState({ position: p });
+  } catch {
+    // Ohne Kern: dann eben mit der ersten Meldung.
+  }
+}
 import PositionPuck from './PositionPuck';
 import GeolocationHints from './GeolocationHints';
 import GpsLossBanner from './GpsLossBanner';
@@ -29,6 +61,7 @@ export default function PositionInitializer(): React.ReactElement {
 
     // Start WS connection to Core
     void positionWSManager.connect();
+    void letztePositionHolen();
 
     // Listen to browser source state changes
     const unsubscribe = browserSource.onStateChange((state) => {

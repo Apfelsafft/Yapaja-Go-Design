@@ -8,13 +8,13 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { CORE_BASE_URL } from './support/constants.js';
+import { ANKER_CORE_BASE_URL, CORE_BASE_URL } from './support/constants.js';
 import { oeffneEinstellung } from './support/einstellungen.js';
 
 test.use({ serviceWorkers: 'block' });
 
-async function bereit(page: Page): Promise<void> {
-  await page.goto(CORE_BASE_URL + '/');
+async function bereit(page: Page, basis = CORE_BASE_URL): Promise<void> {
+  await page.goto(basis + '/');
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
   await page.evaluate(() => localStorage.removeItem('yapaja.anordnung'));
   await page.reload();
@@ -88,4 +88,45 @@ test('ein weit hinausgeschobenes Element bleibt im sichtbaren Bereich', async ({
   expect(box.x + box.width).toBeGreaterThan(0);
   expect(box.y).toBeLessThan(fenster.height);
   expect(box.y + box.height).toBeGreaterThan(0);
+});
+
+test('0.36: beim ersten Laden heran an die Position; im Anpassen lässt sich die Position verschieben', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['geolocation']);
+  // Innerhalb der Fixture-Region [5,8–15,1 °O, 47,2–55,1 °N] -- außerhalb
+  // bleibt die Übersicht (gewollt, `MapView`).
+  await context.setGeolocation({ latitude: 50.0, longitude: 8.27, accuracy: 10 });
+  // Eigener Core: eine Position in der Region liesse sonst alle anderen
+  // Specs am gemeinsamen Core beim Laden heranzoomen (ANKER_CORE_PORT).
+  await bereit(page, ANKER_CORE_BASE_URL);
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, { timeout: 15_000 });
+
+  // Wie „Zentrieren": mindestens Stufe 15 statt der ganzen Region.
+  await expect
+    .poll(() => page.evaluate(() => window.__yapaiaMapController!.getMap()!.getZoom()), { timeout: 15_000 })
+    .toBeGreaterThanOrEqual(14.9);
+
+  const raender = () => page.evaluate(() => window.__yapaiaMapController!.getMap()!.getPadding());
+  expect(await raender()).toMatchObject({ top: 0, bottom: 0, left: 0, right: 0 });
+
+  await oeffneEinstellung(page, 'anordnung-starten');
+  await expect(page.getByTestId('anordnung-anker')).toBeVisible();
+  // Nach links unten ziehen: Ränder oben und rechts schieben die Mitte dorthin.
+  await ziehe(page, 'anordnung-anker', -200, 150);
+  await expect.poll(async () => (await raender()).top).toBeGreaterThan(100);
+  expect((await raender()).right).toBeGreaterThan(100);
+  expect((await raender()).bottom).toBe(0);
+  await page.getByTestId('anordnung-fertig').click();
+  await expect(page.getByTestId('anordnung-anker')).toHaveCount(0);
+
+  // Bleibt nach dem Neuladen; Zurücksetzen holt die Mitte zurück.
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, { timeout: 15_000 });
+  await expect.poll(async () => (await raender()).top).toBeGreaterThan(100);
+  await oeffneEinstellung(page, 'anordnung-starten');
+  await page.getByTestId('anordnung-zuruecksetzen').click();
+  await expect.poll(async () => (await raender()).top).toBe(0);
+  expect(await raender()).toMatchObject({ bottom: 0, left: 0, right: 0 });
 });

@@ -332,6 +332,13 @@ export const WAYPOINTS_VALHALLA_PORT = 4356;
 export const LONG_DRIVE_CORE_PORT = 4357;
 export const LONG_DRIVE_VALHALLA_PORT = 4358;
 
+// Eigener Core fuer den Positions-Test in anordnung.spec.ts (0.36): er setzt
+// eine Position MITTEN in der Fixture-Region. Am gemeinsamen Core zoomte
+// danach jede Seite beim Laden auf diesen Punkt (`MapView`, erste
+// Zentrierung) -- und 14 Specs, die Bildpunkte oder die Startansicht der
+// Region pruefen, sahen etwas anderes.
+export const ANKER_CORE_PORT = 4359;
+
 export const FLOW2_CORE_BASE_URL = `http://127.0.0.1:${FLOW2_CORE_PORT}`;
 export const FLOW3_CORE_BASE_URL = `http://127.0.0.1:${FLOW3_CORE_PORT}`;
 export const FLOW3_VALHALLA_BASE_URL = `http://127.0.0.1:${FLOW3_VALHALLA_PORT}`;
@@ -348,4 +355,5 @@ export const SIMULATOR_UI_VALHALLA_BASE_URL = `http://127.0.0.1:${SIMULATOR_UI_V
 export const WAYPOINTS_CORE_BASE_URL = `http://127.0.0.1:${WAYPOINTS_CORE_PORT}`;
 export const WAYPOINTS_VALHALLA_BASE_URL = `http://127.0.0.1:${WAYPOINTS_VALHALLA_PORT}`;
 export const LONG_DRIVE_CORE_BASE_URL = `http://127.0.0.1:${LONG_DRIVE_CORE_PORT}`;
+export const ANKER_CORE_BASE_URL = `http://127.0.0.1:${ANKER_CORE_PORT}`;
 export const LONG_DRIVE_VALHALLA_BASE_URL = `http://127.0.0.1:${LONG_DRIVE_VALHALLA_PORT}`;
