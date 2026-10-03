@@ -22,6 +22,8 @@ interface Stand {
   lautsprecher?: Array<{ id: string; name: string }>;
   /** Gewählter Lautsprecher für Ansagen, '' = automatisch. */
   lautsprecherWahl?: string;
+  /** Gong vor Ansagen über Music Assistant. */
+  ansageGong?: boolean;
   /** Music Assistant als Integration eingerichtet? null = unbekannt. */
   musicAssistant?: boolean | null;
   /** Welchen Weg eine Ansage gerade nähme. */
@@ -34,7 +36,7 @@ export function wegText(w: NonNullable<Stand['ansageWeg']>): string {
     case 'lautsprecher':
       return `Über Music Assistant an „${w.ziel ?? '?'}“ – ohne Verzögerung.`;
     case 'beat-ma':
-      return `Über Music Assistant: Yapaia Beat spielt auf „${w.ziel ?? '?'}“, die Ansage kommt dort ohne Verzögerung und hat Vorrang.`;
+      return `Yapaia Beat spielt über Music Assistant auf „${w.ziel ?? '?'}“ und mischt die Ansage ins Radio – die Musik läuft dabei leiser weiter.`;
     case 'beat':
       return w.radioLaeuft
         ? 'Yapaia Beat mischt die Ansage ins Radio (einige Sekunden verzögert).'
@@ -152,6 +154,19 @@ export default function SprachEinstellungen(): React.ReactElement {
     }
   };
 
+  const gongSetzen = async (an: boolean): Promise<void> => {
+    setStand((s) => (s ? { ...s, ansageGong: an } : s));
+    try {
+      await fetch(url('api/v1/settings'), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ansage_gong: an }),
+      });
+    } catch {
+      // Beim nächsten Öffnen zeigt der Stand vom Kern, was gilt.
+    }
+  };
+
   const ansagenBeatSetzen = async (an: boolean): Promise<void> => {
     setStand((s) => (s ? { ...s, ansagenBeat: an } : s));
     try {
@@ -256,9 +271,23 @@ export default function SprachEinstellungen(): React.ReactElement {
             ))}
           </select>
           <span className="block text-xs text-slate-500 dark:text-slate-400">
-            Automatisch: Spielt Yapaia Beat auf einem Music-Assistant-Player, laufen Radio und Ansage gemeinsam
-            darüber. Läuft Beat anders, mischt Beat die Ansage ein. Ohne Beat geht sie an Music Assistant, wenn es
-            genau einen Player gibt. Sonst spricht Yapaia selbst.
+            Läuft das Radio von Yapaia Beat, mischt Beat die Ansage ein – auch wenn es über Music Assistant spielt; die
+            Musik läuft dabei leiser weiter. Sonst geht sie an den gewählten Player (Automatisch: an Music Assistant,
+            wenn es genau einen Player gibt); Music Assistant hält dafür kurz an, was dort läuft. Sonst spricht
+            Yapaia selbst.
+          </span>
+        </label>
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={stand?.ansageGong ?? true}
+            onChange={(e) => void gongSetzen(e.target.checked)}
+            disabled={!stand?.verfuegbar}
+            className="mt-1 h-4 w-4"
+            data-testid="sprach-ansage-gong"
+          />
+          <span>
+            Gong vor Ansagen über Music Assistant. Mischt Yapaia Beat die Ansage ins Radio, gibt es keinen Gong.
           </span>
         </label>
         {stand?.verfuegbar && (

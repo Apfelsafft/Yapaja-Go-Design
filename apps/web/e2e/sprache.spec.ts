@@ -171,7 +171,11 @@ test('0.30: ⚙ → Sprache & Home Assistant -- ohne Add-on sagt die Seite das; 
   await expect.poll(() => patches).toContainEqual({ ansagen_beat: false });
 
   // 0.37.1: man sieht, welchen Weg Ansagen nehmen und ob Music Assistant da ist.
-  await expect(page.getByTestId('sprach-ansage-weg')).toContainText('Über Music Assistant');
+  await expect(page.getByTestId('sprach-ansage-weg')).toContainText('über Music Assistant');
+  // 0.37.4: der Gong vor Ansagen über Music Assistant ist abschaltbar.
+  await expect(page.getByTestId('sprach-ansage-gong')).toBeChecked();
+  await page.getByTestId('sprach-ansage-gong').uncheck();
+  await expect.poll(() => patches).toContainEqual({ ansage_gong: false });
   await expect(page.getByTestId('sprach-ma-stand')).toContainText('ein Player gefunden');
 
   // 0.37: Ansagen über einen Music-Assistant-Player.

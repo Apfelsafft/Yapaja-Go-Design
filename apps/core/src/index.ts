@@ -26,6 +26,7 @@ import {
   AnsageKette,
   LautsprecherAnsage,
   ansageWeg,
+  beatSpieltAuf,
   findeStimme,
   lautsprecherWahl,
   maEingerichtet,
@@ -712,12 +713,20 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     verbindung: () => resolveHaConnection({ settings: settingsService }),
     ziel: async (v) => {
       const liste = await zustaendeKurz(v);
-      return lautsprecherWahl(
+      const wahl = lautsprecherWahl(
         settingsService.get('ansage_lautsprecher'),
         liste,
         liste.some((z) => z.entity_id === BEAT_ENTITAET),
       );
+      // Spielt Beat gerade auf genau diesem Player, mischt Beat (die Kette
+      // fragt dann Beat) -- frisch nachgesehen, nicht aus dem Vorrat.
+      if (wahl && beatAnsagenAn(settingsService.get('ansagen_beat'))) {
+        const frisch = await fetchHaStatesById(v, [BEAT_ENTITAET], { logger: ansageLogger, timeoutMs: 2_000 }).catch(() => []);
+        if (beatSpieltAuf(Array.isArray(frisch) ? frisch : [], wahl)) return null;
+      }
+      return wahl;
     },
+    gong: () => settingsService.get('ansage_gong') !== false,
     stimme: async (v) => {
       if (stimmeCache && stimmeCache.bis > Date.now()) return stimmeCache.stimme;
       const tts = resolveHaConfig({ settings: settingsService })?.tts;
@@ -729,19 +738,8 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     // nicht geht. Die Aktion endet erst, wenn die Ansage gesprochen ist --
     // keine Antwort nach 4 s heißt darum „läuft", nicht „Fehler".
     rufe: async (v, data) => {
-      const { entity_id: engine, media_player_entity_id: ziel, ...rest } = data;
-      // Eine Stimme ohne Entität (alte Plattform, z. B. „google_translate")
-      // spricht nur über ihre eigene Aktion `tts.<name>_say`.
-      const befehl =
-        typeof engine === 'string' && !engine.startsWith('tts.')
-          ? { type: 'call_service', domain: 'tts', service: `${engine}_say`, service_data: { entity_id: ziel, ...rest } }
-          : {
-              type: 'call_service',
-              domain: 'tts',
-              service: 'speak',
-              service_data: { media_player_entity_id: ziel, ...rest },
-              target: { entity_id: engine },
-            };
+      const { entity_id: ziel, ...rest } = data;
+      const befehl = { type: 'call_service', domain: 'media_player', service: 'play_media', service_data: rest, target: { entity_id: ziel } };
       const e = await wsBefehlErgebnis(v, befehl, { timeoutMs: 4_000 });
       return e.ok || e.zeitUm ? { ok: true } : { ok: false, ...(e.fehler ? { fehler: e.fehler } : {}) };
     },
@@ -1029,6 +1027,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
           lautsprecher: [],
           lautsprecherWahl: '',
           musicAssistant: null,
+          ansageGong: settingsService.get('ansage_gong') !== false,
           ansageWeg: { art: 'selbst' },
         },
       });
@@ -1058,6 +1057,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
         // Gewünscht: sehen, ob Ansagen über Music Assistant gehen -- und
         // wenn nicht, warum.
         musicAssistant,
+        ansageGong: settingsService.get('ansage_gong') !== false,
         ansageWeg: ansageWeg(settingsService.get('ansage_lautsprecher'), liste, beatAnsagenAn(settingsService.get('ansagen_beat'))),
       },
     });
