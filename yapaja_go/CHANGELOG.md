@@ -10,6 +10,19 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.37.3
+
+- **Ansagen über Music Assistant mit älter eingerichteter Stimme:** Im Test
+  stand dort „expected 'all' or 'none' at 'target.entity_id'. Got
+  'google_translate'“. Die Stimme war mit dem Namen ihrer Plattform
+  eingetragen („google_translate“), die Aktion `tts.speak` braucht aber ihre
+  Entität (`tts.google_translate_en_com`). Go nimmt jetzt die passende
+  Entität selbst. Gibt es keine, spricht Go über die alte Aktion
+  `tts.google_translate_say`
+- An Yapaia Beat gibt Go eine so eingetragene Stimme nicht mehr weiter.
+  Beat nimmt dann die Standardstimme von Home Assistant, statt die Ansage
+  abzulehnen
+
 ## 0.37.2
 
 - **Ansagen über Music Assistant: Go sagt jetzt, warum es nicht klappt.**
