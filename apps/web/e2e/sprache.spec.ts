@@ -165,4 +165,8 @@ test('0.30: ⚙ → Sprache & Home Assistant -- ohne Add-on sagt die Seite das; 
   await expect(page.getByTestId('sprach-ansagen-beat')).toBeChecked();
   await page.getByTestId('sprach-ansagen-beat').uncheck();
   await expect.poll(() => patches).toContainEqual({ ansagen_beat: false });
+
+  // 0.33: „Ansage ins Radio testen" zeigt den Grund in Klartext (Test-Kern: kein Add-on).
+  await page.getByTestId('sprach-ansage-test').click();
+  await expect(page.getByTestId('sprach-ansage-test-ergebnis')).toContainText(/Home Assistant|Add-on/);
 });

@@ -629,6 +629,9 @@ comes back. Nothing is stopped or restarted. When Beat is not playing, Yapaia
 speaks as before (browser or Home Assistant TTS). Switch it off under
 **⚙ → Sprache & Home Assistant → Ansagen und Radio**; how far the music is
 turned down is set in Beat's add-on options (`announce_music_level`).
+**Ansage ins Radio testen** on the same page plays a test announcement through
+Beat and tells you in plain words why it fails, if it does (for example:
+restart Home Assistant after updating Beat, or no text-to-speech set up).
 
 ### Arranging the screen
 

@@ -14,7 +14,7 @@ import { naechsteStationen } from '../bord/entlangRoute.js';
 import { leseKandidaten, unterwegsKategorie } from '../search/unterwegs.js';
 import { holeVerkehr, type VerkehrDeps } from '../online/verkehr.js';
 import { onlineEingeschaltet } from '../online/routes.js';
-import type { AnsageZiel, AnsagePrioritaet } from '../ha/beatAnsage.js';
+import type { AnsageZiel, AnsagePrioritaet, Pruefergebnis } from '../ha/beatAnsage.js';
 
 /** So weit um die Position sucht „der nächste Aldi". */
 export const UMKREIS_NAME_KM = 25;
@@ -163,7 +163,7 @@ export function sprachDeps(k: KernDienste): SprachDeps {
 export function registriereSprache(
   fastify: FastifyInstance,
   dialog: Sprachdialog,
-  ansageZiel?: AnsageZiel,
+  ansageZiel?: AnsageZiel & { pruefe?: () => Promise<Pruefergebnis> },
 ): void {
   fastify.post<{ Body: unknown }>('/api/v1/sprache', async (request, reply) => {
     const body = (request.body ?? {}) as { text?: unknown };
@@ -192,6 +192,13 @@ export function registriereSprache(
       body.prioritaet === 'navigation' || body.prioritaet === 'info' ? body.prioritaet : 'hinweis';
     const ueberRadio = (await ansageZiel?.sage(text, prioritaet)) ?? false;
     return reply.code(200).send({ data: { ueber_radio: ueberRadio } });
+  });
+
+  // POST /api/v1/ansage/test -- „Ansage ins Radio testen": spricht eine
+  // Testansage über Yapaia Beat und sagt in Klartext, warum es nicht geht.
+  fastify.post('/api/v1/ansage/test', async (_request, reply) => {
+    const r = ansageZiel?.pruefe ? await ansageZiel.pruefe() : { ok: false, grund: 'Nur im Home-Assistant-Add-on verfügbar.' };
+    return reply.code(200).send({ data: r });
   });
 }
 

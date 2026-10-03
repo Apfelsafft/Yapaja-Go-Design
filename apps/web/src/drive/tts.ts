@@ -34,9 +34,47 @@ export function speak(text: string, lang = 'de-DE'): void {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang;
+    // Spielt Yapaia Beat in diesem Browser, hält das iPad es für unsere
+    // Ansage an -- Beat bekommt Bescheid und spielt danach weiter.
+    const beat = beatImBrowser();
+    aktuelleAeusserung = utterance;
+    if (beat?.wanted) {
+      beat.ansageBeginnt?.();
+      const fertig = (): void => {
+        // Nur die letzte Ansage gibt das Radio frei: `cancel()` beendet die
+        // vorige, während die neue schon spricht.
+        if (aktuelleAeusserung === utterance) beat.ansageEndet?.();
+      };
+      utterance.onend = fertig;
+      utterance.onerror = fertig;
+    }
     window.speechSynthesis.speak(utterance);
   } catch (err) {
     console.warn('[tts] speak() failed:', err);
+  }
+}
+
+let aktuelleAeusserung: SpeechSynthesisUtterance | null = null;
+
+/** Der Browser-Abspieler von Yapaia Beat im Home-Assistant-Fenster, falls da. */
+interface BeatBrowserPlayer {
+  wanted?: boolean;
+  ansageBeginnt?: () => void;
+  ansageEndet?: () => void;
+}
+
+/**
+ * Yapaia Beat spielt das Radio im Hauptfenster von Home Assistant ab
+ * (`window.YapaiaBeatPlayer`). Yapaia Go läuft als Add-on-Seite darin, im
+ * selben Ursprung -- also kann es ihm Bescheid geben. Außerhalb von Home
+ * Assistant (anderer Ursprung) gibt es keinen Zugriff: dann eben nicht.
+ */
+export function beatImBrowser(): BeatBrowserPlayer | null {
+  try {
+    const top = window.top as unknown as { YapaiaBeatPlayer?: BeatBrowserPlayer } | null;
+    return top?.YapaiaBeatPlayer ?? null;
+  } catch {
+    return null;
   }
 }
 

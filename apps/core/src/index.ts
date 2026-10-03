@@ -21,7 +21,7 @@ import { GpsdSource } from './position/gpsd/index.js';
 import { HaTrackerSource, listGpsTrackers } from './position/haTracker/index.js';
 import { istCompanionAppQuelle } from './position/gpsSourceOption.js';
 import { resolveHaConfig, resolveHaConnection, resolveTrackerEntityId } from './ha/config.js';
-import { BEAT_AKTION, BEAT_ENTITAET, BeatAnsage, beatAnsagenAn } from './ha/beatAnsage.js';
+import { BEAT_ENTITAET, BeatAnsage, beatAktionVorhanden, beatAnsagenAn, rufeBeat } from './ha/beatAnsage.js';
 import { mapPlugin } from './map/routes.js';
 import { routingPlugin, buildRoutingService } from './routing/routes.js';
 import { onlinePlugin } from './online/routes.js';
@@ -40,7 +40,7 @@ import { AuthGuard } from './auth/authGuard.js';
 import { authPlugin } from './auth/plugin.js';
 import { HaOutputChannel } from './ha/outputChannel.js';
 import { starteDashboardPflege } from './ha/dashboard.js';
-import { callHaService, fetchHaStates, fetchHaStatesById, postHaState } from './ha/client.js';
+import { fetchHaStates, fetchHaStatesById, postHaState } from './ha/client.js';
 import { Sprachdialog } from './sprache/dialog.js';
 import { frageKi } from './ha/kiAgent.js';
 import { AUTOMATION_ID, HaSprachBruecke, SPRACH_EINGABE } from './ha/sprachBruecke.js';
@@ -680,12 +680,8 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
       return { engine: tts?.ttsEntityId, language: tts?.language };
     },
     leseZustaende: (v, ids) => fetchHaStatesById(v, ids, { logger: ansageLogger, timeoutMs: 2_000 }),
-    rufe: (v, data) =>
-      callHaService(
-        { connection: v, domain: BEAT_AKTION.domain, service: BEAT_AKTION.service, data },
-        // Die Sprache erzeugen dauert, bei Cloud-Stimmen auch mal Sekunden.
-        { logger: ansageLogger, timeoutMs: 10_000 },
-      ),
+    rufe: (v, data) => rufeBeat(v, data),
+    aktionVorhanden: (v) => beatAktionVorhanden(v),
   });
 
   const haOutputChannel = new HaOutputChannel({

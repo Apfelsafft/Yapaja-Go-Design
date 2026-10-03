@@ -131,6 +131,10 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     summary: 'Eine Ansage der App: läuft Yapaia Beat, wird sie ins Radio gemischt (ueber_radio), sonst spricht die App selbst',
     tags: ['Navigation'],
   },
+  'POST /api/v1/ansage/test': {
+    summary: 'Testansage über Yapaia Beat; Ergebnis und Grund in Klartext',
+    tags: ['Navigation'],
+  },
   'GET /api/v1/sprache/ha': {
     summary: 'Stand der Home-Assistant-Assist-Anbindung und wählbare KI-Agenten (conversation.*)',
     tags: ['Navigation'],

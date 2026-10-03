@@ -79,6 +79,18 @@ export default function SprachEinstellungen(): React.ReactElement {
     }
   };
 
+  const [test, setTest] = useState<{ ok: boolean; grund: string } | 'laeuft' | null>(null);
+  const testen = async (): Promise<void> => {
+    setTest('laeuft');
+    try {
+      const r = await fetch(url('api/v1/ansage/test'), { method: 'POST' });
+      const body = (await r.json()) as { data?: { ok: boolean; grund: string } };
+      setTest(body.data ?? { ok: false, grund: `HTTP ${r.status}` });
+    } catch {
+      setTest({ ok: false, grund: 'Yapaia ist nicht erreichbar.' });
+    }
+  };
+
   const ansagenBeatSetzen = async (an: boolean): Promise<void> => {
     setStand((s) => (s ? { ...s, ansagenBeat: an } : s));
     try {
@@ -165,6 +177,24 @@ export default function SprachEinstellungen(): React.ReactElement {
             )}
           </span>
         </label>
+        <button
+          type="button"
+          onClick={() => void testen()}
+          disabled={test === 'laeuft'}
+          className="w-full rounded-full border border-slate-300 px-4 py-2 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-600 dark:hover:bg-slate-700"
+          data-testid="sprach-ansage-test"
+        >
+          {test === 'laeuft' ? 'Teste …' : 'Ansage ins Radio testen'}
+        </button>
+        {test && test !== 'laeuft' && (
+          <p
+            className={test.ok ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}
+            data-testid="sprach-ansage-test-ergebnis"
+          >
+            {test.ok ? '✅ ' : '⚠️ '}
+            {test.grund}
+          </p>
+        )}
       </section>
 
       <section className="space-y-2">
