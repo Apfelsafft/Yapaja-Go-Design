@@ -95,7 +95,9 @@ test('0.36: beim ersten Laden heran an die Position; im Anpassen lässt sich die
   context,
 }) => {
   await context.grantPermissions(['geolocation']);
-  await context.setGeolocation({ latitude: 47.1410, longitude: 9.5209, accuracy: 10 });
+  // Innerhalb der Fixture-Region [5,8–15,1 °O, 47,2–55,1 °N] -- außerhalb
+  // bleibt die Übersicht (gewollt, `MapView`).
+  await context.setGeolocation({ latitude: 50.0, longitude: 8.27, accuracy: 10 });
   // Eigener Core: eine Position in der Region liesse sonst alle anderen
   // Specs am gemeinsamen Core beim Laden heranzoomen (ANKER_CORE_PORT).
   await bereit(page, ANKER_CORE_BASE_URL);

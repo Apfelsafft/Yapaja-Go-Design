@@ -125,13 +125,20 @@ export const useMapStore = create<MapControllerState>((set, get) => ({
     // Seit der verschiebbaren Position (`map/kartenAnker.ts`) auch `bottom`:
     // liegt der Anker oberhalb der Mitte, braucht es unten einen Rand. Sonst
     // setzt niemand die Ränder der Karte.
-    map.setPadding({
-      ...map.getPadding(),
+    const neu = {
       top: raender?.top ?? 0,
       bottom: raender?.bottom ?? 0,
       left: raender?.left ?? 0,
       right: raender?.right ?? 0,
-    });
+    };
+    const alt = map.getPadding();
+    // Unverändert: NICHT setzen. `setPadding` ist ein Kamerasprung und bricht
+    // eine laufende Fahrt ab (etwa das Neigen in die 3D-Ansicht beim Start)
+    // -- auch wenn sich gar nichts ändert.
+    if (alt.top === neu.top && alt.bottom === neu.bottom && alt.left === neu.left && alt.right === neu.right) {
+      return;
+    }
+    map.setPadding({ ...alt, ...neu });
   },
 
   getWidthPx: () => {
