@@ -649,7 +649,8 @@ driver's side while navigating).
 When the app opens, the map zooms to your current position, just like the
 re-centre button.
 
-The automatic return to your position after you pan the map is set under
+After you pan the map it stays where you left it until you tap the re-centre
+button. An automatic return (off by default) can be set under
 ⚙ → Karte & Darstellung (5 s to 2 min, or off).
 
 ## Maps and regions

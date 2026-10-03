@@ -20,7 +20,14 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 - **Beim ersten Laden heran an die Position:** Statt der ganzen Karte
   zoomt Yapaia auf den aktuellen Standort, als hätte man „Zentrieren"
   gedrückt. Dafür holt die App beim Start die letzte bekannte Position vom
-  Kern — ein stehendes Fahrzeug meldet sonst oft lange nichts Neues.
+  Kern — ein stehendes Fahrzeug meldet sonst oft lange nichts Neues. Liegt
+  die Position außerhalb der installierten Karten, bleibt die Übersicht.
+- **Kein automatisches Zurückspringen mehr:** Gemeldet: „Wenn ich auf der
+  Karte hin und her suche, springt er immer wieder nach ein paar Sekunden
+  zur aktuellen Position." Das automatische Zentrieren ist jetzt aus — im
+  Ruhemodus wie während der Navigation. Zurück geht es mit dem
+  Zentrieren-Knopf ⌖. Wer es doch möchte, stellt es unter ⚙ → Karte &
+  Darstellung wieder ein.
 
 ---
 

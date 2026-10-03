@@ -5,8 +5,8 @@
  * wieder automatisch auf die aktuelle Position zentriert wird. Inklusive
  * ‚aus'. Also keine automatische Zentrierung."
  *
- * Bis 0.26 fest zehn Sekunden (`followMe.ts`). `0` heißt aus: die Karte
- * bleibt, wo man sie hingeschoben hat, bis man ⌖ drückt.
+ * Bis 0.26 fest zehn Sekunden (`followMe.ts`), bis 0.35 als Vorgabe. `0`
+ * heißt aus: die Karte bleibt, wo man sie hingeschoben hat, bis man ⌖ drückt.
  *
  * Je Gerät gespeichert -- ein Tablet im Fahrzeug und ein Telefon in der
  * Hand wollen das verschieden.
@@ -16,9 +16,17 @@ import { create } from 'zustand';
 
 /** Die Stufen des Reglers, in Sekunden. 0 = aus. */
 export const ZENTRIEREN_STUFEN = [0, 5, 10, 15, 20, 30, 45, 60, 120] as const;
-export const ZENTRIEREN_VORGABE_S = 10;
+/**
+ * Vorgabe: AUS (0.36). Gemeldet: „Wenn ich auf der Karte hin und her suche,
+ * springt er immer wieder nach ein paar Sekunden zur aktuellen Position. Da
+ * wir einen Zentrier-Button haben, schalte das automatische Zentrieren ab."
+ * Der Regler bleibt -- wer es will, stellt es wieder ein.
+ */
+export const ZENTRIEREN_VORGABE_S = 0;
 
-const SCHLUESSEL = 'yapaja.zentrierenNachS';
+/** Neuer Schlüssel (0.36): der alte trug fast überall die frühere Vorgabe
+ *  von 10 s -- die soll nicht weitergelten. */
+const SCHLUESSEL = 'yapaja.zentrierenNachS.v2';
 
 function lies(): number {
   try {

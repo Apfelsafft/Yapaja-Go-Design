@@ -143,6 +143,7 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
   // seit 0.16.0 selbst nicht mehr (es zeichnet ohnehin alle). Sie kommen
   // hier trotzdem in den Zustand, weil `RegionCoverageNotice` sie liest.
   const setInstalledRegions = useRegionStore((state) => state.setRegions);
+  const installedRegions = useRegionStore((state) => state.regions);
   const restoreViewMode = useViewModeStore((state) => state.restoreMode);
   const position = usePosition();
   const styleId = useStyleStore((state) => state.styleId);
@@ -395,8 +396,23 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
     }
     if (ersteZentrierung.current !== map) {
       ersteZentrierung.current = map;
-      recenterOnPosition();
-      return;
+      // Nur, wenn die Position IN einer installierten Karte liegt: auf ein
+      // leeres Stück Welt heranzuzoomen zeigt nichts, die Übersicht über die
+      // Region ist dann nützlicher.
+      const inKarte = installedRegions.some(
+        (r) =>
+          position.lon >= r.bounds[0] &&
+          position.lon <= r.bounds[2] &&
+          position.lat >= r.bounds[1] &&
+          position.lat <= r.bounds[3],
+      );
+      if (inKarte) {
+        // Läuft gerade eine Kamerafahrt (etwa das Neigen in die 3D-Ansicht
+        // beim Start), erst danach -- ein Sprung bräche sie ab.
+        if (map.isMoving()) map.once('moveend', () => recenterOnPosition());
+        else recenterOnPosition();
+        return;
+      }
     }
     // ─── EINE KAMERAFAHRT, MITTE UND WINKEL ZUSAMMEN ────────────────────────
     // Hier stand seit 0.6.4 zusaetzlich `syncHeadingToBearing()`, damit sich

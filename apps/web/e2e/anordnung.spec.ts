@@ -8,13 +8,13 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { CORE_BASE_URL } from './support/constants.js';
+import { ANKER_CORE_BASE_URL, CORE_BASE_URL } from './support/constants.js';
 import { oeffneEinstellung } from './support/einstellungen.js';
 
 test.use({ serviceWorkers: 'block' });
 
-async function bereit(page: Page): Promise<void> {
-  await page.goto(CORE_BASE_URL + '/');
+async function bereit(page: Page, basis = CORE_BASE_URL): Promise<void> {
+  await page.goto(basis + '/');
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 15_000 });
   await page.evaluate(() => localStorage.removeItem('yapaja.anordnung'));
   await page.reload();
@@ -96,7 +96,9 @@ test('0.36: beim ersten Laden heran an die Position; im Anpassen lässt sich die
 }) => {
   await context.grantPermissions(['geolocation']);
   await context.setGeolocation({ latitude: 47.1410, longitude: 9.5209, accuracy: 10 });
-  await bereit(page);
+  // Eigener Core: eine Position in der Region liesse sonst alle anderen
+  // Specs am gemeinsamen Core beim Laden heranzoomen (ANKER_CORE_PORT).
+  await bereit(page, ANKER_CORE_BASE_URL);
   await page.waitForFunction(() => Boolean(window.__yapaiaMapController?.getMap?.()), undefined, { timeout: 15_000 });
 
   // Wie „Zentrieren": mindestens Stufe 15 statt der ganzen Region.
