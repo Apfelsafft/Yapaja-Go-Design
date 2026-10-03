@@ -10,6 +10,19 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.37.4
+
+- **Gong abschaltbar:** Unter ⚙ → Sprache & Home Assistant gibt es den
+  Schalter „Gong vor Ansagen über Music Assistant“. Go schickt die Ansage
+  dafür direkt als Ansage an den Player (`media_player.play_media` mit
+  `announce`) statt über `tts.speak`, sonst lässt sich Music Assistant den
+  Gong nicht abgewöhnen
+- **Radio läuft weiter:** Spielt Yapaia Beat gerade auf dem Player, der
+  unter „Ansagen über“ gewählt ist, mischt Beat die Ansage ins Radio. Bisher
+  ging sie direkt an Music Assistant, das für eine Ansage das Radio anhält
+  und danach neu startet – im Test dauerte das lange oder das Radio blieb
+  stumm. Braucht Yapaia Beat 1.8.1
+
 ## 0.37.3
 
 - **Ansagen über Music Assistant mit älter eingerichteter Stimme:** Im Test

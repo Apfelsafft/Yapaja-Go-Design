@@ -3,7 +3,9 @@ import {
   AnsageKette,
   LautsprecherAnsage,
   ansageWeg,
+  beatSpieltAuf,
   findeStimme,
+  ttsMedienId,
   lautsprecherWahl,
   maEingerichtet,
   maLautsprecher,
@@ -48,6 +50,14 @@ describe('ansageWeg -- was die Einstellungen anzeigen', () => {
   it('gewählter Player geht vor', () => {
     expect(ansageWeg('media_player.ma_bus', [bus, beat('playing', null)], true)).toEqual({ art: 'lautsprecher', ziel: 'Bus' });
   });
+  it('Beat spielt auf dem gewählten Player: Beat mischt (kein Anhalten durch Music Assistant)', () => {
+    expect(ansageWeg('media_player.ma_bus', [bus, beat('playing', 'media_player.ma_bus')], true)).toEqual({
+      art: 'beat-ma',
+      ziel: 'Bus',
+    });
+    expect(beatSpieltAuf([bus, beat('playing', 'media_player.ma_bus')], 'media_player.ma_bus')).toBe(true);
+    expect(beatSpieltAuf([bus, beat('idle', 'media_player.ma_bus')], 'media_player.ma_bus')).toBe(false);
+  });
   it('Beat auf einem Music-Assistant-Player: Stufe 4', () => {
     expect(ansageWeg('', [bus, beat('playing', 'media_player.ma_bus')], true)).toEqual({ art: 'beat-ma', ziel: 'Bus' });
   });
@@ -59,6 +69,15 @@ describe('ansageWeg -- was die Einstellungen anzeigen', () => {
     expect(ansageWeg('', [bus], true)).toEqual({ art: 'lautsprecher', ziel: 'Bus' });
     expect(ansageWeg('', [andere], true)).toEqual({ art: 'selbst' });
     expect(ansageWeg('', [beat('playing', null)], false)).toEqual({ art: 'selbst' });
+  });
+});
+
+describe('ttsMedienId', () => {
+  it('baut die Medienquelle wie tts.speak (auch für alte Plattform-Namen)', () => {
+    expect(ttsMedienId('google_translate', 'Jetzt rechts & dann links', 'de')).toBe(
+      'media-source://tts/google_translate?message=Jetzt+rechts+%26+dann+links&language=de',
+    );
+    expect(ttsMedienId('tts.piper', 'Hallo')).toBe('media-source://tts/tts.piper?message=Hallo');
   });
 });
 
@@ -132,7 +151,7 @@ describe('findeStimme', () => {
     ).toEqual({ engine: 'tts.google_translate_en_com', language: 'de' });
   });
 
-  it('ohne jede Entität bleibt der Plattform-Name (für tts.<name>_say)', async () => {
+  it('ohne jede Entität bleibt der Plattform-Name (die Medienquelle kennt ihn)', async () => {
     const w = ws({ providers: [{ engine_id: 'google_translate', supported_languages: ['de'] }] });
     expect(
       await findeStimme(V, { engine: 'google_translate', language: 'de' }, { ws: { erzeugeSocket: w.erzeugeSocket } }),
@@ -170,10 +189,11 @@ describe('LautsprecherAnsage + Kette', () => {
     const { kette, rufe, beat } = aufbau('media_player.ma_bus');
     expect(await kette.sage('Jetzt links', 'navigation')).toBe(true);
     expect(rufe).toHaveBeenCalledWith(V, {
-      entity_id: 'tts.cloud',
-      media_player_entity_id: 'media_player.ma_bus',
-      message: 'Jetzt links',
-      language: 'de-DE',
+      entity_id: 'media_player.ma_bus',
+      media_content_id: 'media-source://tts/tts.cloud?message=Jetzt+links&language=de-DE',
+      media_content_type: 'music',
+      announce: true,
+      extra: { use_pre_announce: true },
     });
     expect(beat.sage).not.toHaveBeenCalled();
     expect((await kette.pruefe()).grund).toMatch(/ma_bus/);
@@ -187,6 +207,18 @@ describe('LautsprecherAnsage + Kette', () => {
     const kaputt = aufbau('media_player.ma_bus', false);
     expect(await kaputt.kette.sage('x', 'hinweis')).toBe(true);
     expect(kaputt.beat.sage).toHaveBeenCalled();
+  });
+
+  it('ohne Gong: use_pre_announce false', async () => {
+    const rufe = vi.fn(async (_v: unknown, _d: Record<string, unknown>) => ({ ok: true }));
+    await new LautsprecherAnsage({
+      verbindung: () => V,
+      ziel: async () => 'media_player.x',
+      stimme: async () => ({ engine: 'tts.cloud' }),
+      rufe,
+      gong: () => false,
+    }).sage('Hallo', 'info');
+    expect(rufe.mock.calls[0]![1]).toMatchObject({ extra: { use_pre_announce: false }, announce: true });
   });
 
   it('nennt den Grund, den Home Assistant angibt', async () => {

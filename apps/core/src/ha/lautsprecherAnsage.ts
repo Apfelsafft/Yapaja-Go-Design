@@ -87,6 +87,7 @@ export function ansageWeg(einstellung: unknown, zustaende: readonly HaEntityStat
   };
   const beat = zustaende.find((z) => z.entity_id === BEAT_ENTITAET);
   const wahl = lautsprecherWahl(einstellung, zustaende, beat !== undefined);
+  if (wahl && beatAn && beatSpieltAuf(zustaende, wahl)) return { art: 'beat-ma', ziel: name(wahl) };
   if (wahl) return { art: 'lautsprecher', ziel: name(wahl) };
   if (beat && beatAn) {
     const radioLaeuft = beat.state === 'playing' || beat.state === 'buffering';
@@ -97,6 +98,16 @@ export function ansageWeg(einstellung: unknown, zustaende: readonly HaEntityStat
     return { art: 'beat', radioLaeuft };
   }
   return { art: 'selbst' };
+}
+
+/**
+ * Spielt Yapaia Beat gerade auf diesem Player? Dann mischt Beat die Ansage in
+ * sein Radio -- Music Assistant würde es dafür anhalten und neu starten
+ * (im Test: lange Pause oder gar kein Wiederanlauf).
+ */
+export function beatSpieltAuf(zustaende: readonly HaEntityState[], player: string): boolean {
+  const beat = zustaende.find((z) => z.entity_id === BEAT_ENTITAET);
+  return !!beat && (beat.state === 'playing' || beat.state === 'buffering') && beat.attributes?.speaker === player;
 }
 
 /** Ist Music Assistant als Integration in Home Assistant eingerichtet? Null = unbekannt. */
@@ -165,8 +176,8 @@ export async function findeStimme(
   // Ältere Einrichtungen nennen sie beim Namen der Plattform
   // („google_translate") -- damit lehnt Home Assistant ab ("expected 'all'
   // or 'none' at 'target.entity_id'"). Dann die passende Entität nehmen,
-  // sonst irgendeine; nur wenn es keine gibt, bleibt der alte Name (und
-  // `rufe` nimmt die alte Aktion `tts.<name>_say`).
+  // sonst irgendeine; nur wenn es keine gibt, bleibt der alte Name (die
+  // Medienquelle `media-source://tts/<name>` kennt auch ihn).
   const anbieter = alle.filter((p) => p.engine_id.startsWith('tts.'));
   if (wunsch.engine && !wunsch.engine.startsWith('tts.')) {
     const alt = wunsch.engine;
@@ -183,7 +194,7 @@ export async function findeStimme(
     anbieter.find((p) => p.engine_id === wunsch.engine) ??
     anbieter.find((p) => Array.isArray(p.supported_languages) && p.supported_languages.length > 0) ??
     anbieter[0] ??
-    alle[0]; // nur alte Plattformen: dann eben über `tts.<name>_say`
+    alle[0]; // nur alte Plattformen: die Medienquelle kennt auch sie
   if (!passend) return wunsch.engine ? { engine: wunsch.engine } : null;
   return mitSprache(passend, sprache);
 }
@@ -205,8 +216,20 @@ export interface LautsprecherAnsageDeps {
   /** Der Lautsprecher für diese Ansage (`lautsprecherWahl`), oder null. */
   ziel: (v: HaConnection) => Promise<string | null>;
   stimme: (v: HaConnection) => Promise<Stimme | null>;
-  /** `tts.speak` aufrufen. */
+  /** `media_player.play_media` (als Ansage) aufrufen. */
   rufe: (v: HaConnection, data: Record<string, unknown>) => Promise<RufErgebnis>;
+  /** Gong vor der Ansage? Music Assistant spielt sonst seinen eigenen. */
+  gong?: () => boolean;
+}
+
+/**
+ * Die Sprache als Medienquelle von Home Assistant -- dieselbe, die
+ * `tts.speak` erzeugt (`tts/media_source.py#generate_media_source_id`). Die
+ * Stimme darf dabei Entität oder alter Plattform-Name sein.
+ */
+export function ttsMedienId(engine: string, text: string, language?: string): string {
+  const q = new URLSearchParams({ message: text, ...(language ? { language } : {}) });
+  return `media-source://tts/${engine}?${q.toString()}`;
 }
 
 export class LautsprecherAnsage implements AnsageZiel {
@@ -227,11 +250,14 @@ export class LautsprecherAnsage implements AnsageZiel {
       if (!stimme) {
         return { ok: false, zustaendig: true, grund: 'In Home Assistant ist keine Sprachausgabe (TTS) eingerichtet.' };
       }
+      // Statt `tts.speak` direkt `play_media` als Ansage: nur so lässt sich
+      // Music Assistant der Gong davor abgewöhnen (`use_pre_announce`).
       const r = await this.deps.rufe(v, {
-        entity_id: stimme.engine,
-        media_player_entity_id: ziel,
-        message: text.trim().slice(0, 1000),
-        ...(stimme.language ? { language: stimme.language } : {}),
+        entity_id: ziel,
+        media_content_id: ttsMedienId(stimme.engine, text.trim().slice(0, 1000), stimme.language),
+        media_content_type: 'music',
+        announce: true,
+        extra: { use_pre_announce: this.deps.gong ? this.deps.gong() : true },
       });
       const stimmeText = `${stimme.engine}${stimme.language ? `, ${stimme.language}` : ''}`;
       return r.ok
