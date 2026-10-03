@@ -35,6 +35,7 @@ import { pauseNavigation, resumeNavigation, stopNavigation, NavigationApiError }
 import { useNavStore } from './navStore.js';
 import { useTtsStore } from './ttsStore.js';
 import { announce, cancelSpeech, unlockAudio } from './tts.js';
+import { sageAn } from './ansageZiel.js';
 import TripInfoPanel from './TripInfoPanel.js';
 import FahrtMikrofon from '../sprache/FahrtMikrofon.js';
 import { useIsControlLocked } from './driveLockStore.js';
@@ -167,7 +168,9 @@ export default function FahrtMenue({ navState }: { navState: NavState | null }):
     } else {
       // Einschalten und nichts hören ist genau die Lage, in der man nicht
       // weiss, ob die Ansagen aus sind oder nur nichts anzusagen war.
-      announce('Ansagen sind an.');
+      // Über Yapaia Beat, wenn das Radio läuft -- spräche der Browser selbst,
+      // hielte das iPad das Radio im selben Browser an.
+      void sageAn('Ansagen sind an.', 'hinweis', (t) => announce(t));
     }
   }, [ttsAn, ttsUmschalten]);
 

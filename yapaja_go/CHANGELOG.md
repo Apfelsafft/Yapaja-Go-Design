@@ -10,6 +10,25 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.33.0
+
+**Ansagen und Radio im Browser vertragen sich.**
+
+- Gemeldet: Läuft Yapaia Beat im Browser auf dem iPad und Yapaia spricht,
+  wird das Radio leise und bleibt danach stumm; „Ansagen sind an" wurde
+  verschluckt. Ursache: Spricht Yapaia selbst im Browser, hält iPadOS den
+  Radio-Ton im selben Browser an.
+- Der Knopf **Ansagen an** spricht jetzt — wie alle anderen Ansagen — über
+  Yapaia Beat, wenn das Radio läuft.
+- Muss Yapaia doch selbst sprechen, sagt es Yapaia Beat (ab 1.6.1) Bescheid,
+  und das Radio spielt genau nach der Ansage weiter.
+- Neu unter **⚙ → Sprache & Home Assistant: „Ansage ins Radio testen"**.
+  Spricht eine Testansage über Yapaia Beat und sagt in Klartext, warum es
+  nicht klappt — etwa „Home Assistant neu starten" (nach dem Update von
+  Beat) oder „keine Sprachausgabe eingerichtet".
+
+---
+
 ## 0.32.0
 
 **Ansagen kommen ins Radio, statt es zu unterbrechen.**
