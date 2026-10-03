@@ -56,6 +56,10 @@ describe('BeatAnsage', () => {
     expect((await ziel('playing', { rufe: async () => ({ ok: false, status: 500 }) }).z.pruefe()).grund).toMatch(
       /Sprachausgabe \(TTS\)/,
     );
+    expect(
+      (await ziel('playing', { rufe: async () => ({ ok: false, status: 200, fehler: 'Niemand hört Yapaia Beat gerade zu' }) }).z.pruefe())
+        .grund,
+    ).toBe('Yapaia Beat: Niemand hört Yapaia Beat gerade zu');
     const gut = await ziel('playing', { aktionVorhanden: async () => true }).z.pruefe();
     expect(gut).toEqual({ ok: true, grund: 'Yapaia Beat hat die Ansage ins Radio gemischt.' });
   });
@@ -66,11 +70,14 @@ describe('BeatAnsage', () => {
       aufrufe.push(`${init.method} ${url}`);
       return url.endsWith('/services')
         ? { ok: true, status: 200, json: async () => [{ domain: 'yapaia_beat', services: { announce: {}, play: {} } }] }
-        : { ok: false, status: 500 };
+        : url.includes('announce') && aufrufe.length === 2
+          ? { ok: false, status: 500 }
+          : { ok: true, status: 200, json: async () => ({ service_response: { ok: false, error: 'Radio aus' } }) };
     });
     expect(await beatAktionVorhanden(V, { fetch })).toBe(true);
     expect(await rufeBeat(V, { message: 'x' }, { fetch })).toEqual({ ok: false, status: 500 });
-    expect(aufrufe).toEqual(['GET http://ha/api/services', 'POST http://ha/api/services/yapaia_beat/announce']);
+    expect(await rufeBeat(V, { message: 'x' }, { fetch })).toEqual({ ok: false, status: 200, fehler: 'Radio aus' });
+    expect(aufrufe[1]).toBe('POST http://ha/api/services/yapaia_beat/announce?return_response');
   });
 
   it('Einstellung: fehlt = an', () => {

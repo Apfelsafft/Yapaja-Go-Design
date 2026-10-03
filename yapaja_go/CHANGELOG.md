@@ -10,6 +10,18 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.34.0
+
+- **„Ansage ins Radio testen" nennt den echten Grund.** Gemeldet: der Test
+  zeigte nur „HTTP 500". Mit Yapaia Beat ab 1.6.2 steht dort, was Beat
+  sagt — etwa „Niemand hört Yapaia Beat gerade zu" (das Radio im Browser
+  war beim Wechsel zu Go verstummt, das behebt Beat 1.6.2) oder ein Fehler
+  der Sprachausgabe.
+- Das Freischalten des Tons beim ersten Tippen in Go lässt Beat im selben
+  Browser danach weiterspielen.
+
+---
+
 ## 0.33.0
 
 **Ansagen und Radio im Browser vertragen sich.**
