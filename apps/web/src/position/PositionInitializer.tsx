@@ -11,8 +11,17 @@
 
 import React, { useEffect, useState } from 'react';
 import { browserSource, type BrowserSourceState } from './browserSource';
-import { positionWSManager, usePositionStore } from './positionStore';
+import { create } from 'zustand';
+import { positionWSManager } from './positionStore';
 import type { Position } from '@yapaia/shared';
+
+/**
+ * Die letzte bekannte Position des Kerns beim Start -- NUR für das erste
+ * Heranzoomen (`MapView`). Bewusst nicht im Positionsspeicher: dort löste
+ * sie alles aus, was an einer echten Meldung hängt (Mitverfolgen, Tag/Nacht
+ * nach Sonnenstand, Stillstand) -- mit einem womöglich alten Punkt.
+ */
+export const useStartPosition = create<{ position: Position | null }>(() => ({ position: null }));
 
 /**
  * Die letzte bekannte Position einmal beim Start holen.
@@ -22,7 +31,7 @@ import type { Position } from '@yapaia/shared';
  * steht das Fahrzeug, meldet manche Quelle lange nichts Neues, und bis dahin
  * kennt die App keinen Punkt, auf den sie zoomen könnte. Der Kern weiß ihn
  * längst (`GET /api/v1/position`). Eine Meldung über den WS, die früher
- * ankommt, gewinnt.
+ * ankommt, gewinnt (`MapView`).
  */
 async function letztePositionHolen(): Promise<void> {
   try {
@@ -30,7 +39,7 @@ async function letztePositionHolen(): Promise<void> {
     if (r.status !== 200) return;
     const p = (await r.json()) as Position;
     if (typeof p?.lat !== 'number' || typeof p?.lon !== 'number') return;
-    if (!usePositionStore.getState().position) usePositionStore.getState().setPosition(p);
+    useStartPosition.setState({ position: p });
   } catch {
     // Ohne Kern: dann eben mit der ersten Meldung.
   }

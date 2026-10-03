@@ -23,7 +23,8 @@ import { useStyleStore, wirksamesPoiAus } from '../state/styleStore';
 import { useKartenSeite } from '../shell/bedienSeite.js';
 import { useDegradationStore } from '../perf/degrade';
 import { useViewModeStore, syncHeadingToBearing } from './viewMode';
-import { initializeFollowMe, recenterOnPosition, updateFollowMePosition } from './followMe';
+import { RECENTER_MIN_ZOOM, initializeFollowMe, recenterOnPosition, updateFollowMePosition } from './followMe';
+import { useStartPosition } from '../position/PositionInitializer';
 import { usePosition, usePositionStore } from '../position/positionStore';
 import { pickActiveRegion } from './activeRegion';
 import { useRegionStore } from './regionStore';
@@ -390,8 +391,12 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
   const ersteZentrierung = useRef<maplibregl.Map | null>(null);
 
   // Update Follow-Me position when position changes.
+  const startPosition = useStartPosition((s) => s.position);
   useEffect(() => {
-    if (!map || !position) {
+    // Für das erste Heranzoomen genügt auch die beim Start vom Kern geholte
+    // letzte Position (`PositionInitializer`); eine echte Meldung gewinnt.
+    const erste = position ?? startPosition;
+    if (!map || !erste) {
       return;
     }
     if (ersteZentrierung.current !== map) {
@@ -401,19 +406,25 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
       // Region ist dann nützlicher.
       const inKarte = installedRegions.some(
         (r) =>
-          position.lon >= r.bounds[0] &&
-          position.lon <= r.bounds[2] &&
-          position.lat >= r.bounds[1] &&
-          position.lat <= r.bounds[3],
+          erste.lon >= r.bounds[0] &&
+          erste.lon <= r.bounds[2] &&
+          erste.lat >= r.bounds[1] &&
+          erste.lat <= r.bounds[3],
       );
       if (inKarte) {
         // Läuft gerade eine Kamerafahrt (etwa das Neigen in die 3D-Ansicht
         // beim Start), erst danach -- ein Sprung bräche sie ab.
-        if (map.isMoving()) map.once('moveend', () => recenterOnPosition());
-        else recenterOnPosition();
+        const heran = (): void => {
+          if (!recenterOnPosition()) {
+            mapController.setCamera({ center: [erste.lon, erste.lat], zoom: Math.max(map.getZoom(), RECENTER_MIN_ZOOM) });
+          }
+        };
+        if (map.isMoving()) map.once('moveend', heran);
+        else heran();
         return;
       }
     }
+    if (!position) return;
     // ─── EINE KAMERAFAHRT, MITTE UND WINKEL ZUSAMMEN ────────────────────────
     // Hier stand seit 0.6.4 zusaetzlich `syncHeadingToBearing()`, damit sich
     // die Karte nicht erst eine Meldung spaeter dreht. Das war die richtige
@@ -431,7 +442,7 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
     // hier nur noch der eine Aufruf. Wer das Nachdrehen hier wieder
     // hinzufuegt, wuergt die Verfolgung erneut ab.
     updateFollowMePosition();
-  }, [map, position]);
+  }, [map, position, startPosition]);
 
   // Sync heading to bearing for course modes + lock 2d-north bearing. Attaches
   // rotate/moveend listeners as soon as the map is registered so both the
