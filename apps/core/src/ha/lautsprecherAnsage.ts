@@ -24,7 +24,7 @@
 import type { HaConnection } from './config.js';
 import type { HaEntityState, HaFetchLike } from './client.js';
 import { defaultHaFetch } from './client.js';
-import type { AnsagePrioritaet, AnsageZiel, Pruefergebnis, RufErgebnis } from './beatAnsage.js';
+import { BEAT_ENTITAET, type AnsagePrioritaet, type AnsageZiel, type Pruefergebnis, type RufErgebnis } from './beatAnsage.js';
 import { wsBefehl, type WsBefehlDeps } from './wsBefehl.js';
 
 /** Woran ein Player von Music Assistant zu erkennen ist. */
@@ -60,6 +60,62 @@ export function lautsprecherWahl(
   if (beatVorhanden) return null;
   const ma = maLautsprecher(zustaende);
   return ma.length === 1 ? ma[0]!.id : null;
+}
+
+/**
+ * Welchen Weg eine Ansage gerade nähme -- für die Anzeige in den
+ * Einstellungen. Gewünscht: man soll sehen, ob es über Music Assistant geht.
+ *
+ * - `lautsprecher`: Go schickt sie selbst an einen Player von Music Assistant
+ * - `beat-ma`:      Beat spielt auf einem Player von Music Assistant und
+ *                   gibt die Ansage dorthin weiter (ab Beat 1.7)
+ * - `beat`:         Beat mischt sie ins Radio (nur, solange es läuft)
+ * - `selbst`:       Go spricht selbst
+ */
+export interface AnsageWeg {
+  art: 'lautsprecher' | 'beat-ma' | 'beat' | 'selbst';
+  /** Name des Players von Music Assistant. */
+  ziel?: string;
+  /** Bei `beat`: läuft das Radio gerade? Sonst spricht Go selbst. */
+  radioLaeuft?: boolean;
+}
+
+export function ansageWeg(einstellung: unknown, zustaende: readonly HaEntityState[], beatAn: boolean): AnsageWeg {
+  const name = (id: string): string => {
+    const z = zustaende.find((x) => x.entity_id === id);
+    return String(z?.attributes?.friendly_name ?? id);
+  };
+  const beat = zustaende.find((z) => z.entity_id === BEAT_ENTITAET);
+  const wahl = lautsprecherWahl(einstellung, zustaende, beat !== undefined);
+  if (wahl) return { art: 'lautsprecher', ziel: name(wahl) };
+  if (beat && beatAn) {
+    const radioLaeuft = beat.state === 'playing' || beat.state === 'buffering';
+    const speaker = beat.attributes?.speaker;
+    if (radioLaeuft && typeof speaker === 'string' && maLautsprecher(zustaende).some((l) => l.id === speaker)) {
+      return { art: 'beat-ma', ziel: name(speaker) };
+    }
+    return { art: 'beat', radioLaeuft };
+  }
+  return { art: 'selbst' };
+}
+
+/** Ist Music Assistant als Integration in Home Assistant eingerichtet? Null = unbekannt. */
+export async function maEingerichtet(v: HaConnection, fetch: HaFetchLike = defaultHaFetch): Promise<boolean | null> {
+  const abbruch = new AbortController();
+  const uhr = setTimeout(() => abbruch.abort(), 5_000);
+  try {
+    const r = await fetch(`${v.apiBase}/config`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${v.token}`, 'Content-Type': 'application/json' },
+      signal: abbruch.signal,
+    });
+    const cfg = r.ok && r.json ? ((await r.json()) as { components?: unknown }) : null;
+    return Array.isArray(cfg?.components) ? cfg.components.includes('music_assistant') : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(uhr);
+  }
 }
 
 export interface Stimme {

@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   AnsageKette,
   LautsprecherAnsage,
+  ansageWeg,
   findeStimme,
   lautsprecherWahl,
+  maEingerichtet,
   maLautsprecher,
   type LautsprecherAnsageDeps,
 } from './lautsprecherAnsage.js';
@@ -32,6 +34,41 @@ describe('Music-Assistant-Lautsprecher', () => {
     expect(lautsprecherWahl('', einer, true)).toBeNull(); // Beat übernimmt (Stufe 2/4)
     expect(lautsprecherWahl('', [...einer, ma('media_player.ma_2', 'Zwei')], false)).toBeNull();
     expect(lautsprecherWahl(null, [], false)).toBeNull();
+  });
+});
+
+describe('ansageWeg -- was die Einstellungen anzeigen', () => {
+  const beat = (state: string, speaker: string | null): HaEntityState => ({
+    entity_id: 'media_player.yapaia_beat',
+    state,
+    attributes: { friendly_name: 'Yapaia Beat', speaker },
+  });
+  const bus = ma('media_player.ma_bus', 'Bus');
+
+  it('gewählter Player geht vor', () => {
+    expect(ansageWeg('media_player.ma_bus', [bus, beat('playing', null)], true)).toEqual({ art: 'lautsprecher', ziel: 'Bus' });
+  });
+  it('Beat auf einem Music-Assistant-Player: Stufe 4', () => {
+    expect(ansageWeg('', [bus, beat('playing', 'media_player.ma_bus')], true)).toEqual({ art: 'beat-ma', ziel: 'Bus' });
+  });
+  it('Beat auf einem anderen Weg mischt selbst; ohne Radio spricht Go', () => {
+    expect(ansageWeg('', [andere, beat('playing', 'media_player.tv')], true)).toEqual({ art: 'beat', radioLaeuft: true });
+    expect(ansageWeg('', [bus, beat('idle', 'media_player.ma_bus')], true)).toEqual({ art: 'beat', radioLaeuft: false });
+  });
+  it('ohne Beat und mit genau einem Player: Stufe 3; sonst Go selbst', () => {
+    expect(ansageWeg('', [bus], true)).toEqual({ art: 'lautsprecher', ziel: 'Bus' });
+    expect(ansageWeg('', [andere], true)).toEqual({ art: 'selbst' });
+    expect(ansageWeg('', [beat('playing', null)], false)).toEqual({ art: 'selbst' });
+  });
+});
+
+describe('maEingerichtet', () => {
+  const antwort = (body: unknown, ok = true) =>
+    vi.fn(async () => ({ ok, status: ok ? 200 : 500, json: async () => body, text: async () => '' }));
+  it('liest die Komponenten von Home Assistant', async () => {
+    expect(await maEingerichtet(V, antwort({ components: ['tts', 'music_assistant'] }) as never)).toBe(true);
+    expect(await maEingerichtet(V, antwort({ components: ['tts'] }) as never)).toBe(false);
+    expect(await maEingerichtet(V, antwort({}, false) as never)).toBeNull();
   });
 });
 

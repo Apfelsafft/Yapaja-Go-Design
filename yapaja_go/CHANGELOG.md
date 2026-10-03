@@ -10,6 +10,18 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.37.1
+
+- **Sehen, ob Ansagen über Music Assistant laufen:** Unter ⚙ → Sprache &
+  Home Assistant steht jetzt „So kommen Ansagen gerade an“: über Music
+  Assistant (mit Player), über Yapaia Beat ins Radio gemischt, oder Yapaia
+  spricht selbst. Darunter steht, ob Music Assistant gefunden wurde, und
+  wenn nicht, warum. Meist ist der Grund, dass Music Assistant seine Player
+  nicht an Home Assistant weitergibt. Abhilfe: In Music Assistant unter
+  Einstellungen → Wiedergabegeräte den Player wählen, „Dieses
+  Wiedergabegerät für Home Assistant freigeben“ einschalten und speichern.
+  Passend dazu zeigt Yapaia Beat 1.7.1 Music-Assistant-Player mit 🎵 an
+
 ## 0.37.0
 
 **Ansagen über Music Assistant.**
