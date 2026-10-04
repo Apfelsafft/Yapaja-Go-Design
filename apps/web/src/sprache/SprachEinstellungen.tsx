@@ -7,6 +7,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { browserPlayer } from '../drive/ansageZiel.js';
 
 interface Stand {
   verfuegbar: boolean;
@@ -24,10 +25,12 @@ interface Stand {
   lautsprecherWahl?: string;
   /** Gong vor Ansagen über Music Assistant. */
   ansageGong?: boolean;
+  /** Läuft das Radio über Music Assistant: wo die Verzögerung hin soll. */
+  ansageMaWeg?: 'browser' | 'mischen' | 'sofort';
   /** Music Assistant als Integration eingerichtet? null = unbekannt. */
   musicAssistant?: boolean | null;
   /** Welchen Weg eine Ansage gerade nähme. */
-  ansageWeg?: { art: 'lautsprecher' | 'beat-ma' | 'beat' | 'selbst'; ziel?: string; radioLaeuft?: boolean };
+  ansageWeg?: { art: 'lautsprecher' | 'beat-ma' | 'beat-ma-browser' | 'beat' | 'selbst'; ziel?: string; radioLaeuft?: boolean };
 }
 
 /** In Klartext: wie eine Ansage gerade ankommt. */
@@ -35,6 +38,8 @@ export function wegText(w: NonNullable<Stand['ansageWeg']>): string {
   switch (w.art) {
     case 'lautsprecher':
       return `Über Music Assistant an „${w.ziel ?? '?'}“ – ohne Verzögerung.`;
+    case 'beat-ma-browser':
+      return `Yapaia Beat spielt über Music Assistant auf „${w.ziel ?? '?'}“. Ist das dieser Browser, mischt er die Ansage sofort selbst ein; sonst mischt Beat sie ins Radio.`;
     case 'beat-ma':
       return `Yapaia Beat spielt über Music Assistant auf „${w.ziel ?? '?'}“ und mischt die Ansage ins Radio – die Musik läuft dabei leiser weiter.`;
     case 'beat':
@@ -130,6 +135,38 @@ export default function SprachEinstellungen(): React.ReactElement {
   const [test, setTest] = useState<{ ok: boolean; grund: string } | 'laeuft' | null>(null);
   const testen = async (): Promise<void> => {
     setTest('laeuft');
+    // Ist dieser Browser Beats Player bei Music Assistant, wird hier
+    // eingemischt -- genau wie bei einer Abbiege-Ansage.
+    const player = browserPlayer();
+    if (player) {
+      try {
+        const beginn = performance.now();
+        const r = await fetch(url('api/v1/ansage'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: 'Das ist eine Testansage von Yapaia.', prioritaet: 'hinweis', browser_player: player.name }),
+        });
+        const d = ((await r.json()) as { data?: { im_browser?: { pfad?: string }; ueber_radio?: boolean } }).data;
+        if (d?.im_browser?.pfad) {
+          const ok = await player.sprich(`${window.location.origin}${d.im_browser.pfad}`);
+          const s = ((performance.now() - beginn) / 1000).toFixed(1).replace('.', ',');
+          setTest(
+            ok
+              ? { ok: true, grund: `Im Browser eingemischt („${player.name}“) – nach ${s} s gesprochen, die Musik lief leiser weiter.` }
+              : { ok: false, grund: 'Der Browser konnte die Ansage nicht abspielen (einmal irgendwo tippen und erneut testen).' },
+          );
+          void stillNeu();
+          return;
+        }
+        if (d?.ueber_radio) {
+          setTest({ ok: true, grund: 'Yapaia Beat hat die Ansage ins Radio gemischt.' });
+          void stillNeu();
+          return;
+        }
+      } catch {
+        // dann der Weg über den Kern
+      }
+    }
     try {
       const r = await fetch(url('api/v1/ansage/test'), { method: 'POST' });
       const body = (await r.json()) as { data?: { ok: boolean; grund: string } };
@@ -147,6 +184,20 @@ export default function SprachEinstellungen(): React.ReactElement {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ansage_lautsprecher: id || null }),
+      });
+      void stillNeu();
+    } catch {
+      // Beim nächsten Öffnen zeigt der Stand vom Kern, was gilt.
+    }
+  };
+
+  const maWegSetzen = async (weg: 'browser' | 'mischen' | 'sofort'): Promise<void> => {
+    setStand((s) => (s ? { ...s, ansageMaWeg: weg } : s));
+    try {
+      await fetch(url('api/v1/settings'), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ansage_ma_weg: weg }),
       });
       void stillNeu();
     } catch {
@@ -275,6 +326,24 @@ export default function SprachEinstellungen(): React.ReactElement {
             Musik läuft dabei leiser weiter. Sonst geht sie an den gewählten Player (Automatisch: an Music Assistant,
             wenn es genau einen Player gibt); Music Assistant hält dafür kurz an, was dort läuft. Sonst spricht
             Yapaia selbst.
+          </span>
+        </label>
+        <label className="block space-y-1">
+          <span>Läuft das Radio über Music Assistant</span>
+          <select
+            value={stand?.ansageMaWeg ?? 'browser'}
+            onChange={(e) => void maWegSetzen(e.target.value as 'browser' | 'mischen' | 'sofort')}
+            disabled={!stand?.verfuegbar}
+            className="w-full rounded-md border border-slate-300 bg-white px-2 py-2 dark:border-slate-600 dark:bg-slate-700"
+            data-testid="sprach-ma-weg"
+          >
+            <option value="browser">Im Browser einmischen – sofort, Musik läuft leiser weiter</option>
+            <option value="mischen">Beat mischt – Musik läuft weiter, Ansage einige Sekunden später</option>
+            <option value="sofort">Music Assistant spricht sofort – Musik pausiert, kommt später wieder</option>
+          </select>
+          <span className="block text-xs text-slate-500 dark:text-slate-400">
+            „Im Browser einmischen“ geht, wenn dieser Browser in Yapaia Beat als „Music Assistant in diesem Browser“
+            angemeldet ist und das Radio darauf spielt (Yapaia Beat 1.9). Sonst mischt Beat.
           </span>
         </label>
         <label className="flex items-start gap-2">

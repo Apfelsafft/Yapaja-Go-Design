@@ -73,21 +73,30 @@ export function lautsprecherWahl(
  * - `selbst`:       Go spricht selbst
  */
 export interface AnsageWeg {
-  art: 'lautsprecher' | 'beat-ma' | 'beat' | 'selbst';
+  art: 'lautsprecher' | 'beat-ma' | 'beat-ma-browser' | 'beat' | 'selbst';
   /** Name des Players von Music Assistant. */
   ziel?: string;
   /** Bei `beat`: läuft das Radio gerade? Sonst spricht Go selbst. */
   radioLaeuft?: boolean;
 }
 
-export function ansageWeg(einstellung: unknown, zustaende: readonly HaEntityState[], beatAn: boolean): AnsageWeg {
+export function ansageWeg(
+  einstellung: unknown,
+  zustaende: readonly HaEntityState[],
+  beatAn: boolean,
+  modus: MaModus = 'mischen',
+): AnsageWeg {
   const name = (id: string): string => {
     const z = zustaende.find((x) => x.entity_id === id);
     return String(z?.attributes?.friendly_name ?? id);
   };
   const beat = zustaende.find((z) => z.entity_id === BEAT_ENTITAET);
   const wahl = lautsprecherWahl(einstellung, zustaende, beat !== undefined);
-  if (wahl && beatAn && beatSpieltAuf(zustaende, wahl)) return { art: 'beat-ma', ziel: name(wahl) };
+  const beatPlayer = beatAn ? beatMaPlayer(zustaende) : null;
+  if (beatPlayer && (wahl === null || wahl === beatPlayer)) {
+    if (modus === 'sofort') return { art: 'lautsprecher', ziel: name(beatPlayer) };
+    return { art: modus === 'browser' ? 'beat-ma-browser' : 'beat-ma', ziel: name(beatPlayer) };
+  }
   if (wahl) return { art: 'lautsprecher', ziel: name(wahl) };
   if (beat && beatAn) {
     const radioLaeuft = beat.state === 'playing' || beat.state === 'buffering';
@@ -115,14 +124,68 @@ export function beatSpieltAuf(zustaende: readonly HaEntityState[], player: strin
  * Beats Sache (es mischt sie ins Radio) bzw. Go spricht selbst. Braucht die
  * Zustände MIT Attributen: nur dort steht, auf welchem Player Beat spielt.
  */
-export function ansageZiel(einstellung: unknown, zustaende: readonly HaEntityState[], beatAn: boolean): string | null {
+export function ansageZiel(
+  einstellung: unknown,
+  zustaende: readonly HaEntityState[],
+  beatAn: boolean,
+  modus: MaModus = 'browser',
+): string | null {
   const wahl = lautsprecherWahl(
     einstellung,
     zustaende,
     zustaende.some((z) => z.entity_id === BEAT_ENTITAET),
   );
-  if (wahl && beatAn && beatSpieltAuf(zustaende, wahl)) return null;
+  // Spielt Beat auf einem Player von Music Assistant (dem gewählten, oder
+  // automatisch): „sofort" schickt die Ansage direkt an Music Assistant
+  // (Musik pausiert), sonst mischt Beat.
+  const beatPlayer = beatAn ? beatMaPlayer(zustaende) : null;
+  if (beatPlayer && (wahl === null || wahl === beatPlayer)) return modus === 'sofort' ? beatPlayer : null;
   return wahl;
+}
+
+/**
+ * Was tun, wenn das Radio von Beat über Music Assistant läuft? Gewünscht:
+ * „dem Anwender zur Auswahl stellen, ob er die Verzögerung vor oder nach der
+ * Ansage haben möchte" -- und eine bessere Lösung.
+ *
+ * - `browser`: ist der Player dieser Browser (Beats Sendspin-Player), mischt
+ *   er die Ansage selbst in seine Wiedergabe -- sofort, Musik läuft leiser
+ *   weiter. Sonst wie `mischen`.
+ * - `mischen`: Beat mischt die Ansage in den Strom -- Musik läuft weiter,
+ *   die Ansage kommt so spät wie die Musik (Vorrat von Music Assistant).
+ * - `sofort`: Music Assistant spricht sie sofort -- hält dafür die Musik an,
+ *   die erst Sekunden später wiederkommt.
+ */
+export type MaModus = 'browser' | 'mischen' | 'sofort';
+
+export function maModus(roh: unknown): MaModus {
+  return roh === 'mischen' || roh === 'sofort' ? roh : 'browser';
+}
+
+/** Der Music-Assistant-Player, auf dem Beat gerade spielt -- oder null. */
+export function beatMaPlayer(zustaende: readonly HaEntityState[]): string | null {
+  const beat = zustaende.find((z) => z.entity_id === BEAT_ENTITAET);
+  const speaker = beat?.attributes?.speaker;
+  if (typeof speaker !== 'string') return null;
+  return beatSpieltAuf(zustaende, speaker) && maLautsprecher(zustaende).some((l) => l.id === speaker) ? speaker : null;
+}
+
+/**
+ * Darf dieser Browser die Ansage selbst einmischen? Ja, wenn Beat gerade auf
+ * dem Music-Assistant-Player spielt, der dieser Browser ist (Beats
+ * Sendspin-Player meldet seinen Namen, z. B. „Yapaia iPad").
+ */
+export function browserDarf(
+  zustaende: readonly HaEntityState[],
+  browserPlayer: string,
+  beatAn: boolean,
+  modus: MaModus,
+): boolean {
+  if (!beatAn || modus !== 'browser' || !browserPlayer) return false;
+  const player = beatMaPlayer(zustaende);
+  if (!player) return false;
+  const z = zustaende.find((x) => x.entity_id === player);
+  return String(z?.attributes?.friendly_name ?? '') === browserPlayer;
 }
 
 /** Ist Music Assistant als Integration in Home Assistant eingerichtet? Null = unbekannt. */
@@ -139,6 +202,49 @@ export async function maEingerichtet(v: HaConnection, fetch: HaFetchLike = defau
     return Array.isArray(cfg?.components) ? cfg.components.includes('music_assistant') : null;
   } catch {
     return null;
+  } finally {
+    clearTimeout(uhr);
+  }
+}
+
+/**
+ * Die Sprache als Datei von Home Assistant (`POST /api/tts_get_url`) -- für
+ * den Browser, der sie selbst einmischt. Zurück kommt der Pfad
+ * (`/api/tts_proxy/….mp3`), den der Browser beim eigenen Home Assistant
+ * holt; die Adresse daneben kann eine sein, die das iPad nicht kennt.
+ */
+export async function ttsAudioPfad(
+  v: HaConnection,
+  stimme: Stimme,
+  text: string,
+  fetch: HaFetchLike = defaultHaFetch,
+): Promise<{ pfad: string } | { fehler: string }> {
+  const abbruch = new AbortController();
+  const uhr = setTimeout(() => abbruch.abort(), 8_000);
+  try {
+    const r = await fetch(`${v.apiBase}/tts_get_url`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${v.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        engine_id: stimme.engine,
+        message: text.trim().slice(0, 1000),
+        ...(stimme.language ? { language: stimme.language } : {}),
+      }),
+      signal: abbruch.signal,
+    });
+    if (!r.ok || !r.json) return { fehler: `Home Assistant lieferte keine Sprache (HTTP ${r.status}).` };
+    const d = (await r.json()) as { path?: unknown; url?: unknown };
+    if (typeof d.path === 'string' && d.path.startsWith('/')) return { pfad: d.path };
+    if (typeof d.url === 'string') {
+      try {
+        return { pfad: new URL(d.url).pathname };
+      } catch {
+        // fällt durch
+      }
+    }
+    return { fehler: 'Home Assistant lieferte keine Sprache.' };
+  } catch {
+    return { fehler: 'Home Assistant hat nicht geantwortet.' };
   } finally {
     clearTimeout(uhr);
   }

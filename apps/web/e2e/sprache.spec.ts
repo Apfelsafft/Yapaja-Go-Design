@@ -176,6 +176,10 @@ test('0.30: ⚙ → Sprache & Home Assistant -- ohne Add-on sagt die Seite das; 
   await expect(page.getByTestId('sprach-ansage-gong')).toBeChecked();
   await page.getByTestId('sprach-ansage-gong').uncheck();
   await expect.poll(() => patches).toContainEqual({ ansage_gong: false });
+  // 0.38: die Verzögerung vor oder nach der Ansage – oder im Browser einmischen.
+  await expect(page.getByTestId('sprach-ma-weg')).toHaveValue('browser');
+  await page.getByTestId('sprach-ma-weg').selectOption('sofort');
+  await expect.poll(() => patches).toContainEqual({ ansage_ma_weg: 'sofort' });
   await expect(page.getByTestId('sprach-ma-stand')).toContainText('ein Player gefunden');
 
   // 0.37: Ansagen über einen Music-Assistant-Player.

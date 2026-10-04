@@ -4,7 +4,11 @@ import {
   LautsprecherAnsage,
   ansageWeg,
   ansageZiel,
+  beatMaPlayer,
   beatSpieltAuf,
+  browserDarf,
+  maModus,
+  ttsAudioPfad,
   findeStimme,
   ttsMedienId,
   lautsprecherWahl,
@@ -75,6 +79,32 @@ describe('ansageWeg -- was die Einstellungen anzeigen', () => {
       ansageZiel('media_player.yapaia_ipad', [ipad, { entity_id: 'media_player.yapaia_beat', state: 'playing', attributes: {} }], true),
     ).toBe('media_player.yapaia_ipad');
   });
+  it('Modus: Verzögerung vor (mischen/browser) oder nach der Ansage (sofort)', () => {
+    const ipad = ma('media_player.yapaia_ipad', 'Yapaia iPad');
+    const z = [ipad, beat('playing', 'media_player.yapaia_ipad')];
+    expect(beatMaPlayer(z)).toBe('media_player.yapaia_ipad');
+    // automatisch (nichts gewählt) und gewählt: mischen -> Beat, sofort -> Music Assistant
+    expect(ansageZiel('', z, true, 'mischen')).toBeNull();
+    expect(ansageZiel('', z, true, 'sofort')).toBe('media_player.yapaia_ipad');
+    expect(ansageZiel('media_player.yapaia_ipad', z, true, 'sofort')).toBe('media_player.yapaia_ipad');
+    expect(ansageZiel('media_player.yapaia_ipad', z, true, 'browser')).toBeNull();
+    // ein ANDERER gewählter Player bleibt der gewählte
+    expect(ansageZiel('media_player.ma_bus', [...z, bus], true, 'mischen')).toBe('media_player.ma_bus');
+    expect(maModus(undefined)).toBe('browser');
+    expect(maModus('sofort')).toBe('sofort');
+    expect(ansageWeg('', z, true, 'browser')).toEqual({ art: 'beat-ma-browser', ziel: 'Yapaia iPad' });
+    expect(ansageWeg('', z, true, 'sofort')).toEqual({ art: 'lautsprecher', ziel: 'Yapaia iPad' });
+  });
+
+  it('browserDarf: nur der Browser, der der Player ist, auf dem Beat spielt', () => {
+    const ipad = ma('media_player.yapaia_ipad', 'Yapaia iPad');
+    const z = [ipad, beat('playing', 'media_player.yapaia_ipad')];
+    expect(browserDarf(z, 'Yapaia iPad', true, 'browser')).toBe(true);
+    expect(browserDarf(z, 'Yapaia iPhone', true, 'browser')).toBe(false);
+    expect(browserDarf(z, 'Yapaia iPad', true, 'mischen')).toBe(false);
+    expect(browserDarf(z, 'Yapaia iPad', false, 'browser')).toBe(false);
+    expect(browserDarf([ipad, beat('idle', 'media_player.yapaia_ipad')], 'Yapaia iPad', true, 'browser')).toBe(false);
+  });
   it('Beat auf einem Music-Assistant-Player: Stufe 4', () => {
     expect(ansageWeg('', [bus, beat('playing', 'media_player.ma_bus')], true)).toEqual({ art: 'beat-ma', ziel: 'Bus' });
   });
@@ -95,6 +125,36 @@ describe('ttsMedienId', () => {
       'media-source://tts/google_translate?message=Jetzt+rechts+%26+dann+links&language=de',
     );
     expect(ttsMedienId('tts.piper', 'Hallo')).toBe('media-source://tts/tts.piper?message=Hallo');
+  });
+});
+
+describe('ttsAudioPfad', () => {
+  it('fragt /api/tts_get_url und gibt den Pfad zurück', async () => {
+    const fetch = vi.fn(async (_u: string, _i?: unknown) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: 'http://homeassistant.local:8123/api/tts_proxy/abc.mp3', path: '/api/tts_proxy/abc.mp3' }),
+      text: async () => '',
+    }));
+    expect(await ttsAudioPfad(V, { engine: 'tts.cloud', language: 'de-DE' }, 'Links', fetch as never)).toEqual({
+      pfad: '/api/tts_proxy/abc.mp3',
+    });
+    expect(fetch.mock.calls[0]![0]).toBe('http://ha/api/tts_get_url');
+    expect(JSON.parse((fetch.mock.calls[0]![1] as { body: string }).body)).toEqual({
+      engine_id: 'tts.cloud',
+      message: 'Links',
+      language: 'de-DE',
+    });
+  });
+  it('ohne path: aus der url', async () => {
+    const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ url: 'http://x:8123/api/tts_proxy/q.mp3' }), text: async () => '' }));
+    expect(await ttsAudioPfad(V, { engine: 'tts.cloud' }, 'A', fetch as never)).toEqual({ pfad: '/api/tts_proxy/q.mp3' });
+  });
+  it('Fehler werden zu Klartext', async () => {
+    const fetch = vi.fn(async () => ({ ok: false, status: 400, json: async () => ({}), text: async () => '' }));
+    expect(await ttsAudioPfad(V, { engine: 'tts.cloud' }, 'A', fetch as never)).toEqual({
+      fehler: 'Home Assistant lieferte keine Sprache (HTTP 400).',
+    });
   });
 });
 
