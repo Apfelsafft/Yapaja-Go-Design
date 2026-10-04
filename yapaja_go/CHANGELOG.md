@@ -10,6 +10,15 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.37.5
+
+- **Beat mischt jetzt wirklich, wenn es auf dem gewählten Player spielt:**
+  Im Test mit 0.37.4 zeigte Go „Yapaia Beat … mischt die Ansage ins Radio“,
+  die Testansage ging aber doch direkt an Music Assistant. Das Radio
+  verstummte deshalb ganz und kam erst Sekunden später wieder. Go las
+  den Zustand von Beat ohne die Angabe, auf welchem Player es spielt. Jetzt
+  mischt Beat, und die Musik läuft leiser weiter
+
 ## 0.37.4
 
 - **Gong abschaltbar:** Unter ⚙ → Sprache & Home Assistant gibt es den

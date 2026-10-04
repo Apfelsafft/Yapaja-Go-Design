@@ -3,6 +3,7 @@ import {
   AnsageKette,
   LautsprecherAnsage,
   ansageWeg,
+  ansageZiel,
   beatSpieltAuf,
   findeStimme,
   ttsMedienId,
@@ -57,6 +58,22 @@ describe('ansageWeg -- was die Einstellungen anzeigen', () => {
     });
     expect(beatSpieltAuf([bus, beat('playing', 'media_player.ma_bus')], 'media_player.ma_bus')).toBe(true);
     expect(beatSpieltAuf([bus, beat('idle', 'media_player.ma_bus')], 'media_player.ma_bus')).toBe(false);
+  });
+  it('ansageZiel: spielt Beat auf dem gewählten Player, mischt Beat (kein Ziel für Go)', () => {
+    // genau der Fall aus dem Test mit 0.37.4: Ansicht sagte "Beat mischt",
+    // die Ansage ging trotzdem an Music Assistant
+    const ipad = ma('media_player.yapaia_ipad', 'Yapaia iPad');
+    expect(ansageZiel('media_player.yapaia_ipad', [ipad, beat('playing', 'media_player.yapaia_ipad')], true)).toBeNull();
+    expect(ansageZiel('media_player.yapaia_ipad', [ipad, beat('idle', 'media_player.yapaia_ipad')], true)).toBe(
+      'media_player.yapaia_ipad',
+    );
+    expect(ansageZiel('media_player.yapaia_ipad', [ipad, beat('playing', 'media_player.yapaia_ipad')], false)).toBe(
+      'media_player.yapaia_ipad',
+    );
+    // ohne Attribute (nur Zustände) erkennt man es nicht -- darum braucht ziel() die vollen Zustände
+    expect(
+      ansageZiel('media_player.yapaia_ipad', [ipad, { entity_id: 'media_player.yapaia_beat', state: 'playing', attributes: {} }], true),
+    ).toBe('media_player.yapaia_ipad');
   });
   it('Beat auf einem Music-Assistant-Player: Stufe 4', () => {
     expect(ansageWeg('', [bus, beat('playing', 'media_player.ma_bus')], true)).toEqual({ art: 'beat-ma', ziel: 'Bus' });
