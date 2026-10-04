@@ -168,7 +168,21 @@ export function registriereSprache(
   dialog: Sprachdialog,
   ansageZiel?: AnsageZiel & { pruefe?: () => Promise<Pruefergebnis> },
   browserAnsage?: BrowserAnsage,
+  browserKanal?: { melde(name: string): void; bestaetige(id: string, ok: boolean): void },
 ): void {
+  // Der Browser, in dem Beats Player gerade spielt, meldet sich (alle paar
+  // Sekunden) und bestätigt Ansagen, die er übernommen hat (`ha/browserKanal.ts`).
+  fastify.post<{ Body: unknown }>('/api/v1/ansage/browser', async (request, reply) => {
+    const body = (request.body ?? {}) as { name?: unknown };
+    if (typeof body.name === 'string' && body.name) browserKanal?.melde(body.name.slice(0, 100));
+    return reply.code(204).send();
+  });
+  fastify.post<{ Body: unknown }>('/api/v1/ansage/gespielt', async (request, reply) => {
+    const body = (request.body ?? {}) as { id?: unknown; ok?: unknown };
+    if (typeof body.id === 'string') browserKanal?.bestaetige(body.id, body.ok !== false);
+    return reply.code(204).send();
+  });
+
   fastify.post<{ Body: unknown }>('/api/v1/sprache', async (request, reply) => {
     const body = (request.body ?? {}) as { text?: unknown };
     const text = typeof body.text === 'string' ? body.text.trim() : '';

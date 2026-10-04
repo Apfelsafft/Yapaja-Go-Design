@@ -171,21 +171,14 @@ export function beatMaPlayer(zustaende: readonly HaEntityState[]): string | null
 }
 
 /**
- * Darf dieser Browser die Ansage selbst einmischen? Ja, wenn Beat gerade auf
- * dem Music-Assistant-Player spielt, der dieser Browser ist (Beats
- * Sendspin-Player meldet seinen Namen, z. B. „Yapaia iPad").
+ * Darf ein Browser die Ansage selbst einmischen? Ja, wenn Beat gerade auf
+ * einem Player von Music Assistant spielt und der Modus „browser" gilt.
+ * Welcher Browser: der, in dem Beats Player spielt -- er fragt bzw. meldet
+ * sich nur dann. (Früher über den Namen abgeglichen; der ändert sich aber,
+ * wenn man den Player in Music Assistant umbenennt.)
  */
-export function browserDarf(
-  zustaende: readonly HaEntityState[],
-  browserPlayer: string,
-  beatAn: boolean,
-  modus: MaModus,
-): boolean {
-  if (!beatAn || modus !== 'browser' || !browserPlayer) return false;
-  const player = beatMaPlayer(zustaende);
-  if (!player) return false;
-  const z = zustaende.find((x) => x.entity_id === player);
-  return String(z?.attributes?.friendly_name ?? '') === browserPlayer;
+export function browserDarf(zustaende: readonly HaEntityState[], beatAn: boolean, modus: MaModus): boolean {
+  return beatAn && modus === 'browser' && beatMaPlayer(zustaende) !== null;
 }
 
 /** Ist Music Assistant als Integration in Home Assistant eingerichtet? Null = unbekannt. */
@@ -410,12 +403,15 @@ export class AnsageKette implements AnsageZiel {
   constructor(
     private readonly lautsprecher: LautsprecherAnsage,
     private readonly beat: AnsageZiel & { pruefe(text?: string): Promise<Pruefergebnis> },
+    /** Der Browser, auf dem das Radio spielt (`ha/browserKanal.ts`) -- vor Beat. */
+    private readonly browser?: AnsageZiel,
   ) {}
 
   async sage(text: string, prioritaet: AnsagePrioritaet): Promise<boolean> {
-    // Klappt es am gewählten Lautsprecher nicht, lieber Beat oder Go selbst
-    // als gar keine Ansage.
+    // Klappt es am gewählten Lautsprecher nicht, lieber der Browser, Beat
+    // oder Go selbst als gar keine Ansage.
     if ((await this.lautsprecher.versuche(text)).ok) return true;
+    if (this.browser && (await this.browser.sage(text, prioritaet))) return true;
     return this.beat.sage(text, prioritaet);
   }
 

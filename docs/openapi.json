@@ -2802,6 +2802,52 @@
         }
       }
     },
+    "/api/v1/ansage/browser": {
+      "post": {
+        "summary": "Der Browser, in dem Yapaia Beats Player spielt, meldet sich (Ansagen kommen dann dorthin)",
+        "tags": [
+          "Navigation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ansage/gespielt": {
+      "post": {
+        "summary": "Der Browser bestätigt eine Ansage, die er übernommen hat (Bus-Thema ansage/browser)",
+        "tags": [
+          "Navigation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolgreiche Antwort (Schema noch nicht kuratiert -- siehe apps/core/src/openapi/paths.ts)"
+          },
+          "default": {
+            "description": "Fehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sprache": {
       "post": {
         "summary": "Sprachbefehl als Text: Antwort zum Vorlesen und ggf. Aktion (Ziel, Stopp, Verkehr …)",
