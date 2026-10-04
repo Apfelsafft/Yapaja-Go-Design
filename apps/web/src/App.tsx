@@ -18,6 +18,7 @@ import OnboardingWizard from './onboarding/OnboardingWizard.js';
 import UnconfirmedDimensionsBanner from './profiles/UnconfirmedDimensionsBanner.js';
 import AddonHost from './addons/AddonHost.js';
 import BordHinweis from './bord/BordHinweis.js';
+import AnsageKanal from './drive/AnsageKanal.js';
 
 export default function App(): React.ReactElement {
   return (
@@ -50,6 +51,8 @@ export default function App(): React.ReactElement {
       {/* Bordsensoren: Grau-/Frischwasser, Batterie, Frost -- mit der
           passenden Station voraus (bord/BordHinweis.tsx). */}
       <BordHinweis />
+      {/* Ansagen des Kerns an den Browser, in dem das Radio spielt (drive/AnsageKanal.tsx). */}
+      <AnsageKanal />
       {/* Tacho: haengt an der Position, also auch ohne laufende Navigation da. */}
       <SpeedDisplay />
       <UpdatePrompt />

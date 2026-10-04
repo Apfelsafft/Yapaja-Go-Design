@@ -58,6 +58,7 @@ import { Sprachdialog } from './sprache/dialog.js';
 import { frageKi } from './ha/kiAgent.js';
 import { AUTOMATION_ID, HaSprachBruecke, SPRACH_EINGABE } from './ha/sprachBruecke.js';
 import { wsBefehlErgebnis } from './ha/wsBefehl.js';
+import { BrowserKanal } from './ha/browserKanal.js';
 import { registriereSprache, sprachDeps, type BrowserAnsage } from './sprache/kern.js';
 import { resolveDestinationAndRoute } from './navigation/destinationResolver.js';
 import { BordDienst, bordKonfigurationAusUmgebung } from './bord/dienst.js';
@@ -713,22 +714,35 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   };
   // Der Browser mischt selbst ein, wenn er der Player ist, auf dem Beat
   // gerade spielt (`ha/lautsprecherAnsage.ts#browserDarf`).
-  const browserAnsage: BrowserAnsage = async (text, browserPlayer) => {
+  const browserDarfJetzt = async (): Promise<boolean> => {
     const v = resolveHaConnection({ settings: settingsService });
-    if (!v) return null;
+    if (!v) return false;
     const liste = await fetchHaStates(v, { logger: ansageLogger }).catch(() => []);
-    const darf = browserDarf(
+    return browserDarf(
       Array.isArray(liste) ? liste : [],
-      browserPlayer,
       beatAnsagenAn(settingsService.get('ansagen_beat')),
       maModus(settingsService.get('ansage_ma_weg')),
     );
-    if (!darf) return null;
-    const stimme = await stimmeFuer(v);
-    if (!stimme) return null;
-    const r = await ttsAudioPfad(v, stimme, text);
-    return 'pfad' in r ? { pfad: r.pfad } : null;
   };
+  const sprachPfad = async (text: string): Promise<string | null> => {
+    const v = resolveHaConnection({ settings: settingsService });
+    const stimme = v ? await stimmeFuer(v) : null;
+    if (!v || !stimme) return null;
+    const r = await ttsAudioPfad(v, stimme, text);
+    return 'pfad' in r ? r.pfad : null;
+  };
+  const browserAnsage: BrowserAnsage = async (text) => {
+    if (!(await browserDarfJetzt())) return null;
+    const pfad = await sprachPfad(text);
+    return pfad ? { pfad } : null;
+  };
+  // Alle übrigen Ansagen (Antworten über Assist, HA-Kanal): an den Browser,
+  // auf dem das Radio spielt, über den Bus (`ha/browserKanal.ts`).
+  const browserKanal = new BrowserKanal({
+    darf: browserDarfJetzt,
+    pfad: sprachPfad,
+    sende: (n) => eventBus.publish('ansage/browser', n),
+  });
   const lautsprecherAnsage = new LautsprecherAnsage({
     verbindung: () => resolveHaConnection({ settings: settingsService }),
     // Spielt Beat gerade auf genau diesem Player, mischt Beat (die Kette
@@ -754,7 +768,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
       return e.ok || e.zeitUm ? { ok: true } : { ok: false, ...(e.fehler ? { fehler: e.fehler } : {}) };
     },
   });
-  const ansageZiel = new AnsageKette(lautsprecherAnsage, beatAnsage);
+  const ansageZiel = new AnsageKette(lautsprecherAnsage, beatAnsage, browserKanal);
 
   const haOutputChannel = new HaOutputChannel({
     bus: eventBus,
@@ -1002,7 +1016,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     }),
     ki: sprachKi,
   });
-  registriereSprache(fastify, sprachdialog, ansageZiel, browserAnsage);
+  registriereSprache(fastify, sprachdialog, ansageZiel, browserAnsage, browserKanal);
 
   // ─── … UND UEBER HOME ASSISTANT ASSIST (0.30) ───────────────────────────
   // Satelliten und der Assist-Knopf der HA-App -- ohne HTTPS. Siehe

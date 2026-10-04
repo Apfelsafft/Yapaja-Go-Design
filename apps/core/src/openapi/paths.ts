@@ -131,6 +131,14 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     summary: 'Eine Ansage der App: läuft Yapaia Beat, wird sie ins Radio gemischt (ueber_radio), sonst spricht die App selbst',
     tags: ['Navigation'],
   },
+  'POST /api/v1/ansage/browser': {
+    summary: 'Der Browser, in dem Yapaia Beats Player spielt, meldet sich (Ansagen kommen dann dorthin)',
+    tags: ['Navigation'],
+  },
+  'POST /api/v1/ansage/gespielt': {
+    summary: 'Der Browser bestätigt eine Ansage, die er übernommen hat (Bus-Thema ansage/browser)',
+    tags: ['Navigation'],
+  },
   'POST /api/v1/ansage/test': {
     summary: 'Testansage über Yapaia Beat; Ergebnis und Grund in Klartext',
     tags: ['Navigation'],

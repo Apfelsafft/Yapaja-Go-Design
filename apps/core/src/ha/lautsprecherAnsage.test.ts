@@ -96,14 +96,25 @@ describe('ansageWeg -- was die Einstellungen anzeigen', () => {
     expect(ansageWeg('', z, true, 'sofort')).toEqual({ art: 'lautsprecher', ziel: 'Yapaia iPad' });
   });
 
-  it('browserDarf: nur der Browser, der der Player ist, auf dem Beat spielt', () => {
+  it('browserDarf: Beat spielt über Music Assistant und Modus browser', () => {
     const ipad = ma('media_player.yapaia_ipad', 'Yapaia iPad');
     const z = [ipad, beat('playing', 'media_player.yapaia_ipad')];
-    expect(browserDarf(z, 'Yapaia iPad', true, 'browser')).toBe(true);
-    expect(browserDarf(z, 'Yapaia iPhone', true, 'browser')).toBe(false);
-    expect(browserDarf(z, 'Yapaia iPad', true, 'mischen')).toBe(false);
-    expect(browserDarf(z, 'Yapaia iPad', false, 'browser')).toBe(false);
-    expect(browserDarf([ipad, beat('idle', 'media_player.yapaia_ipad')], 'Yapaia iPad', true, 'browser')).toBe(false);
+    expect(browserDarf(z, true, 'browser')).toBe(true);
+    expect(browserDarf(z, true, 'mischen')).toBe(false);
+    expect(browserDarf(z, false, 'browser')).toBe(false);
+    expect(browserDarf([ipad, beat('idle', 'media_player.yapaia_ipad')], true, 'browser')).toBe(false);
+  });
+  it('Kette: Lautsprecher, dann Browser, dann Beat', async () => {
+    const lautsprecher = { versuche: vi.fn(async () => ({ ok: false, zustaendig: false, grund: '' })) };
+    const beatZiel = { sage: vi.fn(async () => true), pruefe: vi.fn() };
+    const browser = { sage: vi.fn(async () => true) };
+    const k = new AnsageKette(lautsprecher as never, beatZiel as never, browser);
+    expect(await k.sage('X', 'navigation')).toBe(true);
+    expect(browser.sage).toHaveBeenCalled();
+    expect(beatZiel.sage).not.toHaveBeenCalled();
+    browser.sage.mockResolvedValueOnce(false);
+    await k.sage('Y', 'navigation');
+    expect(beatZiel.sage).toHaveBeenCalledWith('Y', 'navigation');
   });
   it('Beat auf einem Music-Assistant-Player: Stufe 4', () => {
     expect(ansageWeg('', [bus, beat('playing', 'media_player.ma_bus')], true)).toEqual({ art: 'beat-ma', ziel: 'Bus' });

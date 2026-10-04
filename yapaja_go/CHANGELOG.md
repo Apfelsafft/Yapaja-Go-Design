@@ -10,6 +10,19 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.38.1
+
+- **Alle Sprachausgaben nehmen denselben schnellen Weg:** Antworten der
+  Sprachsteuerung (🎤 in der App und Assist von Home Assistant) gingen noch
+  über Yapaia Beat in den Stream, mit Sekunden Verzögerung. Jetzt bekommt
+  sie der Browser, in dem Beats Player spielt, wie die Abbiege-Ansagen,
+  und mischt sie sofort ein. Der Browser meldet sich dafür alle paar
+  Sekunden beim Kern. Bestätigt er eine Ansage nicht binnen 2 s, mischt
+  Beat wie bisher
+- Ob ein Browser einmischen darf, hängt nicht mehr am Namen des Players.
+  So bleibt es dabei, auch wenn man ihn in Music Assistant umbenennt
+  (Beat 1.10 nennt ihn „Yapaia Browser“)
+
 ## 0.38.0
 
 - **Ansagen sofort, wenn das Radio über Music Assistant läuft:** Im Test
