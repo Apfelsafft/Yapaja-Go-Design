@@ -10,6 +10,25 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.38.0
+
+- **Ansagen sofort, wenn das Radio über Music Assistant läuft:** Im Test
+  kam eine von Yapaia Beat eingemischte Ansage 5–7 s zu spät, weil Music
+  Assistant vom Radio einige Sekunden auf Vorrat hält. Spielt das Radio
+  über Beats Player in diesem Browser („Music Assistant in diesem
+  Browser“, z. B. „Yapaia iPad“), mischt jetzt der Browser selbst die
+  Ansage ein. Sie kommt, sobald Home Assistant die Sprache erzeugt hat, und
+  die Musik läuft leiser weiter. Braucht Yapaia Beat 1.9
+- **Neue Einstellung „Läuft das Radio über Music Assistant“** unter ⚙ →
+  Sprache & Home Assistant. Gewünscht war, die Verzögerung vor oder nach
+  die Ansage legen zu können:
+  - *Im Browser einmischen* (Vorgabe): sofort, Musik läuft leiser weiter
+  - *Beat mischt*: Musik läuft weiter, die Ansage kommt einige Sekunden später
+  - *Music Assistant spricht sofort*: die Musik pausiert und kommt einige
+    Sekunden später wieder
+- „Ansage ins Radio testen“ nimmt den Weg über den Browser, wenn er gilt,
+  und sagt, nach wie vielen Sekunden die Ansage gesprochen war
+
 ## 0.37.5
 
 - **Beat mischt jetzt wirklich, wenn es auf dem gewählten Player spielt:**

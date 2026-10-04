@@ -27,7 +27,10 @@ import {
   LautsprecherAnsage,
   ansageWeg,
   ansageZiel as waehleAnsageZiel,
+  browserDarf,
   findeStimme,
+  maModus,
+  ttsAudioPfad,
   maEingerichtet,
   maLautsprecher,
   type Stimme,
@@ -55,7 +58,7 @@ import { Sprachdialog } from './sprache/dialog.js';
 import { frageKi } from './ha/kiAgent.js';
 import { AUTOMATION_ID, HaSprachBruecke, SPRACH_EINGABE } from './ha/sprachBruecke.js';
 import { wsBefehlErgebnis } from './ha/wsBefehl.js';
-import { registriereSprache, sprachDeps } from './sprache/kern.js';
+import { registriereSprache, sprachDeps, type BrowserAnsage } from './sprache/kern.js';
 import { resolveDestinationAndRoute } from './navigation/destinationResolver.js';
 import { BordDienst, bordKonfigurationAusUmgebung } from './bord/dienst.js';
 import { leseSonderziele } from './map/sonderziele/ausIndex.js';
@@ -701,6 +704,31 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // Ansagen über Music Assistant (Stufe 3) bzw. den gewählten Lautsprecher;
   // sonst Beat (Stufe 2/4), sonst Go selbst (Stufe 1). `ha/lautsprecherAnsage.ts`.
   let stimmeCache: { bis: number; stimme: Stimme | null } | null = null;
+  const stimmeFuer = async (v: Parameters<typeof fetchHaStates>[0]): Promise<Stimme | null> => {
+    if (stimmeCache && stimmeCache.bis > Date.now()) return stimmeCache.stimme;
+    const tts = resolveHaConfig({ settings: settingsService })?.tts;
+    const stimme = await findeStimme(v, { engine: tts?.ttsEntityId, language: tts?.language });
+    stimmeCache = { bis: Date.now() + 10 * 60_000, stimme };
+    return stimme;
+  };
+  // Der Browser mischt selbst ein, wenn er der Player ist, auf dem Beat
+  // gerade spielt (`ha/lautsprecherAnsage.ts#browserDarf`).
+  const browserAnsage: BrowserAnsage = async (text, browserPlayer) => {
+    const v = resolveHaConnection({ settings: settingsService });
+    if (!v) return null;
+    const liste = await fetchHaStates(v, { logger: ansageLogger }).catch(() => []);
+    const darf = browserDarf(
+      Array.isArray(liste) ? liste : [],
+      browserPlayer,
+      beatAnsagenAn(settingsService.get('ansagen_beat')),
+      maModus(settingsService.get('ansage_ma_weg')),
+    );
+    if (!darf) return null;
+    const stimme = await stimmeFuer(v);
+    if (!stimme) return null;
+    const r = await ttsAudioPfad(v, stimme, text);
+    return 'pfad' in r ? { pfad: r.pfad } : null;
+  };
   const lautsprecherAnsage = new LautsprecherAnsage({
     verbindung: () => resolveHaConnection({ settings: settingsService }),
     // Spielt Beat gerade auf genau diesem Player, mischt Beat (die Kette
@@ -711,16 +739,11 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
         settingsService.get('ansage_lautsprecher'),
         Array.isArray(liste) ? liste : [],
         beatAnsagenAn(settingsService.get('ansagen_beat')),
+        maModus(settingsService.get('ansage_ma_weg')),
       );
     },
     gong: () => settingsService.get('ansage_gong') !== false,
-    stimme: async (v) => {
-      if (stimmeCache && stimmeCache.bis > Date.now()) return stimmeCache.stimme;
-      const tts = resolveHaConfig({ settings: settingsService })?.tts;
-      const stimme = await findeStimme(v, { engine: tts?.ttsEntityId, language: tts?.language });
-      stimmeCache = { bis: Date.now() + 10 * 60_000, stimme };
-      return stimme;
-    },
+    stimme: (v) => stimmeFuer(v),
     // Über WebSocket statt REST: so nennt Home Assistant den Grund, wenn es
     // nicht geht. Die Aktion endet erst, wenn die Ansage gesprochen ist --
     // keine Antwort nach 4 s heißt darum „läuft", nicht „Fehler".
@@ -979,7 +1002,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     }),
     ki: sprachKi,
   });
-  registriereSprache(fastify, sprachdialog, ansageZiel);
+  registriereSprache(fastify, sprachdialog, ansageZiel, browserAnsage);
 
   // ─── … UND UEBER HOME ASSISTANT ASSIST (0.30) ───────────────────────────
   // Satelliten und der Assist-Knopf der HA-App -- ohne HTTPS. Siehe
@@ -1015,6 +1038,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
           lautsprecherWahl: '',
           musicAssistant: null,
           ansageGong: settingsService.get('ansage_gong') !== false,
+          ansageMaWeg: maModus(settingsService.get('ansage_ma_weg')),
           ansageWeg: { art: 'selbst' },
         },
       });
@@ -1045,7 +1069,13 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
         // wenn nicht, warum.
         musicAssistant,
         ansageGong: settingsService.get('ansage_gong') !== false,
-        ansageWeg: ansageWeg(settingsService.get('ansage_lautsprecher'), liste, beatAnsagenAn(settingsService.get('ansagen_beat'))),
+        ansageMaWeg: maModus(settingsService.get('ansage_ma_weg')),
+        ansageWeg: ansageWeg(
+          settingsService.get('ansage_lautsprecher'),
+          liste,
+          beatAnsagenAn(settingsService.get('ansagen_beat')),
+          maModus(settingsService.get('ansage_ma_weg')),
+        ),
       },
     });
   });

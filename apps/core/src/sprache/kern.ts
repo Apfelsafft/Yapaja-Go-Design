@@ -160,10 +160,14 @@ export function sprachDeps(k: KernDienste): SprachDeps {
 }
 
 /** POST /api/v1/sprache -- ein Satz rein, Antwort (und ggf. Aktion) raus. */
+/** Darf der Browser die Ansage selbst einmischen? Dann: wo die Sprache liegt. */
+export type BrowserAnsage = (text: string, browserPlayer: string) => Promise<{ pfad: string } | null>;
+
 export function registriereSprache(
   fastify: FastifyInstance,
   dialog: Sprachdialog,
   ansageZiel?: AnsageZiel & { pruefe?: () => Promise<Pruefergebnis> },
+  browserAnsage?: BrowserAnsage,
 ): void {
   fastify.post<{ Body: unknown }>('/api/v1/sprache', async (request, reply) => {
     const body = (request.body ?? {}) as { text?: unknown };
@@ -183,13 +187,20 @@ export function registriereSprache(
   // Bordhinweis). Läuft das Radio, mischt Yapaia Beat die Ansage ein
   // (`ueber_radio: true`); sonst spricht die App selbst.
   fastify.post<{ Body: unknown }>('/api/v1/ansage', async (request, reply) => {
-    const body = (request.body ?? {}) as { text?: unknown; prioritaet?: unknown };
+    const body = (request.body ?? {}) as { text?: unknown; prioritaet?: unknown; browser_player?: unknown };
     const text = typeof body.text === 'string' ? body.text.trim() : '';
     if (!text || text.length > 500) {
       return reply.code(400).send({ error: { code: 'VALIDATION_ERROR', message: '"text" (1–500 Zeichen) fehlt' } });
     }
     const prioritaet: AnsagePrioritaet =
       body.prioritaet === 'navigation' || body.prioritaet === 'info' ? body.prioritaet : 'hinweis';
+    // Ist der Browser selbst der Player, auf dem das Radio läuft (Beats
+    // Sendspin-Player), mischt er die Ansage ein -- ohne den Vorrat von
+    // Music Assistant, also sofort.
+    if (typeof body.browser_player === 'string' && body.browser_player && browserAnsage) {
+      const imBrowser = await browserAnsage(text, body.browser_player.slice(0, 100)).catch(() => null);
+      if (imBrowser) return reply.code(200).send({ data: { ueber_radio: false, im_browser: imBrowser } });
+    }
     const ueberRadio = (await ansageZiel?.sage(text, prioritaet)) ?? false;
     return reply.code(200).send({ data: { ueber_radio: ueberRadio } });
   });
