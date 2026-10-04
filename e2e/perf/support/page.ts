@@ -121,8 +121,24 @@ export async function pauseFollowMeByUserGesture(page: Page): Promise<void> {
   const cy = box.y + box.height / 2;
   await page.mouse.move(cx, cy);
   await page.mouse.down();
-  await page.mouse.move(cx + 20, cy + 10, { steps: 4 });
+  // ─── WEIT, UND MIT ZEIT FUER DIE KARTE ──────────────────────────────────
+  // Hier stand ein 20-px-Wisch in vier Schritten, ohne Pause. Gemessen kamen
+  // bei MapLibre `mousedown` und alle `mousemove` an -- aber nie ein
+  // `dragstart`. MapLibre wertet Gesten erst im naechsten gezeichneten Bild
+  // aus, und unter 4-facher CPU-Drosselung mit Software-Grafik sind das rund
+  // sechs Bilder je Sekunde. Die Maus war schon wieder oben, bevor die Karte
+  // ein einziges Bild lang hinsah: kein Schwenk, keine Pause, Follow-Me riss
+  // die Kamera an sich und brach jede Mess-Etappe ab.
+  //
+  // Der erste Schritt geht gleich ueber jede Wackel-Toleranz hinaus, damit
+  // die App kein LANGES DRUECKEN („Ziel setzen") darin sieht. Danach bleibt
+  // die Maus jeweils mehrere Bilder lang stehen.
+  await page.mouse.move(cx + 80, cy + 40, { steps: 2 });
+  await page.waitForTimeout(500);
+  await page.mouse.move(cx + 160, cy + 80, { steps: 4 });
+  await page.waitForTimeout(500);
   await page.mouse.up();
+  await page.waitForTimeout(300);
 }
 
 /**
