@@ -127,6 +127,20 @@ if [ "${#POI_FILTERS[@]}" -eq 0 ]; then
 fi
 osmium tags-filter --overwrite -o "$WORK_DIR/pois.osm.pbf" "$PBF" "${POI_FILTERS[@]}"
 
+# Seit 0.39.0: alles BENANNTE (Firmen, Werkstaetten, Gebaeude) und
+# Hausnummern. Zwei Durchgaenge, weil `osmium` kein UND in einem Filter kennt.
+echo "== Filtere benannte Firmen und Gebaeude aus $PBF =="
+mapfile -t NAMED_FILTERS < <(pnpm --silent --filter @yapaia/core exec tsx src/search/lite/cli.ts --print-named-filters)
+if [ "${#NAMED_FILTERS[@]}" -eq 0 ]; then
+  echo "FEHLER: keine Filter fuer benannte Objekte erhalten." >&2
+  exit 1
+fi
+osmium tags-filter --overwrite -o "$WORK_DIR/named-all.osm.pbf" "$PBF" nwr/name
+osmium tags-filter --overwrite -o "$WORK_DIR/named.osm.pbf" "$WORK_DIR/named-all.osm.pbf" "${NAMED_FILTERS[@]}"
+
+echo "== Filtere Hausnummern (addr:housenumber) aus $PBF =="
+osmium tags-filter --overwrite -o "$WORK_DIR/addresses.osm.pbf" "$PBF" nwr/addr:housenumber
+
 echo "== Exportiere GeoJSONSeq =="
 # Orte sind Nodes -> Points.
 osmium export --overwrite --geometry-types=point -f geojsonseq -o "$WORK_DIR/places.geojsonseq" "$WORK_DIR/places.osm.pbf"
@@ -141,6 +155,8 @@ osmium export --overwrite --geometry-types=linestring,polygon -f geojsonseq -o "
 # Sonderziele kommen als Knoten UND als Flaechen (ein Supermarkt ist meist ein
 # Gebaeude, ein Campingplatz fast immer) -- beide Geometriearten exportieren.
 osmium export --overwrite --geometry-types=point,linestring,polygon -f geojsonseq -o "$WORK_DIR/pois.geojsonseq" "$WORK_DIR/pois.osm.pbf"
+osmium export --overwrite --geometry-types=point,linestring,polygon -f geojsonseq -o "$WORK_DIR/named.geojsonseq" "$WORK_DIR/named.osm.pbf"
+osmium export --overwrite --geometry-types=point,linestring,polygon -f geojsonseq -o "$WORK_DIR/addresses.geojsonseq" "$WORK_DIR/addresses.osm.pbf"
 
 echo "== Baue lite_search.db (tsx-CLI, atomarer Swap nach $OUT_DB) =="
 (
@@ -149,6 +165,8 @@ echo "== Baue lite_search.db (tsx-CLI, atomarer Swap nach $OUT_DB) =="
     --places "$WORK_DIR/places.geojsonseq" \
     --streets "$WORK_DIR/streets.geojsonseq" \
     --pois "$WORK_DIR/pois.geojsonseq" \
+    --named "$WORK_DIR/named.geojsonseq" \
+    --addresses "$WORK_DIR/addresses.geojsonseq" \
     --out "$OUT_DB" \
     --region "$REGION_ID"
 )

@@ -81,6 +81,24 @@ function dedupeKey(candidate: LiteCandidate): string {
   return `${candidate.name}|${candidate.kind}|${candidate.lat.toFixed(5)}|${candidate.lon.toFixed(5)}`;
 }
 
+/** Umkreise um die Position, in denen zusätzlich gesucht wird. */
+const NAH_KM = [30, 150] as const;
+
+/**
+ * Die Hausnummer in der Eingabe: „Hauptstraße 80", „Weg 12a", „Weg 12 a".
+ * Fünf Ziffern sind eine Postleitzahl, keine Hausnummer.
+ */
+export function hausnummerAus(q: string): string | null {
+  const teile = q.trim().split(/\s+/);
+  for (let i = 0; i < teile.length; i += 1) {
+    const t = (teile[i] as string).replace(/[.,;]+$/, '');
+    if (!/^\d{1,4}[a-z]?$/i.test(t)) continue;
+    const zusatz = teile[i + 1];
+    return zusatz && /^[a-z]$/i.test(zusatz) ? `${t}${zusatz}` : t;
+  }
+  return null;
+}
+
 /** Wie weit um den Ortspunkt gesucht wird, je nach Grösse des Ortes. */
 const UMKREIS_KM: Partial<Record<string, number>> = { city: 15, town: 7, village: 3, borough: 4, suburb: 3 };
 
@@ -164,10 +182,21 @@ export class LiteBackend implements GeocoderBackend {
     if (query.umkreisKm && query.lat !== undefined && query.lon !== undefined) {
       return this.imUmkreis(readers, query.q, { lat: query.lat, lon: query.lon }, query.umkreisKm, query.limit);
     }
-    const candidates = this.withErrorMapping('search', () =>
-      readers.flatMap((reader) => reader.searchByPrefix(query.q, holen)),
-    );
     const origin = query.lat !== undefined && query.lon !== undefined ? { lat: query.lat, lon: query.lon } : undefined;
+    const candidates = this.withErrorMapping('search', () => [
+      // ─── ERST IN DER NÄHE, DANN ÜBERALL (0.39.0) ────────────────────────
+      // Gemeldet: „Rewe" fand Straßen in der Schweiz und in Ostfriesland,
+      // aber nicht den REWE, der auf der Karte direkt daneben stand. Die
+      // landesweite Abfrage liefert nur die nach bm25 besten Zeilen -- ob der
+      // Laden um die Ecke darunter ist, war Zufall. In der Umgebung der
+      // Position wird deshalb eigens gesucht.
+      ...(origin
+        ? NAH_KM.flatMap((km) =>
+            readers.flatMap((reader) => reader.searchByPrefix(query.q, holen, kastenUm(origin.lat, origin.lon, km))),
+          )
+        : []),
+      ...readers.flatMap((reader) => reader.searchByPrefix(query.q, holen)),
+    ]);
     const imOrt = this.withErrorMapping('search', () => this.imGenanntenOrt(readers, query.q, holen));
     const ergebnis = [
       // Gerankt gegen die Eingabe OHNE den Ort: „Ziolkowskistraße" beginnt
@@ -179,7 +208,40 @@ export class LiteBackend implements GeocoderBackend {
       // mehr mit dem Gesuchten, und die Laeden darin rutschten davor.
       ...rankLiteCandidates(dedupe(candidates), bereinigt(query.q), origin),
     ];
-    return strassenZusammenlegen(dedupe(ergebnis)).slice(0, query.limit).map(candidateToResult);
+    const liste = strassenZusammenlegen(dedupe(ergebnis));
+    const nummer = hausnummerAus(query.q);
+    const adressen = nummer ? this.mitHausnummer(readers, liste, nummer) : [];
+    return [...adressen, ...liste].slice(0, query.limit).map(candidateToResult);
+  }
+
+  /**
+   * „Hauptstraße 80": die Nummer IN den gefundenen Straßen (0.39.0).
+   *
+   * Die Straßen sind schon gefunden und gerankt; hier wird für die ersten
+   * nachgesehen, ob es die Hausnummer dort gibt. Gefundene Adressen stehen
+   * vorn -- sie sind genauer als jeder Straßenmittelpunkt.
+   */
+  private mitHausnummer(readers: LiteIndexReader[], liste: readonly LiteCandidate[], nummer: string): LiteCandidate[] {
+    const out: LiteCandidate[] = [];
+    const strassen = liste.filter((c) => c.kind === 'street').slice(0, 5);
+    for (const strasse of strassen) {
+      for (const reader of readers) {
+        const t = this.withErrorMapping('search', () => reader.hausnummer(strasse.name, nummer, strasse));
+        if (!t) continue;
+        const ort = [t.postcode, t.city ?? strasse.locality].filter(Boolean).join(' ');
+        out.push({
+          name: `${t.street} ${t.number}`,
+          kind: 'street',
+          category: 'housenumber',
+          lat: t.lat,
+          lon: t.lon,
+          ftsRank: 0,
+          ...(ort ? { locality: ort } : {}),
+        });
+        break;
+      }
+    }
+    return dedupe(out);
   }
 
   /**

@@ -23,7 +23,9 @@
  */
 
 import {
+  findNamedPoiKey,
   findPoiCategory,
+  namedSearchTerms,
   searchTermsFor,
   type PoiCategory,
   type PoiTagKey,
@@ -317,6 +319,100 @@ export function normalizePoiFeature(feature: OsmFeature): NormalizedRecord | nul
   };
 }
 
+/** Die Kategorie-Sonderziele: dieselbe Prüfung wie in `normalizePoiFeature`. */
+function hasPoiCategory(props: Record<string, unknown>): boolean {
+  return POI_TAG_KEYS.some((key) => {
+    const value = props[key];
+    return typeof value === 'string' && findPoiCategory(key, value) !== undefined;
+  });
+}
+
+/**
+ * Ein BENANNTES Objekt beliebiger Art -- Firma, Laden, Werkstatt, Gebäude
+ * (`NAMED_POI_KEYS`). Was schon über die Kategorien hereinkommt
+ * (`normalizePoiFeature`), wird hier übergangen: es steht sonst doppelt im
+ * Index, einmal mit und einmal ohne seine Suchbegriffe.
+ */
+export function normalizeNamedFeature(feature: OsmFeature): NormalizedRecord | null {
+  const props = feature.properties ?? {};
+  const name = tagString(props, 'name');
+  if (!name) return null;
+  if (hasPoiCategory(props)) return null;
+  const art = findNamedPoiKey(props);
+  if (!art) return null;
+
+  const point = coordsFromGeometry(feature);
+  if (!point) return null;
+
+  const address = addressFromTags(props);
+  const locality = tagString(props, 'addr:city');
+  const postcode = tagString(props, 'addr:postcode');
+  return {
+    kind: 'poi',
+    name,
+    lat: point.lat,
+    lon: point.lon,
+    category: art.value === 'yes' ? art.key.key : art.value,
+    searchTerms: namedSearchTerms(art.key),
+    ...(address ? { address } : {}),
+    ...(locality ? { locality } : {}),
+    ...(postcode ? { postcode } : {}),
+  };
+}
+
+/** Eine Hausadresse: der Punkt, an dem „Beethovenstraße 12" liegt. */
+export interface AddressRecord {
+  street: string;
+  number: string;
+  postcode?: string;
+  city?: string;
+  lat: number;
+  lon: number;
+}
+
+/**
+ * Hausnummern (0.39.0).
+ *
+ * Gemeldet: „Kann die Suche alle Parameter wie Name Straße Hausnummer Ort plz
+ * usw prüfen?" Bis hierhin kannte der Index nur den Mittelpunkt einer Straße;
+ * „Hauptstraße 80" führte auf die Mitte der Hauptstraße, die in einem Dorf
+ * schon einmal zwei Kilometer lang ist.
+ *
+ * `addr:place` statt `addr:street` gibt es in Dörfern ohne Straßennamen
+ * („Oberdorf 3") -- dann ist der Ortsteil der Straßenname.
+ */
+export function normalizeAddressFeature(feature: OsmFeature): AddressRecord | null {
+  const props = feature.properties ?? {};
+  const number = tagString(props, 'addr:housenumber');
+  const street = tagString(props, 'addr:street') ?? tagString(props, 'addr:place');
+  if (!number || !street) return null;
+  const point = coordsFromGeometry(feature);
+  if (!point) return null;
+  const postcode = tagString(props, 'addr:postcode');
+  const city = tagString(props, 'addr:city');
+  return {
+    street,
+    number,
+    lat: point.lat,
+    lon: point.lon,
+    ...(postcode ? { postcode } : {}),
+    ...(city ? { city } : {}),
+  };
+}
+
+/** Eine Zeile `osmium export -f geojsonseq` als Feature, oder `null`. */
+export function parseGeoJsonSeqLine(line: string): OsmFeature | null {
+  const withoutRs = line.charCodeAt(0) === 0x1e ? line.slice(1) : line;
+  const trimmed = withoutRs.trim();
+  if (trimmed.length === 0) return null;
+  try {
+    const feature: unknown = JSON.parse(trimmed);
+    return typeof feature === 'object' && feature !== null ? (feature as OsmFeature) : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Normalizes one line of `osmium export -f geojsonseq` output (a single
  * JSON object, NOT wrapped in a FeatureCollection -- geojsonseq is
@@ -329,7 +425,7 @@ export function normalizePoiFeature(feature: OsmFeature): NormalizedRecord | nul
  */
 export function normalizeGeoJsonSeqLine(
   line: string,
-  sourceKind: 'place' | 'street' | 'poi',
+  sourceKind: 'place' | 'street' | 'poi' | 'named',
 ): NormalizedRecord | null {
   // `osmium export -f geojsonseq` emits RFC 8142 GeoJSON Text Sequences: each
   // record is PREFIXED with an ASCII Record Separator (U+001E). `String.trim()`
@@ -357,6 +453,8 @@ export function normalizeGeoJsonSeqLine(
       return normalizePlaceFeature(f);
     case 'poi':
       return normalizePoiFeature(f);
+    case 'named':
+      return normalizeNamedFeature(f);
     default:
       return normalizeStreetFeature(f);
   }

@@ -2,7 +2,7 @@
  * Ranking for the `lite` backend (E05-T5, Wargame W-12).
  *
  * RANKING CONTRACT (documented per task spec, "Ranking simpel dokumentieren"):
- * candidates are ordered by a strict 4-tier lexicographic comparison, NOT a
+ * candidates are ordered by a strict 5-tier lexicographic comparison, NOT a
  * weighted score. Each tier only breaks ties left by the previous one, so a
  * "worse" value on a later tier can NEVER outweigh an earlier one:
  *
@@ -13,9 +13,14 @@
  *      "Vadu" rank "Vaduz" (city) above "Vaduzer Straße" (street) even
  *      though BOTH are prefix matches for "Vadu" -- the mandatory E05-T5
  *      test case.
- *   3. FTS5 rank (SQLite's `bm25()`; more negative = better match) -- the
- *      tiebreaker within the same prefix/kind tier.
- *   4. Distance-bias: if an origin (device position / map center) was
+ *   3. Entfernungsband (seit 0.39.0, nur mit Ursprung): unter 25 km, unter
+ *      100 km, unter 400 km, weiter. Vorher entschied hier bm25 -- und bm25
+ *      bevorzugt kurze Namen. Bei „Rewe" gewann damit ein Markt namens
+ *      „REWE" 300 km entfernt gegen „REWE Familie Appel" um die Ecke. Wer
+ *      einen Laden sucht, meint fast immer den nahen.
+ *   4. FTS5 rank (SQLite's `bm25()`; more negative = better match) -- the
+ *      tiebreaker within the same prefix/kind/band tier.
+ *   5. Distance-bias: if an origin (device position / map center) was
  *      given, the closer candidate wins remaining ties. Never applied
  *      without an origin, and never promoted above tiers 1-3 -- it's a
  *      last-resort tiebreaker, not a primary signal (a far-away city still
@@ -124,6 +129,14 @@ function normalize(s: string): string {
   return faltung(s);
 }
 
+/** Grobe Entfernungsstufe; ohne Ursprung immer 0. */
+function distanzBand(km: number): number {
+  if (km < 25) return 0;
+  if (km < 100) return 1;
+  if (km < 400) return 2;
+  return 3;
+}
+
 /** 0 = prefix match, 1 = not. */
 function prefixTier(name: string, query: string): 0 | 1 {
   return normalize(name).startsWith(normalize(query)) ? 0 : 1;
@@ -131,7 +144,7 @@ function prefixTier(name: string, query: string): 0 | 1 {
 
 /**
  * Sorts `candidates` per the ranking contract above (does not mutate the
- * input array) and returns a new, ordered array. Ties that survive all four
+ * input array) and returns a new, ordered array. Ties that survive all five
  * tiers keep their original relative order (stable sort, explicit index
  * tiebreak so behavior doesn't depend on the JS engine's sort stability
  * guarantees).
@@ -148,12 +161,13 @@ export function rankLiteCandidates(
     kind: KIND_RANK[candidate.kind],
     fts: candidate.ftsRank,
     distanceKm: origin ? haversineKm(origin, { lat: candidate.lat, lon: candidate.lon }) : 0,
-  }));
+  })).map((s) => ({ ...s, band: distanzBand(s.distanceKm) }));
 
   scored.sort(
     (a, b) =>
       a.prefix - b.prefix ||
       a.kind - b.kind ||
+      a.band - b.band ||
       a.fts - b.fts ||
       a.distanceKm - b.distanceKm ||
       a.index - b.index,
