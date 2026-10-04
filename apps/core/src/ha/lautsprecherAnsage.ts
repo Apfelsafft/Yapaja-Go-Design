@@ -110,6 +110,21 @@ export function beatSpieltAuf(zustaende: readonly HaEntityState[], player: strin
   return !!beat && (beat.state === 'playing' || beat.state === 'buffering') && beat.attributes?.speaker === player;
 }
 
+/**
+ * An welchen Player Go die Ansage selbst schickt -- oder null, dann ist es
+ * Beats Sache (es mischt sie ins Radio) bzw. Go spricht selbst. Braucht die
+ * Zustände MIT Attributen: nur dort steht, auf welchem Player Beat spielt.
+ */
+export function ansageZiel(einstellung: unknown, zustaende: readonly HaEntityState[], beatAn: boolean): string | null {
+  const wahl = lautsprecherWahl(
+    einstellung,
+    zustaende,
+    zustaende.some((z) => z.entity_id === BEAT_ENTITAET),
+  );
+  if (wahl && beatAn && beatSpieltAuf(zustaende, wahl)) return null;
+  return wahl;
+}
+
 /** Ist Music Assistant als Integration in Home Assistant eingerichtet? Null = unbekannt. */
 export async function maEingerichtet(v: HaConnection, fetch: HaFetchLike = defaultHaFetch): Promise<boolean | null> {
   const abbruch = new AbortController();

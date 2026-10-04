@@ -26,9 +26,8 @@ import {
   AnsageKette,
   LautsprecherAnsage,
   ansageWeg,
-  beatSpieltAuf,
+  ansageZiel as waehleAnsageZiel,
   findeStimme,
-  lautsprecherWahl,
   maEingerichtet,
   maLautsprecher,
   type Stimme,
@@ -701,30 +700,18 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   });
   // Ansagen über Music Assistant (Stufe 3) bzw. den gewählten Lautsprecher;
   // sonst Beat (Stufe 2/4), sonst Go selbst (Stufe 1). `ha/lautsprecherAnsage.ts`.
-  let zustaendeCache: { bis: number; liste: Awaited<ReturnType<typeof fetchHaStates>> } | null = null;
-  const zustaendeKurz = async (v: Parameters<typeof fetchHaStates>[0]) => {
-    if (zustaendeCache && zustaendeCache.bis > Date.now()) return zustaendeCache.liste;
-    const liste = await fetchHaStates(v, { logger: ansageLogger }).catch(() => []);
-    zustaendeCache = { bis: Date.now() + 30_000, liste: Array.isArray(liste) ? liste : [] };
-    return zustaendeCache.liste;
-  };
   let stimmeCache: { bis: number; stimme: Stimme | null } | null = null;
   const lautsprecherAnsage = new LautsprecherAnsage({
     verbindung: () => resolveHaConnection({ settings: settingsService }),
+    // Spielt Beat gerade auf genau diesem Player, mischt Beat (die Kette
+    // fragt dann Beat) -- darum frisch nachgesehen, mit Attributen.
     ziel: async (v) => {
-      const liste = await zustaendeKurz(v);
-      const wahl = lautsprecherWahl(
+      const liste = await fetchHaStates(v, { logger: ansageLogger }).catch(() => []);
+      return waehleAnsageZiel(
         settingsService.get('ansage_lautsprecher'),
-        liste,
-        liste.some((z) => z.entity_id === BEAT_ENTITAET),
+        Array.isArray(liste) ? liste : [],
+        beatAnsagenAn(settingsService.get('ansagen_beat')),
       );
-      // Spielt Beat gerade auf genau diesem Player, mischt Beat (die Kette
-      // fragt dann Beat) -- frisch nachgesehen, nicht aus dem Vorrat.
-      if (wahl && beatAnsagenAn(settingsService.get('ansagen_beat'))) {
-        const frisch = await fetchHaStatesById(v, [BEAT_ENTITAET], { logger: ansageLogger, timeoutMs: 2_000 }).catch(() => []);
-        if (beatSpieltAuf(Array.isArray(frisch) ? frisch : [], wahl)) return null;
-      }
-      return wahl;
     },
     gong: () => settingsService.get('ansage_gong') !== false,
     stimme: async (v) => {
