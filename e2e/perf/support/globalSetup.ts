@@ -81,6 +81,25 @@ function gitSha(): string | null {
  * Liest den GL-Renderer einmal zentral aus, statt ihn in jeder Spec neu zu
  * ermitteln -- er ist eine Eigenschaft der Maschine, nicht des Testfalls.
  */
+/**
+ * Bestaetigt die Fahrzeugmasse des aktiven Profils -- wie
+ * `apps/web/e2e/support/globalSetup.ts#seedDimensionsConfirmed`.
+ *
+ * Seit 0.5.3 liegt sonst `UnconfirmedDimensionsBanner` als Vollbild-Dialog
+ * mitten auf der Karte. Die Wischgeste in `pauseFollowMeByUserGesture`
+ * markierte dann Text im Dialog, statt die Karte zu schieben: Follow-Me lief
+ * weiter, riss die Kamera an sich und brach jede Mess-Etappe von
+ * „fps waehrend simulierter Fahrt" ab. Der woechentliche Nightly war deshalb
+ * seit August rot -- ein Fehler im Messaufbau, nicht in der Bild-Rate.
+ */
+async function seedDimensionsConfirmed(baseUrl: string): Promise<void> {
+  const response = await fetch(`${baseUrl}/api/v1/profiles`);
+  const body = (await response.json()) as { data: { id: string; is_active: boolean }[] };
+  const active = body.data.find((p) => p.is_active) ?? body.data[0];
+  if (!active) return;
+  await fetch(`${baseUrl}/api/v1/profiles/${active.id}/confirm_dimensions`, { method: 'PUT' });
+}
+
 async function detectEnvironment(): Promise<EnvironmentSignature> {
   const browser = await chromium.launch({
     executablePath: resolvePreinstalledChromium(),
@@ -126,6 +145,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     throw err;
   }
   await seedOnboardingCompleted(PERF_CORE_BASE_URL);
+  await seedDimensionsConfirmed(PERF_CORE_BASE_URL);
 
   if (core.pid === undefined) {
     for (const c of cores) c.kill();

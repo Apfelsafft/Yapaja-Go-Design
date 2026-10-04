@@ -216,7 +216,11 @@ PERF_SOAK=1 PERF_SOAK_DURATION_S=86400 npx playwright test -c e2e/perf/playwrigh
 Der Lauf ist **parametrisiert**: der Kurzlauf beweist den Mechanismus, der
 24-h-Lauf beweist die Aussage. Im Repository ist bisher nur der Kurzlauf
 ausgeführt worden; der 24-h-Lauf hängt am Wochen-Cron
-(`.github/workflows/nightly.yml`, Job `perf-soak-24h`, sonntags).
+(`.github/workflows/nightly.yml`, Job `perf-soak-24h`, sonntags) -- aber nur,
+wenn die Repo-Variable `PERF_SOAK_RUNNER` einen Runner nennt, der 24 h
+durchhält. Auf `ubuntu-latest` bricht GitHub nach 6 h ab; dort lief er bis
+2026-10-04 jede Woche sechs Stunden lang ins Leere. Manuell:
+`workflow_dispatch` mit `soak_duration_s` (z. B. 600 als Rauchtest).
 
 ---
 
