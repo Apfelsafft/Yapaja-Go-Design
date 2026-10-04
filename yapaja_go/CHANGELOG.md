@@ -10,6 +10,38 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.39.0
+
+**Suche findet Firmen, nahe Läden und Hausnummern.**
+
+Gemeldet: „Wenn ich jetzt wieder nach Firmennamen wie Rewe oder Caratec suche
+findet er sie nicht. Kann die Suche alle Parameter wie Name Straße Hausnummer
+Ort plz usw prüfen?"
+
+- **Der nahe REWE kommt zuerst.** Die Offline-Suche holte bisher nur die
+  landesweit „besten“ Treffer, und das waren bei „Rewe“ kurze Straßennamen
+  wie „Rewenweg“ oder „Drewer“ in der Schweiz und in Ostfriesland. Jetzt wird
+  zusätzlich im Umkreis deiner Position gesucht (30 und 150 km), und bei
+  gleich guten Treffern gewinnt der nähere. **Das wirkt sofort nach dem
+  Update, ohne Neubau.**
+- **Firmen und benannte Gebäude.** Caratec stand auf der Karte, aber nie im
+  Suchindex: Firmen (`office`), Handwerksbetriebe (`craft`), Läden aller Art,
+  Werke, Gewerbegebiete und benannte Gebäude kommen jetzt hinein — alles, was
+  einen Namen hat.
+- **Hausnummern.** „Hauptstraße 80“ führt auf das Haus statt auf die
+  Straßenmitte. „12 a“ und „12A“ sind dieselbe Nummer; ohne passende Nummer
+  bleibt es bei der Straße. Postleitzahl und Ort stehen dabei.
+- Im Add-on fehlten bei den Orten noch die Ortsteile („Sondernheim“) — jetzt
+  wie im Repository-Werkzeug dabei.
+
+**Für Firmen und Hausnummern muss der Suchindex einmal neu gebaut werden:**
+in der Kartenverwaltung „Routing und Suche bauen“. Ein älterer Index wird in
+der Übersicht „Was ist gebaut?“ entsprechend markiert. Der Index wird
+durch die Hausnummern deutlich größer (grob 50–100 MB je Bundesland) und der
+Bau dauert länger.
+
+---
+
 ## 0.38.1
 
 - **Alle Sprachausgaben nehmen denselben schnellen Weg:** Antworten der

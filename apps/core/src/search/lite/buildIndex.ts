@@ -25,12 +25,75 @@
 import Database from 'better-sqlite3';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
-import type { NormalizedRecord } from './extract.js';
+import type { AddressRecord, NormalizedRecord } from './extract.js';
+import { faltung } from './faltung.js';
 
 /** Was neben den Datensaetzen ueber diesen Index festgehalten wird. */
 export interface LiteIndexMeta {
   /** Die Region, aus der er gebaut wurde. */
   region?: string;
+}
+
+/** Siehe `meta.format`. */
+export const LITE_INDEX_FORMAT = 2;
+
+/** Strassenname als Schluessel: Gross/klein, ß/ss und Umlaute egal. */
+export function strassenSchluessel(street: string): string {
+  return faltung(street).replace(/\s+/g, ' ').trim();
+}
+
+/** „12 a", „12A", „12a" sind dieselbe Nummer. */
+export function nummernSchluessel(number: string): string {
+  return number.toLowerCase().replace(/\s+/g, '');
+}
+
+/**
+ * Schreibt Adressen in einen gerade gebauten Index -- in Paketen, ohne sie
+ * alle im Speicher zu halten: ein Bundesland hat Millionen davon.
+ * Gibt die Zahl der geschriebenen zurueck.
+ */
+export async function appendAddresses(
+  dbPath: string,
+  addresses: AsyncIterable<AddressRecord>,
+): Promise<number> {
+  const db = new Database(dbPath);
+  try {
+    const insert = db.prepare(
+      'INSERT INTO addresses (street_key, number_key, street, number, postcode, city, lat, lon) ' +
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    );
+    const schreibe = db.transaction((rows: AddressRecord[]) => {
+      for (const a of rows) {
+        insert.run(
+          strassenSchluessel(a.street),
+          nummernSchluessel(a.number),
+          a.street,
+          a.number,
+          a.postcode ?? null,
+          a.city ?? null,
+          a.lat,
+          a.lon,
+        );
+      }
+    });
+    let paket: AddressRecord[] = [];
+    let n = 0;
+    for await (const a of addresses) {
+      paket.push(a);
+      if (paket.length >= 5000) {
+        schreibe(paket);
+        n += paket.length;
+        paket = [];
+      }
+    }
+    schreibe(paket);
+    n += paket.length;
+    db.exec('CREATE INDEX IF NOT EXISTS addresses_key ON addresses(street_key, number_key);');
+    db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('address_count', ?)").run(String(n));
+    return n;
+  } finally {
+    db.close();
+  }
 }
 
 export function buildLiteIndexFile(
@@ -92,6 +155,21 @@ export function buildLiteIndexFile(
         value TEXT NOT NULL
       );
 
+      -- ─── HAUSNUMMERN (0.39.0) ─────────────────────────────────────────────
+      -- Bewusst NICHT in der Volltextsuche: ein Trigramm-Index ueber Millionen
+      -- Adressen waere ein Vielfaches gross. Gesucht wird erst die Strasse
+      -- (Volltext), dann hier die Nummer in ihr -- per gewoehnlichem Index.
+      CREATE TABLE addresses (
+        street_key TEXT NOT NULL,
+        number_key TEXT NOT NULL,
+        street TEXT NOT NULL,
+        number TEXT NOT NULL,
+        postcode TEXT,
+        city TEXT,
+        lat REAL NOT NULL,
+        lon REAL NOT NULL
+      );
+
       CREATE VIRTUAL TABLE lite_search USING fts5(
         search_text,
         aux_text,
@@ -140,6 +218,9 @@ export function buildLiteIndexFile(
     const insertMeta = db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)');
     insertMeta.run('built_at', new Date().toISOString());
     insertMeta.run('record_count', String(records.length));
+    // Was dieser Index kann. 2 = mit benannten Firmen/Gebaeuden und
+    // Hausnummern (0.39.0). Fehlt der Eintrag, ist er aelter.
+    insertMeta.run('format', String(LITE_INDEX_FORMAT));
     if (meta.region) insertMeta.run('region', meta.region);
   } finally {
     db.close();

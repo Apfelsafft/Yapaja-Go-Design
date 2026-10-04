@@ -69,6 +69,18 @@ const TYPE_ICONS: Record<string, string> = {
   swimming_pool: '🏊',
   sports_centre: '🤸',
   playground: '🛝',
+  // Seit 0.39.0 stehen alle BENANNTEN Firmen, Werkstätten und Gebäude im
+  // Offline-Index; ihr `type` ist der OSM-Wert bzw. der Schlüssel.
+  company: '🏢',
+  office: '🏢',
+  craft: '🔧',
+  car_repair: '🔧',
+  industrial: '🏭',
+  works: '🏭',
+  commercial: '🏬',
+  retail: '🏬',
+  shop: '🛍️',
+  housenumber: '🏠',
 };
 
 export function iconForSearchResultType(type: string): string {

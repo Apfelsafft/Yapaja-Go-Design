@@ -11,7 +11,8 @@
  *
  * Usage:
  *   tsx src/search/lite/cli.ts --places places.geojsonseq --streets streets.geojsonseq \
- *                              --pois pois.geojsonseq --out data/lite-search/lite_search.db
+ *                              --pois pois.geojsonseq --out data/lite-search/lite_search.db \
+ *                              [--named named.geojsonseq] [--addresses addresses.geojsonseq]
  *
  * Run via `services/valhalla/build-lite-index.sh`, never invoked directly
  * by the app itself.
@@ -20,9 +21,15 @@ import { createReadStream, existsSync, realpathSync, renameSync, unlinkSync } fr
 import { createInterface } from 'readline';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { normalizeGeoJsonSeqLine, type NormalizedRecord } from './extract.js';
-import { buildLiteIndexFile } from './buildIndex.js';
-import { osmiumFilters } from './poiCategories.js';
+import {
+  normalizeAddressFeature,
+  normalizeGeoJsonSeqLine,
+  parseGeoJsonSeqLine,
+  type AddressRecord,
+  type NormalizedRecord,
+} from './extract.js';
+import { appendAddresses, buildLiteIndexFile } from './buildIndex.js';
+import { namedOsmiumFilters, osmiumFilters } from './poiCategories.js';
 import { appendAll } from '@yapaia/shared';
 import { PlaceLocator, type PlacePoint } from './placeLocator.js';
 import { LEGACY_LITE_SEARCH_DB, liteSearchDbPathForRegion } from './paths.js';
@@ -32,6 +39,10 @@ interface CliArgs {
   places?: string;
   streets?: string;
   pois?: string;
+  /** Benannte Objekte beliebiger Art (Firmen, Gebaeude) -- seit 0.39.0. */
+  named?: string;
+  /** Hausadressen -- seit 0.39.0. */
+  addresses?: string;
   out: string;
   /** Nur fuer die Auskunft im Index (`meta`): aus welcher Region er stammt.
    *  Es gibt EINEN Index fuer alle Regionen -- ohne diese Angabe sieht
@@ -46,12 +57,14 @@ function parseArgs(argv: string[]): CliArgs {
     if (arg === '--places') args.places = argv[++i];
     else if (arg === '--streets') args.streets = argv[++i];
     else if (arg === '--pois') args.pois = argv[++i];
+    else if (arg === '--named') args.named = argv[++i];
+    else if (arg === '--addresses') args.addresses = argv[++i];
     else if (arg === '--out') args.out = argv[++i];
     else if (arg === '--region') args.region = argv[++i];
   }
   if (!args.out) {
     throw new Error(
-      'Usage: cli.ts --places <geojsonseq> --streets <geojsonseq> --pois <geojsonseq> ' +
+      'Usage: cli.ts --places <geojsonseq> --streets <geojsonseq> --pois <geojsonseq> [--named <geojsonseq>] [--addresses <geojsonseq>] ' +
         '--out <lite_search.db path> [--region <id>]',
     );
   }
@@ -60,7 +73,7 @@ function parseArgs(argv: string[]): CliArgs {
 
 async function readNormalizedFile(
   path: string,
-  sourceKind: 'place' | 'street' | 'poi',
+  sourceKind: 'place' | 'street' | 'poi' | 'named',
 ): Promise<{ records: NormalizedRecord[]; skipped: number; total: number }> {
   const records: NormalizedRecord[] = [];
   let skipped = 0;
@@ -76,6 +89,16 @@ async function readNormalizedFile(
   }
 
   return { records, skipped, total };
+}
+
+/** Adressen Zeile fuer Zeile -- nie alle auf einmal im Speicher. */
+async function* readAddresses(path: string): AsyncGenerator<AddressRecord> {
+  const rl = createInterface({ input: createReadStream(path, { encoding: 'utf8' }), crlfDelay: Infinity });
+  for await (const line of rl) {
+    const feature = parseGeoJsonSeqLine(line);
+    const address = feature ? normalizeAddressFeature(feature) : null;
+    if (address) yield address;
+  }
 }
 
 /**
@@ -115,6 +138,12 @@ export async function runCli(argv: string[]): Promise<void> {
     }
     return;
   }
+  if (argv.includes('--print-named-filters')) {
+    for (const filter of namedOsmiumFilters()) {
+      console.log(filter);
+    }
+    return;
+  }
 
   const args = parseArgs(argv);
   const allRecords: NormalizedRecord[] = [];
@@ -147,6 +176,13 @@ export async function runCli(argv: string[]): Promise<void> {
     appendAll(allRecords, records);
   }
 
+  if (args.named) {
+    const { records, skipped, total } = await readNormalizedFile(args.named, 'named');
+    console.warn(`Benannte Firmen/Gebaeude: ${records.length}/${total} uebernommen (${skipped} uebersprungen) aus ${args.named}`);
+    console.warn(`  davon mit Ortsangabe: ${fillLocalities(records, locator)}`);
+    appendAll(allRecords, records);
+  }
+
   if (allRecords.length === 0) {
     throw new Error('Keine Datensaetze extrahiert -- Build abgebrochen (leerer Index waere nutzlos).');
   }
@@ -166,6 +202,10 @@ export async function runCli(argv: string[]): Promise<void> {
 
   try {
     buildLiteIndexFile(allRecords, tmpPath, { region: args.region });
+    if (args.addresses) {
+      const n = await appendAddresses(tmpPath, readAddresses(args.addresses));
+      console.warn(`Hausnummern: ${n} uebernommen aus ${args.addresses}`);
+    }
     // Atomic swap (W-17 discipline): rename(2) on the same filesystem is
     // atomic -- a concurrent reader of `args.out` (the running Core
     // process) sees either the complete old file or the complete new file,

@@ -148,3 +148,78 @@ export function osmiumFilters(): string[] {
 export function searchTermsFor(category: PoiCategory): string {
   return [category.label, ...category.terms].join(' ');
 }
+
+/**
+ * ─── ALLES, WAS EINEN NAMEN HAT (0.39.0) ────────────────────────────────────
+ * Gemeldet: „Wenn ich jetzt wieder nach Firmennamen wie Rewe oder Caratec
+ * suche findet er sie nicht." Caratec steht auf der Karte, war aber nie im
+ * Index: eine Firma trägt `office=company` oder `craft=*`, und beides stand
+ * oben nicht. Die Liste oben bleibt die Auswahl, die man ÜBER DIE KATEGORIE
+ * findet („Supermarkt"). Wer einen NAMEN tippt, soll alles finden, was so
+ * heißt -- egal welcher Art.
+ *
+ * Deshalb kommt zusätzlich jedes BENANNTE Objekt unter diesen Schlüsseln in
+ * den Index, mit einer groben Bezeichnung der Art. Unbenannte nicht: eine
+ * namenlose Firma sucht niemand, und das wären Millionen.
+ */
+export interface NamedPoiKey {
+  /** OSM-Schlüssel. */
+  key: string;
+  /** Nur diese Werte; fehlt die Liste, zählt jeder Wert. */
+  values?: readonly string[];
+  /** Wie die Art heißt, wenn kein Name sie verrät. */
+  label: string;
+  terms: readonly string[];
+}
+
+export const NAMED_POI_KEYS: readonly NamedPoiKey[] = [
+  { key: 'shop', label: 'Geschäft', terms: ['laden', 'einkaufen'] },
+  { key: 'office', label: 'Firma', terms: ['büro', 'buero', 'unternehmen'] },
+  { key: 'craft', label: 'Handwerksbetrieb', terms: ['handwerk', 'werkstatt', 'firma'] },
+  { key: 'healthcare', label: 'Gesundheit', terms: ['praxis'] },
+  { key: 'amenity', label: 'Einrichtung', terms: [] },
+  { key: 'tourism', label: 'Tourismus', terms: [] },
+  { key: 'leisure', label: 'Freizeit', terms: [] },
+  { key: 'man_made', values: ['works'], label: 'Werk', terms: ['firma', 'fabrik'] },
+  { key: 'landuse', values: ['industrial', 'commercial', 'retail'], label: 'Gewerbegebiet', terms: ['gewerbe'] },
+  { key: 'building', label: 'Gebäude', terms: [] },
+];
+
+/** Werte, die auch mit Namen nur im Weg stünden. */
+const NAMED_EXCLUDED: ReadonlySet<string> = new Set([
+  'amenity=bench',
+  'amenity=waste_basket',
+  'amenity=vending_machine',
+  'amenity=parking_space',
+  'amenity=parking_entrance',
+  'amenity=bicycle_parking',
+  'amenity=hunting_stand',
+  'amenity=grit_bin',
+  'amenity=clock',
+  'leisure=picnic_table',
+]);
+
+/** Die Art eines benannten Objekts, oder `undefined`. Ein Gebäude zählt nur,
+ *  wenn sonst nichts passt (es steht zuletzt) -- dann heißt es „Gebäude". */
+export function findNamedPoiKey(
+  props: Record<string, unknown>,
+): { key: NamedPoiKey; value: string } | undefined {
+  for (const key of NAMED_POI_KEYS) {
+    const value = props[key.key];
+    if (typeof value !== 'string' || value.length === 0 || value === 'no') continue;
+    if (key.values && !key.values.includes(value)) continue;
+    if (NAMED_EXCLUDED.has(`${key.key}=${value}`)) continue;
+    return { key, value };
+  }
+  return undefined;
+}
+
+/** Die `osmium`-Ausdrücke für den zweiten Durchgang über die BENANNTEN
+ *  Objekte (der erste filtert `nwr/name`). */
+export function namedOsmiumFilters(): string[] {
+  return NAMED_POI_KEYS.map((k) => (k.values ? `nwr/${k.key}=${k.values.join(',')}` : `nwr/${k.key}`));
+}
+
+export function namedSearchTerms(key: NamedPoiKey): string {
+  return [key.label, ...key.terms].join(' ');
+}

@@ -964,6 +964,24 @@ jobs:
           test -s "$DB_PATH" || { echo "::error::$DB_PATH fehlt oder ist leer"; exit 1; }
           ls -la "$DB_PATH"
 
+      # Seit 0.39.0: benannte Firmen/Gebaeude und Hausnummern. Gemeldet war,
+      # dass „Caratec" (eine Firma) nicht zu finden war -- sie stand nie im
+      # Index. Hier wird nachgezaehlt, statt es zu glauben.
+      - name: Firmen und Hausnummern stehen im Index
+        run: |
+          cd apps/core
+          node -e '
+            const Database = require("better-sqlite3");
+            const db = new Database("../../data/lite-search/lite_search-li.db", { readonly: true });
+            const adressen = db.prepare("SELECT count(*) AS n FROM addresses").get().n;
+            const firmen = db.prepare("SELECT count(*) AS n FROM places WHERE kind = \x27poi\x27 AND category IN (\x27company\x27, \x27building\x27, \x27office\x27, \x27craft\x27)").get().n;
+            const format = db.prepare("SELECT value FROM meta WHERE key = \x27format\x27").get();
+            console.log({ adressen, firmen, format });
+            if (adressen < 100) { console.error("::error::zu wenige Hausnummern im Index: " + adressen); process.exit(1); }
+            if (firmen < 10) { console.error("::error::zu wenige benannte Firmen/Gebaeude im Index: " + firmen); process.exit(1); }
+            if (!format || format.value !== "2") { console.error("::error::meta.format fehlt oder falsch"); process.exit(1); }
+          '
+
       - name: Zwei Regionen liegen nebeneinander (Mehrregionen-Faehigkeit)
         run: |
           # Bis 0.4.0 ersetzte "Suche bauen" bei einer Region den Index der

@@ -73,6 +73,51 @@ describe('runCli', () => {
     }
   });
 
+  it('nimmt benannte Firmen (--named) und Hausnummern (--addresses) auf (0.39.0)', async () => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'lite-cli-test-named-'));
+    const placesPath = join(tmpDir, 'places.geojsonseq');
+    const namedPath = join(tmpDir, 'named.geojsonseq');
+    const addrPath = join(tmpDir, 'addresses.geojsonseq');
+    const outPath = join(tmpDir, 'lite_search.db');
+    writeGeoJsonSeq(placesPath, [{ geometry: point(8.12, 49.2), properties: { place: 'town', name: 'Landau' } }]);
+    // Mit dem Record Separator, den osmium jeder Zeile voranstellt.
+    writeFileSync(
+      namedPath,
+      [
+        { geometry: point(8.14, 49.21), properties: { office: 'company', name: 'Caratec' } },
+        { geometry: point(8.14, 49.21), properties: { office: 'company' } },
+      ]
+        .map((f) => `\u001e${JSON.stringify(f)}`)
+        .join('\n') + '\n',
+      'utf8',
+    );
+    writeFileSync(
+      addrPath,
+      [
+        {
+          geometry: { type: 'Polygon', coordinates: [[[8.1, 49.2], [8.2, 49.2], [8.2, 49.3], [8.1, 49.2]]] },
+          properties: { 'addr:street': 'Hauptstraße', 'addr:housenumber': '80' },
+        },
+        { geometry: point(8.1, 49.2), properties: { 'addr:housenumber': '1' } },
+      ]
+        .map((f) => `\u001e${JSON.stringify(f)}`)
+        .join('\n') + '\n',
+      'utf8',
+    );
+
+    await runCli(['--places', placesPath, '--named', namedPath, '--addresses', addrPath, '--out', outPath]);
+
+    const db = new Database(outPath, { readonly: true });
+    try {
+      const firma = db.prepare("SELECT name, category, locality FROM places WHERE kind = 'poi'").all();
+      expect(firma).toEqual([{ name: 'Caratec', category: 'company', locality: 'Landau' }]);
+      const adressen = db.prepare('SELECT street_key, number_key FROM addresses').all();
+      expect(adressen).toEqual([{ street_key: 'hauptstrasse', number_key: '80' }]);
+    } finally {
+      db.close();
+    }
+  });
+
   it('places-only input (no --streets) still builds a valid index', async () => {
     tmpDir = mkdtempSync(join(tmpdir(), 'lite-cli-test-places-only-'));
     const placesPath = join(tmpDir, 'places.geojsonseq');

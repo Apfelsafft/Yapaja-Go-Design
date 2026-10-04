@@ -98,6 +98,19 @@ describe('collectBuildStatus', () => {
     expect(status.search[0].record_count).toBe(4711);
   });
 
+  it('markiert einen Suchindex ohne Firmen und Hausnummern (vor 0.39.0) als veraltet', async () => {
+    const p = paths();
+    mkdirSync(p.liteSearchDir, { recursive: true });
+    writeFileSync(join(p.liteSearchDir, 'lite_search-alt.db'), 'x'.repeat(512));
+    writeFileSync(join(p.liteSearchDir, 'lite_search-neu.db'), 'x'.repeat(512));
+
+    const status = await collectBuildStatus(p, (file) =>
+      file.endsWith('neu.db') ? { region: 'neu', format: 2 } : { region: 'alt' },
+    );
+    expect(status.search.find((s) => s.region === 'alt')?.veraltet).toBe(true);
+    expect(status.search.find((s) => s.region === 'neu')?.veraltet).toBeUndefined();
+  });
+
   /** ─── DER GRUND FUER DIE GANZE UMSTELLUNG ────────────────────────────────
    *  Vier Laender installieren und in dreien nicht suchen koennen -- das war
    *  der Zustand bis 0.4.0. Die Uebersicht muss jetzt JEDE Region zeigen. */

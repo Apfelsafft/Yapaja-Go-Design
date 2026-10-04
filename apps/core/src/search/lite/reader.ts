@@ -8,6 +8,16 @@
 import Database from 'better-sqlite3';
 import { LITE_KINDS, type LiteCandidate, type LiteKind } from './ranking.js';
 import { faltung } from './faltung.js';
+import { nummernSchluessel, strassenSchluessel } from './buildIndex.js';
+
+export interface HausnummerTreffer {
+  street: string;
+  number: string;
+  postcode: string | null;
+  city: string | null;
+  lat: number;
+  lon: number;
+}
 
 interface LiteSearchRow {
   name: string;
@@ -214,12 +224,15 @@ export class LiteIndexReader {
   private db: Database.Database | null = null;
   /** Welche der optionalen Spalten dieser Index wirklich hat. */
   private available: Set<string> | null = null;
+  /** Hat dieser Index die Hausnummern-Tabelle (seit 0.39.0)? */
+  private hatAdressen: boolean | undefined;
 
   constructor(private readonly dbPath: string) {}
 
   private open(): Database.Database {
     if (this.db) return this.db;
     this.db = new Database(this.dbPath, { readonly: true, fileMustExist: true });
+    this.hatAdressen = undefined;
     return this.db;
   }
 
@@ -249,7 +262,14 @@ export class LiteIndexReader {
     if (query.trim().length < MIN_QUERY_LENGTH) return [];
 
     const db = this.open();
-    const overfetch = Math.max(limit * 4, 20);
+    // ─── WARUM SO VIELE (0.39.0) ─────────────────────────────────────────────
+    // Die Datenbank ordnet nach bm25, und bm25 bevorzugt KURZE Eintraege. Bei
+    // „Rewe" standen deshalb „Rewenweg", „Drewer", „Krewelin" vorn -- und die
+    // Maerkte, deren Suchtext „REWE Supermarkt Lebensmittel einkaufen …" lang
+    // ist, fielen aus den wenigen geholten Zeilen ganz heraus. Die eigentliche
+    // Reihenfolge macht ohnehin `ranking.ts`; dafuer braucht es Material.
+    // Die Datenbank bewertet alle Treffer sowieso, mehr Zeilen kosten kaum.
+    const overfetch = Math.max(limit * 4, 200);
     const imKasten = box ? 'AND p.lat BETWEEN ? AND ? AND p.lon BETWEEN ? AND ?' : '';
     const kastenWerte = box ? [box.sued, box.nord, box.west, box.ost] : [];
     const rows = db
@@ -372,6 +392,44 @@ export class LiteIndexReader {
       .all(...kategorien, hoechstens) as LiteAllRow[];
   }
 
+  /**
+   * Die Hausnummer `nummer` in der Strasse `strasse`, nahe `nahe` -- oder
+   * `null`. Gleichnamige Strassen gibt es in jedem zweiten Ort; die naechste
+   * am gefundenen Strassenpunkt ist die gemeinte, und weiter als `maxKm` weg
+   * ist es keine mehr.
+   *
+   * Ein Index von vor 0.39.0 hat keine Adressen; dann `null`, kein Fehler.
+   */
+  hausnummer(
+    strasse: string,
+    nummer: string,
+    nahe: { lat: number; lon: number },
+    maxKm = 8,
+  ): HausnummerTreffer | null {
+    const db = this.open();
+    if (this.hatAdressen === undefined) {
+      this.hatAdressen =
+        db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'addresses'").get() !== undefined;
+    }
+    if (!this.hatAdressen) return null;
+    const rows = db
+      .prepare(
+        `SELECT street, number, postcode, city, lat, lon FROM addresses
+         WHERE street_key = ? AND number_key = ? LIMIT 200`,
+      )
+      .all(strassenSchluessel(strasse), nummernSchluessel(nummer)) as HausnummerTreffer[];
+    let best: HausnummerTreffer | null = null;
+    let bestKm = Infinity;
+    for (const r of rows) {
+      const km = haversineKm(nahe.lat, nahe.lon, r.lat, r.lon);
+      if (km < bestKm) {
+        best = r;
+        bestKm = km;
+      }
+    }
+    return bestKm <= maxKm ? best : null;
+  }
+
   close(): void {
     if (this.db) {
       this.db.close();
@@ -400,6 +458,7 @@ export function readLiteIndexMeta(dbPath: string): {
   region?: string;
   built_at?: string;
   record_count?: number;
+  format?: number;
 } {
   let db: Database.Database | null = null;
   try {
@@ -411,7 +470,9 @@ export function readLiteIndexMeta(dbPath: string): {
     const map = new Map(rows.map((r) => [r.key, r.value]));
     const count = map.get('record_count');
     const parsedCount = count !== undefined ? Number.parseInt(count, 10) : NaN;
+    const format = Number.parseInt(map.get('format') ?? '', 10);
     return {
+      ...(Number.isFinite(format) ? { format } : {}),
       ...(map.get('region') ? { region: map.get('region') as string } : {}),
       ...(map.get('built_at') ? { built_at: map.get('built_at') as string } : {}),
       ...(Number.isFinite(parsedCount) ? { record_count: parsedCount } : {}),

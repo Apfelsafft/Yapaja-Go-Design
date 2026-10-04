@@ -19,6 +19,8 @@ export interface ArtifactStatus {
   region?: string;
   size_bytes?: number;
   record_count?: number;
+  /** Suchindex von vor 0.39.0: ohne Firmen und Hausnummern. */
+  veraltet?: boolean;
 }
 
 export interface TileStatus extends ArtifactStatus {

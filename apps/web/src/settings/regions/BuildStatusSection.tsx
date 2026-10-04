@@ -183,6 +183,14 @@ export default function BuildStatusSection(): React.ReactElement | null {
                       {index.record_count !== undefined
                         ? ` · ${index.record_count.toLocaleString('de-DE')} Einträge`
                         : ''}
+                      {index.veraltet ? (
+                        <span
+                          className="block text-amber-700 dark:text-amber-300 text-xs"
+                          data-testid={`build-status-search-veraltet-${index.region ?? 'unbekannt'}`}
+                        >
+                          Älterer Index ohne Firmen und Hausnummern – „Routing und Suche bauen“ erneut ausführen.
+                        </span>
+                      ) : null}
                     </li>
                   );
                 })}

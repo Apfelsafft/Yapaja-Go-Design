@@ -26,6 +26,7 @@ import { statSync, readFileSync, existsSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { listLiteSearchDbFiles, regionFromLiteSearchFile } from '../search/lite/paths.js';
+import { LITE_INDEX_FORMAT } from '../search/lite/buildIndex.js';
 
 /** Ein gebautes Artefakt: da oder nicht, und seit wann. */
 export interface ArtifactStatus {
@@ -37,6 +38,9 @@ export interface ArtifactStatus {
   size_bytes?: number;
   /** Zahl der Eintraege -- nur beim Suchindex. */
   record_count?: number;
+  /** Nur beim Suchindex: vor 0.39.0 gebaut, also ohne Firmen und
+   *  Hausnummern. Erst ein Neubau holt sie herein. */
+  veraltet?: boolean;
 }
 
 export interface TileStatus extends ArtifactStatus {
@@ -185,6 +189,7 @@ function searchStatus(dir: string, readMeta: MetaReader): ArtifactStatus[] {
       ...(region ? { region } : {}),
       size_bytes: size,
       ...(meta.record_count !== undefined ? { record_count: meta.record_count } : {}),
+      ...((meta.format ?? 1) < LITE_INDEX_FORMAT ? { veraltet: true } : {}),
     });
   }
   return out.sort((a, b) => (a.region ?? '').localeCompare(b.region ?? ''));
@@ -194,6 +199,7 @@ export interface IndexMeta {
   region?: string;
   built_at?: string;
   record_count?: number;
+  format?: number;
 }
 
 export type MetaReader = (dbPath: string) => IndexMeta;
