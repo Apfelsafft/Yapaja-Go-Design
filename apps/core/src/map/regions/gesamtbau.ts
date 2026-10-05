@@ -75,6 +75,120 @@ export function gesamtplan(regionen: readonly string[]): Bauschritt[] {
   ];
 }
 
+/**
+ * Was gebaut IST — soweit es für die Frage „was fehlt noch?" zählt.
+ * Kommt aus `buildStatus.ts#collectBuildStatus`.
+ */
+export interface Baubestand {
+  /** Regionen im Routinggraphen; `undefined`, wenn der Graph es nicht sagt
+   *  (gebaut vor 0.10.2) oder keiner da ist. */
+  graphRegionen?: readonly string[];
+  /** Wann der Graph gebaut wurde (ms). */
+  graphStand?: number;
+  /** Je Region: der Suchindex, falls vorhanden. */
+  suche: Readonly<Record<string, { format?: number; stand?: number } | undefined>>;
+  /** Je Region: wann die Karte (Kacheln) zuletzt kam (ms). */
+  kacheln: Readonly<Record<string, number | undefined>>;
+  /** Format, das ein aktueller Suchindex hat (`LITE_INDEX_FORMAT`). */
+  sucheFormat: number;
+}
+
+/**
+ * Nur das, was fehlt oder veraltet ist (0.40.0).
+ *
+ * ─── DIE MELDUNG ────────────────────────────────────────────────────────────
+ * „Gibt es eine Möglichkeit inkrementell die Karte, Routen und Suchindex
+ * aufzubauen? Wenn ich jetzt noch beispielsweise Österreich dazu lade dann
+ * würde ich gerne nur Österreich bauen und nicht alles nochmal."
+ *
+ * ─── WAS SICH EINZELN BAUEN LÄSST UND WAS NICHT ─────────────────────────────
+ * - Karte: ohnehin je Region, die Installation selbst.
+ * - Suche: je Region eine Datei. Gebaut wird sie, wenn sie fehlt, ein älteres
+ *   Format hat (vor Firmen/Hausnummern) oder älter ist als die Karte.
+ * - Routing: EIN Graph über alle Karten. Das ist keine Bequemlichkeit,
+ *   sondern die Bedingung für Routen über die Grenze: Valhalla verbindet
+ *   Straßen nur innerhalb eines Baus. Zwei getrennt gebaute Graphen hätten an
+ *   jeder Grenze ein Loch. Er wird deshalb nur neu gebaut, wenn sich die
+ *   Menge der Karten geändert hat oder eine Karte neuer ist als er — dann
+ *   aber über alle.
+ *
+ * `ohneQuelle`: Karten ohne OSM-Extrakt (von Hand abgelegt) können nie in
+ * den Graphen. Ohne diese Ausnahme stünde Routing bei jedem Lauf wieder an.
+ */
+export function noetigerPlan(
+  regionen: readonly string[],
+  bestand: Baubestand,
+  opts: { alles?: boolean; ohneQuelle?: readonly string[] } = {},
+): Bauschritt[] {
+  if (opts.alles) return gesamtplan(regionen);
+  if (regionen.length === 0) return [];
+  const sortiert = [...regionen].sort();
+  const mitQuelle = sortiert.filter((r) => !(opts.ohneQuelle ?? []).includes(r));
+  const schritte: Bauschritt[] = [];
+
+  const imGraph = bestand.graphRegionen ? new Set(bestand.graphRegionen) : null;
+  const graphFehlt =
+    mitQuelle.length > 0 &&
+    (imGraph === null ||
+      mitQuelle.some((r) => !imGraph.has(r)) ||
+      [...imGraph].some((r) => !sortiert.includes(r)) ||
+      (bestand.graphStand !== undefined &&
+        mitQuelle.some((r) => (bestand.kacheln[r] ?? 0) > (bestand.graphStand ?? 0))));
+  if (graphFehlt) schritte.push({ bauart: 'routing', region: sortiert[0] as string });
+
+  for (const r of mitQuelle) {
+    const index = bestand.suche[r];
+    const veraltet =
+      !index ||
+      (index.format ?? 1) < bestand.sucheFormat ||
+      (index.stand !== undefined && (bestand.kacheln[r] ?? 0) > index.stand);
+    if (veraltet) schritte.push({ bauart: 'suche', region: r });
+  }
+  return schritte;
+}
+
+/** Aus dem Baustatus (`collectBuildStatus`) die Eingabe für `noetigerPlan`. */
+export function bestandAus(
+  status: {
+    tiles: ReadonlyArray<{ region: string; built_at?: string }>;
+    routing: { present: boolean; built_at?: string; regions?: string[] };
+    search: ReadonlyArray<{ region?: string; built_at?: string; veraltet?: boolean }>;
+  },
+  sucheFormat: number,
+): Baubestand {
+  const ms = (iso?: string): number | undefined => {
+    const t = iso ? Date.parse(iso) : NaN;
+    return Number.isFinite(t) ? t : undefined;
+  };
+  const suche: Record<string, { format?: number; stand?: number }> = {};
+  for (const s of status.search) {
+    if (!s.region) continue;
+    suche[s.region] = { format: s.veraltet ? 1 : sucheFormat, stand: ms(s.built_at) };
+  }
+  const kacheln: Record<string, number | undefined> = {};
+  for (const t of status.tiles) kacheln[t.region] = ms(t.built_at);
+  return {
+    graphRegionen: status.routing.present ? status.routing.regions : undefined,
+    graphStand: status.routing.present ? ms(status.routing.built_at) : undefined,
+    suche,
+    kacheln,
+    sucheFormat,
+  };
+}
+
+/** Die Schlusszeile: was dieser Lauf gebaut hat. */
+export function fertigText(plan: readonly Bauschritt[], regionen: readonly string[]): string {
+  const routing = plan.some((s) => s.bauart === 'routing');
+  const suche = plan.filter((s) => s.bauart === 'suche').map((s) => s.region);
+  const teile: string[] = [];
+  if (routing) {
+    teile.push(regionen.length === 1 ? 'Routing' : `Routing über ${regionen.length} Karten`);
+  }
+  if (suche.length === regionen.length && suche.length > 1) teile.push(`Suche für ${suche.length} Karten`);
+  else if (suche.length > 0) teile.push(`Suche für ${suche.join(', ')}`);
+  return `Gebaut: ${teile.join(' und ')}.`;
+}
+
 /** Was in der Oberfläche über einem Schritt steht. */
 export function schrittText(schritt: Bauschritt, regionen: readonly string[]): string {
   if (schritt.bauart === 'routing') {
@@ -101,6 +215,12 @@ export interface GesamtbauEingabe {
   bauzeitenPfad: string;
   /** Zusätzliche Umgebung für den Routingschritt (`YAPAIA_GRAPH_EXTRAKTE`). */
   routingEnv?: Record<string, string>;
+  /** Die Schritte; ohne Angabe alle (`gesamtplan`). */
+  plan?: Bauschritt[];
+  /** Nach dem Routingschritt: welche installierten Karten FEHLEN im Graphen?
+   *  Eine Karte, deren Extrakt nicht zu laden war, blieb bis 0.40.0 still
+   *  draußen — der Lauf meldete „Alles neu gebaut". */
+  fehltImGraph?: () => string[];
   deps?: BuildJobDeps;
   /** Nur für Tests. */
   jetzt?: () => number;
@@ -126,18 +246,25 @@ export function starteGesamtbau(eingabe: GesamtbauEingabe): void {
     bauzeitenPfad,
     routingEnv = {},
     deps = {},
+    fehltImGraph,
   } = eingabe;
   const jetzt = eingabe.jetzt ?? ((): number => Date.now());
   const speicher = eingabe.speicher ?? { lesen: leseErfahrung, merken: merkeDauer };
 
-  const plan = gesamtplan(regionen);
-  if (plan.length === 0) {
+  const plan = eingabe.plan ?? gesamtplan(regionen);
+  let warnung = '';
+  if (regionen.length === 0) {
     jobs.markError(jobId, {
       code: 'NO_REGIONS',
       message:
         'Es ist keine Karte installiert. Es gibt also nichts zu bauen — ' +
         'installiere zuerst eine Karte.',
     });
+    return;
+  }
+  if (plan.length === 0) {
+    jobs.setNote(jobId, 'Alles aktuell — es gab nichts zu bauen.');
+    jobs.markDone(jobId);
     return;
   }
 
@@ -171,10 +298,7 @@ export function starteGesamtbau(eingabe: GesamtbauEingabe): void {
 
   const naechster = (): void => {
     if (erledigt >= plan.length) {
-      jobs.setNote(
-        jobId,
-        `Alles neu gebaut: Routing und Suche für ${regionen.length === 1 ? 'eine Karte' : `${regionen.length} Karten`}.`,
-      );
+      jobs.setNote(jobId, `${fertigText(plan, regionen)}${warnung}`);
       jobs.markDone(jobId);
       return;
     }
@@ -230,6 +354,14 @@ export function starteGesamtbau(eingabe: GesamtbauEingabe): void {
 
         // Geschafft: die gemessene Dauer merken. Sie ist die Grundlage der
         // Restzeit beim NÄCHSTEN Lauf.
+        if (schritt.bauart === 'routing' && fehltImGraph) {
+          const fehlt = fehltImGraph();
+          if (fehlt.length > 0) {
+            warnung =
+              ` ACHTUNG: im Routing fehlt ${fehlt.join(', ')} — der OSM-Extrakt war nicht zu laden. ` +
+              'Dorthin lässt sich nicht routen. Erneut „Bauen" versuchen; das Add-on-Protokoll nennt den Grund.';
+          }
+        }
         const gedauert = (jetzt() - begonnen) / 1000;
         speicher.merken(bauzeitenPfad, schluessel(schritt, regionen), gedauert, jetzt());
 

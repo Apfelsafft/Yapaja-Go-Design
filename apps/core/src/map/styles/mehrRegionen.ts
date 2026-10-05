@@ -58,6 +58,42 @@ export function flaeche(a: Ausdehnung): number {
 }
 
 /**
+ * Ist `kind` ein Teilgebiet von `eltern` — laut der Herkunft der Daten?
+ *
+ * ─── WARUM NICHT EINFACH DIE AUSDEHNUNG (0.40.0) ────────────────────────────
+ * Gemeldet: „Ich habe Deutschland, Schweiz und Liechtenstein. Liechtenstein
+ * wird bei mir aber nicht dargestellt." Die Ausdehnung ist ein RECHTECK, und
+ * Liechtensteins Rechteck liegt vollständig in dem der Schweiz — obwohl kein
+ * einziger Liechtensteiner Weg im Schweizer Extrakt steht. Die Regel
+ * „liegt drin, also doppelt" hielt den Nachbarn für einen Teil.
+ *
+ * Woraus eine Region stammt, sagt der Katalog: Geofabrik legt Teilgebiete
+ * in einem Unterverzeichnis des Landes ab
+ * (`europe/germany/rheinland-pfalz-latest.osm.pbf` unter
+ * `europe/germany-latest.osm.pbf`). Das ist eine Aussage über die Daten,
+ * nicht über ein umschließendes Rechteck.
+ */
+export function teilgebietLautQuelle(kindUrl: string, elternUrl: string): boolean {
+  const ohneEndung = (u: string): string => u.replace(/-latest\.osm\.pbf$/, '').replace(/\.osm\.pbf$/, '');
+  const elternPfad = ohneEndung(elternUrl);
+  const kindVerzeichnis = kindUrl.slice(0, kindUrl.lastIndexOf('/'));
+  return kindVerzeichnis === elternPfad || kindVerzeichnis.startsWith(`${elternPfad}/`);
+}
+
+/** Woher eine Region stammt, soweit bekannt: Region → OSM-Quelle. */
+export type QuellenVonRegion = (region: string) => string | undefined;
+
+/** Liegt `kandidat` in `schon` — nach Quelle, sonst nach Ausdehnung? */
+function liegtIn(schon: MapRegionInfo, kandidat: MapRegionInfo, quelle?: QuellenVonRegion): boolean {
+  const kindUrl = quelle?.(kandidat.region);
+  const elternUrl = quelle?.(schon.region);
+  // Beide bekannt: allein die Herkunft entscheidet. Nachbarländer
+  // überschneiden sich als Rechteck fast immer.
+  if (kindUrl && elternUrl) return teilgebietLautQuelle(kindUrl, elternUrl);
+  return enthaelt(schon.bounds, kandidat.bounds);
+}
+
+/**
  * Welche Regionen tatsächlich gezeichnet werden.
  *
  * Sortiert nach Fläche, größte zuerst — die größte ist damit die
@@ -68,7 +104,10 @@ export function flaeche(a: Ausdehnung): number {
  * diese Regel hinge das Ergebnis an der Reihenfolge des Dateisystems, und
  * dieselbe Installation zeigte nach einem Neustart eine andere Karte.
  */
-export function sichtbareRegionen(regionen: readonly MapRegionInfo[]): MapRegionInfo[] {
+export function sichtbareRegionen(
+  regionen: readonly MapRegionInfo[],
+  quelle?: QuellenVonRegion,
+): MapRegionInfo[] {
   const sortiert = [...regionen].sort((a, b) => {
     const d = flaeche(b.bounds) - flaeche(a.bounds);
     return d !== 0 ? d : a.region.localeCompare(b.region);
@@ -76,7 +115,7 @@ export function sichtbareRegionen(regionen: readonly MapRegionInfo[]): MapRegion
 
   const behalten: MapRegionInfo[] = [];
   for (const kandidat of sortiert) {
-    const verdeckt = behalten.some((schon) => enthaelt(schon.bounds, kandidat.bounds));
+    const verdeckt = behalten.some((schon) => liegtIn(schon, kandidat, quelle));
     if (!verdeckt) behalten.push(kandidat);
   }
   return behalten;
@@ -92,13 +131,14 @@ export function sichtbareRegionen(regionen: readonly MapRegionInfo[]): MapRegion
  */
 export function verdeckteRegionen(
   regionen: readonly MapRegionInfo[],
+  quelle?: QuellenVonRegion,
 ): Array<{ region: string; verdecktVon: string }> {
-  const sichtbar = sichtbareRegionen(regionen);
+  const sichtbar = sichtbareRegionen(regionen, quelle);
   const sichtbareNamen = new Set(sichtbar.map((r) => r.region));
   const ergebnis: Array<{ region: string; verdecktVon: string }> = [];
   for (const r of regionen) {
     if (sichtbareNamen.has(r.region)) continue;
-    const traeger = sichtbar.find((s) => enthaelt(s.bounds, r.bounds));
+    const traeger = sichtbar.find((s) => liegtIn(s, r, quelle));
     if (traeger) ergebnis.push({ region: r.region, verdecktVon: traeger.region });
   }
   return ergebnis.sort((a, b) => a.region.localeCompare(b.region));

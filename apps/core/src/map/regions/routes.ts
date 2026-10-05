@@ -50,7 +50,11 @@ import {
   type BuildJobDeps,
 } from './build.js';
 import { JobRegistry, type JobSnapshot } from './jobs.js';
-import { gesamtplan, starteGesamtbau } from './gesamtbau.js';
+import { bestandAus, noetigerPlan, starteGesamtbau } from './gesamtbau.js';
+import { collectBuildStatus } from '../buildStatus.js';
+import { readLiteIndexMeta } from '../../search/lite/reader.js';
+import { resolveLiteSearchDir } from '../../search/lite/paths.js';
+import { LITE_INDEX_FORMAT } from '../../search/lite/buildIndex.js';
 import { bauzeitenPfad } from './bauzeitSpeicher.js';
 
 export interface RegionsPluginOptions {
@@ -575,9 +579,12 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
   //
   // Stattdessen steht die Abdeckung in der Antwort, und der Lauf benennt jede
   // uebersprungene Karte in seiner Statuszeile.
-  fastify.post<{ Reply: (PostRegionsReply & { schritte?: number }) | ApiError }>(
+  fastify.post<{
+    Body: { alles?: boolean } | undefined;
+    Reply: (PostRegionsReply & { schritte?: number }) | ApiError;
+  }>(
     '/api/v1/map/gesamtbau',
-    async (_request, reply) => {
+    async (request, reply) => {
       let catalog: CatalogEntry[];
       try {
         catalog = await loadCatalog();
@@ -631,8 +638,19 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
 
       // Der Routingschritt braucht denselben Plan wie der Einzelbau: welche
       // OSM-Extrakte fehlen und nachgeladen werden muessen.
-      const plan = gesamtplan(installiert);
-      const bauRegion = plan[0]?.region ?? installiert[0];
+      // ─── NUR WAS FEHLT (0.40.0) ─────────────────────────────────────────
+      // Ohne `alles: true` wird gebaut, was fehlt oder älter ist als seine
+      // Karte -- siehe `gesamtbau.ts#noetigerPlan`.
+      const ohneQuelle = installiert.filter((r) => !catalog.some((c) => c.id === r && Boolean(c.pbfUrl)));
+      const status = await collectBuildStatus(
+        { tilesDir, graphDir: resolveGraphDir(), liteSearchDir: resolveLiteSearchDir() },
+        readLiteIndexMeta,
+      );
+      const plan = noetigerPlan(installiert, bestandAus(status, LITE_INDEX_FORMAT), {
+        alles: request.body?.alles === true,
+        ohneQuelle,
+      });
+      const bauRegion = [...installiert].sort()[0] ?? installiert[0];
       const graphPlan = graphBauPlan({
         installiert,
         mitExtrakt: regionenMitExtrakt(pbfLagerPfad(resolveGraphDir())),
@@ -659,6 +677,11 @@ export const regionsPlugin: FastifyPluginAsync<RegionsPluginOptions> = async (fa
         tilesDir,
         bauzeitenPfad: bauzeitenPfad(tilesDir),
         routingEnv: { [GRAPH_PLAN_ENV]: planAlsEnv(graphPlan) },
+        plan,
+        fehltImGraph: () => {
+          const drin = new Set(graphRegionenJetzt(resolveGraphDir()));
+          return installiert.filter((r) => !ohneQuelle.includes(r) && !drin.has(r));
+        },
         deps: {
           ...opts.buildDeps,
           logger: opts.buildDeps?.logger ?? ((line) => fastify.log.info(line)),

@@ -834,7 +834,7 @@
     },
     "/api/v1/map/gesamtbau": {
       "post": {
-        "summary": "Routing und Suche für ALLE installierten Karten neu bauen — 202 mit job_id",
+        "summary": "Routing und Suche bauen, soweit sie fehlen oder veraltet sind ({alles:true}: alles) — 202 mit job_id",
         "tags": [
           "Karten"
         ],

@@ -344,7 +344,7 @@ das Gerät selbst, auch eine HAOS-VM mit 8 GB.
    bereits installierten Karte heißt derselbe Knopf **„Update"** — es ist
    derselbe Vorgang, er ersetzt, was da ist.)
 3. Der Fortschritt erscheint direkt darunter.
-4. Danach **einmal „Alles bauen"** für Routing und Suche — siehe §C.3a.
+4. Danach **einmal „Fehlendes bauen"** für Routing und Suche — siehe §C.3a.
 
 > **Seit 0.16.0 gibt es nur noch eine Kartenliste.** Vorher standen
 > installierte und verfügbare Karten in zwei getrennten Abschnitten, und eine
@@ -397,7 +397,7 @@ genügt ein Reload.
 Für Routing und Suche braucht es zwei weitere Erzeugnisse aus **derselben**
 `.osm.pbf`. Beide werden **direkt auf dem Gerät gebaut**, und seit 0.16.0 mit
 **einem** Knopf: „Karten verwalten" (🗺️ rechts oben) öffnen und auf
-**„Alles bauen"** drücken.
+**„Fehlendes bauen"** drücken.
 
 | Erzeugnis | Ohne das … | Umfang |
 |---|---|---|

@@ -30,6 +30,7 @@ function ArtifactRow({
   status,
   testId,
   regions,
+  fehlt,
 }: {
   icon: string;
   title: string;
@@ -37,6 +38,8 @@ function ArtifactRow({
   testId: string;
   /** Alle Regionen, die in diesem einen Erzeugnis stecken. */
   regions?: string[];
+  /** Installierte Karten, die darin FEHLEN (nur beim Routing). */
+  fehlt?: string[];
 }): React.ReactElement {
   const when = formatBuiltAt(status.built_at);
   return (
@@ -67,6 +70,11 @@ function ArtifactRow({
             {regions && regions.length > 1 && (
               <span className="block text-slate-500 dark:text-slate-400">
                 enthält: {regions.join(', ')}
+              </span>
+            )}
+            {fehlt && fehlt.length > 0 && (
+              <span className="block text-amber-700 dark:text-amber-300 text-xs" data-testid={`${testId}-fehlt`}>
+                Fehlt: {fehlt.join(', ')} — dorthin lässt sich nicht routen. „Fehlendes bauen“ ausführen.
               </span>
             )}
           </>
@@ -160,6 +168,14 @@ export default function BuildStatusSection(): React.ReactElement | null {
             status={status.routing}
             testId="build-status-routing"
             regions={status.routing.regions}
+            fehlt={
+              // Gemeldet: Ziele in der Schweiz waren nicht anfahrbar, und
+              // hier stand „enthält: germany, liechtenstein" -- ohne dass
+              // jemand die fehlende Schweiz bemerken konnte.
+              status.routing.regions
+                ? status.tiles.map((t) => t.region).filter((r) => !status.routing.regions?.includes(r))
+                : undefined
+            }
           />
 
           <li data-testid="build-status-search">

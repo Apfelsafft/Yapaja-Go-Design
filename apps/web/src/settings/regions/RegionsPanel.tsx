@@ -211,9 +211,15 @@ const GESAMT_SCHLUESSEL = '__gesamt__';
 function GesamtFortschritt({ job }: { job: JobSnapshot }): React.ReactElement {
   const gesamt = job.gesamt;
   if (job.status === 'done') {
+    // Fehlt nach dem Bau eine Karte im Routing, steht das in der Notiz --
+    // dann nicht grün mit Haken, sonst liest es niemand.
+    const warnung = (job.note ?? '').includes('ACHTUNG');
     return (
-      <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400" data-testid="gesamtbau-fertig">
-        ✓ {job.note ?? 'Alles neu gebaut.'}
+      <p
+        className={`mt-2 text-xs ${warnung ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-400'}`}
+        data-testid="gesamtbau-fertig"
+      >
+        {warnung ? '⚠' : '✓'} {job.note ?? 'Fertig.'}
       </p>
     );
   }
@@ -393,10 +399,10 @@ export default function RegionsPanel({ eingebettet = false }: { eingebettet?: bo
    * Die waren nicht falsch, aber sie stellten die falsche Frage: welche
    * Erzeugnisse es gibt, statt ob danach alles passt.
    */
-  const handleGesamtbau = useCallback(async () => {
+  const handleGesamtbau = useCallback(async (alles = false) => {
     setErrorByRegion((prev) => ({ ...prev, [GESAMT_SCHLUESSEL]: '' }));
     try {
-      const jobId = await startGesamtbau();
+      const jobId = await startGesamtbau(alles);
       setJobs((prev) => ({ ...prev, [GESAMT_SCHLUESSEL]: { jobId, job: null } }));
     } catch (err) {
       const message =
@@ -466,19 +472,31 @@ export default function RegionsPanel({ eingebettet = false }: { eingebettet?: bo
                 <div>
                   <div className="font-semibold">Routing und Suche bauen</div>
                   <div className="text-xs text-slate-500 dark:text-slate-400">
-                    Für alle installierten Karten gemeinsam.
+                    Baut nur, was fehlt oder veraltet ist — etwa die Suche einer neuen Karte. Das
+                    Routing ist ein Netz über alle Karten (sonst endet es an der Grenze) und wird
+                    neu gebaut, sobald eine Karte dazukommt.
                   </div>
                 </div>
-                <button
-                  onClick={() => void handleGesamtbau()}
-                  disabled={etwasLaeuft || installed.length === 0}
-                  className="shrink-0 px-2 py-1 rounded-md border border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 text-xs hover:bg-emerald-50 dark:hover:bg-emerald-900/30 disabled:opacity-50"
-                  data-testid="gesamtbau-button"
-                >
-                  {gesamtJob && gesamtJob.status !== 'done' && gesamtJob.status !== 'error'
-                    ? 'Baut…'
-                    : 'Alles bauen'}
-                </button>
+                <div className="shrink-0 flex flex-col items-end gap-1">
+                  <button
+                    onClick={() => void handleGesamtbau(false)}
+                    disabled={etwasLaeuft || installed.length === 0}
+                    className="px-2 py-1 rounded-md border border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 text-xs hover:bg-emerald-50 dark:hover:bg-emerald-900/30 disabled:opacity-50"
+                    data-testid="gesamtbau-button"
+                  >
+                    {gesamtJob && gesamtJob.status !== 'done' && gesamtJob.status !== 'error'
+                      ? 'Baut…'
+                      : 'Fehlendes bauen'}
+                  </button>
+                  <button
+                    onClick={() => void handleGesamtbau(true)}
+                    disabled={etwasLaeuft || installed.length === 0}
+                    className="text-[11px] underline text-slate-500 dark:text-slate-400 disabled:opacity-50"
+                    data-testid="gesamtbau-alles-button"
+                  >
+                    Alles neu bauen
+                  </button>
+                </div>
               </div>
               {/* Nach einer Installation ist das der nächste Schritt — und
                   ohne diesen Satz weiss niemand, dass er ihn tun muss. Eine
