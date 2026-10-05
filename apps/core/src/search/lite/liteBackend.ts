@@ -81,8 +81,6 @@ function dedupeKey(candidate: LiteCandidate): string {
   return `${candidate.name}|${candidate.kind}|${candidate.lat.toFixed(5)}|${candidate.lon.toFixed(5)}`;
 }
 
-/** Umkreise um die Position, in denen zusätzlich gesucht wird. */
-const NAH_KM = [30, 150] as const;
 
 /**
  * Die Hausnummer in der Eingabe: „Hauptstraße 80", „Weg 12a", „Weg 12 a".
@@ -183,33 +181,29 @@ export class LiteBackend implements GeocoderBackend {
       return this.imUmkreis(readers, query.q, { lat: query.lat, lon: query.lon }, query.umkreisKm, query.limit);
     }
     const origin = query.lat !== undefined && query.lon !== undefined ? { lat: query.lat, lon: query.lon } : undefined;
-    const candidates = this.withErrorMapping('search', () => [
-      // ─── ERST IN DER NÄHE, DANN ÜBERALL (0.39.0) ────────────────────────
-      // Gemeldet: „Rewe" fand Straßen in der Schweiz und in Ostfriesland,
-      // aber nicht den REWE, der auf der Karte direkt daneben stand. Die
-      // landesweite Abfrage liefert nur die nach bm25 besten Zeilen -- ob der
-      // Laden um die Ecke darunter ist, war Zufall. In der Umgebung der
-      // Position wird deshalb eigens gesucht.
-      ...(origin
-        ? NAH_KM.flatMap((km) =>
-            readers.flatMap((reader) => reader.searchByPrefix(query.q, holen, kastenUm(origin.lat, origin.lon, km))),
-          )
-        : []),
-      ...readers.flatMap((reader) => reader.searchByPrefix(query.q, holen)),
-    ]);
+    // ─── ALLE TREFFER, NICHT DIE „BESTEN" (0.39.1) ───────────────────────────
+    // Bis 0.39.0 holte jeder Index die nach bm25 besten Zeilen, landesweit und
+    // in zwei Umkreisen. Das waren drei sortierte Abfragen je Index (je
+    // 150–560 ms gemessen) -- und der naechste Laden war trotzdem nicht
+    // sicher dabei. `kandidaten` zaehlt zuerst und holt bei ueberschaubarer
+    // Zahl ALLE; die Reihenfolge macht `ranking.ts`.
+    const candidates = this.withErrorMapping('search', () =>
+      readers.flatMap((reader) => reader.kandidaten(query.q, origin)),
+    );
     const imOrt = this.withErrorMapping('search', () => this.imGenanntenOrt(readers, query.q, holen));
+    const nummer = hausnummerAus(query.q);
+    const adresse = { adresse: nummer !== null };
     const ergebnis = [
       // Gerankt gegen die Eingabe OHNE den Ort: „Ziolkowskistraße" beginnt
       // mit „Ziolkowskistraße", nicht mit „Ziolkowskistraße Magdeburg" --
       // sonst gewönne der Laden in derselben Strasse.
-      ...rankLiteCandidates(dedupe(imOrt.treffer), imOrt.rest, origin),
+      ...rankLiteCandidates(dedupe(imOrt.treffer), imOrt.rest, origin, adresse),
       // Gerankt gegen die BEREINIGTE Eingabe: „Ziolkowskistraße 8" -- die 8
       // steht in keinem Namen. Gegen die rohe Eingabe begann keine Strasse
       // mehr mit dem Gesuchten, und die Laeden darin rutschten davor.
-      ...rankLiteCandidates(dedupe(candidates), bereinigt(query.q), origin),
+      ...rankLiteCandidates(dedupe(candidates), bereinigt(query.q), origin, adresse),
     ];
     const liste = strassenZusammenlegen(dedupe(ergebnis));
-    const nummer = hausnummerAus(query.q);
     const adressen = nummer ? this.mitHausnummer(readers, liste, nummer) : [];
     return [...adressen, ...liste].slice(0, query.limit).map(candidateToResult);
   }

@@ -10,6 +10,35 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.39.1
+
+**Suche: der nächste Treffer zuerst, und schneller.**
+
+Gemeldet nach 0.39.0: „Sie braucht allerdings etwas länger. Ca 1, vielleicht
+2 Sekunden. Allerdings zeigt sie nicht immer das nächste an. Bspw Rewe ist
+vielleicht 2km vom aktuellen Standort ... Während die Suche Treffer anzeigt
+die weiter weg sind." Und: „ziolkowski 8 ... Da kommt dann aber
+ziolkowskizehn in 500km. Wieso kommt dieses andere Ziel in der Liste?"
+
+- **Der nächste zuerst.** Bei gleich gutem Namen entscheidet jetzt die
+  Entfernung. Vorher gewann innerhalb von 25 km der kürzere Name — „Rewe To
+  Go“ in 13 km vor „REWE Familie Appel“ in 2 km, und nach zehn Einträgen war
+  die Liste voll.
+- **Schneller.** Die Suche fragt nicht mehr dreimal je Karte nach den „besten“
+  Treffern (das Sortieren kostete jedes Mal mehrere hundert Millisekunden),
+  sondern zählt zuerst und holt bei überschaubarer Zahl alle Treffer auf
+  einmal. Gemessen an einem Testindex mit 2,5 Mio. Einträgen: etwa halb bis
+  ein Drittel so lang.
+- **Mit Hausnummer gilt die Adresse.** Wer „Ziolkowski 8“ tippt, sucht eine
+  Straße. Läden und Lokale, deren Name zufällig genauso beginnt
+  („ZiolkowskiZEHN“), stehen dann hinter den Straßen.
+- „Was ist gebaut?“ lädt sich nach einem fertigen Bau selbst neu — vorher
+  stand dort weiter „Älterer Index“, obwohl der Neubau durch war.
+
+Kein Neubau nötig.
+
+---
+
 ## 0.39.0
 
 **Suche findet Firmen, nahe Läden und Hausnummern.**

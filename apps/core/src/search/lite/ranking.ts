@@ -13,22 +13,21 @@
  *      "Vadu" rank "Vaduz" (city) above "Vaduzer Straße" (street) even
  *      though BOTH are prefix matches for "Vadu" -- the mandatory E05-T5
  *      test case.
- *   3. Entfernungsband (seit 0.39.0, nur mit Ursprung): unter 25 km, unter
- *      100 km, unter 400 km, weiter. Vorher entschied hier bm25 -- und bm25
- *      bevorzugt kurze Namen. Bei „Rewe" gewann damit ein Markt namens
- *      „REWE" 300 km entfernt gegen „REWE Familie Appel" um die Ecke. Wer
- *      einen Laden sucht, meint fast immer den nahen.
- *   4. FTS5 rank (SQLite's `bm25()`; more negative = better match) -- the
- *      tiebreaker within the same prefix/kind/band tier.
- *   5. Distance-bias: if an origin (device position / map center) was
- *      given, the closer candidate wins remaining ties. Never applied
- *      without an origin, and never promoted above tiers 1-3 -- it's a
- *      last-resort tiebreaker, not a primary signal (a far-away city still
- *      beats a nearby street for the same query).
+ *   3. Entfernung (nur mit Ursprung). Bis 0.39.0 stand hier bm25, in 0.39.0
+ *      ein grobes Entfernungsband (unter 25/100/400 km) davor. Gemeldet
+ *      danach: „Rewe ist vielleicht 2km vom aktuellen Standort ... während
+ *      die Suche Treffer anzeigt die weiter weg sind." Innerhalb eines Bandes
+ *      entschied weiter bm25, und bm25 bevorzugt kurze Namen: „Rewe To Go"
+ *      in 13 km schlug „REWE Familie Appel" in 2 km, und die Liste ist nach
+ *      zehn Eintraegen zu Ende. Wer einen Laden sucht, meint den naechsten.
+ *   4. FTS5 rank (SQLite's `bm25()`, or the name length where bm25 was not
+ *      computed -- see `reader.ts#kandidaten`; lower = better).
+ *   5. Original order (stable). A far-away city still beats a nearby
+ *      street for the same query -- kind (tier 2) comes before distance.
  *
- * Explicitly OUT of scope (documented, not a bug): no house-number-level
- * data at all -- this index only ever stores place/street centroids
- * (E05-T5 acceptance note "keine Hausnummern").
+ * Hausnummern stehen seit 0.39.0 in einer eigenen Tabelle (`reader.ts#
+ * hausnummer`); sie werden nicht hier gerankt, sondern den gefundenen
+ * Strassen nachgeschlagen (`liteBackend.ts#mitHausnummer`).
  */
 
 /**
@@ -129,14 +128,6 @@ function normalize(s: string): string {
   return faltung(s);
 }
 
-/** Grobe Entfernungsstufe; ohne Ursprung immer 0. */
-function distanzBand(km: number): number {
-  if (km < 25) return 0;
-  if (km < 100) return 1;
-  if (km < 400) return 2;
-  return 3;
-}
-
 /** 0 = prefix match, 1 = not. */
 function prefixTier(name: string, query: string): 0 | 1 {
   return normalize(name).startsWith(normalize(query)) ? 0 : 1;
@@ -153,23 +144,29 @@ export function rankLiteCandidates(
   candidates: readonly LiteCandidate[],
   query: string,
   origin?: RankOrigin,
+  opts: { adresse?: boolean } = {},
 ): LiteCandidate[] {
   const scored = candidates.map((candidate, index) => ({
     candidate,
     index,
     prefix: prefixTier(candidate.name, query),
-    kind: KIND_RANK[candidate.kind],
+    // ─── MIT HAUSNUMMER: STRASSEN VOR SONDERZIELEN (0.39.1) ──────────────
+    // Gemeldet: „Habe auch ziolkowski 8 probiert ... Da kommt dann aber
+    // ziolkowskizehn in 500km. Wieso kommt dieses andere Ziel in der Liste?"
+    // Ein Lokal namens „ZiolkowskiZEHN" beginnt mit „Ziolkowski", und
+    // Sonderziele standen vor Strassen. Wer eine Hausnummer tippt, sucht
+    // aber eine Adresse.
+    kind: opts.adresse && candidate.kind === 'poi' ? KIND_RANK.street + 1 : KIND_RANK[candidate.kind],
     fts: candidate.ftsRank,
     distanceKm: origin ? haversineKm(origin, { lat: candidate.lat, lon: candidate.lon }) : 0,
-  })).map((s) => ({ ...s, band: distanzBand(s.distanceKm) }));
+  }));
 
   scored.sort(
     (a, b) =>
       a.prefix - b.prefix ||
       a.kind - b.kind ||
-      a.band - b.band ||
-      a.fts - b.fts ||
       a.distanceKm - b.distanceKm ||
+      a.fts - b.fts ||
       a.index - b.index,
   );
 
