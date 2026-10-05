@@ -83,6 +83,47 @@ describe('„Rewe": der nahe Markt gegen hunderte ferne Straßen', () => {
   });
 });
 
+describe('0.39.1: der nächste zuerst, auch bei vielen nahen Treffern', () => {
+  it('„Rewe": REWE Familie Appel in 2 km vor zwölf kürzer benannten Märkten in 13–25 km', async () => {
+    const records: NormalizedRecord[] = [];
+    for (let i = 0; i < 12; i += 1) {
+      records.push(
+        normalizePoiFeature(
+          punkt(HIER.lon + 0.2 + i * 0.01, HIER.lat + 0.05, { shop: 'convenience', name: 'Rewe To Go' }),
+        ) as NormalizedRecord,
+      );
+    }
+    records.push(
+      normalizePoiFeature(
+        punkt(HIER.lon + 0.02, HIER.lat + 0.01, { shop: 'supermarket', name: 'REWE Familie Appel' }),
+      ) as NormalizedRecord,
+    );
+    const backend = await baue(records);
+    const treffer = await backend.search({ q: 'Rewe', limit: 10, ...HIER });
+    expect(treffer[0]?.name).toBe('REWE Familie Appel');
+  });
+
+  it('„Ziolkowski 8": mit Hausnummer stehen Straßen vor einem gleich beginnenden Lokal', async () => {
+    const records: NormalizedRecord[] = [];
+    for (let i = 0; i < 12; i += 1) {
+      records.push(
+        normalizeStreetFeature(
+          punkt(11 + i * 0.3, 51, { highway: 'residential', name: 'Ziolkowskistraße', 'addr:city': `Ort${i}` }),
+        ) as NormalizedRecord,
+      );
+    }
+    records.push(
+      normalizePoiFeature(punkt(HIER.lon, HIER.lat, { amenity: 'restaurant', name: 'ZiolkowskiZEHN' })) as NormalizedRecord,
+    );
+    const backend = await baue(records);
+    const mitNummer = await backend.search({ q: 'Ziolkowski 8', limit: 10, ...HIER });
+    expect(mitNummer.map((t) => t.name)).not.toContain('ZiolkowskiZEHN');
+    // Ohne Nummer darf das Lokal weiter vorn stehen -- dann ist es ein Name.
+    const ohne = await backend.search({ q: 'Ziolkowski', limit: 10, ...HIER });
+    expect(ohne[0]?.name).toBe('ZiolkowskiZEHN');
+  });
+});
+
 describe('Firmen, die in keiner Kategorie stehen', () => {
   it('nimmt eine benannte Firma (office=company) auf und findet sie', async () => {
     const caratec = normalizeNamedFeature(

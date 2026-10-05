@@ -445,7 +445,16 @@ export default function RegionsPanel({ eingebettet = false }: { eingebettet?: bo
               threshold -- see StylePanel.tsx's identical gate for the
               reachable-FAB-while-locked rationale. */}
           <DriveLockGate controlId="store">
-            <BuildStatusSection />
+            {/* Nach einem fertigen Bau neu laden: gemeldet war „Alles neu
+                gebaut", während darüber noch „Älterer Index" stand -- die
+                Übersicht hatte sich seit dem Öffnen nicht neu geholt. */}
+            <BuildStatusSection
+              key={Object.values(jobs)
+                .map((state) => state.job)
+                .filter((job) => job && job.status === 'done')
+                .map((job) => job?.id)
+                .join(',')}
+            />
 
             {/* ─── DER GEMEINSAME KNOPF ──────────────────────────────────────
                 Er steht ÜBER der Liste und nicht darunter: nach einer

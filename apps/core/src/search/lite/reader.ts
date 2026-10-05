@@ -178,6 +178,18 @@ export function splitQueryTerms(query: string): string[] {
  *  an SQLite error. */
 const MIN_QUERY_LENGTH = 3;
 
+/** Bis zu so vielen Treffern kommen ALLE (siehe `kandidaten`). */
+const ALLE_BIS = 25_000;
+/** Bei mehr Treffern: so viele je Teilabfrage. */
+const BREIT_JE_TEIL = 3_000;
+
+/** Ein Rechteck von `km` um einen Punkt. */
+function kastenUmPunkt(lat: number, lon: number, km: number): SuchKasten {
+  const dLat = km / 111;
+  const dLon = km / (111 * Math.max(0.1, Math.cos((lat * Math.PI) / 180)));
+  return { sued: lat - dLat, nord: lat + dLat, west: lon - dLon, ost: lon + dLon };
+}
+
 /**
  * Spalten, die es in `places` erst seit einer bestimmten Version gibt.
  *
@@ -254,35 +266,106 @@ export class LiteIndexReader {
     ).join(', ');
   }
 
+  /**
+   * Alle Kandidaten fuer eine Eingabe -- ohne die Datenbank nach Relevanz
+   * sortieren zu lassen (0.39.1).
+   *
+   * ─── GEMESSEN, BEVOR ES GEAENDERT WURDE ──────────────────────────────────
+   * Gemeldet: die Suche „braucht etwas länger. Ca 1, vielleicht 2 Sekunden"
+   * und zeigt „nicht immer das nächste an". An einem kuenstlichen Index mit
+   * 2,5 Mio. Eintraegen (Deutschland hat rund 7 Mio.):
+   *
+   *     Treffer zaehlen                    10 –  80 ms
+   *     alle Treffer holen, unsortiert     50 – 140 ms   (bis 25 000 Zeilen)
+   *     nach bm25 sortiert, beste 200     150 – 560 ms   je Abfrage
+   *
+   * und die Suche stellte drei solcher sortierten Abfragen je Index. Dazu
+   * kommt, dass bm25 kurze Namen bevorzugt: „REWE" 30 km weiter gewann
+   * gegen „REWE Familie Appel" um die Ecke.
+   *
+   * Deshalb: erst zaehlen. Sind es ueberschaubar viele, kommen ALLE -- dann
+   * entscheidet `ranking.ts` mit Namensanfang, Art und Entfernung, und der
+   * naechste Treffer kann gar nicht mehr herausfallen. Sind es sehr viele
+   * (drei Buchstaben, „Mar"), kommen die mit passendem Namensanfang, die in
+   * der Umgebung und ein Rest.
+   *
+   * `ftsRank` ist hier die Namenslaenge: ohne bm25 die naheliegende Naeherung
+   * („REWE" passt genauer auf „rewe" als „REWE Food Fulfillment Center").
+   */
+  kandidaten(query: string, nahe?: { lat: number; lon: number }): LiteCandidate[] {
+    if (query.trim().length < MIN_QUERY_LENGTH) return [];
+    const db = this.open();
+    const fts = escapeFtsQuery(query);
+    const basis = `SELECT p.name as name, p.kind as kind, p.lat as lat, p.lon as lon, ${this.selectList(db)}
+         FROM lite_search JOIN places p ON p.id = lite_search.rowid
+         WHERE lite_search MATCH ?`;
+
+    const { n } = db.prepare('SELECT count(*) as n FROM lite_search WHERE lite_search MATCH ?').get(fts) as {
+      n: number;
+    };
+    let rows: LiteAllRow[];
+    if (n <= ALLE_BIS) {
+      rows = db.prepare(basis).all(fts) as LiteAllRow[];
+    } else {
+      rows = [];
+      const erster = splitQueryTerms(query)[0];
+      if (erster && !/["%_]/.test(erster)) {
+        rows.push(
+          ...(db
+            .prepare(`${basis} AND lite_search.search_text LIKE ? LIMIT ${BREIT_JE_TEIL}`)
+            .all(fts, `${erster}%`) as LiteAllRow[]),
+        );
+      }
+      if (nahe) {
+        const k = kastenUmPunkt(nahe.lat, nahe.lon, 30);
+        rows.push(
+          ...(db
+            .prepare(`${basis} AND p.lat BETWEEN ? AND ? AND p.lon BETWEEN ? AND ? LIMIT ${BREIT_JE_TEIL}`)
+            .all(fts, k.sued, k.nord, k.west, k.ost) as LiteAllRow[]),
+        );
+      }
+      rows.push(...(db.prepare(`${basis} LIMIT 500`).all(fts) as LiteAllRow[]));
+    }
+    return rows
+      .filter((r): r is LiteAllRow & { kind: LiteKind } => isLiteKind(r.kind))
+      .map((r) => ({ ...r, ftsRank: r.name.length }));
+  }
+
   /** Returns candidates for `ranking.ts` to sort/trim -- deliberately
-   *  over-fetches (`limit * OVERFETCH_FACTOR`) so the ranking tiers (prefix,
-   *  kind) have enough raw material to reorder before the caller trims to
-   *  the actually-requested page size. */
+   *  over-fetches so the ranking tiers (prefix, kind) have enough raw
+   *  material to reorder before the caller trims to the requested size.
+   *
+   *  Mit Ausschnitt (`box`) OHNE bm25-Sortierung: im Ausschnitt sind es
+   *  wenige, und die Reihenfolge macht `ranking.ts` (siehe `kandidaten`). */
   searchByPrefix(query: string, limit: number, box?: SuchKasten): LiteCandidate[] {
     if (query.trim().length < MIN_QUERY_LENGTH) return [];
 
     const db = this.open();
-    // ─── WARUM SO VIELE (0.39.0) ─────────────────────────────────────────────
-    // Die Datenbank ordnet nach bm25, und bm25 bevorzugt KURZE Eintraege. Bei
-    // „Rewe" standen deshalb „Rewenweg", „Drewer", „Krewelin" vorn -- und die
-    // Maerkte, deren Suchtext „REWE Supermarkt Lebensmittel einkaufen …" lang
-    // ist, fielen aus den wenigen geholten Zeilen ganz heraus. Die eigentliche
-    // Reihenfolge macht ohnehin `ranking.ts`; dafuer braucht es Material.
-    // Die Datenbank bewertet alle Treffer sowieso, mehr Zeilen kosten kaum.
+    if (box) {
+      const rows = db
+        .prepare(
+          `SELECT p.name as name, p.kind as kind, p.lat as lat, p.lon as lon, ${this.selectList(db)}
+           FROM lite_search JOIN places p ON p.id = lite_search.rowid
+           WHERE lite_search MATCH ? AND p.lat BETWEEN ? AND ? AND p.lon BETWEEN ? AND ?
+           LIMIT ${BREIT_JE_TEIL}`,
+        )
+        .all(escapeFtsQuery(query), box.sued, box.nord, box.west, box.ost) as LiteAllRow[];
+      return rows
+        .filter((r): r is LiteAllRow & { kind: LiteKind } => isLiteKind(r.kind))
+        .map((r) => ({ ...r, ftsRank: r.name.length }));
+    }
     const overfetch = Math.max(limit * 4, 200);
-    const imKasten = box ? 'AND p.lat BETWEEN ? AND ? AND p.lon BETWEEN ? AND ?' : '';
-    const kastenWerte = box ? [box.sued, box.nord, box.west, box.ost] : [];
     const rows = db
       .prepare(
         `SELECT p.name as name, p.kind as kind, p.lat as lat, p.lon as lon,
                 ${this.selectList(db)}, bm25(lite_search) as ftsRank
          FROM lite_search
          JOIN places p ON p.id = lite_search.rowid
-         WHERE lite_search MATCH ? ${imKasten}
+         WHERE lite_search MATCH ?
          ORDER BY ftsRank
          LIMIT ?`,
       )
-      .all(escapeFtsQuery(query), ...kastenWerte, overfetch) as LiteSearchRow[];
+      .all(escapeFtsQuery(query), overfetch) as LiteSearchRow[];
 
     return rows.filter((r): r is LiteSearchRow & { kind: LiteKind } => isLiteKind(r.kind));
   }
@@ -297,15 +380,29 @@ export class LiteIndexReader {
    * („Neue Neustadt"), nicht die Stadt.
    */
   orte(begriff: string): LiteCandidate[] {
-    if (begriff.trim().length < MIN_QUERY_LENGTH) return [];
+    if (begriff.trim().length < MIN_QUERY_LENGTH || /["%_]/.test(begriff)) return [];
     const gesucht = faltung(begriff);
-    return this.searchByPrefix(begriff, 25).filter((r) => {
-      if (!ORTS_ARTEN.has(r.kind)) return false;
-      const name = faltung(r.name);
-      // „Frankfurt" passt zu „Frankfurt am Main", „Magdeburg" nicht zu „Magdeburger Platz".
-      return name === gesucht || name.startsWith(`${gesucht} `);
-    });
+    const db = this.open();
+    // Ueber den Namensanfang statt ueber bm25 (0.39.1): ein Ort heisst so,
+    // wie man ihn tippt, und die sortierte Abfrage kostete je Begriff
+    // mehrere hundert Millisekunden.
+    const rows = db
+      .prepare(
+        `SELECT p.name as name, p.kind as kind, p.lat as lat, p.lon as lon, ${this.selectList(db)}
+         FROM lite_search JOIN places p ON p.id = lite_search.rowid
+         WHERE lite_search MATCH ? AND lite_search.search_text LIKE ? LIMIT 2000`,
+      )
+      .all(escapeFtsQuery(begriff), `${begriff.trim()}%`) as LiteAllRow[];
+    return rows
+      .filter((r): r is LiteAllRow & { kind: LiteKind } => isLiteKind(r.kind) && ORTS_ARTEN.has(r.kind))
+      .filter((r) => {
+        const name = faltung(r.name);
+        // „Frankfurt" passt zu „Frankfurt am Main", „Magdeburg" nicht zu „Magdeburger Platz".
+        return name === gesucht || name.startsWith(`${gesucht} `);
+      })
+      .map((r) => ({ ...r, ftsRank: r.name.length }));
   }
+
 
   /** Nearest-neighbor lookup for reverse geocoding. The index has no
    *  spatial index (small LI/DE-scale datasets, see build-lite-index.sh's
