@@ -409,7 +409,7 @@ async function checkTiles(tilesDir: string, listDir: ListDirFn): Promise<Preflig
     '„Karten verwalten" (🗺️ rechts oben) öffnen und bei der gewünschten Karte auf ' +
     '„Installieren" drücken. Liechtenstein braucht Minuten, ein Bundesland wie ' +
     'Rheinland-Pfalz deutlich länger; der Fortschritt steht im Panel. Danach einmal ' +
-    '„Alles bauen" für Routing und Suche. ' +
+    '„Fehlendes bauen" für Routing und Suche. ' +
     'Ganz Deutschland ist für dieses Gerät zu groß: auf einem anderen Rechner bauen und ' +
     'die fertige .pmtiles per „Samba share" nach /share/yapaja/tiles/ legen. ' +
     'Ausführlich: docs/installation.md §C.';
@@ -570,7 +570,7 @@ async function checkSearch(
     remedy:
       'Es gibt zwei Wege, und einer genügt. (1) Lite-Index (empfohlen auf einem ' +
       'Gerät mit 8 GB): braucht wenig Arbeitsspeicher und wird direkt hier ' +
-      'gebaut — „Karten verwalten" (🗺️ rechts oben) öffnen und auf „Alles bauen" ' +
+      'gebaut — „Karten verwalten" (🗺️ rechts oben) öffnen und auf „Fehlendes bauen" ' +
       'drücken; das baut Routing und Suche für alle installierten Karten. ' +
       'Liechtenstein braucht Minuten, ein ' +
       'Bundesland länger; der Fortschritt steht im Panel. (2) Photon: in der ' +

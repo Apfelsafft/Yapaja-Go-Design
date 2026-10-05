@@ -13,6 +13,7 @@ export {
 export {
   sichtbareRegionen,
   verdeckteRegionen,
+  type QuellenVonRegion,
   enthaelt,
   flaeche,
 } from './mehrRegionen.js';

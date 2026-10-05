@@ -10,6 +10,37 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.40.0
+
+**Eine Karte über alle Länder, inkrementell gebaut, mit sichtbarer Routing-Lücke.**
+
+Gemeldet: „Liechtenstein wird bei mir aber nicht dargestellt. Können wir
+insgesamt nur eine einzige Ansicht haben …" — „gibt es eine Möglichkeit
+inkrementell die Karte, Routen und Suchindex aufzubauen? Wenn ich jetzt noch
+beispielsweise Österreich dazu lade dann würde ich gerne nur Österreich bauen"
+— „ich kann nicht in die Schweiz fahren … Kaiseraugst … nicht anfahrbar."
+
+- **Liechtenstein wird wieder gezeichnet.** Eine Karte wurde weggelassen, wenn
+  ihr Umriss-Rechteck in dem einer anderen lag — gedacht für „Rheinland-Pfalz
+  liegt in Deutschland". Liechtensteins Rechteck liegt aber im Schweizer.
+  Jetzt entscheidet die Herkunft laut Katalog (Teilgebiet eines Landes);
+  Nachbarländer werden immer nebeneinander gezeichnet.
+- **„Fehlendes bauen“ statt „Alles bauen“.** Gebaut wird nur, was fehlt oder
+  älter ist als seine Karte: Kommt Österreich dazu, entsteht nur dessen
+  Suchindex neu. **Das Routing ist die Ausnahme:** Es ist ein Netz über alle
+  Karten, sonst endet jede Route an der Grenze — es wird neu gebaut, sobald
+  eine Karte dazukommt, wegfällt oder aktualisiert wurde. „Alles neu bauen“
+  gibt es weiterhin.
+- **Fehlt eine Karte im Routing, steht das jetzt da.** In „Was ist gebaut?“
+  unter Routing („Fehlt: switzerland“), am Ende eines Baus als Warnung, und in
+  der Routing-Fehlermeldung statt des irreführenden „Überprüfe
+  Fahrzeugabmessungen“. Bei dir stand dort „enthält: germany, liechtenstein“ —
+  die Schweiz fehlte im Routing, deshalb waren Kaiseraugst und Reinach nicht
+  erreichbar. **„Fehlendes bauen“ baut das Routing jetzt mit der Schweiz neu.**
+  Klappt der Download des Schweizer Extrakts nicht, sagt der Bau das.
+
+---
+
 ## 0.39.1
 
 **Suche: der nächste Treffer zuerst, und schneller.**

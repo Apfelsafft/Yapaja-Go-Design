@@ -88,7 +88,9 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     // Karte der Suchindex — alles in EINEM Job, damit die Oberfläche sich
     // nach einem Seitenwechsel wieder anhängen kann. Der Job-Stand trägt
     // dann `gesamt` mit Schritt, Gesamtzahl und Restzeit.
-    summary: 'Routing und Suche für ALLE installierten Karten neu bauen — 202 mit job_id',
+    // Seit 0.40.0 nur, was fehlt oder veraltet ist; `{ "alles": true }` im
+    // Rumpf baut wie früher alles neu.
+    summary: 'Routing und Suche bauen, soweit sie fehlen oder veraltet sind ({alles:true}: alles) — 202 mit job_id',
     tags: ['Karten'],
   },
   'GET /api/v1/map/regions/laufender-bau': {

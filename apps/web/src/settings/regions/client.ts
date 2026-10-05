@@ -258,8 +258,13 @@ export async function startSearchIndexBuild(regionId: string): Promise<string> {
  * Wirft RegionApiError bei 409 (NO_REGIONS / BUILD_IN_PROGRESS /
  * INSUFFICIENT_MEMORY).
  */
-export async function startGesamtbau(): Promise<string> {
-  const response = await fetch(apiUrl('api/v1/map/gesamtbau'), { method: 'POST' });
+export async function startGesamtbau(alles = false): Promise<string> {
+  // Ohne `alles` baut der Kern nur, was fehlt oder veraltet ist (0.40.0).
+  const response = await fetch(apiUrl('api/v1/map/gesamtbau'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ alles }),
+  });
   if (!response.ok) {
     throw await toApiError(response);
   }

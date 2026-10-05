@@ -32,6 +32,7 @@ import { readLiteIndexMeta } from '../search/lite/reader.js';
 import { resolveLiteSearchDir } from '../search/lite/paths.js';
 import { alsGeoJson, leseSonderziele } from './sonderziele/ausIndex.js';
 import { regionsPlugin } from './regions/routes.js';
+import { loadCatalog } from './regions/catalog.js';
 import {
   applyStyleOptions,
   getStyleDocument,
@@ -40,6 +41,7 @@ import {
   rewriteToRegions,
   sichtbareRegionen,
   verdeckteRegionen,
+  type QuellenVonRegion,
   type MapStyleDocument,
   type RawStyleQuery,
   type StyleSummary,
@@ -206,13 +208,24 @@ export const mapPlugin: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  /** Region → OSM-Quelle aus dem Katalog (`mehrRegionen.ts#teilgebietLautQuelle`).
+   *  Ohne lesbaren Katalog gilt wieder die Ausdehnung. */
+  const quellen = async (): Promise<QuellenVonRegion | undefined> => {
+    try {
+      const katalog = await loadCatalog();
+      return (region) => katalog.find((e) => e.id === region)?.pbfUrl ?? undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
   // GET /api/v1/map/regions -- installed region metadata.
   fastify.get<{ Reply: RegionsReply }>('/api/v1/map/regions', async (_request, reply) => {
     const regions = await listRegions(tilesDir, fastify.log);
     return reply.code(200).send({
       data: regions,
-      gezeichnet: sichtbareRegionen(regions).map((r) => r.region),
-      verdeckt: verdeckteRegionen(regions),
+      gezeichnet: sichtbareRegionen(regions, await quellen()).map((r) => r.region),
+      verdeckt: verdeckteRegionen(regions, await quellen()),
     });
   });
 
@@ -290,7 +303,7 @@ export const mapPlugin: FastifyPluginAsync = async (fastify) => {
       const aktive =
         requestedRegion && regions.some((r) => r.region === requestedRegion)
           ? [requestedRegion]
-          : sichtbareRegionen(regions).map((r) => r.region);
+          : sichtbareRegionen(regions, await quellen()).map((r) => r.region);
 
       const style = aktive.length > 0 ? rewriteToRegions(baseStyle, aktive) : baseStyle;
       const options = parseStyleOptions(request.query);

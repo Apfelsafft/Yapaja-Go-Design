@@ -238,3 +238,36 @@ describe('rewriteToRegions', () => {
     expect(rewriteToRegions(stil, [])).toBe(stil);
   });
 });
+
+describe('Teilgebiet laut Quelle statt laut Rechteck (0.40.0)', () => {
+  // Gemeldet: „Ich habe Deutschland, Schweiz und Liechtenstein. Liechtenstein
+  // wird bei mir aber nicht dargestellt." Sein Rechteck liegt in dem der Schweiz.
+  const QUELLEN: Record<string, string> = {
+    germany: 'https://download.geofabrik.de/europe/germany-latest.osm.pbf',
+    'rheinland-pfalz': 'https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf',
+    switzerland: 'https://download.geofabrik.de/europe/switzerland-latest.osm.pbf',
+    liechtenstein: 'https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf',
+  };
+  const quelle = (r: string): string | undefined => QUELLEN[r];
+
+  it('zeichnet Liechtenstein neben der Schweiz, obwohl sein Rechteck darin liegt', () => {
+    expect(enthaelt(SWITZERLAND.bounds, LIECHTENSTEIN.bounds)).toBe(true);
+    const namen = sichtbareRegionen([GERMANY, SWITZERLAND, LIECHTENSTEIN], quelle).map((r) => r.region);
+    expect(namen.sort()).toEqual(['germany', 'liechtenstein', 'switzerland']);
+    expect(verdeckteRegionen([GERMANY, SWITZERLAND, LIECHTENSTEIN], quelle)).toEqual([]);
+  });
+
+  it('lässt Rheinland-Pfalz neben Deutschland weiter weg -- es IST ein Teil davon', () => {
+    const namen = sichtbareRegionen([GERMANY, RHEINLAND_PFALZ], quelle).map((r) => r.region);
+    expect(namen).toEqual(['germany']);
+    expect(verdeckteRegionen([GERMANY, RHEINLAND_PFALZ], quelle)).toEqual([
+      { region: 'rheinland-pfalz', verdecktVon: 'germany' },
+    ]);
+  });
+
+  it('ohne Quelle (von Hand abgelegte Karte) gilt weiter das Rechteck', () => {
+    const teil = (r: string): string | undefined => (r === 'liechtenstein' ? undefined : QUELLEN[r]);
+    const namen = sichtbareRegionen([SWITZERLAND, LIECHTENSTEIN], teil).map((r) => r.region);
+    expect(namen).toEqual(['switzerland']);
+  });
+});

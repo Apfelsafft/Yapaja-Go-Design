@@ -59,7 +59,7 @@ test('zeigt ohne Karte die Installationsprüfung mit echten Befunden und Handlun
   // Und der zweite Schritt: eine installierte Karte allein ergibt weder
   // Routing noch Suche. Wer das nicht weiss, hält die Installation für fertig
   // und wundert sich, dass keine Route zustande kommt.
-  await expect(anweisung).toContainText('Alles bauen');
+  await expect(anweisung).toContainText('Fehlendes bauen');
 
   // Alle sieben Prüfungen sind da, jede mit einem echten Status.
   await expect(page.locator('[data-testid^="preflight-check-"]')).toHaveCount(7);

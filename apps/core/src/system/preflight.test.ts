@@ -877,6 +877,6 @@ describe('Handlungsanweisungen verweisen nur auf real Vorhandenes', () => {
     // Und den zweiten Schritt: eine installierte Karte allein ergibt weder
     // Routing noch Suche. Wer das nicht weiss, hält die Installation für
     // fertig und wundert sich, dass keine Route zustande kommt.
-    expect(tiles?.remedy).toContain('Alles bauen');
+    expect(tiles?.remedy).toContain('Fehlendes bauen');
   });
 });

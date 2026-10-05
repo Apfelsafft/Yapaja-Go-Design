@@ -85,7 +85,7 @@ Für jede Region aus der Kartenliste — ohne eine einzige Datei anzufassen:
 
 1. In Yapaia **„Karten verwalten"** (🗺️ rechts oben) öffnen.
 2. Bei der Region **„Installieren"** drücken — das baut die Karte.
-3. Danach einmal **„Alles bauen"** — das baut Routinggraph und Suchindex für
+3. Danach einmal **„Fehlendes bauen"** — das baut Routinggraph und Suchindex für
    alle installierten Karten.
 4. Mit **„Installation prüfen"** (🩺) kontrollieren: Karte, Routing und Suche
    sollten grün sein.
@@ -123,7 +123,7 @@ setzen — siehe [installation.md §C.4](installation.md#c4-im-add-on-container-
    erscheint in „Karten verwalten".
 
 > **Wichtig:** Eine selbst abgelegte Karte steht in keinem Katalog. Yapaia weiß
-> deshalb nicht, aus welcher `.osm.pbf` sie stammt, und **„Alles bauen"
+> deshalb nicht, aus welcher `.osm.pbf` sie stammt, und **„Fehlendes bauen"
 > überspringt sie** (und sagt es). Routing und Suche für diese Region braucht
 > ihr dann ebenfalls als fertige Dateien — §5.2 und §5.3.
 
@@ -158,9 +158,10 @@ Das Ergebnis liegt danach in `data/valhalla/tiles/`: ein Ordner
   `ghcr.io/gis-ops/docker-valhalla/valhalla:latest`. Ein Graph aus einer
   deutlich älteren oder neueren Valhalla-Version wird unter Umständen nicht
   gelesen. Mit `build-tiles.sh` gebaut, passt es.
-- **„Alles bauen" ersetzt den Graphen.** Er wird dann aus den installierten
-  Katalog-Regionen neu gebaut, und ein von Hand abgelegter Graph ist weg.
-  Wer seinen eigenen behalten will, drückt „Alles bauen" nicht.
+- **„Fehlendes bauen" kann den Graphen ersetzen.** Fehlt ihm eine installierte
+  Karte (ein von Hand abgelegter Graph nennt keine), wird er aus den
+  installierten Katalog-Regionen neu gebaut, und der eigene ist weg. Wer seinen
+  eigenen behalten will, drückt weder „Fehlendes bauen" noch „Alles neu bauen".
 
 ### 5.3 Suche
 
