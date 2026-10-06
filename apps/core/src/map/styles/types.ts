@@ -15,7 +15,16 @@ export interface VectorStyleSource {
   url: string;
 }
 
-export type StyleSource = VectorStyleSource;
+/** Rasterbilder (seit 0.41.0: Satellit). */
+export interface RasterStyleSource {
+  type: 'raster';
+  tiles: string[];
+  tileSize: number;
+  maxzoom?: number;
+  attribution?: string;
+}
+
+export type StyleSource = VectorStyleSource | RasterStyleSource;
 
 export interface BackgroundLayer {
   id: string;
@@ -72,7 +81,14 @@ export interface SymbolLayer {
   filter?: unknown[];
 }
 
-export type StyleLayer = BackgroundLayer | FillLayer | LineLayer | SymbolLayer;
+export interface RasterLayer {
+  id: string;
+  type: 'raster';
+  source: string;
+  paint?: Record<string, unknown>;
+}
+
+export type StyleLayer = BackgroundLayer | FillLayer | LineLayer | SymbolLayer | RasterLayer;
 
 export interface MapStyleDocument {
   version: 8;

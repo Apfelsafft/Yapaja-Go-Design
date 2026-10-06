@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useViewModeStore } from './viewMode';
+import { useViewModeStore, syncHeadingToBearing } from './viewMode';
 import { mapController } from '../state/mapStore';
 
 // Mock mapController
@@ -96,5 +96,26 @@ describe('ViewModeStore', () => {
     setMode('2d-north'); // Already in 2d-north
 
     expect(mockSetCamera).not.toHaveBeenCalled();
+  });
+
+  // Gewünscht: „Würde gerne die Karte mit zwei drehenden Fingern auch drehen
+  // können." Die Nordansicht drehte jede Drehung sofort zurück.
+  it('dreht eine von Hand gedrehte Karte nicht auf Norden zurück', () => {
+    mockMap.getBearing.mockReturnValue(37);
+    useViewModeStore.setState({ mode: '2d-north', freiGedreht: true });
+    syncHeadingToBearing();
+    expect(mapController.setCamera).not.toHaveBeenCalled();
+
+    // ohne Handdrehung wie bisher: zurück auf Norden
+    useViewModeStore.setState({ freiGedreht: false });
+    syncHeadingToBearing();
+    expect(mapController.setCamera).toHaveBeenCalledWith({ bearing: 0 });
+    mockMap.getBearing.mockReturnValue(0);
+  });
+
+  it('ein Wechsel der Ansicht hebt die Handdrehung auf', () => {
+    useViewModeStore.setState({ mode: '2d-north', freiGedreht: true });
+    useViewModeStore.getState().setMode('2d-course');
+    expect(useViewModeStore.getState().freiGedreht).toBe(false);
   });
 });

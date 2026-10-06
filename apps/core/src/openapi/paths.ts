@@ -83,6 +83,12 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     tags: ['Karten'],
   },
   'DELETE /api/v1/map/regions/:id': { summary: 'Installierte Region entfernen', tags: ['Karten'] },
+  'GET /api/v1/map/satellit/:z/:x/:y': {
+    // Stil „Satellit (online)": Sentinel-2 cloudless (EOX, CC BY 4.0), vom
+    // Kern geholt, damit die Seite bei `connect-src 'self'` bleibt.
+    summary: 'Satellitenkachel (JPEG, online durchgereicht; 404 ohne Internet)',
+    tags: ['Karten'],
+  },
   'POST /api/v1/map/gesamtbau': {
     // Der eine Knopf: Routinggraph (einmal, über alle Karten) und danach je
     // Karte der Suchindex — alles in EINEM Job, damit die Oberfläche sich

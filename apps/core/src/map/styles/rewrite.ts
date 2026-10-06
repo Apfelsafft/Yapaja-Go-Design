@@ -84,7 +84,9 @@ export function rewriteToRegions(style: MapStyleDocument, regionen: readonly str
   }
 
   const layers = style.layers.flatMap((layer) => {
-    if (!('source' in layer) || layer.source === undefined) {
+    // Nur Ebenen der Kartenquelle vervielfachen. Eine eigene Quelle (die
+    // Satellitenbilder, 0.41.0) gibt es einmal, nicht je Region.
+    if (!('source' in layer) || layer.source === undefined || layer.source !== REGION_SOURCE_ID) {
       return [layer];
     }
     return regionen.map((region, i) => {

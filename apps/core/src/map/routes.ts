@@ -32,7 +32,23 @@ import { readLiteIndexMeta } from '../search/lite/reader.js';
 import { resolveLiteSearchDir } from '../search/lite/paths.js';
 import { alsGeoJson, leseSonderziele } from './sonderziele/ausIndex.js';
 import { regionsPlugin } from './regions/routes.js';
+import { Buffer } from 'node:buffer';
 import { loadCatalog } from './regions/catalog.js';
+import { SATELLIT_MAXZOOM } from './styles/yapaja-satellit.js';
+
+/** Sentinel-2 cloudless 2016 (EOX, CC BY 4.0) als Web-Mercator-Kacheln. */
+export function satellitUrl(z: number, x: number, y: number): string {
+  return `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/${z}/${y}/${x}.jpg`;
+}
+
+/* eslint-disable no-undef -- `fetch`/`AbortSignal` sind Node-22-Globale (wie in online/ort.ts). */
+/** Test-Naht: wer die Kacheln holt. */
+export let satellitFetch: typeof fetch = (...args) => fetch(...args);
+/* eslint-enable no-undef */
+// eslint-disable-next-line no-undef -- Node-22-Global
+export function setzeSatellitFetch(f: typeof fetch): void {
+  satellitFetch = f;
+}
 import {
   applyStyleOptions,
   getStyleDocument,
@@ -267,6 +283,38 @@ export const mapPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.get('/api/v1/map/sonderziele', async (_request, reply) => {
     return reply.code(200).send(alsGeoJson(leseSonderziele()));
   });
+
+  // GET /api/v1/map/satellit/:z/:x/:y.jpg -- Satellitenkacheln, vom Kern
+  // geholt und durchgereicht (Stil „Satellit (online)", 0.41.0). Die Seite
+  // darf nur mit dem eigenen Server reden (`connect-src 'self'`); so bleibt
+  // das so. Ohne Internet: 404, die Fläche bleibt leer, die Offline-Karte
+  // darüber steht.
+  fastify.get<{ Params: { z: string; x: string; y: string } }>(
+    '/api/v1/map/satellit/:z/:x/:y',
+    async (request, reply) => {
+      const z = Number(request.params.z);
+      const x = Number(request.params.x);
+      const y = Number(String(request.params.y).replace(/\.jpg$/, ''));
+      if (![z, x, y].every(Number.isInteger) || z < 0 || z > SATELLIT_MAXZOOM || x < 0 || y < 0 || x >= 2 ** z || y >= 2 ** z) {
+        return reply.code(400).send(createErrorResponse('INVALID_TILE', 'Ungültige Kachel'));
+      }
+      try {
+        // eslint-disable-next-line no-undef -- Node-22-Global
+        const antwort = await satellitFetch(satellitUrl(z, x, y), { signal: AbortSignal.timeout(10_000) });
+        if (!antwort.ok) {
+          return reply.code(404).send(createErrorResponse('NOT_FOUND', `Satellitenkachel nicht verfügbar (${antwort.status})`));
+        }
+        const daten = Buffer.from(await antwort.arrayBuffer());
+        return reply
+          .code(200)
+          .header('Content-Type', 'image/jpeg')
+          .header('Cache-Control', 'public, max-age=2592000')
+          .send(daten);
+      } catch {
+        return reply.code(404).send(createErrorResponse('OFFLINE', 'Satellitenbilder brauchen Internet'));
+      }
+    },
+  );
 
   // GET /api/v1/map/styles -- available styles (id, name, preview?).
   fastify.get<{ Reply: StylesListReply }>('/api/v1/map/styles', async (_request, reply) => {
