@@ -1,3 +1,4 @@
+/* eslint-disable no-undef -- `fetch`/`Response`/`NodeJS` sind Node-22-Globale (wie in routes.test.ts). */
 /**
  * Tankerkönig (0.42.0): Preise nur mit Schalter UND Schlüssel, sparsam
  * abgefragt, und bei jedem Fehler einfach keine Preise.

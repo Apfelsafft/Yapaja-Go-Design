@@ -1651,7 +1651,7 @@ describe('die Add-on-Konfiguration ist gegliedert und beschriftet', () => {
     // Seit 0.10.0. Eigene Gruppe und nicht unter `advanced`: es ist keine
     // Feineinstellung, sondern die Entscheidung, ob dieses Add-on ueberhaupt
     // nach draussen ruft.
-    online: ['enabled'],
+    online: ['enabled', 'tankerkoenig_api_key'],
     // Seit 0.19.0: welche HA-Entitaeten Fuellstaende, Batterie und
     // Temperatur liefern, und die Schwellen dazu.
     bord: [

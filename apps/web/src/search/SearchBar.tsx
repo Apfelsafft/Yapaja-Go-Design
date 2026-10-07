@@ -52,6 +52,7 @@ import { iconForFavoriteCategory } from '../favorites/icons.js';
 import { usePositionStore } from '../position/positionStore.js';
 import { useDriveLockStore, useIsControlLocked } from '../drive/driveLockStore.js';
 import { sortResultsByDistance } from './sortByDistance.js';
+import PreisMarke, { useSpritpreise } from '../tanken/PreisMarke.js';
 
 const SEARCH_FLY_TO_ZOOM = 14;
 const PANEL_ID = 'search-panel';
@@ -163,6 +164,19 @@ export default function SearchBar(): React.ReactElement {
     () => sortResultsByDistance(rawResults, position),
     [rawResults, position],
   );
+  // 0.42.0: Spritpreise an Tankstellen-Treffern (Tankerkönig). Gefragt
+  // wird nur, wenn Tankstellen in der Liste stehen; ohne Verbindung,
+  // Schlüssel oder Schalter bleibt die Zeile, wie sie war.
+  const tankstellen = React.useMemo(
+    () => results.filter((r) => r.type === 'fuel').map((r) => r.latlng),
+    [results],
+  );
+  const tankPreise = useSpritpreise(tankstellen);
+  const preisAn = React.useMemo(() => {
+    const m = new Map<string, (typeof tankPreise)[number]>();
+    tankstellen.forEach((p, i) => m.set(`${p.lat},${p.lon}`, tankPreise[i] ?? null));
+    return m;
+  }, [tankstellen, tankPreise]);
   const setDestination = useRoutingStore((state) => state.setDestination);
   const map = useMapStore((state) => state.map);
   // E05-T3: every selected search result also becomes a Verlauf entry
@@ -482,12 +496,20 @@ export default function SearchBar(): React.ReactElement {
                           </span>
                         )}
                       </span>
-                      {distanceM !== null && (
-                        <span
-                          className="flex-shrink-0 text-xs text-slate-500 dark:text-slate-400"
-                          data-testid={`search-result-distance-${index}`}
-                        >
-                          {formatDistance(distanceM)}
+                      {(distanceM !== null || result.type === 'fuel') && (
+                        <span className="flex flex-shrink-0 flex-col items-end gap-1">
+                          {distanceM !== null && (
+                            <span
+                              className="text-xs text-slate-500 dark:text-slate-400"
+                              data-testid={`search-result-distance-${index}`}
+                            >
+                              {formatDistance(distanceM)}
+                            </span>
+                          )}
+                          <PreisMarke
+                            zuordnung={preisAn.get(`${result.latlng.lat},${result.latlng.lon}`)}
+                            testId={`search-result-preis-${index}`}
+                          />
                         </span>
                       )}
                     </div>
