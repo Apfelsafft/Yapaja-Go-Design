@@ -85,6 +85,9 @@ configuration:
     enabled:
       name: Online-Dienste erlauben
       description: 'Aus als Vorgabe. Eingeschaltet darf Yapaia bei bestehender Verbindung Baustellen, Sperrungen und Warnungen der Autobahn GmbH abrufen und zu einem angetippten Ort Infos von OpenStreetMap, Wikipedia und Wikimedia Commons holen. Hinaus gehen nur die Anfrage und beim Ort dessen Koordinaten und Name — nie die eigene Position, die Route oder eine Gerätekennung. Ohne Netz fällt nur das weg; die Navigation arbeitet unverändert offline.'
+    tankerkoenig_api_key:
+      name: Tankerkönig-Schlüssel (Spritpreise)
+      description: 'Optional. Mit einem kostenlosen Schlüssel von creativecommons.tankerkoenig.de zeigt die Tankstellensuche den aktuellen Preis für die Spritsorte des aktiven Profils (deutsche Tankstellen). Dafür geht die Gegend der gefundenen Tankstellen, auf etwa 5 km gerundet, an Tankerkönig. Wirkt nur bei eingeschalteten Online-Diensten. Leer oder ohne Verbindung erscheint kein Preis. Daten: MTS-K über Tankerkönig, CC BY 4.0.'
   bord:
     name: Bordsensoren
     description: 'Füllstände, Batterie und Außentemperatur aus Home Assistant. Ist eine

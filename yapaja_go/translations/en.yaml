@@ -70,6 +70,9 @@ configuration:
     enabled:
       name: Allow online services
       description: 'Off by default. When on, Yapaia may fetch roadworks, closures and warnings from the German motorway authority and, for a place you tap, details from OpenStreetMap, Wikipedia and Wikimedia Commons. Only the request leaves the house, plus the tapped place''s coordinates and name — never your own position, route or a device identifier. Without a connection only this is lost; navigation keeps working offline.'
+    tankerkoenig_api_key:
+      name: Tankerkönig key (fuel prices)
+      description: 'Optional. With a free key from creativecommons.tankerkoenig.de, the fuel station search shows the current price for the active profile''s fuel type (German stations). For this, the area of the stations found, rounded to about 5 km, is sent to Tankerkönig. Only works with online services switched on. Empty or without a connection, no price is shown. Data: MTS-K via Tankerkönig, CC BY 4.0.'
   bord:
     name: On-board sensors
     description: 'Tank levels, battery and outside temperature from Home Assistant. When

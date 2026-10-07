@@ -8,6 +8,7 @@
  *  - `GET  /api/v1/online/status`   -> was eingeschaltet ist, ohne etwas zu rufen
  *  - `POST /api/v1/online/diagnose` -> ruft die Dienste WIRKLICH und berichtet
  *  - `POST /api/v1/online/verkehr`  -> Baustellen und Sperrungen je Autobahn
+ *  - `GET  /api/v1/tanken/preise`    -> Spritpreise der Gegend (Tankerkönig)
  *
  * ─── WARUM DIAGNOSE EIN POST IST ────────────────────────────────────────────
  * Weil sie das Haus verlässt. Ein GET sieht harmlos aus: Browser holen ihn
@@ -30,6 +31,12 @@ import { diagnoseAutobahn, gesamturteil, type DiagnoseDeps, type DiagnoseZeile }
 import { holeVerkehr, verkehrUrteil, type VerkehrBefund, type VerkehrDeps } from './verkehr.js';
 import { VerkehrCache } from './verkehrCache.js';
 import { holeOrtInfo, type OrtDeps, type OrtInfo } from './ort.js';
+import { Tankerkoenig, TankerkoenigFehler, type Preisabfrage, type TankenDeps } from './tanken.js';
+
+/** Der Tankerkönig-Schlüssel aus der Konfiguration, oder leer. */
+export function tankerkoenigSchluessel(env: NodeJS.ProcessEnv = process.env): string {
+  return (env.TANKERKOENIG_API_KEY ?? '').trim();
+}
 
 /** Fährt Yapaia die Online-Dienste überhaupt? */
 export function onlineEingeschaltet(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -63,6 +70,12 @@ export function onlineStatus(aktiv: boolean): OnlineStatus {
           'Infos zu einem angetippten Ort: Öffnungszeiten, Website, Telefon, Wikipedia-Auszug und Bilder. Hinaus gehen nur Koordinaten und Name dieses Ortes.',
         schluessel_noetig: false,
       },
+      {
+        name: 'Tankerkönig',
+        beschreibung:
+          'Aktuelle Spritpreise deutscher Tankstellen in der Tankstellensuche. Braucht einen kostenlosen Schlüssel von tankerkoenig.de; hinaus geht nur die auf etwa 5 km gerundete Gegend der gefundenen Tankstellen.',
+        schluessel_noetig: true,
+      },
     ],
   };
 }
@@ -80,6 +93,7 @@ export interface OnlinePluginOptions {
   /** Injizierbar, damit ein Test die Uhr stellen kann. In Produktion gehört
    *  er zur Plugin-Instanz und lebt so lange wie der Kern. */
   verkehrCache?: VerkehrCache;
+  tankenDeps?: TankenDeps;
 }
 
 interface VerkehrBody {
@@ -105,6 +119,57 @@ const STRASSE_MUSTER = /^[A-Za-z]{1,2}[0-9]{1,4}$/;
 
 export const onlinePlugin: FastifyPluginAsync<OnlinePluginOptions> = async (fastify, opts) => {
   const env = opts.env ?? process.env;
+
+  // GET /api/v1/tanken/preise?lat=&lon=&rad= -- Spritpreise der Gegend.
+  // Ein GET, obwohl er nach außen fragt: die Oberfläche ruft ihn NUR, wenn
+  // eine Tankstellensuche Treffer hat, und ohne Schalter UND Schlüssel tut er
+  // nichts (409) -- dann zeigt die Oberfläche einfach keine Preise.
+  const tanken = new Map<string, Tankerkoenig>();
+  fastify.get<{
+    Querystring: { lat?: string; lon?: string; rad?: string };
+    Reply: { data: Preisabfrage } | ApiError;
+  }>('/api/v1/tanken/preise', async (request, reply) => {
+    const key = tankerkoenigSchluessel(env);
+    if (!onlineEingeschaltet(env) || !key) {
+      return reply
+        .code(409)
+        .send(
+          fehler(
+            'TANKERKOENIG_AUS',
+            'Spritpreise brauchen eingeschaltete Online-Dienste und einen Tankerkönig-Schlüssel ' +
+              '(Add-on-Konfiguration → „online").',
+          ),
+        );
+    }
+    const lat = Number(request.query.lat);
+    const lon = Number(request.query.lon);
+    const rad = Number(request.query.rad ?? 10);
+    if (
+      request.query.lat === undefined ||
+      request.query.lon === undefined ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lon) ||
+      Math.abs(lat) > 90 ||
+      Math.abs(lon) > 180 ||
+      !Number.isFinite(rad)
+    ) {
+      return reply.code(400).send(fehler('VALIDATION_ERROR', 'lat und lon (und rad) als Zahlen angeben.'));
+    }
+    let client = tanken.get(key);
+    if (!client) {
+      client = new Tankerkoenig(key, opts.tankenDeps);
+      tanken.set(key, client);
+    }
+    try {
+      return reply.code(200).send({ data: await client.umkreis(lat, lon, rad) });
+    } catch (err) {
+      const e = err instanceof TankerkoenigFehler ? err : new TankerkoenigFehler(String(err), 'NETZ');
+      request.log.warn({ code: e.code }, e.message);
+      return reply
+        .code(502)
+        .send(fehler(e.code === 'SCHLUESSEL' ? 'TANKERKOENIG_SCHLUESSEL' : 'TANKERKOENIG_FEHLER', e.message));
+    }
+  });
 
   fastify.get<{ Reply: { data: OnlineStatus } }>('/api/v1/online/status', async (_req, reply) => {
     return reply.code(200).send({ data: onlineStatus(onlineEingeschaltet(env)) });

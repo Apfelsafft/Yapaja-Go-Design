@@ -335,6 +335,7 @@ options:
   # nicht.
   online:
     enabled: false
+    tankerkoenig_api_key: ""
   bord:
     grauwasser: ""
     frischwasser: ""
@@ -399,6 +400,9 @@ schema:
     theme: "list(light|dark|system|sun)"
   online:
     enabled: "bool"
+    # Seit 0.42.0: kostenloser Schluessel von creativecommons.tankerkoenig.de
+    # fuer Spritpreise in der Tankstellensuche. Leer = keine Preise.
+    tankerkoenig_api_key: "password?"
   # ─── BORDSENSOREN (seit 0.19.0) ────────────────────────────────────────────
   # Welche HA-Entitaet welchen Wert liefert; leer = diesen Hinweis gibt es
   # nicht. Keine Vorgabe fuer die Entitaeten: jedes Fahrzeug nennt seine
