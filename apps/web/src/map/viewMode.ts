@@ -46,10 +46,24 @@ interface ViewModeState {
   restoreMode: () => void;
   /** Persist current mode to localStorage */
   persistMode: () => void;
+  /**
+   * Hat der Mensch die Karte mit zwei Fingern (oder Strg+Ziehen) gedreht?
+   *
+   * Gemeldet: „Können wir einbauen dass ich die Karte auch drehen kann? …
+   * mit zwei drehenden Fingern". MapLibre drehte durchaus -- aber
+   * `syncHeadingToBearing` stellte in der Nordansicht sofort wieder auf
+   * Norden (und in den Kursansichten auf den Kurs). Solange dieses Flag
+   * steht, bleibt die Drehung, wie sie ist. Zurück: Kompass-Knopf,
+   * Zentrieren oder ein Wechsel der Ansicht.
+   */
+  freiGedreht: boolean;
+  setFreiGedreht: (frei: boolean) => void;
 }
 
 export const useViewModeStore = create<ViewModeState>((set, get) => ({
   mode: '2d-north',
+  freiGedreht: false,
+  setFreiGedreht: (frei) => set({ freiGedreht: frei }),
 
   setMode: (newMode: ViewMode) => {
     const { mode: currentMode } = get();
@@ -57,7 +71,7 @@ export const useViewModeStore = create<ViewModeState>((set, get) => ({
       return; // No-op if already in that mode
     }
 
-    set({ mode: newMode });
+    set({ mode: newMode, freiGedreht: false });
     applyViewMode(newMode);
     get().persistMode();
   },
@@ -136,7 +150,10 @@ export function useSetViewMode(): (mode: ViewMode) => void {
  * Call this from a useEffect in a component that listens to position updates.
  */
 export function syncHeadingToBearing(): void {
-  const mode = useViewModeStore.getState().mode;
+  const { mode, freiGedreht } = useViewModeStore.getState();
+  if (freiGedreht) {
+    return; // von Hand gedreht -- nicht zurückdrehen
+  }
   const map = mapController.getMap();
 
   if (!map) {

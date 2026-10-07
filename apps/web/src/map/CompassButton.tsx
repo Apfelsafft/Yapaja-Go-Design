@@ -9,7 +9,7 @@
 import { useKartenSeite } from '../shell/bedienSeite.js';
 import React, { useEffect, useState, useCallback } from 'react';
 import { mapController, useMapStore } from '../state/mapStore';
-import { useSetViewMode } from './viewMode';
+import { useSetViewMode, useViewModeStore } from './viewMode';
 import { rightStackBottomPx, EDGE_INSET_PX } from '../shell/mapControlLayout.js';
 import { useSchmal } from '../shell/useSchmal.js';
 import { useNavStore } from '../drive/navStore.js';
@@ -59,6 +59,7 @@ export default function CompassButton(): React.ReactElement | null {
 
   const handleClick = useCallback(() => {
     // Return to north and switch to 2d-north mode
+    useViewModeStore.getState().setFreiGedreht(false);
     mapController.setCamera({ bearing: 0 }, { animate: true, duration: 300 });
     setViewMode('2d-north');
   }, [setViewMode]);

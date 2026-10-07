@@ -10,6 +10,29 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.41.0
+
+**Karte drehen und Satellitenbilder.**
+
+Gewünscht: „Würde gerne die Karte mit zwei drehenden Fingern auch drehen
+können" und „können wir auch Satellitenkarten einbinden?"
+
+- **Drehen mit zwei Fingern** (am Rechner: rechte Maustaste oder Strg +
+  Ziehen). Die Karte konnte das immer, aber die Nordansicht hat jede Drehung
+  sofort wieder auf Norden gestellt. Jetzt bleibt eine Drehung von Hand
+  stehen. Zurück nach Norden: der Kompass-Knopf; auch Zentrieren und ein
+  Wechsel der Ansicht richten die Karte wieder aus.
+- **Neuer Kartenstil „Satellit (online)"** — Satellitenbilder mit Straßen und
+  Namen aus der Offline-Karte darüber. Die Bilder sind Sentinel-2 cloudless
+  (EOX, frei nutzbar unter CC BY 4.0): Landschaft, Orte, Seen und Wald gut
+  erkennbar, einzelne Häuser nicht — 10 m je Bildpunkt. Die bekannten
+  hochauflösenden Dienste (Google, Esri, Bing) erlauben das Einbinden in
+  eigene Anwendungen nicht ohne Vertrag. Braucht Internet; ohne bleibt der
+  Hintergrund dunkel, Straßen und Namen bleiben. Auswählbar im Kartenmenü
+  wie die anderen Stile.
+
+---
+
 ## 0.40.0
 
 **Eine Karte über alle Länder, inkrementell gebaut, mit sichtbarer Routing-Lücke.**

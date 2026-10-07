@@ -457,7 +457,11 @@ export default function MapView({ chrome = true }: MapViewProps = {}): React.Rea
     syncHeadingToBearing();
 
     // Listen to rotate and moveend events to re-sync
-    const handleRotation = () => syncHeadingToBearing();
+    const handleRotation = (e?: { originalEvent?: unknown }) => {
+      // Eine Drehung mit den Fingern bleibt stehen (siehe `freiGedreht`).
+      if (e?.originalEvent) useViewModeStore.getState().setFreiGedreht(true);
+      syncHeadingToBearing();
+    };
     map.on('rotate', handleRotation);
     map.on('moveend', handleRotation);
 

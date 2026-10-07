@@ -59,6 +59,8 @@ export const useFollowMeStore = create<FollowMeState>((set, get) => {
     isPaused: false,
 
     resume: () => {
+      // Zurück zur Verfolgung heißt auch: Ausrichtung wieder wie die Ansicht.
+      useViewModeStore.getState().setFreiGedreht(false);
       if (pauseTimer !== null) {
         if (typeof window !== 'undefined') {
           window.clearTimeout(pauseTimer);

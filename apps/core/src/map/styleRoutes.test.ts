@@ -40,6 +40,8 @@ describe('Map / style routes integration', () => {
         'yapaja-light',
         'yapaja-minimal',
         'yapaja-outdoor',
+        // 0.41.0: Satellitenbilder (online) mit Straßen und Namen darüber.
+        'yapaja-satellit',
       ]);
       for (const style of body.data) {
         expect(style.name).toBeTruthy();

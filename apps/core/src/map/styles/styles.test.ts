@@ -6,6 +6,7 @@
  *  - plausibility: dark background luminance is low, light/contrast high
  */
 
+import type { VectorStyleSource } from './types';
 import { describe, it, expect } from 'vitest';
 import { validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
@@ -154,7 +155,7 @@ describe('registry', () => {
    *  eine Auswahl verschiedener Kartenstile anbieten?"). Die Liste steht hier
    *  fest, damit ein Stil nicht versehentlich verschwindet: die Oberflaeche
    *  zeigt genau das, was die Registry meldet. */
-  it('lists exactly the five shipped styles', () => {
+  it('lists exactly the six shipped styles', () => {
     const summaries = listStyleSummaries();
     expect(summaries.map((s) => s.id).sort()).toEqual([
       'yapaja-contrast',
@@ -162,6 +163,7 @@ describe('registry', () => {
       'yapaja-light',
       'yapaja-minimal',
       'yapaja-outdoor',
+      'yapaja-satellit',
     ]);
     for (const summary of summaries) {
       expect(summary.name).toBeTruthy();
@@ -183,7 +185,7 @@ describe('registry', () => {
 describe('rewriteSourceUrls', () => {
   it('rewrites the vector source URL to a relative, page-relative tile URL', () => {
     const style = rewriteSourceUrls(buildYapaiaLightStyle(), 'germany');
-    const source = style.sources[REGION_SOURCE_ID];
+    const source = style.sources[REGION_SOURCE_ID] as VectorStyleSource;
     expect(source.url).toBe('pmtiles://./tiles/germany.pmtiles');
   });
 
@@ -202,14 +204,14 @@ describe('rewriteSourceUrls', () => {
   it('is per-region: different regions produce different URLs', () => {
     const a = rewriteSourceUrls(buildYapaiaLightStyle(), 'germany');
     const b = rewriteSourceUrls(buildYapaiaLightStyle(), 'france');
-    expect(a.sources[REGION_SOURCE_ID].url).not.toBe(b.sources[REGION_SOURCE_ID].url);
+    expect((a.sources[REGION_SOURCE_ID] as VectorStyleSource).url).not.toBe((b.sources[REGION_SOURCE_ID] as VectorStyleSource).url);
   });
 
   it('does not mutate the input style document', () => {
     const original = buildYapaiaLightStyle();
-    const originalUrl = original.sources[REGION_SOURCE_ID].url;
+    const originalUrl = (original.sources[REGION_SOURCE_ID] as VectorStyleSource).url;
     rewriteSourceUrls(original, 'germany');
-    expect(original.sources[REGION_SOURCE_ID].url).toBe(originalUrl);
+    expect((original.sources[REGION_SOURCE_ID] as VectorStyleSource).url).toBe(originalUrl);
   });
 });
 
