@@ -20,6 +20,7 @@ import { mapController } from '../state/mapStore.js';
 import { recenterOnPosition, useFollowMeStore } from '../map/followMe.js';
 import { stationsZeile } from '../bord/bordStore.js';
 import type { UnterwegsErgebnis } from './UnterwegsFinden.js';
+import PreisMarke, { useSpritpreise } from '../tanken/PreisMarke.js';
 
 export interface Vorschau {
   ergebnis: UnterwegsErgebnis;
@@ -43,6 +44,9 @@ export default function UnterwegsVorschau({
 }): React.ReactElement {
   const treffer = vorschau.ergebnis.treffer;
   const t = treffer[vorschau.index]!;
+  const istTanke = vorschau.ergebnis.kategorie.id === 'fuel';
+  const punkte = React.useMemo(() => (istTanke ? [{ lat: t.lat, lon: t.lon }] : []), [istTanke, t.lat, t.lon]);
+  const [preis] = useSpritpreise(punkte);
 
   // Karte zum Ort, Markierung setzen; beim Wechsel oder Schließen wieder weg.
   useEffect(() => {
@@ -74,6 +78,7 @@ export default function UnterwegsVorschau({
         <p className="flex-1 font-semibold" data-testid="unterwegs-vorschau-name">
           {stationsZeile(t)}
         </p>
+        <PreisMarke zuordnung={preis} testId="unterwegs-vorschau-preis" />
         <button
           type="button"
           onClick={schliessen}

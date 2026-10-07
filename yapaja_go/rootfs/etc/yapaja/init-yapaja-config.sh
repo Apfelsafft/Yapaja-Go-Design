@@ -91,6 +91,8 @@ PHOTON_ENABLED="$(config_wert 'search.photon_enabled')"
 # richtige Richtung: ein Update darf eine Installation nicht stillschweigend
 # ins Netz schicken.
 ONLINE_ENABLED="$(config_wert 'online.enabled')"
+# Seit 0.42.0: Schluessel fuer Spritpreise (Tankerkoenig). Wird nie geloggt.
+TANKERKOENIG_API_KEY="$(config_wert 'online.tankerkoenig_api_key')"
 # `ha_tracker` hiess dieser Wert bis 0.8.2. Bis 0.8.7 wurde er hier auf
 # `companion_app` umgeschrieben, damit ein Update keine bestehende
 # Installation still ohne Positionsquelle laesst. Seit 0.8.8 ist er aus dem
@@ -260,6 +262,7 @@ export_env "VALHALLA_URL" "http://127.0.0.1:8002"
 export_env "VALHALLA_MEMORY_MB" "${VALHALLA_MEMORY_MB}"
 export_env "PHOTON_ENABLED" "${PHOTON_ENABLED}"
 export_env "ONLINE_ENABLED" "${ONLINE_ENABLED}"
+export_env "TANKERKOENIG_API_KEY" "${TANKERKOENIG_API_KEY}"
 
 # ─── BORDSENSOREN ──────────────────────────────────────────────────────────
 # Welche HA-Entitaeten Fuellstaende, Batterie und Aussentemperatur liefern,

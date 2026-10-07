@@ -131,6 +131,10 @@ export const ROUTE_DOCS: Record<string, RouteDoc> = {
     summary: 'OSM-Angaben, Wikipedia-Auszug und Bilder zu einem Ort (nur mit Online-Diensten)',
     tags: ['Online'],
   },
+  'GET /api/v1/tanken/preise': {
+    summary: 'Spritpreise im Umkreis (Tankerkönig; nur mit Online-Diensten und Schlüssel, sonst 409)',
+    tags: ['Online'],
+  },
   'POST /api/v1/sprache': {
     summary: 'Sprachbefehl als Text: Antwort zum Vorlesen und ggf. Aktion (Ziel, Stopp, Verkehr …)',
     tags: ['Navigation'],

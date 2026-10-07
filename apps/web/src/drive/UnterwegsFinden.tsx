@@ -15,6 +15,7 @@
 import React, { useState } from 'react';
 import { UNTERWEGS_KATEGORIEN, type UnterwegsKategorie } from '@yapaia/shared';
 import { stationsZeile, type BordStation } from '../bord/bordStore.js';
+import PreisMarke, { useSpritpreise } from '../tanken/PreisMarke.js';
 
 export interface UnterwegsErgebnis {
   kategorie: UnterwegsKategorie;
@@ -67,6 +68,13 @@ export default function UnterwegsFinden({
     setStand(ergebnis ? { art: 'fertig', ergebnis } : { art: 'fehler', kategorie: k });
   };
 
+  // 0.42.0: bei Tankstellen gleich den Preis (Tankerkönig), sonst nichts.
+  const tankTreffer = React.useMemo(
+    () => (stand.art === 'fertig' && stand.ergebnis.kategorie.id === 'fuel' ? stand.ergebnis.treffer : []),
+    [stand],
+  );
+  const preise = useSpritpreise(tankTreffer);
+
   const aktiv = stand.art === 'laedt' ? stand.kategorie.id : stand.art === 'fertig' ? stand.ergebnis.kategorie.id : null;
 
   return (
@@ -113,10 +121,11 @@ export default function UnterwegsFinden({
                   <button
                     type="button"
                     onClick={() => onGewaehlt(t, stand.ergebnis, i)}
-                    className="min-h-[48px] w-full rounded-lg bg-slate-100 px-3 py-2 text-left hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600"
+                    className="flex min-h-[48px] w-full items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-left hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600"
                     data-testid={`unterwegs-treffer-${i}`}
                   >
-                    {stationsZeile(t)}
+                    <span className="flex-1">{stationsZeile(t)}</span>
+                    <PreisMarke zuordnung={preise[i]} testId={`unterwegs-treffer-preis-${i}`} />
                   </button>
                 </li>
               ))}

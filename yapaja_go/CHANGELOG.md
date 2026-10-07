@@ -10,6 +10,38 @@ steht die Meldung dabei, damit man sie wiedererkennt.
 
 ---
 
+## 0.42.0
+
+**Spritpreise in der Tankstellensuche (Tankerkönig).**
+
+Gewünscht: „Kannst du bitte Tankerkönig einbinden? … Wenn die Verbindung
+steht dann soll bei der Tankstellensuche gleich der aktuelle Preis angezeigt
+werden. Abhängig von der im Profil hinterlegten Spritsorte."
+
+- **Einrichten:** einen kostenlosen Schlüssel auf
+  creativecommons.tankerkoenig.de beantragen und in der Add-on-Konfiguration
+  unter „Online-Dienste" → „Tankerkönig-Schlüssel" eintragen. Die
+  Online-Dienste müssen eingeschaltet sein.
+- **Wo der Preis steht:** neben jeder Tankstelle in der Suchliste (z. B.
+  „Tankstelle" oder „Aral" suchen) und unter „Unterwegs finden" → Tankstelle,
+  in der Liste und in der Vorschau.
+- **Welcher Preis:** nach der Spritsorte des aktiven Fahrzeugprofils —
+  Diesel, oder bei Benzin E5 und E10. Für Autogas, Erdgas, Strom oder ohne
+  Angabe im Profil gibt es keinen Preis (Tankerkönig kennt nur diese drei).
+- **Farbe:** grün = gerade abgefragt (bis 15 Minuten), gelb = bis eine
+  Stunde, grau = älter; grau und durchgestrichen = Tankstelle hat gerade zu.
+  Tankerkönig sagt bei der Umkreissuche nicht, wann sich ein Preis zuletzt
+  geändert hat; die Farbe zeigt deshalb, wie alt unsere Abfrage ist.
+  Tankstellen müssen jede Änderung binnen fünf Minuten melden — ein grüner
+  Preis stimmt also.
+- **Ohne Verbindung, Schlüssel oder Schalter erscheint kein Preis** — keine
+  Fehlermeldung, die Suche bleibt wie bisher.
+- Nur deutsche Tankstellen. Hinaus geht nur die Gegend der gefundenen
+  Tankstellen, auf etwa 5 km gerundet; dieselbe Gegend wird höchstens alle
+  fünf Minuten abgefragt.
+
+---
+
 ## 0.41.0
 
 **Karte drehen und Satellitenbilder.**
